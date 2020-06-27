@@ -20,6 +20,7 @@ run_phase2 <- function(estimates.phase1,
   num.effects <- length(effects$names)
   num.nodes <- nrow(nodes)
   estimates <- estimates.phase1
+  all.estimates <- c()
   
   # iterate over all substeps of phase 2
   for(step in 1:num.steps) {
@@ -30,6 +31,7 @@ run_phase2 <- function(estimates.phase1,
       stop.iterations <- FALSE
       i <- 1
       theta.i <- estimates
+      all.estimates <- rbind(all.estimates,matrix(theta.i,nrow=1)) 
       
       # find a good starting point
       if(is.null(sizes.allowed)){
@@ -145,6 +147,7 @@ run_phase2 <- function(estimates.phase1,
       stop.iterations <- FALSE
       i <- 1
       theta.i <- estimates[unfixed.indexes]
+      all.estimates <- rbind(all.estimates,matrix(theta.i,nrow=1))
       
       # find a good starting point
       if(is.null(sizes.allowed)){
@@ -226,6 +229,7 @@ run_phase2 <- function(estimates.phase1,
     print(estimates)
   }
   
-  return(estimates)
+  return(list(all.estimates = all.estimates,
+              final.estimates = estimates))
   
 }

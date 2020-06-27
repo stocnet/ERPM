@@ -51,30 +51,29 @@ run_phase1 <- function(startingestimates,
     print(length.p1)
   }
   
+  # calculate the covariance and scaling matrices
+  inverted_matrices <- calculate_inverted_covariance_and_scaling(startingestimates, 
+                                                        z.obs, 
+                                                        nodes, 
+                                                        effects, 
+                                                        objects, 
+                                                        length.phase = length.p1, 
+                                                        z.phase = z.phase1,
+                                                        fixed.estimates)
+  inv.zcov <- inverted_matrices$inv.zcov
+  inv.scaling <- inverted_matrices$inv.scaling
+  
   # normal procedure ( no fixed estimates)
   if(is.null(fixed.estimates)){
     
-    # compute a first rough estimate of statistics by averaging all results of phase 1
+    
+    # compute a first rough estimate of statistics by averaging all results of phase
     z.mean <- rep(0, num.effects)
     for(i in 1:length.p1) {
       z.mean <- z.mean + z.phase1[i,]
     }
     z.mean <- z.mean / length.p1
     
-    # compute the covariance matrix of all results
-    z.cov <- matrix(0, nrow=num.effects, ncol=num.effects)
-    for(i in 1:length.p1) {
-      z.cov <- z.cov + z.phase1[i,]%*%t(z.phase1[i,])
-    }
-    z.cov <- z.cov / length.p1
-    z.cov <- z.cov - z.mean %*% t(z.mean)
-    inv.zcov <- solve(z.cov)
-    
-    # compute scaling matrix
-    scaling <- z.cov
-    
-    scaling[ row(scaling) != col(scaling) ] <- 0.2 * scaling[ row(scaling) != col(scaling) ]
-    inv.scaling <- solve(scaling)
     
     # compute truncating factor
     truncst <- 2
@@ -107,29 +106,7 @@ run_phase1 <- function(startingestimates,
     for(i in 1:length.p1) {
       z.mean <- z.mean + z.phase1[i,unfixed.indexes]
     }
-    z.mean <- z.mean / length.p1
-    
-    # compute the covariance matrix of all results
-    z.cov <- matrix(0, nrow=length(unfixed.indexes), 
-                       ncol=length(unfixed.indexes))
-    for(i in 1:length.p1) {
-      z.cov <- z.cov + z.phase1[i,length(unfixed.indexes)]%*%t(z.phase1[i,length(unfixed.indexes)])
-    }
-    z.cov <- z.cov / length.p1
-    z.cov <- z.cov - z.mean %*% t(z.mean)
-    inv.zcov <- solve(z.cov)
-    
-    # compute scaling matrix
-    scaling <- z.cov
-    
-    # # handle extreme cases
-    # if(det(as.matrix(z.cov)) == 0){
-    #   z.cov[ row(z.cov) == col(z.cov) ] <- 0.1
-    #   scaling[ row(scaling) == col(scaling) ] <- 0.1
-    # }
-    
-    scaling[ row(scaling) != col(scaling) ] <- 0.7 * scaling[ row(scaling) != col(scaling) ]
-    inv.scaling <- solve(scaling)
+    z.mean <- z.mean / length.phase1
     
     # compute truncating factor
     truncst <- 2
@@ -155,5 +132,94 @@ run_phase1 <- function(startingestimates,
                "inv.zcov" = inv.zcov,
                "inv.scaling" = inv.scaling) )
   
+}
+
+
+calculate_inverted_covariance_and_scaling <- function(startingestimates, 
+                                                      z.obs, 
+                                                      nodes, 
+                                                      effects, 
+                                                      objects, 
+                                                      length.phase, 
+                                                      z.phase,
+                                                      fixed.estimates){
+  
+  num.nodes <- nrow(nodes)
+  num.effects <- length(effects$names)
+  
+  
+  # normal procedure ( no fixed estimates)
+  if(is.null(fixed.estimates)){
+    
+    # compute a first rough estimate of statistics by averaging all results of phase
+    z.mean <- rep(0, num.effects)
+    for(i in 1:length.phase) {
+      z.mean <- z.mean + z.phase[i,]
+    }
+    z.mean <- z.mean / length.phase
+    
+    # compute the covariance matrix of all results
+    z.cov <- matrix(0, nrow=num.effects, ncol=num.effects)
+    for(i in 1:length.phase) {
+      z.cov <- z.cov + z.phase[i,]%*%t(z.phase[i,])
+    }
+    z.cov <- z.cov / length.phase
+    z.cov <- z.cov - z.mean %*% t(z.mean)
+    inv.zcov <- solve(z.cov)
+    
+    # compute scaling matrix
+    scaling <- z.cov
+    
+    scaling[ row(scaling) != col(scaling) ] <- 0.2 * scaling[ row(scaling) != col(scaling) ]
+    inv.scaling <- solve(scaling)
+
+    
+    # fixed parameters procedure
+  } else {
+    
+    # find the indexes to remove from the estimation
+    fixed.indexes <- c()
+    unfixed.indexes <- c()
+    for(e in 1:num.effects){
+      if(!is.null(fixed.estimates[[e]])) 
+        fixed.indexes <- c(fixed.indexes,e)
+      else
+        unfixed.indexes <- c(unfixed.indexes,e)
+    }
+    
+    # compute a first rough estimate of statistics by averaging all results of phase 1
+    z.mean <- rep(0, length(unfixed.indexes))
+    for(i in 1:length.phase) {
+      z.mean <- z.mean + z.phase[i,unfixed.indexes]
+    }
+    z.mean <- z.mean / length.phase
+    
+    # compute the covariance matrix of all results
+    z.cov <- matrix(0, nrow=length(unfixed.indexes), 
+                    ncol=length(unfixed.indexes))
+    for(i in 1:length.phase) {
+      z.cov <- z.cov + z.phase[i,length(unfixed.indexes)]%*%t(z.phase[i,length(unfixed.indexes)])
+    }
+    z.cov <- z.cov / length.phase
+    z.cov <- z.cov - z.mean %*% t(z.mean)
+    inv.zcov <- solve(z.cov)
+    
+    # compute scaling matrix
+    scaling <- z.cov
+    
+    # # handle extreme cases
+    # if(det(as.matrix(z.cov)) == 0){
+    #   z.cov[ row(z.cov) == col(z.cov) ] <- 0.1
+    #   scaling[ row(scaling) == col(scaling) ] <- 0.1
+    # }
+    
+    scaling[ row(scaling) != col(scaling) ] <- 0.7 * scaling[ row(scaling) != col(scaling) ]
+    inv.scaling <- solve(scaling)
+
+    
+  }
+  
+  return(list(inv.zcov = inv.zcov,
+              inv.scaling = inv.scaling))
 }
 

@@ -9,7 +9,8 @@ run_phase3 <- function(estimates.phase2,
                        length.p3, 
                        neighborhood,
                        sizes.allowed,
-                       sizes.simulated) {
+                       sizes.simulated,
+                       fixed.estimates) {
   
   num.nodes <- nrow(nodes)
   num.effects <- length(effects$names)
@@ -40,6 +41,16 @@ run_phase3 <- function(estimates.phase2,
   # simulate a large sample with the estimates found in phase 2 
   results.phase3 <- draw_Metropolis(estimates.phase2, first.partition, nodes, effects, objects, burnin, thining, length.p3, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
   z.phase3 <- results.phase3$draws
+  
+  # calculate covariance and scaling
+  inverted_matrices <- calculate_inverted_covariance_and_scaling(estimates.phase2, 
+                                                        z.obs, 
+                                                        nodes, 
+                                                        effects, 
+                                                        objects, 
+                                                        length.phase = length.p3, 
+                                                        z.phase = z.phase3,
+                                                        fixed.estimates)
   
   # hack for size constraints
   if(!is.null(sizes.allowed)){
@@ -76,6 +87,8 @@ run_phase3 <- function(estimates.phase2,
   return(list("means" = finalmean, 
               "standard.deviations" = finalsd, 
               "standard.errors" = finalse, 
-              "convergence.ratios" = finalconvratios))
+              "convergence.ratios" = finalconvratios,
+              "inv.zcov" = inverted_matrices$inv.zcov,
+              "inv.scaling" = inverted_matrices$inv.scaling))
   
 }
