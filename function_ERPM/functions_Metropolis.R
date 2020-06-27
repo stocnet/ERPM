@@ -9,7 +9,8 @@ draw_Metropolis <- function(theta,
                             mini.steps, 
                             neighborhood, 
                             sizes.allowed,
-                            sizes.simulated) {
+                            sizes.simulated,
+                            return.all.partitions = F) {
   
   num.nodes <- nrow(nodes)
   num.effects <- length(effects$names)
@@ -22,6 +23,11 @@ draw_Metropolis <- function(theta,
   # store the statistics collected for all networks simulated after the burn in
   all.z <-c()
   
+  # store the partitions if needed (for GOF)
+  if(return.all.partitions){
+    all.partitions <- c()
+  }
+    
   end.walk <- FALSE
   cpt <- 0
   cpt2 <- 0
@@ -43,9 +49,6 @@ draw_Metropolis <- function(theta,
     } else if(neighborhood == 2 && !is.null(sizes.allowed)){
       new.partition <- sample_new_partition_p2_restricted(current.partition, mini.steps, sizes.simulated)
     }
-    
-    #print("new")
-    #print(new.partition)
        
     # compute new statistics only if it changed
     if(!all(current.partition == new.partition)) {
@@ -112,6 +115,12 @@ draw_Metropolis <- function(theta,
       if(cpt >= burnin && cpt_thining == thining) {
         all.z <- rbind(all.z,current.z)
         cpt_thining <- 0
+        
+        # store all partitions if needed
+        if(return.all.partitions){
+          all.partitions <- rbind(all.partitions,new.partition)
+        }
+        
       }
       
       # stop the walk if number of steps reached 
@@ -146,6 +155,11 @@ draw_Metropolis <- function(theta,
         all.z <- rbind(all.z,current.z)
         #if(nrow(all.z)>1) print(all.z[nrow(all.z),] - all.z[nrow(all.z)-1,])
         cpt2 <- cpt2 + 1
+        
+        # store all partitions if needed
+        if(return.all.partitions){
+          all.partitions <- rbind(all.partitions,new.partition)
+        }
       } 
     }
     
@@ -159,8 +173,14 @@ draw_Metropolis <- function(theta,
   row.names(all.z) <- rep("", dim(all.z)[1])
   
   # compute the average statistics and the final network generated
-  return( list("draws" = all.z, 
-               "last.partition" = current.partition)) 
+  if(!return.all.partitions) {
+    return( list("draws" = all.z, 
+                 "last.partition" = current.partition))
+  } else {
+    return( list("draws" = all.z, 
+               "last.partition" = current.partition,
+               "all.partitions" = all.partitions)) 
+  }
   
 }
 

@@ -19,11 +19,13 @@ estimate_ERPM <- function(partition,
                           max.iter.p2 = 200, 
                           num.steps.p2 = 6, 
                           length.p3 = 1000,
-                          neighborhood = 1,
+                          neighborhood = 2,
                           fixed.estimates = NULL,
                           sizes.allowed = NULL,
                           sizes.simulated = NULL,
-                          double.averaging = F) {
+                          double.averaging = F,
+                          inv.zcov = NULL,
+                          inv.scaling = NULL) {
   
   z.obs <- computeStatistics(partition, nodes, effects, objects)
   #density.obs <- sum(adjacency)/(num.nodes*(num.nodes-1))
@@ -59,18 +61,21 @@ estimate_ERPM <- function(partition,
   print(thining)
   
   # --------- PHASE 1 ---------
-  results.phase1 <- run_phase1(startingestimates, z.obs, nodes, effects, objects, burnin, thining, gainfactor, mini.steps, length.p1, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated)
-  estimates.phase1 <- results.phase1$estimates
-  inv.zcov <- results.phase1$inv.zcov
-  inv.scaling <- results.phase1$inv.scaling
-  
+  if(!is.null(inv.zcov)) {
+    estimates.phase1 <- startingestimates
+  } else {
+    results.phase1 <- run_phase1(startingestimates, z.obs, nodes, effects, objects, burnin, thining, gainfactor, mini.steps, length.p1, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated)
+    estimates.phase1 <- results.phase1$estimates
+    inv.zcov <- results.phase1$inv.zcov
+    inv.scaling <- results.phase1$inv.scaling
+  }
   
   # --------- PHASE 2 ---------
-  estimates.phase2 <- run_phase2(estimates.phase1, inv.zcov,inv.scaling, z.obs, nodes, effects, objects, burnin, num.steps.p2, gainfactors, mini.steps, min.iter.p2, max.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
-
+  results.phase2 <- run_phase2(estimates.phase1, inv.zcov,inv.scaling, z.obs, nodes, effects, objects, burnin, num.steps.p2, gainfactors, mini.steps, min.iter.p2, max.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
+  estimates.phase2 <- results.phase2$final.estimates
   
   # --------- PHASE 3 ---------
-  results.phase3 <- run_phase3(estimates.phase2, z.obs, nodes, effects, objects, burnin, thining, mini.steps, length.p3, neighborhood, sizes.allowed, sizes.simulated)
+  results.phase3 <- run_phase3(estimates.phase2, z.obs, nodes, effects, objects, burnin, thining, mini.steps, length.p3, neighborhood, sizes.allowed, sizes.simulated, fixed.estimates)
   means <- results.phase3$means
   standard.deviations <- results.phase3$standard.deviations
   standard.errors <- results.phase3$standard.errors
@@ -85,8 +90,19 @@ estimate_ERPM <- function(partition,
                         conv = convergence.ratios)
   print_results(results)
   
-  return(results)
+  # ------ KEEP IMPORTANT OBJECTS ------
+  objects.phase2 <- results.phase2$all.estimates
+  objects.phase3 <- list(inv.zcov = inv.zcov,
+                         inv.scaling = inv.scaling)
+  
+  return(list(results = results,
+              objects.phase2 = objects.phase2,
+              objects.phase3 = objects.phase3))
 }
+
+
+
+
 
 # JUST PHASE 3
 estimate_ERPM_p3 <- function(partition, 

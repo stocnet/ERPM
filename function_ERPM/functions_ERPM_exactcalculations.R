@@ -164,8 +164,8 @@ calculate_denominator_Dirichlet_restricted <- function(n,smin,smax,alpha, result
   }
 }
 
-library(DEoptimR)
-optimize(f = function(x){ return(calculate_proba_restricted(x,14,58,3,5))},
-         interval = c(-17,10),
-         maximum=T)
+#library(DEoptimR)
+#optimize(f = function(x){ return(calculate_proba_restricted(x,14,58,3,5))},
+#         interval = c(-17,10),
+#         maximum=T)
   

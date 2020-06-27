@@ -1,3 +1,172 @@
+######################################################################
+## Simulation and estimation of Exponential Random Partition Models ## 
+## Utility functions:                                               ##
+##    - Stirling and Bell numbers with constraints                  ##
+##    - Average size of a random partition                          ##
+##                                                                  ## 
+## Author: Marion Hoffman                                           ##
+######################################################################
+
+
+# Function to calculate the number of partitions with groups
+# of sizes between smin and smax
+Bell_constraints <- function(n,smin,smax){
+
+  bell <- 0
+  for(i in 1:n) {
+    bell <- bell + Stirling2_constraints(n,i,smin,smax)
+  }
+  return(bell)
+}
+
+
+# Function to calculate the number of partitions with k groups
+# of sizes between smin and smax
+Stirling2_constraints <- function(n,k,smin,smax){
+  
+  # base cases
+  if(n < k*smin) return(0)
+  if(n > k*smax) return(0)
+  if(n == k*smin) return( factorial(n) / (factorial(k)*(factorial(smin)^k)) )
+  
+  # recurrence relation
+  s2 <- 0
+  imin <- max(n-smax,0)
+  imax <- min(n-smin,n-1)
+  for(i in imin:imax){
+    fac <- factorial(n-1) / (factorial(i)*factorial(n-1-i))
+    s2 <- s2 + fac* Stirling2_constraints(i,k-1,smin,smax)
+  }
+  return(s2)
+}
+
+
+# Function to calculate the average number of groups
+# in a random partition for a given n
+compute_averagesize <- function( num.nodes){
+  
+  # if no nodes, by convention we return 1
+  if(num.nodes == 1) {
+    return(1)
+    
+  } else {
+    
+    n <- num.nodes - 1
+    sum <- 0
+    
+    for(k in 0:n){
+      if( k==0 ) {
+        sum <- sum + bell(n) *  (n+1) / (1/bell(n) + n/compute_averagesize(n) )
+      } else if (k==n){
+        sum <- sum + bell(0) * (n+1)
+      } else {
+        sum <- sum + choose(n,k) * bell(n-k) * (n+1) / (1/bell(n-k) + (n-k)/compute_averagesize(n-k) )
+      }
+    }
+    
+    return(sum/bell(num.nodes))
+  }
+  
+}
+
+
+# Function to enumerate all partitions for a given n
+find_all_partitions <- function(n){
+  
+  if(n == 0) {
+    
+    # if empty set, nothing
+    return(c())
+    
+  } else {
+    
+    # find the possibilities for 1 to n-1
+    setsn_1 <- find_all_partitions(n-1)
+    
+    # if n = 1 just return 1
+    if(is.null(setsn_1)) 
+      return(as.matrix(1))
+    
+    nsets <- dim(setsn_1)[1]
+    res <- c()
+    
+    # for all solutions, add the singleton n
+    for(s in 1:nsets){
+      partition <- setsn_1[s,] 
+      new <- c(partition,max(partition)+1)
+      res <- rbind(res, new)
+    }
+    
+    # for all solutions, add n in all possible groups
+    for(s in 1:nsets){
+      partition <- setsn_1[s,] 
+      ngroups <- max(partition)
+      for(g in 1:ngroups) {
+        new <- c(partition,g)
+        res <- rbind(res, new)
+      }
+    }
+    
+    return(res)
+  }
+  
+}
+
+
+# Function to count the number of partitions with a certain
+# group size structure, for all possible group size structure
+count_classes <- function(allpartitions){
+  
+  np <- dim(allpartitions)[1]
+  n <- dim(allpartitions)[2]
+  
+  cptclass <- 0
+  classes <- matrix()
+  classes_count <- c()
+  
+  for(i in 1:np) {
+    partition <- allpartitions[i,]
+    
+    # find distirbution of blocks
+    ngs <- rep(0,n)
+    for(g in 1:max(partition)) {
+      ngs[sum(partition == g)] <- ngs[sum(partition == g)] + 1 
+    }
+    
+    # find whether there is already classes
+    if(cptclass == 0){
+      
+      cptclass <- 1
+      classes <- t(as.matrix(ngs))
+      classes_count <- 1
+      
+    } else {
+      
+      # check previous classes
+      found <- FALSE
+      for(c in 1:dim(classes)[1]){
+        if(all(classes[c,] == ngs)) {
+          found <- TRUE
+          classes_count[c] <- classes_count[c] + 1
+        }
+      }
+      
+      # if new class
+      if(!found){
+        cptclass <- cptclass + 1
+        classes <- rbind(classes,ngs)
+        classes_count <- rbind(classes_count,1)
+      }
+      
+    }
+  }
+  
+  return(list(classes = classes,
+              counts = classes_count))
+  
+}
+
+
 # Function to replace the ids of the group without forgetting an id
 # and put in the first appearance order
 # for example: [2 1 1 4 2] becomes [1 2 2 3 1]
@@ -52,121 +221,12 @@ check_sizes <- function(partition, sizes.allowed){
   return(!check)
 }
 
-library(numbers)
-library(gmp)
-
-Stirling2_constraints <- function(n,k,smin,smax){
-  
-  # base cases
-  if(n < k*smin) return(0)
-  if(n > k*smax) return(0)
-  if(n == k*smin) return( factorial(n) / (factorial(k)*(factorial(smin)^k)) )
-  
-  # recurrence relation
-  s2 <- 0
-  imin <- max(n-smax,0)
-  imax <- min(n-smin,n-1)
-  for(i in imin:imax){
-    fac <- factorial(n-1) / (factorial(i)*factorial(n-1-i))
-    s2 <- s2 + fac* Stirling2_constraints(i,k-1,smin,smax)
-  }
-  return(s2)
-}
 
 
-# find all partitions
-find_all_partitions <- function(n){
 
-  if(n == 0) {
-    
-    # if empty set, nothing
-    return(c())
-  
-  } else {
-    
-    # find the possibilities for 1 to n-1
-    setsn_1 <- find_all_partitions(n-1)
-    
-    # if n = 1 just return 1
-    if(is.null(setsn_1)) 
-      return(as.matrix(1))
-    
-    nsets <- dim(setsn_1)[1]
-    res <- c()
-    
-    # for all solutions, add the singleton n
-    for(s in 1:nsets){
-      partition <- setsn_1[s,] 
-      new <- c(partition,max(partition)+1)
-      res <- rbind(res, new)
-    }
-    
-    # for all solutions, add n in all possible groups
-    for(s in 1:nsets){
-      partition <- setsn_1[s,] 
-      ngroups <- max(partition)
-      for(g in 1:ngroups) {
-        new <- c(partition,g)
-        res <- rbind(res, new)
-      }
-    }
-    
-    return(res)
-  }
-  
-}
 
-count_classes <- function(allpartitions){
-  
-  np <- dim(allpartitions)[1]
-  n <- dim(allpartitions)[2]
-  
-  cptclass <- 0
-  classes <- matrix()
-  classes_count <- c()
-  
-  for(i in 1:np) {
-    partition <- allpartitions[i,]
-    
-    # find distirbution of blocks
-    ngs <- rep(0,n)
-    for(g in 1:max(partition)) {
-      ngs[sum(partition == g)] <- ngs[sum(partition == g)] + 1 
-    }
-    
-    # find whether there is already classes
-    if(cptclass == 0){
-      
-      cptclass <- 1
-      classes <- t(as.matrix(ngs))
-      classes_count <- 1
-      
-    } else {
-      
-      # check previous classes
-      found <- FALSE
-      for(c in 1:dim(classes)[1]){
-        if(all(classes[c,] == ngs)) {
-          found <- TRUE
-          classes_count[c] <- classes_count[c] + 1
-        }
-      }
-      
-      # if new class
-      if(!found){
-        cptclass <- cptclass + 1
-        classes <- rbind(classes,ngs)
-        classes_count <- rbind(classes_count,1)
-      }
-      
-    }
-  }
-  
-  return(list(classes = classes,
-              counts = classes_count))
-  
-}
 
+#######################################
 
 library(clue)
 calculate_min_transferdistances <- function(allpartitions, allclasses){
@@ -421,17 +481,20 @@ computedensity <- function(matrix,teams){
   
   for(h in 1:m){
     members <- which(teams==h)
-    beforeties <- 0
-    allties <- length(members)*(length(members)-1)/2
     
-    for(i in 1:(length(members)-1)){
-      for(j in (i+1):length(members)){
-        beforeties <- beforeties + matrix[members[i],members[j]]
+    if(length(members)>1){
+      beforeties <- 0
+      allties <- length(members)*(length(members)-1)/2
+    
+      for(i in 1:(length(members)-1)){
+        for(j in (i+1):length(members)){
+          beforeties <- beforeties + matrix[members[i],members[j]]
+        }
       }
-    }
     
-    avd <- avd + beforeties/allties
-    std <- std + (beforeties/allties)^2
+      avd <- avd + beforeties/allties
+      std <- std + (beforeties/allties)^2
+    }
   }
   
   avd <- avd/m
@@ -456,4 +519,30 @@ computecorrelationwithsize <- function(attribute,teams){
   
   c <- cor(attribute,sizes)
   return(c)
+}
+
+
+# convert networks into partitions
+fromnetworktopartition <- function(network){
+  
+  n <- nrow(network)
+  partition <- rep(0,n)
+  cptg <- 1
+  
+  for(i in 1:n){
+    if(i == 1){
+      partition[1] <- cptg
+      cptg <- cptg+1
+      next
+    }
+    if(sum(network[i,1:(i-1)])==0) {
+      partition[i] <- cptg
+      cptg <- cptg + 1 
+    } else {
+      g <- partition[which(network[i,1:(i-1)] > 0)[1]]
+      partition[i] <- g
+    }
+  }
+  
+  return(partition)
 }
