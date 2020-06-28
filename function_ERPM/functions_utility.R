@@ -1,12 +1,12 @@
 ######################################################################
 ## Simulation and estimation of Exponential Random Partition Models ## 
-## Utility functions:                                               ##
-##    - Stirling and Bell numbers with constraints                  ##
-##    - Average size of a random partition                          ##
-##                                                                  ## 
+## Utility functions                                                ##
 ## Author: Marion Hoffman                                           ##
 ######################################################################
 
+
+
+## Functions used for counting partitions and descriptives ############
 
 # Function to calculate the number of partitions with groups
 # of sizes between smin and smax
@@ -226,7 +226,7 @@ check_sizes <- function(partition, sizes.allowed){
 
 
 
-#######################################
+## Other useful functions for descriptives #####################################
 
 library(clue)
 calculate_min_transferdistances <- function(allpartitions, allclasses){

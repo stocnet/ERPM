@@ -1,3 +1,12 @@
+######################################################################
+## Simulation and estimation of Exponential Random Partition Models ## 
+## Function implementing the Metropolis HAstings algorithm to       ##
+## through partitions given a certain model specification           ##
+## Author: Marion Hoffman                                           ##
+######################################################################
+
+
+
 draw_Metropolis <- function(theta, 
                             first.partition, 
                             nodes, 

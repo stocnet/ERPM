@@ -1,3 +1,11 @@
+######################################################################
+## Simulation and estimation of Exponential Random Partition Models ## 
+## Functions used to run the phase 3 of the estimation algorithm    ##
+## Author: Marion Hoffman                                           ##
+######################################################################
+
+
+
 run_phase3 <- function(estimates.phase2, 
                        z.obs, 
                        nodes, 
@@ -5,6 +13,7 @@ run_phase3 <- function(estimates.phase2,
                        objects, 
                        burnin, 
                        thining,
+                       a.scaling,
                        mini.steps, 
                        length.p3, 
                        neighborhood,
@@ -47,7 +56,8 @@ run_phase3 <- function(estimates.phase2,
                                                         z.obs, 
                                                         nodes, 
                                                         effects, 
-                                                        objects, 
+                                                        objects,
+                                                        a.scaling,
                                                         length.phase = length.p3, 
                                                         z.phase = z.phase3,
                                                         fixed.estimates)

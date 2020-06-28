@@ -1,3 +1,12 @@
+######################################################################
+## Simulation and estimation of Exponential Random Partition Models ## 
+## Functions for exact model calculations                           ##
+## Author: Marion Hoffman                                           ##
+######################################################################
+
+
+
+
 library(numbers)
 library(combinat)
 

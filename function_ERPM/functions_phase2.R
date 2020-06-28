@@ -1,3 +1,11 @@
+######################################################################
+## Simulation and estimation of Exponential Random Partition Models ## 
+## Functions used to run the phase 2 of the estimation algorithm    ##
+## Author: Marion Hoffman                                           ##
+######################################################################
+
+
+
 run_phase2 <- function(estimates.phase1, 
                        inv.zcov,
                        inv.scaling, 
@@ -7,7 +15,8 @@ run_phase2 <- function(estimates.phase1,
                        objects, 
                        burnin, 
                        num.steps, 
-                       gainfactors, 
+                       gainfactors,
+                       r.truncation.p2,
                        mini.steps, 
                        min.iter, 
                        max.iter, 
@@ -79,12 +88,11 @@ run_phase2 <- function(estimates.phase1,
           mean.mean.z <- mean.cpt / (mean.cpt+1) *  mean.mean.z + z.i / (mean.cpt+1)
           
           # compute truncating factor
-          truncst <- 5
           r <- 1
           diff <- t(mean.mean.z - z.obs)
           maxratio <-  max(sqrt((t(diff) %*% inv.zcov %*% diff / num.effects)))
-          if(maxratio > truncst) {
-            r <- truncst / maxratio
+          if(maxratio > r.truncation.p2) {
+            r <- r.truncation.p2 / maxratio
           }
           
           # new theta
@@ -99,12 +107,11 @@ run_phase2 <- function(estimates.phase1,
         } else {
           
           # compute truncating factor
-          truncst <- 5
           r <- 1
           diff <- t(z.i - z.obs)
           maxratio <-  max(sqrt((t(diff) %*% inv.zcov %*% diff / num.effects)))
-          if(maxratio > truncst) {
-            r <- truncst / maxratio
+          if(maxratio > r.truncation.p2) {
+            r <- r.truncation.p2 / maxratio
           }
           
           # new theta
@@ -188,12 +195,11 @@ run_phase2 <- function(estimates.phase1,
         partition.i <- results.i$last.partition
         
         # compute truncating factor
-        truncst <- 5
         r <- 1
         diff <- t(z.i - z.obs[unfixed.indexes])
         maxratio <-  max(sqrt((t(diff) %*% inv.zcov %*% diff / length(unfixed.indexes))))
-        if(maxratio > truncst) {
-          r <- truncst / maxratio
+        if(maxratio > r.truncation.p2) {
+          r <- r.truncation.p2 / maxratio
         }
         
         theta.i <- theta.i - gainfactors[step] * r * inv.scaling %*% t(z.i - z.obs[unfixed.indexes])

@@ -1,3 +1,12 @@
+######################################################################
+## Simulation and estimation of Exponential Random Partition Models ## 
+## Functions to plot the estimation algorithm results               ##
+## Author: Marion Hoffman                                           ##
+######################################################################
+
+
+
+
 print_results <- function(result){
   
   num.effects <- length(result$effect)

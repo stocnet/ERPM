@@ -1,3 +1,12 @@
+######################################################################
+## Simulation and estimation of Exponential Random Partition Models ## 
+## Functions used to estimate the log-likelihood and AIC of a       ##
+## given model                                                      ##
+## Author: Marion Hoffman                                           ##
+######################################################################
+
+
+
 estimate_logL <- function(partition,
                           nodes,
                           effects, 

@@ -1,8 +1,11 @@
 ---
-title: "Simulation and estimation of Exponential Random Partition Models - Example script with random data"
+title: Simulation and estimation of Exponential Random Partition Models - Example
+  script with random data
 author: "Marion Hoffman"
 date: "30/04/2020"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -72,7 +75,7 @@ compute_averagesize(n)
 
 For a low number of nodes (below 10 for example), one could enumerate all possible partitions,
 
-```{r}
+```{r echo=TRUE}
 all_partitions <- find_all_partitions(n)
 ```
 
@@ -86,7 +89,7 @@ counts_partition_classes <- count_classes(all_partitions)
 
 One can use the Rand distance to evaluate the distance between two partitions, for example:
 
-```{r}
+```{r include=TRUE, echo=FALSE}
 p1 <- all_partitions[1,]
 p2 <- all_partitions[2,]
 rand_12 <- adjustedRand(p1,p2,randMethod="Rand")
@@ -186,9 +189,6 @@ estimation <- estimate_ERPM(partition,
                           objects, 
                           effects, 
                           startingestimates = startingestimates, 
-                          multiplicationfactor = 30, 
-                          gainfactor = 0.1, 
-                          mini.steps = "normalized", 
                           burnin = 100, 
                           thining = 20,
                           length.p1 = 100, 

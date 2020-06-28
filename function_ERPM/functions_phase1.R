@@ -1,3 +1,11 @@
+######################################################################
+## Simulation and estimation of Exponential Random Partition Models ## 
+## Functions used to run the phase 1 of the estimation algorithm    ##
+## Author: Marion Hoffman                                           ##
+######################################################################
+
+
+
 run_phase1 <- function(startingestimates, 
                        z.obs, 
                        nodes, 
@@ -5,7 +13,9 @@ run_phase1 <- function(startingestimates,
                        objects, 
                        burnin, 
                        thining,
-                       gainfactor, 
+                       gainfactor,
+                       a.scaling,
+                       r.truncation.p1,
                        mini.steps, 
                        length.p1, 
                        neighborhood,
@@ -44,19 +54,13 @@ run_phase1 <- function(startingestimates,
   results.phase1 <- draw_Metropolis(startingestimates, first.partition, nodes, effects, objects, burnin, thining, length.p1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
   z.phase1 <- results.phase1$draws
   
-  # hack for size constraints
-  if(!is.null(sizes.allowed)){
-    length.p1 <- nrow(z.phase1)
-    print("new length of phase 1")
-    print(length.p1)
-  }
-  
   # calculate the covariance and scaling matrices
   inverted_matrices <- calculate_inverted_covariance_and_scaling(startingestimates, 
                                                         z.obs, 
                                                         nodes, 
                                                         effects, 
                                                         objects, 
+                                                        a.scaling,
                                                         length.phase = length.p1, 
                                                         z.phase = z.phase1,
                                                         fixed.estimates)
@@ -76,12 +80,11 @@ run_phase1 <- function(startingestimates,
     
     
     # compute truncating factor
-    truncst <- 2
     r <- 1
     diff <- (z.mean - z.obs)
     maxratio <-  max(sqrt((t(diff) %*% inv.zcov %*% diff / num.effects)))
-    if(maxratio > truncst) {
-      r <- truncst / maxratio
+    if(maxratio > r.truncation.p1) {
+      r <- r.truncation.p1 / maxratio
     }
     
     # compute new estimates
@@ -109,12 +112,11 @@ run_phase1 <- function(startingestimates,
     z.mean <- z.mean / length.phase1
     
     # compute truncating factor
-    truncst <- 2
     r <- 1
     diff <- (z.mean - z.obs[unfixed.indexes])
     maxratio <-  max(sqrt((t(diff) %*% inv.zcov %*% diff / length(unfixed.indexes))))
-    if(maxratio > truncst) {
-      r <- truncst / maxratio
+    if(maxratio > r.truncation.p1) {
+      r <- r.truncation.p1 / maxratio
     }
     
     # compute new estimates
@@ -140,6 +142,7 @@ calculate_inverted_covariance_and_scaling <- function(startingestimates,
                                                       nodes, 
                                                       effects, 
                                                       objects, 
+                                                      a.scaling,
                                                       length.phase, 
                                                       z.phase,
                                                       fixed.estimates){
@@ -170,7 +173,7 @@ calculate_inverted_covariance_and_scaling <- function(startingestimates,
     # compute scaling matrix
     scaling <- z.cov
     
-    scaling[ row(scaling) != col(scaling) ] <- 0.2 * scaling[ row(scaling) != col(scaling) ]
+    scaling[ row(scaling) != col(scaling) ] <- a.scaling * scaling[ row(scaling) != col(scaling) ]
     inv.scaling <- solve(scaling)
 
     
@@ -213,7 +216,7 @@ calculate_inverted_covariance_and_scaling <- function(startingestimates,
     #   scaling[ row(scaling) == col(scaling) ] <- 0.1
     # }
     
-    scaling[ row(scaling) != col(scaling) ] <- 0.7 * scaling[ row(scaling) != col(scaling) ]
+    scaling[ row(scaling) != col(scaling) ] <- a.scaling * scaling[ row(scaling) != col(scaling) ]
     inv.scaling <- solve(scaling)
 
     
