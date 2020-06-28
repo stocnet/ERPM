@@ -1,6 +1,9 @@
-## Models for partitions
-## Events data: Partitioning Event Model
-## Cross sectional data: Exponential Random Partition Model
+######################################################################
+## Simulation and estimation of Exponential Random Partition Models ## 
+## Main function of the estimation algorithm                        ##
+## Author: Marion Hoffman                                           ##
+######################################################################
+
 
 ## Estimation ERPM functions:
 
@@ -11,6 +14,9 @@ estimate_ERPM <- function(partition,
                           startingestimates, 
                           multiplicationfactor = 30, 
                           gainfactor = 0.1, 
+                          a.scaling = 0.2,
+                          r.truncation.p1 = 2,
+                          r.truncation.p2 = 5,
                           mini.steps = "normalized", 
                           burnin = 30, 
                           thining = 10,
@@ -64,18 +70,18 @@ estimate_ERPM <- function(partition,
   if(!is.null(inv.zcov)) {
     estimates.phase1 <- startingestimates
   } else {
-    results.phase1 <- run_phase1(startingestimates, z.obs, nodes, effects, objects, burnin, thining, gainfactor, mini.steps, length.p1, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated)
+    results.phase1 <- run_phase1(startingestimates, z.obs, nodes, effects, objects, burnin, thining, gainfactor, a.scaling, r.truncation.p1, mini.steps, length.p1, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated)
     estimates.phase1 <- results.phase1$estimates
     inv.zcov <- results.phase1$inv.zcov
     inv.scaling <- results.phase1$inv.scaling
   }
   
   # --------- PHASE 2 ---------
-  results.phase2 <- run_phase2(estimates.phase1, inv.zcov,inv.scaling, z.obs, nodes, effects, objects, burnin, num.steps.p2, gainfactors, mini.steps, min.iter.p2, max.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
+  results.phase2 <- run_phase2(estimates.phase1, inv.zcov,inv.scaling, z.obs, nodes, effects, objects, burnin, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
   estimates.phase2 <- results.phase2$final.estimates
   
   # --------- PHASE 3 ---------
-  results.phase3 <- run_phase3(estimates.phase2, z.obs, nodes, effects, objects, burnin, thining, mini.steps, length.p3, neighborhood, sizes.allowed, sizes.simulated, fixed.estimates)
+  results.phase3 <- run_phase3(estimates.phase2, z.obs, nodes, effects, objects, burnin, thining, a.scaling, mini.steps, length.p3, neighborhood, sizes.allowed, sizes.simulated, fixed.estimates)
   means <- results.phase3$means
   standard.deviations <- results.phase3$standard.deviations
   standard.errors <- results.phase3$standard.errors
