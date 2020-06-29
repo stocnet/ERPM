@@ -177,28 +177,6 @@ computeStatistics <- function (partition, nodes, effects, objects){
       statistics[e] <- sum/num.nodes
     }
     
-    # --------- SIZE -----------
-    if(effect.name == "size") {
-      statistics[e] <- num.nodes/(length(groups) + length(isolates))
-    }
-    
-    # --------- SIZE2 -----------
-    if(effect.name == "size2") {
-      sum <- 0
-      for(g in 1:max(partition)){
-        sum <- sum + length(which(partition==g))^2
-      }
-      statistics[e] <- sum/(length(groups) + length(isolates))
-    }
-    
-    # --------- SIZE GROUPS -----------
-    if(effect.name == "size_groups") {
-      if(length(groups) > 0){
-        statistics[e] <- (num.nodes-length(isolates))/length(groups)
-      } else {
-        statistics[e] <- 0
-      }
-    }
     
     # --------- PRODUCT SIZES -----------
     if(effect.name == "product_sizes") {
@@ -252,12 +230,12 @@ computeStatistics <- function (partition, nodes, effects, objects){
     if(effect.name == "attisolation") {
       if(length(isolates) > 0) {
         att <- which(colnames(nodes) == object.name)
-        mean.att <- 0
+        sum.att <- 0
         for(g in isolates){
           member <- which(partition == g)
-          mean.att <- mean.att + (nodes[member,att])
+          sum.att <- sum.att + (nodes[member,att])
         }
-        statistics[e] <- mean.att/length(isolates)
+        statistics[e] <- sum.att
       } else {
         statistics[e] <- 0
       }
@@ -267,12 +245,12 @@ computeStatistics <- function (partition, nodes, effects, objects){
     if(effect.name == "attgroups") {
       if(length(groups) > 0) {
         att <- which(colnames(nodes) == object.name)
-        mean.att <- 0
+        sum.att <- 0
         for(g in groups){
           members <- which(partition == g)
-          mean.att <- mean.att + sum(nodes[members,att])
+          sum.att <- sum.att + sum(nodes[members,att])
         }
-        statistics[e] <- mean.att/(num.nodes-length(isolates))
+        statistics[e] <- sum.att
       }else{
         statistics[e] <- 0
       }
@@ -287,7 +265,7 @@ computeStatistics <- function (partition, nodes, effects, objects){
         sum <- sum + nodes[a,att]*length(which(partition == partition[a]))
       }
       
-      statistics[e] <- sum/num.nodes
+      statistics[e] <- sum
     }
     
     # --------- HOMOPHILY:SAME -----------
