@@ -159,8 +159,9 @@ draw_Metropolis <- function(theta,
   
     # store the results if we are out of burnin
     if(cpt >= burnin && cpt_thining == thining) {
-      cpt_thining <- 0
+      cpt_thining <- thining - 1
       if(check_sizes(current.partition,sizes.allowed)){
+        cpt_thining <- 0
         all.z <- rbind(all.z,current.z)
         #if(nrow(all.z)>1) print(all.z[nrow(all.z),] - all.z[nrow(all.z)-1,])
         cpt2 <- cpt2 + 1
