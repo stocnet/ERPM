@@ -7,31 +7,31 @@
 
 ## Estimation ERPM functions:
 
-estimate_ERPM <- function(partition, 
-                          nodes, 
-                          objects, 
-                          effects, 
-                          startingestimates, 
-                          multiplicationfactor = 30, 
-                          gainfactor = 0.1, 
-                          a.scaling = 0.2,
-                          r.truncation.p1 = 2,
-                          r.truncation.p2 = 5,
-                          mini.steps = "normalized", 
-                          burnin = 30, 
-                          thining = 10,
-                          length.p1 = 100, 
-                          min.iter.p2 = 10, 
-                          max.iter.p2 = 200, 
-                          num.steps.p2 = 6, 
-                          length.p3 = 1000,
-                          neighborhood = 2,
-                          fixed.estimates = NULL,
-                          sizes.allowed = NULL,
-                          sizes.simulated = NULL,
-                          double.averaging = F,
-                          inv.zcov = NULL,
-                          inv.scaling = NULL) {
+estimate_ERPM <- function(partition, # observed partition
+                          nodes, # nodeset (data frame)
+                          objects, # objects used for statistics calculation (list with a vector "name", and a vector "object")
+                          effects, # effects/sufficient statistics (list with a vector "names", and a vector "objects")
+                          startingestimates, # first guess for the model parameters
+                          multiplicationfactor = 30, # for now, useless
+                          gainfactor = 0.1, # numeric used to decrease the size of steps made in the Newton optimization
+                          a.scaling = 0.2, # numeric used to reduce the influence of non-diagonal elements in the scaling matrix (for stability)
+                          r.truncation.p1 = 2, # numeric used to limit extreme values in the covariance matrix (for stability)
+                          r.truncation.p2 = 5, # numeric used to limit extreme values in the covariance matrix (for stability)
+                          mini.steps = "normalized", # type of transition in the Metropolis Hastings algorithm, either "normalized", either "self-loops" (take "normalized")
+                          burnin = 30, # integer for the number of burn-in steps before sampling
+                          thining = 10, # integer for the number of thining steps between sampling
+                          length.p1 = 100, # number of samples in phase 1
+                          min.iter.p2 = 10, # minimum number of sub-steps in phase 2
+                          max.iter.p2 = 200, # maximum number of sub-steps in phase 2
+                          num.steps.p2 = 6, # number of optimisation steps in phase 2
+                          length.p3 = 1000, # number of samples in phase 3
+                          neighborhood = 2, # way of choosing partitions, either 1 (actor swaps) or 2 (merges and divisions)
+                          fixed.estimates = NULL, # if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
+                          sizes.allowed = NULL, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
+                          sizes.simulated = NULL, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+                          double.averaging = F, # option to average the statistics sampled in each sub-step of phase 2
+                          inv.zcov = NULL, # initial value of the inverted covariance matrix (if a phase 3 was run before) to bypass the phase 1
+                          inv.scaling = NULL) { # initial value of the inverted scaling matrix (if a phase 3 was run before) to bypass the phase 1
   
   z.obs <- computeStatistics(partition, nodes, effects, objects)
   #density.obs <- sum(adjacency)/(num.nodes*(num.nodes-1))

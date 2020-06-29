@@ -7,19 +7,20 @@
 
 
 
-draw_Metropolis <- function(theta, 
-                            first.partition, 
-                            nodes, 
-                            effects, 
-                            objects, 
-                            burnin, 
-                            thining, 
-                            num.steps, 
-                            mini.steps, 
-                            neighborhood, 
-                            sizes.allowed,
-                            sizes.simulated,
-                            return.all.partitions = F) {
+draw_Metropolis <- function(theta, # model parameters
+                            first.partition, # starting partition for the Markov chain
+                            nodes, # nodeset (data frame)
+                            effects, # effects/sufficient statistics (list with a vector "names", and a vector "objects")
+                            objects, # objects used for statistics calculation (list with a vector "name", and a vector "object")
+                            burnin, # integer for the number of burn-in steps before sampling
+                            thining, # integer for the number of thining steps between sampling
+                            num.steps, # number of samples
+                            mini.steps, # type of transition, either "normalized", either "self-loops" (take "normalized")
+                            neighborhood, # way of choosing partitions, either 1 (actor swaps) or 2 (merges and divisions)
+                            sizes.allowed, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
+                            sizes.simulated,# vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+                            return.all.partitions = F) # option to return the sampled partitions on top of their statistics (for GOF)
+{
   
   num.nodes <- nrow(nodes)
   num.effects <- length(effects$names)

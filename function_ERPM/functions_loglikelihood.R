@@ -7,20 +7,21 @@
 
 
 
-estimate_logL <- function(partition,
-                          nodes,
-                          effects, 
-                          objects,
-                          theta,
-                          theta_0,
-                          M,
-                          num.steps,
-                          burnin,
-                          thining,
-                          mini.steps = "normalized",
-                          neighborhood = 2,
-                          sizes.allowed = NULL,
-                          sizes.simulated = NULL ) {
+estimate_logL <- function(partition, # observed partition
+                          nodes, # nodeset (data frame)
+                          effects, # effects/sufficient statistics (list with a vector "names", and a vector "objects")
+                          objects, # objects used for statistics calculation (list with a vector "name", and a vector "object")
+                          theta, # estimated model parameters
+                          theta_0, # model parameters if all other effects than "num-groups" are fixed to 0 (basic Dirichlet partition model)
+                          M, # number of steps in the path-sampling algorithm
+                          num.steps, # number of samples in each step
+                          burnin, # integer for the number of burn-in steps before sampling
+                          thining, # integer for the number of thining steps between sampling
+                          mini.steps = "normalized", # type of transition in the Metropolis Hastings algorithm, either "normalized", either "self-loops" (take "normalized")
+                          neighborhood = 2, # way of choosing partitions, either 1 (actor swaps) or 2 (merges and divisions)
+                          sizes.allowed = NULL,  # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
+                          sizes.simulated = NULL ) # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+{
   
   num.nodes <- nrow(nodes)
   num.effects <- length(effects$names)
