@@ -6,8 +6,8 @@
 ######################################################################
 
 
-
-draw_Metropolis <- function(theta, # model parameters
+# SINGLE PARTITION PROCEDURE
+draw_Metropolis_single <- function(theta, # model parameters
                             first.partition, # starting partition for the Markov chain
                             nodes, # nodeset (data frame)
                             effects, # effects/sufficient statistics (list with a vector "names", and a vector "objects")
@@ -45,74 +45,27 @@ draw_Metropolis <- function(theta, # model parameters
   
   while(!end.walk){
       
-    #print("partition")
-    #print(current.partition)
+    new.step <- draw_step_single(theta,
+                                 current.partition, 
+                                 current.logit,
+                                 current.z,
+                                 nodes, 
+                                 effects, 
+                                 objects, 
+                                 mini.steps, 
+                                 neighborhood, 
+                                 sizes.allowed, 
+                                 sizes.simulated)
     
-    ## IF NEIGHBORHOOD IS: MERGES OR SPLITS OF 2 (Pi_1)
-    if(neighborhood == 1 && is.null(sizes.allowed)) {
-      new.partition <- sample_new_partition_p1(current.partition, mini.steps)
-    } else if(neighborhood == 2 && is.null(sizes.allowed)){
-      new.partition <- sample_new_partition_p2(current.partition, mini.steps)
-    }
-    if(neighborhood == 1 && !is.null(sizes.allowed)) {
-      new.partition <- sample_new_partition_p1_restricted(current.partition, mini.steps, sizes.simulated)
-    } else if(neighborhood == 2 && !is.null(sizes.allowed)){
-      new.partition <- sample_new_partition_p2_restricted(current.partition, mini.steps, sizes.simulated)
-    }
-       
-    # compute new statistics only if it changed
-    if(!all(current.partition == new.partition)) {
-      new.z <- computeStatistics(new.partition, nodes, effects, objects)
-      #new.z <- computeChangeStatistics(current.z, current.partition, new.partition, old_g1, old_g2, new_g1, new_g2, nodes, effects, objects)
-    } else {
-      new.z <- current.z
-    }
-    new.logit <- theta * new.z
-      
-    #print("stats")
-    #print(new.z)
-    
-    # chose whether to change or not
-    if(mini.steps == "normalized") {
-      
-      if(neighborhood == 1 && is.null(sizes.allowed)) {
-        current.size <- compute_size_neighborhood_p1(current.partition)
-        new.size <- compute_size_neighborhood_p1(new.partition)
-        neighborhoods.ratio <- current.size$num.swaps / new.size$num.swaps 
-      } else if(neighborhood == 2 && is.null(sizes.allowed)) {
-        current.size <- compute_size_neighborhood_p2(current.partition)
-        new.size <- compute_size_neighborhood_p2(new.partition)
-        neighborhoods.ratio <- (new.size$num.merges + new.size$num.divisions)/ (current.size$num.merges + current.size$num.divisions)
-      }
-      if(neighborhood == 1 && !is.null(sizes.allowed)) {
-        current.size <- compute_size_neighborhood_p1_restricted(current.partition, sizes.simulated)
-        new.size <- compute_size_neighborhood_p1_restricted(new.partition, sizes.simulated)
-        neighborhoods.ratio <- current.size$num.swaps / new.size$num.swaps 
-      } else if(neighborhood == 2 && !is.null(sizes.allowed)) {
-        current.size <- compute_size_neighborhood_p2_restricted(current.partition, sizes.simulated)
-        new.size <- compute_size_neighborhood_p2_restricted(new.partition, sizes.simulated)
-        neighborhoods.ratio <- (new.size$num.merges + new.size$num.divisions)/ (current.size$num.merges + current.size$num.divisions)
-      }
-      hastings.ratio <- (exp(sum(new.logit) - sum(current.logit))) * neighborhoods.ratio
-   
-    } else if(mini.steps == "selfloops"){
-      
-      hastings.ratio <- exp(sum(new.logit) - sum(current.logit))
-      
-    }
-    proba.change <- min(1,hastings.ratio)
+    proba.change <- min(1,new.step$hastings.ratio)
     change.made <- (runif(1,0,1) <= proba.change)
 
-    #print("hastings proba.change and change.made")
-    #print(hastings.ratio)
-    #print(proba.change)
-    #print(change.made)
-    
+    # update partition if needed
     old.partition <- current.partition
     if(change.made) {
-      current.partition <- new.partition
-      current.z <- new.z
-      current.logit <- new.logit
+      current.partition <- new.step$new.partition
+      current.z <- new.step$new.z
+      current.logit <- new.step$new.logit
     }
     
     cpt <- cpt + 1
@@ -137,46 +90,28 @@ draw_Metropolis <- function(theta, # model parameters
       end.walk <- (cpt >= (burnin+thining*num.steps))
     }
 
-  # storing results if sizes are constrained
-  if(!is.null(sizes.allowed)){
-
-    #print(check_sizes(current.partition,sizes.allowed))
-    #print(current.partition)
-    
-    # if the partition is sampled with the right sizes
-    # we keep the swapping strategy
-    #if(check_sizes(current.partition,sizes.allowed)){
-      #neighborhood <- 2
-      
-      # if wrong sizes, we continue searching, and if we are out of tolerated simulated partitions, we go back
-      # when out of allowed partitions we keep the divide/merge strategy
-    #} else {
-      #neighborhood <- 2
-    #  if(!check_sizes(current.partition,sizes.simulated)){
-    #    current.partition <- old.partition
-    #    if(check_sizes(current.partition,sizes.allowed)) neighborhood <- 1
-    #  } 
-    #}
+    # storing results if sizes are constrained
+    if(!is.null(sizes.allowed)){
   
-    # store the results if we are out of burnin
-    if(cpt >= burnin && cpt_thining == thining) {
-      cpt_thining <- thining - 1
-      if(check_sizes(current.partition,sizes.allowed)){
-        cpt_thining <- 0
-        all.z <- rbind(all.z,current.z)
-        #if(nrow(all.z)>1) print(all.z[nrow(all.z),] - all.z[nrow(all.z)-1,])
-        cpt2 <- cpt2 + 1
+      # store the results if we are out of burnin
+      if(cpt >= burnin && cpt_thining == thining) {
+        cpt_thining <- thining - 1
+        if(check_sizes(current.partition,sizes.allowed)){
+          cpt_thining <- 0
+          all.z <- rbind(all.z,current.z)
+          #if(nrow(all.z)>1) print(all.z[nrow(all.z),] - all.z[nrow(all.z)-1,])
+          cpt2 <- cpt2 + 1
         
-        # store all partitions if needed
-        if(return.all.partitions){
-          all.partitions <- rbind(all.partitions,new.partition)
-        }
-      } 
-    }
+          # store all partitions if needed
+          if(return.all.partitions){
+            all.partitions <- rbind(all.partitions,new.partition)
+          }
+        } 
+      }
     
-    # stop the walk if number of steps reached 
-    end.walk <- (cpt2 >= num.steps)
-  }
+      # stop the walk if number of steps reached 
+      end.walk <- (cpt2 >= num.steps)
+    }
 
   }
   
@@ -193,6 +128,307 @@ draw_Metropolis <- function(theta, # model parameters
                "all.partitions" = all.partitions)) 
   }
   
+}
+
+
+# MULTIPLE PARTITIONS PROCEDURE
+draw_Metropolis_multiple <- function(theta, # model parameters
+                                   first.partitions, # starting partition for the Markov chain
+                                   presence.tables,  # matrix indicating which actors were present for each observations (mandatory)
+                                   nodes, # nodeset (data frame)
+                                   effects, # effects/sufficient statistics (list with a vector "names", and a vector "objects")
+                                   objects, # objects used for statistics calculation (list with a vector "name", and a vector "object")
+                                   burnin, # integer for the number of burn-in steps before sampling
+                                   thining, # integer for the number of thining steps between sampling
+                                   num.steps, # number of samples
+                                   mini.steps, # type of transition, either "normalized", either "self-loops" (take "normalized")
+                                   neighborhood, # way of choosing partitions, either 1 (actor swaps) or 2 (merges and divisions)
+                                   sizes.allowed, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
+                                   sizes.simulated,# vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+                                   return.all.partitions = F) # option to return the sampled partitions on top of their statistics (for GOF)
+{
+  
+  num.nodes <- nrow(nodes)
+  num.effects <- length(effects$names)
+  num.obs <- ncol(presence.tables)
+  
+  # instantiate with the starting network
+  current.partitions <- first.partitions
+  current.z <- computeStatistics_multiple(current.partitions, presence.tables, nodes, effects, objects)
+  current.logit <- theta * current.z
+  
+  # store the statistics collected for all networks simulated after the burn in
+  all.z <-c()
+  
+  # store the partitions if needed (for GOF)
+  if(return.all.partitions){
+    all.partitions <- list()
+    cpt_all <- 0
+  }
+  
+  end.walk <- FALSE
+  cpt <- 0
+  cpt2 <- 0
+  cpt_thining <- 0
+  
+  while(!end.walk){
+    
+    new.step <- draw_step_multiple(theta,
+                                 current.partitions, 
+                                 current.logit,
+                                 current.z,
+                                 presence.tables,  
+                                 nodes, 
+                                 effects, 
+                                 objects, 
+                                 mini.steps, 
+                                 neighborhood, 
+                                 sizes.allowed, 
+                                 sizes.simulated)
+    
+    proba.change <- min(1,new.step$hastings.ratio)
+    change.made <- (runif(1,0,1) <= proba.change)
+    
+    # update partition if needed
+    old.partitions <- current.partitions
+    if(change.made) {
+      current.partitions <- new.step$new.partitions
+      current.z <- new.step$new.z
+      current.logit <- new.step$new.logit
+    }
+    
+    cpt <- cpt + 1
+    if(cpt > burnin) cpt_thining <- cpt_thining + 1
+    
+    
+    # storing results if all sizes are allowed
+    if(is.null(sizes.allowed)){
+      
+      # store the results if we are out of burnin
+      if(cpt >= burnin && cpt_thining == thining) {
+        all.z <- rbind(all.z,current.z)
+        cpt_thining <- 0
+        
+        # store all partitions if needed
+        if(return.all.partitions){
+          cpt_all <- cpt_all + 1
+          all.partitions[[cpt_all]] <- new.partitions
+        }
+        
+      }
+      
+      # stop the walk if number of steps reached 
+      end.walk <- (cpt >= (burnin+thining*num.steps))
+    }
+    
+    # storing results if sizes are constrained
+    if(!is.null(sizes.allowed)){
+      
+      # store the results if we are out of burnin
+      if(cpt >= burnin && cpt_thining == thining) {
+        
+        cpt_thining <- thining - 1
+        
+        # check all partitions one by one
+        check_all <- T
+        for(o in 1:num.obs) check_all <- check_all && check_sizes(current.partitions[as.logical(presence.tables[,o]),o],sizes.allowed)
+        
+        if(check_all){
+          
+          cpt_thining <- 0
+          all.z <- rbind(all.z,current.z)
+          cpt2 <- cpt2 + 1
+          
+          # store all partitions if needed
+          if(return.all.partitions){
+            cpt_all <- cpt_all + 1
+            all.partitions[[cpt_all]] <- new.partitions
+          }
+        } 
+      }
+      
+      # stop the walk if number of steps reached 
+      end.walk <- (cpt2 >= num.steps)
+    }
+    
+  }
+  
+  # TODO: change this hack
+  row.names(all.z) <- rep("", dim(all.z)[1])
+  
+  # compute the average statistics and the final network generated
+  if(!return.all.partitions) {
+    return( list("draws" = all.z, 
+                 "last.partitions" = current.partitions))
+  } else {
+    return( list("draws" = all.z, 
+                 "last.partitions" = current.partitions,
+                 "all.partitions" = all.partitions)) 
+  }
+  
+}
+
+
+# function to draw next partition and calculate HAstings ratio (one step in the Metropolis algorithm)
+draw_step_single <- function(theta,
+                             current.partition, 
+                             current.logit, 
+                             current.z,
+                             nodes, 
+                             effects, 
+                             objects, 
+                             mini.steps, 
+                             neighborhood, 
+                             sizes.allowed, 
+                             sizes.simulated){
+  
+  ## IF NEIGHBORHOOD IS: : 1 = swaps, 2 = merges/splits
+  if(neighborhood == 1 && is.null(sizes.allowed)) {
+    new.partition <- sample_new_partition_p1(current.partition, mini.steps)
+  } else if(neighborhood == 2 && is.null(sizes.allowed)){
+    new.partition <- sample_new_partition_p2(current.partition, mini.steps)
+  }
+  if(neighborhood == 1 && !is.null(sizes.allowed)) {
+    new.partition <- sample_new_partition_p1_restricted(current.partition, mini.steps, sizes.simulated)
+  } else if(neighborhood == 2 && !is.null(sizes.allowed)){
+    new.partition <- sample_new_partition_p2_restricted(current.partition, mini.steps, sizes.simulated)
+  }
+  
+  # compute new statistics only if it changed
+  if(!all(current.partition == new.partition)) {
+    new.z <- computeStatistics(new.partition, nodes, effects, objects)
+    #new.z <- computeChangeStatistics(current.z, current.partition, new.partition, old_g1, old_g2, new_g1, new_g2, nodes, effects, objects)
+  } else {
+    new.z <- current.z
+  }
+  new.logit <- theta * new.z
+  
+  #print("stats")
+  #print(new.z)
+  
+  # chose whether to change or not
+  if(mini.steps == "normalized") {
+    
+    if(neighborhood == 1 && is.null(sizes.allowed)) {
+      current.size <- compute_size_neighborhood_p1(current.partition)
+      new.size <- compute_size_neighborhood_p1(new.partition)
+      neighborhoods.ratio <- current.size$num.swaps / new.size$num.swaps 
+    } else if(neighborhood == 2 && is.null(sizes.allowed)) {
+      current.size <- compute_size_neighborhood_p2(current.partition)
+      new.size <- compute_size_neighborhood_p2(new.partition)
+      neighborhoods.ratio <- (new.size$num.merges + new.size$num.divisions)/ (current.size$num.merges + current.size$num.divisions)
+    }
+    if(neighborhood == 1 && !is.null(sizes.allowed)) {
+      current.size <- compute_size_neighborhood_p1_restricted(current.partition, sizes.simulated)
+      new.size <- compute_size_neighborhood_p1_restricted(new.partition, sizes.simulated)
+      neighborhoods.ratio <- current.size$num.swaps / new.size$num.swaps 
+    } else if(neighborhood == 2 && !is.null(sizes.allowed)) {
+      current.size <- compute_size_neighborhood_p2_restricted(current.partition, sizes.simulated)
+      new.size <- compute_size_neighborhood_p2_restricted(new.partition, sizes.simulated)
+      neighborhoods.ratio <- (new.size$num.merges + new.size$num.divisions)/ (current.size$num.merges + current.size$num.divisions)
+    }
+    hastings.ratio <- (exp(sum(new.logit) - sum(current.logit))) * neighborhoods.ratio
+    
+  } else if(mini.steps == "selfloops"){
+    
+    hastings.ratio <- exp(sum(new.logit) - sum(current.logit))
+    
+  }
+  
+  return(list("hastings.ratio" = hastings.ratio,
+              "new.partition" = new.partition,
+              "new.z" = new.z,
+              "new.logit" = new.logit))
+}
+
+
+# function to draw next partition and calculate HAstings ratio (one step in the Metropolis algorithm)
+draw_step_multiple <- function(theta,
+                             current.partitions, 
+                             current.logit,
+                             current.z,
+                             presence.tables,  
+                             nodes, 
+                             effects, 
+                             objects, 
+                             mini.steps, 
+                             neighborhood, 
+                             sizes.allowed, 
+                             sizes.simulated){
+  
+  num.nodes <- nrow(nodes)
+  num.obs <- ncol(presence.tables)
+  new.partitions <- current.partitions
+  
+  for(o in 1:num.obs) {
+    
+    ## IF NEIGHBORHOOD IS: 1 = swaps, 2 = merges/splits
+    if(neighborhood == 1 && is.null(sizes.allowed)) {
+      new.p <- sample_new_partition_p1(current.partitions[as.logical(presence.tables[,o]),o], mini.steps)
+    } else if(neighborhood == 2 && is.null(sizes.allowed)){
+      new.p <- sample_new_partition_p2(current.partitions[as.logical(presence.tables[,o]),o], mini.steps)
+    }
+    if(neighborhood == 1 && !is.null(sizes.allowed)) {
+      new.p <- sample_new_partition_p1_restricted(current.partitions[as.logical(presence.tables[,o]),o], mini.steps, sizes.simulated)
+    } else if(neighborhood == 2 && !is.null(sizes.allowed)){
+      new.p <- sample_new_partition_p2_restricted(current.partitions[as.logical(presence.tables[,o]),o], mini.steps, sizes.simulated)
+    }
+    
+    new.partitions[,o] <- rep(NA,num.nodes)
+    new.partitions[as.logical(presence.tables[,o]),o] <- new.p
+    
+  }
+  
+  # compute new statistics only if it changed
+  if(!all(current.partitions == new.partitions)) {
+    new.z <- computeStatistics_multiple(new.partitions, presence.tables, nodes, effects, objects)
+  } else {
+    new.z <- current.z
+  }
+  new.logit <- theta * new.z
+  
+  #print("stats")
+  #print(new.z)
+  
+  # chose whether to change or not
+  if(mini.steps == "normalized") {
+    
+    neighborhoods.ratios <- 1
+    
+    for(o in 1:num.obs) {
+      
+      if(neighborhood == 1 && is.null(sizes.allowed)) {
+        current.size <- compute_size_neighborhood_p1(current.partitions[as.logical(presence.tables[,o]),o])
+        new.size <- compute_size_neighborhood_p1(new.partitions[as.logical(presence.tables[,o]),o])
+        neighborhoods.ratios <-  neighborhoods.ratios * current.size$num.swaps / new.size$num.swaps 
+      } else if(neighborhood == 2 && is.null(sizes.allowed)) {
+        current.size <- compute_size_neighborhood_p2(current.partitions[as.logical(presence.tables[,o]),o])
+        new.size <- compute_size_neighborhood_p2(new.partitions[as.logical(presence.tables[,o]),o])
+        neighborhoods.ratios <- neighborhoods.ratios * (new.size$num.merges + new.size$num.divisions)/ (current.size$num.merges + current.size$num.divisions)
+      }
+      if(neighborhood == 1 && !is.null(sizes.allowed)) {
+        current.size <- compute_size_neighborhood_p1_restricted(current.partitions[as.logical(presence.tables[,o]),o], sizes.simulated)
+        new.size <- compute_size_neighborhood_p1_restricted(new.partitions[as.logical(presence.tables[,o]),o], sizes.simulated)
+        neighborhoods.ratios <- neighborhoods.ratios * current.size$num.swaps / new.size$num.swaps 
+      } else if(neighborhood == 2 && !is.null(sizes.allowed)) {
+        current.size <- compute_size_neighborhood_p2_restricted(current.partitions[as.logical(presence.tables[,o]),o], sizes.simulated)
+        new.size <- compute_size_neighborhood_p2_restricted(new.partitions[as.logical(presence.tables[,o]),o], sizes.simulated)
+        neighborhoods.ratios <- neighborhoods.ratios * (new.size$num.merges + new.size$num.divisions)/ (current.size$num.merges + current.size$num.divisions)
+      }
+    }
+    
+    hastings.ratio <- (exp(sum(new.logit) - sum(current.logit))) * neighborhoods.ratios
+    
+  } else if(mini.steps == "selfloops"){
+    
+    hastings.ratio <- exp(sum(new.logit) - sum(current.logit))
+    
+  }
+  
+  return(list("hastings.ratio" = hastings.ratio,
+              "new.partitions" = new.partitions,
+              "new.z" = new.z,
+              "new.logit" = new.logit))
 }
 
 

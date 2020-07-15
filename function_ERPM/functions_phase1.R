@@ -4,9 +4,8 @@
 ## Author: Marion Hoffman                                           ##
 ######################################################################
 
-
-
-run_phase1 <- function(startingestimates, 
+# Phase 1 wrapper for single observation
+run_phase1_single <- function(startingestimates, 
                        z.obs, 
                        nodes, 
                        effects, 
@@ -25,33 +24,12 @@ run_phase1 <- function(startingestimates,
   
   num.nodes <- nrow(nodes)
   num.effects <- length(effects$names)
-  # TODO: figure out what is the length of phase 1 now?
-  #length.p1 <- 7 + 3*num.effects
-  #length.p1 <- 100
   
   # find a good starting point
-  if(is.null(sizes.allowed)){
-    first.partition <- 1 + rbinom(num.nodes, as.integer(num.nodes/2), 0.5)
-  } else {
-    smin <- min(sizes.allowed)
-    cpt <- 0
-    g <- 1
-    first.partition <- rep(0,num.nodes)
-    for(i in 1:num.nodes){
-      if(cpt == smin) {
-        g <- g + 1
-        first.partition[i] <- g
-        cpt <- 1
-      } else {
-        first.partition[i] <- g
-        cpt <- cpt + 1
-      }
-    }
-  }
-  first.partition <- order_groupids(first.partition)
+  first.partition <- find_startingpoint_single(nodes, sizes.allowed)
   
   # simulate the statisticis distribution
-  results.phase1 <- draw_Metropolis(startingestimates, first.partition, nodes, effects, objects, burnin, thining, length.p1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+  results.phase1 <- draw_Metropolis_single(startingestimates, first.partition, nodes, effects, objects, burnin, thining, length.p1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
   z.phase1 <- results.phase1$draws
   
   # calculate the covariance and scaling matrices
@@ -66,6 +44,105 @@ run_phase1 <- function(startingestimates,
                                                         fixed.estimates)
   inv.zcov <- inverted_matrices$inv.zcov
   inv.scaling <- inverted_matrices$inv.scaling
+  
+  # Phase 1 procedure
+  estimates.phase1 <- phase1(startingestimates,
+                     inv.zcov,
+                     inv.scaling,
+                     z.phase1,
+                     z.obs, 
+                     nodes, 
+                     effects, 
+                     objects, 
+                     r.truncation.p1,
+                     length.p1, 
+                     fixed.estimates)
+  
+  return( list("estimates" = estimates.phase1, 
+               "inv.zcov" = inv.zcov,
+               "inv.scaling" = inv.scaling) )
+  
+}
+
+
+# Phase 1 wrapper for multiple observations
+run_phase1_multiple <- function(startingestimates, 
+                              z.obs, 
+                              presence.tables, 
+                              nodes, 
+                              effects, 
+                              objects, 
+                              burnin, 
+                              thining,
+                              gainfactor,
+                              a.scaling,
+                              r.truncation.p1,
+                              mini.steps, 
+                              length.p1, 
+                              neighborhood,
+                              fixed.estimates,
+                              sizes.allowed,
+                              sizes.simulated) {
+  
+  num.nodes <- nrow(nodes)
+  num.effects <- length(effects$names)
+  num.obs <- ncol(presence.tables)
+  
+  # find good starting pointS
+  first.partitions <- find_startingpoint_multiple(presence.tables,nodes,sizes.allowed)
+  
+  # simulate the statisticis distribution
+  results.phase1 <- draw_Metropolis_multiple(startingestimates, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, length.p1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+  z.phase1 <- results.phase1$draws
+  
+  # calculate the covariance and scaling matrices
+  inverted_matrices <- calculate_inverted_covariance_and_scaling(startingestimates, 
+                                                                 z.obs, 
+                                                                 nodes, 
+                                                                 effects, 
+                                                                 objects, 
+                                                                 a.scaling,
+                                                                 length.phase = length.p1, 
+                                                                 z.phase = z.phase1,
+                                                                 fixed.estimates)
+  inv.zcov <- inverted_matrices$inv.zcov
+  inv.scaling <- inverted_matrices$inv.scaling
+  
+  # Phase 1 procedure
+  estimates.phase1 <- phase1(startingestimates,
+                             inv.zcov,
+                             inv.scaling,
+                             z.phase1,
+                             z.obs, 
+                             nodes, 
+                             effects, 
+                             objects, 
+                             r.truncation.p1,
+                             length.p1, 
+                             fixed.estimates)
+  
+  return( list("estimates" = estimates.phase1, 
+               "inv.zcov" = inv.zcov,
+               "inv.scaling" = inv.scaling) )
+  
+}
+
+
+# Core functions of phase 1
+phase1 <- function(startingestimates,
+                   inv.zcov,
+                   inv.scaling,
+                   z.phase1,
+                   z.obs, 
+                   nodes, 
+                   effects, 
+                   objects, 
+                   r.truncation.p1,
+                   length.p1, 
+                   fixed.estimates) {
+  
+  num.nodes <- nrow(nodes)
+  num.effects <- length(effects$names)
   
   # normal procedure ( no fixed estimates)
   if(is.null(fixed.estimates)){
@@ -91,7 +168,7 @@ run_phase1 <- function(startingestimates,
     estimates.phase1 <- startingestimates - r*inv.scaling%*%(z.mean - z.obs)
     
     
-  # fixed parameters procedure
+    # fixed parameters procedure
   } else {
     
     # find the indexes to remove from the estimation
@@ -130,9 +207,7 @@ run_phase1 <- function(startingestimates,
   print("Estimates after phase 1")
   print(estimates.phase1)
   
-  return( list("estimates" = estimates.phase1, 
-               "inv.zcov" = inv.zcov,
-               "inv.scaling" = inv.scaling) )
+  return(estimates.phase1)
   
 }
 
@@ -225,4 +300,7 @@ calculate_inverted_covariance_and_scaling <- function(startingestimates,
   return(list(inv.zcov = inv.zcov,
               inv.scaling = inv.scaling))
 }
+
+
+
 

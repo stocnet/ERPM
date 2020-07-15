@@ -167,6 +167,77 @@ count_classes <- function(allpartitions){
 }
 
 
+## Functions used to create, order, and check partitions in the main code ############
+
+# Find a good starting point for the simple estimation procedure
+find_startingpoint_single <- function(nodes,
+                                      sizes.allowed){
+  
+  num.nodes <- nrow(nodes)
+  
+  if(is.null(sizes.allowed)){
+    first.partition <- 1 + rbinom(num.nodes, as.integer(num.nodes/2), 0.5)
+  } else {
+    smin <- min(sizes.allowed)
+    cpt <- 0
+    g <- 1
+    first.partition <- rep(0,num.nodes)
+    for(i in 1:num.nodes){
+      if(cpt == smin) {
+        g <- g + 1
+        first.partition[i] <- g
+        cpt <- 1
+      } else {
+        first.partition[i] <- g
+        cpt <- cpt + 1
+      }
+    }
+  }
+  first.partition <- order_groupids(first.partition)
+  
+  return(first.partition)
+}
+
+# Find a good starting point for the multiple estimation procedure
+find_startingpoint_multiple <- function(presence.tables,
+                                        nodes,
+                                        sizes.allowed){
+  
+  num.nodes <- nrow(nodes)
+  num.obs <- ncol(presence.tables)
+  
+  first.partitions <- matrix(0, nrow=num.nodes, ncol = num.obs)
+  
+  for(o in 1:num.obs){
+    nodes.o <- which(presence.tables[,o] == 1)
+    num.nodes.o <- sum(presence.tables[,o])
+    if(is.null(sizes.allowed)){
+      first.partition <- 1 + rbinom(num.nodes.o, as.integer(num.nodes/2), 0.5)
+    } else {
+      smin <- min(sizes.allowed)
+      cpt <- 0
+      g <- 1
+      first.partition <- rep(0,num.nodes.o)
+      for(i in 1:num.nodes.o){
+        if(cpt == smin) {
+          g <- g + 1
+          first.partition[i] <- g
+          cpt <- 1
+        } else {
+          first.partition[i] <- g
+          cpt <- cpt + 1
+        }
+      }
+    }
+    p.o <- rep(NA,num.nodes)
+    p.o[nodes.o] <- order_groupids(first.partition)
+    first.partitions[,o] <- p.o
+  }
+  
+  return(first.partitions)
+}
+
+
 # Function to replace the ids of the group without forgetting an id
 # and put in the first appearance order
 # for example: [2 1 1 4 2] becomes [1 2 2 3 1]
@@ -445,8 +516,8 @@ calculate_average_Hammingdistances <- function(allclasses) {
 computeicc <- function(attribute,teams) {
   
   n <- length(attribute)
-  m <- max(teams)
-  totalmean <- mean(attribute)
+  m <- max(teams,na.rm=T)
+  totalmean <- mean(attribute,na.rm=T)
   
   s2b <- 0
   s2w <- 0
@@ -475,7 +546,7 @@ computeicc <- function(attribute,teams) {
 # Density for network/similarity dyadic variables (binary, symetric)
 computedensity <- function(matrix,teams){
   
-  m <- max(teams)
+  m <- max(teams,na.rm=T)
   avd <- 0
   std <- 0
   
