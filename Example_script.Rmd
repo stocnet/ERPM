@@ -138,7 +138,7 @@ Now we can generate our simulated sample, by setting the desired additional para
 
 ```{r}
 nsteps <- 100
-sample <- draw_Metropolis(theta = parameters, 
+sample <- draw_Metropolis_single(theta = parameters, 
                           first.partition = 1:n, 
                           nodes = nodes, 
                           effects = effects, 

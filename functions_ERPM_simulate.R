@@ -1934,8 +1934,8 @@ AIC2017 <- function() {
 
 AIC2018 <- function() {
   
-  participants2018 <- read.csv(file="PolyHack/participants-data2018.csv")
-  networks2018 <- readRDS(file="PolyHack/networks2018.rds")
+  participants2018 <- read.csv(file="../PolyHack/participants-data2018.csv")
+  networks2018 <- readRDS(file="../PolyHack/networks2018.rds")
   nodes <- data.frame(label = participants2018$key,
                       age = participants2018$age_imputed,
                       language = participants2018$language_imputed,
@@ -1951,9 +1951,9 @@ AIC2018 <- function() {
   objects[[1]] <- list(name = "net_acquaintances2018", object = net_acquaintances2018)
   
   effects <- list( names = c("num_groups","diff","same","same","same","tie"),
-                   objects = c("partition","age","language","level","major","net_acquaintances2017"))
+                   objects = c("partition","age","language","level","major","net_acquaintances2018"))
   estimates_0 <- c(-2.14,0,0,0,0,0)
-  estimates <- c()
+  estimates <- c(-1.07,-0.03,0.53,0.03,-0.08,2.5)
   
   aic_1 <- estimate_logL(partition,
                          nodes,
@@ -1961,10 +1961,10 @@ AIC2018 <- function() {
                          objects,
                          theta = estimates,
                          theta_0 = estimates_0,
-                         M = 20,
-                         num.steps = 200,
-                         burnin = 300,
-                         thining = 200,
+                         M = 40,
+                         num.steps = 300,
+                         burnin = 10,
+                         thining = 10,
                          mini.steps = "normalized",
                          neighborhood = 2,
                          sizes.allowed = 3:5,

@@ -7,7 +7,7 @@
 
 
 
-# Computes complete statistics for all partitions
+# Compute complete statistics for single partitions
 computeStatistics <- function (partition, nodes, effects, objects){
   
   num.groups <- max(partition)
@@ -284,7 +284,8 @@ computeStatistics <- function (partition, nodes, effects, objects){
         #   num.same_total <- num.same_total + num.same/length(members)
         # }
         # statistics[e] <- num.same_total
-        d <- as.matrix(dist(as.numeric(nodes[,att])))
+        att.nodes <- factor(nodes[,att])
+        d <- as.matrix(dist(as.numeric(att.nodes)))
         d <- d==0
         diag(d) <- 0
         statistics[e] <- sum(1/2 * adjacency * d)
@@ -354,3 +355,169 @@ computeStatistics <- function (partition, nodes, effects, objects){
   
 }
 
+
+
+
+
+# Compute complete statistics for multiple partitions
+computeStatistics_multiple <- function(partitions, presence.tables, nodes, effects, objects){
+  
+  num.nodes <- nrow(nodes)
+  num.obs <- ncol(presence.tables)
+  num.effects <- length(effects[[1]])
+  statistics <- rep(0,num.effects)
+  
+  # find isolates, groups, and sizes
+  nums.groups <- rep(0,num.obs)
+  isolates <- list()
+  groups <- list()
+  sizes <- list()
+  for(o in 1:num.obs){
+    p <- partitions[,o]
+    p <- p[as.logical(presence.tables[,o])]
+    
+    nums.groups[o] <- max(p)
+    isolates[[o]] <- as.vector(which(table(p)==1))
+    groups[[o]] <- as.vector(which(table(p)>1))
+    sizes[[o]] <- as.vector(table(p))
+  }
+  
+  # create adjacency matrices
+  adjacencies <- list()
+  for(o in 1:num.obs){
+    p <- partitions[,o]
+    p <- p[as.logical(presence.tables[,o])]
+    affiliation <- as.matrix(table(data.frame(actor = 1:length(p), group= p)))
+    adjacencies[[o]] <- affiliation %*% t(affiliation)
+  }
+  
+  
+  
+  for(e in 1:num.effects) {
+    
+    effect.name <- effects$names[e]
+    object.name <- effects$objects[e]
+    
+    # --------- ISOLATES -----------
+    if(effect.name == "isolates") {
+      stat <- 0
+      for(o in 1:num.obs){
+        stat <- stat + length(isolates[[o]])
+      }
+      statistics[e] <- stat
+    }
+    
+    # --------- NUM GROUPS -----------
+    if(effect.name == "num_groups") {
+      stat <- 0
+      for(o in 1:num.obs){
+        stat <- stat + nums.groups[o]
+      }
+      statistics[e] <- stat 
+    }
+
+    # --------- SIZES_SQUARED -----------
+    if(effect.name == "sizes_squared") {
+      stat <- 0
+      for(o in 1:num.obs){
+        stat <- stat + sum(sizes[[o]]^2)
+      }
+      statistics[e] <- stat
+    }
+
+    # --------- TIE -----------
+    if(effect.name == "tie") {
+      stat <- 0
+      for(o in 1:num.obs){
+        if(length(groups[[o]]) > 0) {
+          for(ob in 1:length(objects)){
+            if(objects[[ob]][[1]] == object.name){
+              net <- objects[[ob]][[2]]
+            }
+          }
+          net <- net[as.logical(presence.tables[,o]),as.logical(presence.tables[,o])]
+          stat <- stat + sum(1/2 * adjacencies[[o]] * net)
+        }
+      }
+      statistics[e] <- stat
+    }
+    
+    # --------- ATTRIBUTE ISOLATION -----------
+    if(effect.name == "attisolation") {
+      stat <- 0
+      for(o in 1:num.obs){
+        if(length(isolates[[o]]) > 0) {
+          att <- which(colnames(nodes) == object.name)
+          sum.att <- 0
+          for(g in isolates[[o]]){
+            member <- which(partitions[,o] == g)
+            sum.att <- sum.att + (nodes[member,att])
+          }
+          stat <- stat + sum.att
+        }
+      }
+      statistics[e] <- stat
+    }
+
+    # --------- ALTER -----------
+    if(effect.name == "alter") {
+      stat <- 0
+      att <- which(colnames(nodes) == object.name)
+      for(o in 1:num.obs){
+        sum <- 0
+        for(a in which(presence.tables[,o]==1)){
+          sum <- sum + nodes[a,att]*length(which(partitions[,o] == partitions[a,o]))
+        }
+        stat <- stat + sum
+      }
+      statistics[e] <- stat
+    }
+    
+    # --------- HOMOPHILY:SAME -----------
+    if(effect.name == "same") {
+      stat <- 0
+      att <- which(colnames(nodes) == object.name)
+      for(o in 1:num.obs){
+        if(length(groups[[o]]) > 0) {
+          att.nodes <- factor(nodes[as.logical(presence.tables[,o]),att])
+          d <- as.matrix(dist(as.numeric(att.nodes)))
+          d <- d==0
+          diag(d) <- 0
+          stat <- stat + sum(1/2 * adjacencies[[o]] * d)
+        }
+      }
+      statistics[e] <- stat
+    }
+    
+    # --------- HOMOPHILY:DIFF -----------
+    if(effect.name == "diff") {
+      stat <- 0
+      att <- which(colnames(nodes) == object.name)
+      for(o in 1:num.obs){
+        if(length(groups[[o]]) > 0){
+          d <- as.matrix(dist(as.numeric(nodes[as.logical(presence.tables[,o]),att])))
+          stat <- stat + sum(1/2 * adjacencies[[o]] * d)
+        }
+      }
+      statistics[e] <- stat
+    }
+    
+    
+    # ---------GROUP: NUMBER_ATTRIBUTES -----------
+    if(effect.name == "number_attributes") {
+      stat <- 0
+      att <- which(colnames(nodes) == object.name)
+      for(o in 1:num.obs){
+        if(length(groups[[o]]) > 0) {
+          d <- unlist(lapply(1:nums.groups[o],
+                           function(x){return(length(unique(nodes[which(partition==x),att])))}))
+          stat <- stat + sum(d)
+        }
+      }
+    }
+    statistics[e] <- stat
+  }
+  
+  return(statistics)
+  
+}

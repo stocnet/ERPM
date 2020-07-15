@@ -20,7 +20,8 @@ estimate_logL <- function(partition, # observed partition
                           mini.steps = "normalized", # type of transition in the Metropolis Hastings algorithm, either "normalized", either "self-loops" (take "normalized")
                           neighborhood = 2, # way of choosing partitions, either 1 (actor swaps) or 2 (merges and divisions)
                           sizes.allowed = NULL,  # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
-                          sizes.simulated = NULL ) # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+                          sizes.simulated = NULL, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+                          logL_0 = NULL ) # if known, the value of  
 {
   
   num.nodes <- nrow(nodes)
@@ -70,8 +71,10 @@ estimate_logL <- function(partition, # observed partition
   lambda <- 1/M * lambda
   
   # value of log likelihood for basic Dirichlet model (theta_0)
-  index_0 <- which(effects$names == "num_groups")
-  logL_0 <- log(exp(theta_0[index_0]*max(partition))/calculate_logL_Dirichlet(nodes, theta_0[index_0],sizes.allowed))
+  if(is.null(logL_0)){
+    index_0 <- which(effects$names == "num_groups")
+    logL_0 <- log(exp(theta_0[index_0]*max(partition))/calculate_logL_Dirichlet(nodes, theta_0[index_0],sizes.allowed))
+  }
   
   # estimated value of log likelihood for full model (theta)
   logL <- diff_vector %*% z.obs - lambda + logL_0
