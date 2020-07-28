@@ -242,7 +242,7 @@ run_phase2_multiple <- function(estimates.phase1,
       while(!stop.iterations) {
         
         # draw chain
-        results.i <- draw_Metropolis_multiple(theta.i, partitions.i, nodes, presence.tables, effects, objects, burnin, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+        results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
         z.i <- results.i$draws
         partition.i <- results.i$last.partitions
         
@@ -312,7 +312,7 @@ run_phase2_multiple <- function(estimates.phase1,
         # draw chain
         fulltheta.i <- estimates.phase1
         fulltheta.i[unfixed.indexes] <- theta.i
-        results.i <- draw_Metropolis_multiple(theta.i, partitions.i, nodes, presence.tables, effects, objects, burnin, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+        results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
         z.i <- results.i$draws[unfixed.indexes]
         partitions.i <- results.i$last.partitions
         

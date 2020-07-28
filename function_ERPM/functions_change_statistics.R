@@ -516,6 +516,18 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
       }
     }
     statistics[e] <- stat
+    
+    # --------- INERTIA -----------
+    if(effect.name == "inertia") {
+      stat <- 0
+      for(o in 2:num.obs){
+        if(length(groups[[o]]) > 0) {
+          d <- adjacencies[[o-1]] * adjacencies[[o]]
+          stat <- stat + sum(1/2 * d)
+        }
+      }
+    }
+    statistics[e] <- stat
   }
   
   return(statistics)
