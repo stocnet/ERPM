@@ -212,7 +212,7 @@ draw_Metropolis_multiple <- function(theta, # model parameters
         # store all partitions if needed
         if(return.all.partitions){
           cpt_all <- cpt_all + 1
-          all.partitions[[cpt_all]] <- new.partitions
+          all.partitions[[cpt_all]] <- current.partitions
         }
         
       }
@@ -242,7 +242,7 @@ draw_Metropolis_multiple <- function(theta, # model parameters
           # store all partitions if needed
           if(return.all.partitions){
             cpt_all <- cpt_all + 1
-            all.partitions[[cpt_all]] <- new.partitions
+            all.partitions[[cpt_all]] <- current.partitions
           }
         } 
       }
