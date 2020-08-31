@@ -6,7 +6,8 @@
 
 
 
-run_phase2_single <- function(estimates.phase1, 
+run_phase2_single <- function(partition,
+                       estimates.phase1, 
                        inv.zcov,
                        inv.scaling, 
                        z.obs, 
@@ -43,7 +44,8 @@ run_phase2_single <- function(estimates.phase1,
       all.estimates <- rbind(all.estimates,matrix(theta.i,nrow=1)) 
       
       # find a good starting point
-      partition.i <- find_startingpoint_single(nodes,sizes.allowed)
+      #partition.i <- find_startingpoint_single(nodes,sizes.allowed)
+      partition.i <- partition
       sign.i_1 <- rep(0, num.effects) # used to check cross statistics
       
       # TODO: check whether this is right?
@@ -184,7 +186,8 @@ run_phase2_single <- function(estimates.phase1,
 }
 
 
-run_phase2_multiple <- function(estimates.phase1, 
+run_phase2_multiple <- function(partitions,
+                              estimates.phase1, 
                               inv.zcov,
                               inv.scaling, 
                               z.obs, 
@@ -224,7 +227,8 @@ run_phase2_multiple <- function(estimates.phase1,
       all.estimates <- rbind(all.estimates,matrix(theta.i,nrow=1)) 
       
       # find a good starting point
-      partitions.i <- find_startingpoint_multiple(presence.tables,nodes,sizes.allowed)
+      #partitions.i <- find_startingpoint_multiple(presence.tables,nodes,sizes.allowed)
+      partitions.i <- partitions
       sign.i_1 <- rep(0, num.effects) # used to check cross statistics
       
       # TODO: check whether this is right?

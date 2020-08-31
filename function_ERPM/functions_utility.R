@@ -299,7 +299,7 @@ check_sizes <- function(partition, sizes.allowed){
 
 ## Other useful functions for descriptives #####################################
 
-library(clue)
+#library(clue)
 calculate_min_transferdistances <- function(allpartitions, allclasses){
   
   n <- dim(allpartitions)[2]

@@ -6,7 +6,8 @@
 
 
 # Phase 3 for a single partition
-run_phase3_single <- function(estimates.phase2, 
+run_phase3_single <- function(partition,
+                       estimates.phase2, 
                        z.obs, 
                        nodes, 
                        effects, 
@@ -19,16 +20,36 @@ run_phase3_single <- function(estimates.phase2,
                        neighborhood,
                        sizes.allowed,
                        sizes.simulated,
-                       fixed.estimates) {
+                       fixed.estimates,
+                       parallel = F,
+                       cpus = 1) {
   
   num.nodes <- nrow(nodes)
   num.effects <- length(effects$names)
   
   # find a good starting point
-  first.partition <- find_startingpoint_single(nodes,sizes.allowed)
+  #first.partition <- find_startingpoint_single(nodes,sizes.allowed)
+  first.partition <- partition
   
   # simulate a large sample with the estimates found in phase 2 
-  results.phase3 <- draw_Metropolis_single(estimates.phase2, first.partition, nodes, effects, objects, burnin, thining, length.p3, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+  if(parallel){
+    
+    sfExport("startingestimates", "first.partition", "nodes", "effects", "objects", "burnin", "thining", "length.p3", "cpus", "mini.steps", "neighborhood", "sizes.allowed", "sizes.simulated")
+    res <- sfLapply(1:cpus, fun = function(k) {
+      set.seed(k)
+      subres <- draw_Metropolis_single(estimates.phase2, first.partition, nodes, effects, objects, burnin, thining, ceiling(length.p3/cpus), mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+      return(subres)
+    }
+    )
+    all.z <- c()
+    for(k in 1:cpus) all.z <- rbind(all.z,res[[k]]$draws)
+    length.p3 <- cpus * ceiling(length.p3/cpus)
+    results.phase3 <- list("draws" = all.z, "last.partition" = res[[cpus]]$last.partition, "all.partitions" = NULL) 
+    
+  }else{
+    
+    results.phase3 <- draw_Metropolis_single(estimates.phase2, first.partition, nodes, effects, objects, burnin, thining, length.p3, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+  }
   z.phase3 <- results.phase3$draws
   
   # calculate covariance and scaling
@@ -63,7 +84,8 @@ run_phase3_single <- function(estimates.phase2,
 
 
 # Phase 3 for multiple partitions
-run_phase3_multiple <- function(estimates.phase2, 
+run_phase3_multiple <- function(partitions,
+                              estimates.phase2, 
                               z.obs, 
                               presence.tables, 
                               nodes, 
@@ -77,16 +99,37 @@ run_phase3_multiple <- function(estimates.phase2,
                               neighborhood,
                               sizes.allowed,
                               sizes.simulated,
-                              fixed.estimates) {
+                              fixed.estimates,
+                              parallel = F,
+                              cpus = 1) {
   
   num.nodes <- nrow(nodes)
   num.effects <- length(effects$names)
   
   # find a good starting point
-  first.partitions <- find_startingpoint_multiple(presence.tables,nodes,sizes.allowed)
+  #first.partitions <- find_startingpoint_multiple(presence.tables,nodes,sizes.allowed)
+  first.partitions <- partitions
   
   # simulate a large sample with the estimates found in phase 2 
-  results.phase3 <- draw_Metropolis_multiple(estimates.phase2, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, length.p3, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+  if(parallel){
+    
+    sfExport("startingestimates", "first.partitions", "presence.tables", "nodes", "effects", "objects", "burnin", "thining", "length.p3", "cpus", "mini.steps", "neighborhood", "sizes.allowed", "sizes.simulated")
+    res <- sfLapply(1:cpus, fun = function(k) {
+      set.seed(k)
+      subres <- draw_Metropolis_multiple(estimates.phase2, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, ceiling(length.p3/cpus), mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+      return(subres)
+    }
+    )
+    all.z <- c()
+    for(k in 1:cpus) all.z <- rbind(all.z,res[[k]]$draws)
+    length.p3 <- cpus * ceiling(length.p3/cpus)
+    results.phase3 <- list("draws" = all.z, "last.partitions" = res[[cpus]]$last.partitions, "all.partitions" = NULL) 
+  
+  }else{
+    
+    results.phase3 <- draw_Metropolis_multiple(estimates.phase2, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, length.p3, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+  
+  }
   z.phase3 <- results.phase3$draws
   
   # calculate covariance and scaling

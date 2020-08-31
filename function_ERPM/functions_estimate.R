@@ -31,17 +31,13 @@ estimate_ERPM <- function(partition, # observed partition
                           sizes.simulated = NULL, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
                           double.averaging = F, # option to average the statistics sampled in each sub-step of phase 2
                           inv.zcov = NULL, # initial value of the inverted covariance matrix (if a phase 3 was run before) to bypass the phase 1
-                          inv.scaling = NULL) { # initial value of the inverted scaling matrix (if a phase 3 was run before) to bypass the phase 1
+                          inv.scaling = NULL, # initial value of the inverted scaling matrix (if a phase 3 was run before) to bypass the phase 1
+                          parallel = F, # whether the phase 1 and 3 should be parallelized
+                          parallel2 = F, # whether there should be several phases 2 run in parallel
+                          cpus = 1) { # how many cores can be used
   
   z.obs <- computeStatistics(partition, nodes, effects, objects)
-  #density.obs <- sum(adjacency)/(num.nodes*(num.nodes-1))
-
-  # TODO: what is the burn-in here???
-  #burnin <- multiplicationfactor * density.obs * (1-density.obs) * num.nodes^2
   
-  # TODO: check also this number of steps
-  #num.steps <- 6
-  #gainfactors <- c(gainfactor, gainfactor/2, gainfactor/4, gainfactor/8, gainfactor/16, gainfactor/32)
   gainfactors <- rep(0,num.steps.p2)
   for(i in 1:num.steps.p2){
     gainfactors[i] <- gainfactor/(2^(i-1))
@@ -70,18 +66,34 @@ estimate_ERPM <- function(partition, # observed partition
   if(!is.null(inv.zcov)) {
     estimates.phase1 <- startingestimates
   } else {
-    results.phase1 <- run_phase1_single(startingestimates, z.obs, nodes, effects, objects, burnin, thining, gainfactor, a.scaling, r.truncation.p1, mini.steps, length.p1, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated)
+    results.phase1 <- run_phase1_single(partition, startingestimates, z.obs, nodes, effects, objects, burnin, thining, gainfactor, a.scaling, r.truncation.p1, mini.steps, length.p1, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, parallel, cpus)
     estimates.phase1 <- results.phase1$estimates
     inv.zcov <- results.phase1$inv.zcov
     inv.scaling <- results.phase1$inv.scaling
   }
   
   # --------- PHASE 2 ---------
-  results.phase2 <- run_phase2_single(estimates.phase1, inv.zcov,inv.scaling, z.obs, nodes, effects, objects, burnin, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
-  estimates.phase2 <- results.phase2$final.estimates
+  if(parallel2){
+    
+    sfExport("partition", "estimates.phase1", "inv.zcov", "inv.scaling", "z.obs", "nodes", "effects", "objects", "burnin", "num.steps.p2", "gainfactors", "r.truncation.p2", "mini.steps", "min.iter.p2", "max.iter.p2", "neighborhood", "fixed.estimates", "sizes.allowed", "sizes.simulated", "double.averaging")
+    res <- sfLapply(1:cpus, fun = function(k) {
+      set.seed(k)
+      subres <- run_phase2_single(partition, estimates.phase1, inv.zcov,inv.scaling, z.obs, nodes, effects, objects, burnin, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
+      return(subres)
+    }
+    )
+    final.estimates <- c()
+    for(k in 1:cpus) final.estimates <- final.estimates + res[[k]]$final.estimates
+    estimates.phase2 <- final.estimates / cpus
+    
+  }else{
+    
+    results.phase2 <- run_phase2_single(partition, estimates.phase1, inv.zcov,inv.scaling, z.obs, nodes, effects, objects, burnin, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
+    estimates.phase2 <- results.phase2$final.estimates
+  }
   
   # --------- PHASE 3 ---------
-  results.phase3 <- run_phase3_single(estimates.phase2, z.obs, nodes, effects, objects, burnin, thining, a.scaling, mini.steps, length.p3, neighborhood, sizes.allowed, sizes.simulated, fixed.estimates)
+  results.phase3 <- run_phase3_single(partition, estimates.phase2, z.obs, nodes, effects, objects, burnin, thining, a.scaling, mini.steps, length.p3, neighborhood, sizes.allowed, sizes.simulated, fixed.estimates, parallel, cpus)
   means <- results.phase3$means
   standard.deviations <- results.phase3$standard.deviations
   standard.errors <- results.phase3$standard.errors
@@ -139,7 +151,7 @@ estimate_ERPM_p3 <- function(partition,
   
   
   # --------- PHASE 3 ---------
-  results.phase3 <- run_phase3(startingestimates, z.obs, nodes, effects, objects, burnin, thining, mini.steps, length.p3, neighborhood, sizes.allowed, sizes.simulated)
+  results.phase3 <- run_phase3(partition, startingestimates, z.obs, nodes, effects, objects, burnin, thining, mini.steps, length.p3, neighborhood, sizes.allowed, sizes.simulated)
   means <- results.phase3$means
   standard.deviations <- results.phase3$standard.deviations
   standard.errors <- results.phase3$standard.errors
@@ -188,7 +200,10 @@ estimate_multipleERPM <- function(partitions, # observed partitions
                           sizes.simulated = NULL, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
                           double.averaging = F, # option to average the statistics sampled in each sub-step of phase 2
                           inv.zcov = NULL, # initial value of the inverted covariance matrix (if a phase 3 was run before) to bypass the phase 1
-                          inv.scaling = NULL) { # initial value of the inverted scaling matrix (if a phase 3 was run before) to bypass the phase 1
+                          inv.scaling = NULL, # initial value of the inverted scaling matrix (if a phase 3 was run before) to bypass the phase 1
+                          parallel = F, # whether the phase 1 and 3 should be parallelized
+                          parallel2 = F, # whether there should be several phases 2 run in parallel
+                          cpus = 1) { # how many cores can be used
   
   z.obs <- computeStatistics_multiple(partitions, presence.tables, nodes, effects, objects)
  
@@ -220,18 +235,35 @@ estimate_multipleERPM <- function(partitions, # observed partitions
   if(!is.null(inv.zcov)) {
     estimates.phase1 <- startingestimates
   } else {
-    results.phase1 <- run_phase1_multiple(startingestimates, z.obs, presence.tables, nodes, effects, objects, burnin, thining, gainfactor, a.scaling, r.truncation.p1, mini.steps, length.p1, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated)
+    results.phase1 <- run_phase1_multiple(partitions, startingestimates, z.obs, presence.tables, nodes, effects, objects, burnin, thining, gainfactor, a.scaling, r.truncation.p1, mini.steps, length.p1, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, parallel, cpus)
     estimates.phase1 <- results.phase1$estimates
     inv.zcov <- results.phase1$inv.zcov
     inv.scaling <- results.phase1$inv.scaling
   }
   
   # --------- PHASE 2 ---------
-  results.phase2 <- run_phase2_multiple(estimates.phase1, inv.zcov,inv.scaling, z.obs, presence.tables, nodes, effects, objects, burnin, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
-  estimates.phase2 <- results.phase2$final.estimates
+  if(parallel2){
+    
+    sfExport("partitions", "estimates.phase1", "inv.zcov", "inv.scaling", "z.obs", "presence.tables", "nodes", "effects", "objects", "burnin", "num.steps.p2", "gainfactors", "r.truncation.p2", "mini.steps", "min.iter.p2", "max.iter.p2", "neighborhood", "fixed.estimates", "sizes.allowed", "sizes.simulated", "double.averaging")
+    res <- sfLapply(1:cpus, fun = function(k) {
+      set.seed(k)
+      subres <- run_phase2_multiple(partitions, estimates.phase1, inv.zcov,inv.scaling, z.obs, presence.tables, nodes, effects, objects, burnin, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
+      return(subres)
+    }
+    )
+    final.estimates <- c()
+    for(k in 1:cpus) final.estimates <- final.estimates + res[[k]]$final.estimates
+    estimates.phase2 <- final.estimates / cpus
+    
+  }else{
+    
+    results.phase2 <- run_phase2_multiple(partitions, estimates.phase1, inv.zcov,inv.scaling, z.obs, presence.tables, nodes, effects, objects, burnin, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
+    estimates.phase2 <- results.phase2$final.estimates
+  }
+  
   
   # --------- PHASE 3 ---------
-  results.phase3 <- run_phase3_multiple(estimates.phase2, z.obs, presence.tables, nodes, effects, objects, burnin, thining, a.scaling, mini.steps, length.p3, neighborhood, sizes.allowed, sizes.simulated, fixed.estimates)
+  results.phase3 <- run_phase3_multiple(partitions, estimates.phase2, z.obs, presence.tables, nodes, effects, objects, burnin, thining, a.scaling, mini.steps, length.p3, neighborhood, sizes.allowed, sizes.simulated, fixed.estimates, parallel, cpus)
   means <- results.phase3$means
   standard.deviations <- results.phase3$standard.deviations
   standard.errors <- results.phase3$standard.errors
@@ -257,4 +289,94 @@ estimate_multipleERPM <- function(partitions, # observed partitions
 }
 
 
+
+
+## Estimation ERPM for multiple observations:
+
+estimate_multipleBERPM <- function(partitions, # observed partitions
+                                  presence.tables, # matrix indicating which actors were present for each observations (mandatory)
+                                  nodes, # nodeset (data frame)
+                                  objects, # objects used for statistics calculation (list with a vector "name", and a vector "object")
+                                  effects, # effects/sufficient statistics (list with a vector "names", and a vector "objects")
+                                  mean.priors, # means of the normal distributions of prior parameters
+                                  sd.priors, # standard deviations of the normal distributions of prior parameters
+                                  start.chains = NULL, # define a list of starting values for parameters
+                                  
+                                  burnin.1 = 30, # integer for the number of burn-in steps before sampling in the main MCMC chain
+                                  thining.1 = 10, # integer for the number of thining steps between sampling in the main MCMC chain
+                                  num.chains = 3, # number of MChains
+                                  length.chains = 1000, # number of samples of each chain
+                                  
+                                  mini.steps.2 = "normalized", # type of transition in the Metropolis Hastings algorithm, either "normalized", either "self-loops" (take "normalized")
+                                  burnin.2 = 30, # integer for the number of burn-in steps before sampling int the MCMC to sample partitions
+                                  
+                                  neighborhood.partition = 2, # way of choosing partitions, either 1 (actor swaps) or 2 (merges and divisions)
+                                  
+                                  neighborhood.augmentation = NULL, # standard deviations auround the parameters to draw the augmented distrubtion
+                                  
+                                  sizes.allowed = NULL, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
+                                  sizes.simulated = NULL, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+                                  
+                                  parallel = F, # whether the chains are parallelized (possibly within chains too)
+                                  cpus = 1) { # how many cores can be used
+  
+  num.effects <- length(effects$names)
+  z.obs <- computeStatistics_multiple(partitions, presence.tables, nodes, effects, objects)
+  
+  print("Observed statistics")
+  print(z.obs)
+  
+  print("Burn-in")
+  print(burnin.1)
+  
+  print("Thining")
+  print(thining.1)
+  
+  # if the starts of the chains are not given
+  if(is.null(start.chains)){
+    start.chains <- list()
+    for(p in 1:num.effects){
+      start.chains[[p]] <- rnorm(num.effects, mean=mean.priors, sd=sd.priors)
+    }
+  }
+  
+  # if proposal for auxiliary distribution is not given
+  if(is.null(neighborhood.augmentation)){
+    neighborhood.augmentation <- rep(0.1,num.effects)
+  }
+
+    
+  # --------- MAIN MCMC: EXCHANGE ALGORITHM ---------
+  results_exchange <- draw_exchangealgorithm_multiple(partitions, 
+                                                      z.obs,
+                                                      presence.tables, 
+                                                      nodes, 
+                                                      objects, 
+                                                      effects, 
+                                                      mean.priors,
+                                                      sd.priors, 
+                                                      start.chains,
+                                                      burnin.1,
+                                                      thining.1,
+                                                      num.chains,
+                                                      length.chains,
+                                                      mini.steps.2,
+                                                      burnin.2, 
+                                                      neighborhood.partition,
+                                                      neighborhood.augmentation,
+                                                      sizes.allowed,
+                                                      sizes.simulated,
+                                                      parallel,
+                                                      cpus)
+  
+  # ------ PRINT RESULTS ------
+  results <- data.frame(effect = effects$names, 
+                        object = effects$objects,
+                        post.mean = results_exchange$post.mean, 
+                        post.sd = results_exchange$post.sd)
+  print_results_bayesian(results)
+  
+  return(list(results = results,
+              all.chains = results_exchange$all.chains))
+}
 

@@ -36,8 +36,14 @@ computeStatistics <- function (partition, nodes, effects, objects){
   # create affiliation matrix for calculations
   affiliation <- as.matrix(table(data.frame(actor = 1:num.nodes, group= partition)))
   adjacency <- affiliation %*% t(affiliation)
-  weights <- unlist(lapply(sizes,function(x){return(rep(1/x,x))}))
-  weighted_adjacency <- adjacency * weights
+  
+  num_dyads <- (sizes*(sizes - 1)) / 2
+  num_dyads[num_dyads == 0] <- 1
+  adjacency_norm <- affiliation %*% t(affiliation) / num_dyads[partition]
+  diag(adjacency_norm) <- 0
+  
+  #weights <- unlist(lapply(sizes,function(x){return(rep(1/x,x))}))
+  #weighted_adjacency <- adjacency * weights
   
   for(e in 1:num.effects) {
     
@@ -92,6 +98,26 @@ computeStatistics <- function (partition, nodes, effects, objects){
         sum <- sum + (size == 5)
       }
       statistics[e] <- sum
+    }
+    
+    # --------- NUM GROUPS 6 -----------
+    if(effect.name == "num_groups_6") {
+      sum <- 0
+      for(g in 1:max(partition)){
+        size <- length(which(partition==g))
+        sum <- sum + (size == 6)
+      }
+      statistics[e] <- sum
+    }
+    
+    # --------- NUM GROUPS x PRESENT NODES -----------
+    if(effect.name == "num_groups_x_num_nodes") {
+      statistics[e] <- max(partition) * num.nodes
+    }
+    
+    # --------- NUM GROUPS x LOG OF PRESENT NODES -----------
+    if(effect.name == "num_groups_x_log_num_nodes") {
+      statistics[e] <- max(partition) * log(num.nodes)
     }
     
     # --------- NUM TRIANGLES -----------
@@ -295,6 +321,21 @@ computeStatistics <- function (partition, nodes, effects, objects){
      
     }
     
+    # --------- HOMOPHILY:SAME NORMALIZED -----------
+    if(effect.name == "same_norm") {
+      if(length(groups) > 0) {
+        att <- which(colnames(nodes) == object.name)
+        att.nodes <- factor(nodes[,att])
+        d <- as.matrix(dist(as.numeric(att.nodes)))
+        d <- d==0
+        diag(d) <- 0
+        statistics[e] <- sum(1/2 * adjacency_norm * d)
+      } else {
+        statistics[e] <- 0
+      }
+      
+    }
+
     # --------- HOMOPHILY:DIFF -----------
     if(effect.name == "diff") {
       if(length(groups) > 0){
@@ -319,7 +360,51 @@ computeStatistics <- function (partition, nodes, effects, objects){
       
     }
     
+    # --------- HOMOPHILY:DIFF NORMALIZED -----------
+    if(effect.name == "diff_norm") {
+      if(length(groups) > 0){
+        att <- which(colnames(nodes) == object.name)
+        d <- as.matrix(dist(as.numeric(nodes[,att])))
+        stat <- stat + sum(1/2 * adjacency_norm * d)
+      }else{
+        statistics[e] <- 0
+      }
+    }
     
+    # --------- HOMOPHILY:DIFF PER INDIVIDUAL -----------
+    if(effect.name == "diff_ind") {
+      if(length(groups) > 0){
+        att <- which(colnames(nodes) == object.name)
+        for(a in 1:num.nodes){
+          g <- partitions[a]
+          others <- which(partitions[-a] == g)
+          if(length(others) > 0) {
+            diffs <- abs(as.numeric(nodes[a,att]) - as.numeric(nodes[others,att]))
+            stat <- stat + min(diffs)
+          }
+        }
+      }else{
+        statistics[e] <- 0
+      }
+    }
+    
+    # --------- HOMOPHILY:DIFF PER INDIVIDUAL NORMALIZED-----------
+    if(effect.name == "diff_ind_norm") {
+      if(length(groups) > 0){
+        att <- which(colnames(nodes) == object.name)
+        for(a in 1:num.nodes){
+          g <- partitions[a]
+          others <- which(partitions[-a] == g)
+          if(length(others) > 0) {
+            diffs <- abs(as.numeric(nodes[a,att]) - as.numeric(nodes[others,att]))
+            stat <- stat + min(diffs) / (length(others)+1)
+          }
+        }
+      }else{
+        statistics[e] <- 0
+      }
+    }
+   
     # ---------GROUP: NUMBER_ATTRIBUTES -----------
     if(effect.name == "number_attributes") {
       if(length(groups) > 0) {
@@ -360,7 +445,7 @@ computeStatistics <- function (partition, nodes, effects, objects){
 
 
 # Compute complete statistics for multiple partitions
-computeStatistics_multiple <- function(partitions, presence.tables, nodes, effects, objects){
+computeStatistics_multiple <- function(partitions, presence.tables, nodes, effects, objects, single.obs = NULL){
   
   num.nodes <- nrow(nodes)
   num.obs <- ncol(presence.tables)
@@ -384,11 +469,19 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
   
   # create adjacency matrices
   adjacencies <- list()
+  adjacencies_norm <- list()
   for(o in 1:num.obs){
     p <- partitions[,o]
     p <- p[as.logical(presence.tables[,o])]
     affiliation <- as.matrix(table(data.frame(actor = 1:length(p), group= p)))
+    
     adjacencies[[o]] <- affiliation %*% t(affiliation)
+    diag(adjacencies[[o]]) <- 0
+    
+    num_dyads <- (sizes[[o]]*(sizes[[o]] - 1)) / 2
+    num_dyads[num_dyads == 0] <- 1
+    adjacencies_norm[[o]] <- affiliation %*% t(affiliation) / num_dyads[p]
+    diag(adjacencies_norm[[o]]) <- 0
   }
   
   
@@ -412,6 +505,72 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
       stat <- 0
       for(o in 1:num.obs){
         stat <- stat + nums.groups[o]
+      }
+      statistics[e] <- stat 
+    }
+    
+    # --------- NUM GROUPS 3 -----------
+    if(effect.name == "num_groups_3") {
+      stat <- 0
+      for(o in 1:num.obs){
+        for(g in 1:nums.groups[o]){
+          size <- length(which(partitions[,o]==g))
+          stat <- stat + (size == 3)
+        }
+      }
+      statistics[e] <- stat 
+    }
+    
+    # --------- NUM GROUPS 4 -----------
+    if(effect.name == "num_groups_4") {
+      stat <- 0
+      for(o in 1:num.obs){
+        for(g in 1:nums.groups[o]){
+          size <- length(which(partitions[,o]==g))
+          stat <- stat + (size == 4)
+        }
+      }
+      statistics[e] <- stat 
+    }
+    
+    # --------- NUM GROUPS 5 -----------
+    if(effect.name == "num_groups_5") {
+      stat <- 0
+      for(o in 1:num.obs){
+        for(g in 1:nums.groups[o]){
+          size <- length(which(partitions[,o]==g))
+          stat <- stat + (size == 5)
+        }
+      }
+      statistics[e] <- stat 
+    }
+    
+    # --------- NUM GROUPS 6 -----------
+    if(effect.name == "num_groups_6") {
+      stat <- 0
+      for(o in 1:num.obs){
+        for(g in 1:nums.groups[o]){
+          size <- length(which(partitions[,o]==g))
+          stat <- stat + (size == 6)
+        }
+      }
+      statistics[e] <- stat 
+    }
+    
+    # --------- NUM GROUPS x PRESENT NODES -----------
+    if(effect.name == "num_groups_x_num_nodes") {
+      stat <- 0
+      for(o in 1:num.obs){
+        stat <- stat + nums.groups[o] * sum(presence.tables[,o])
+      }
+      statistics[e] <- stat 
+    }
+    
+    # --------- NUM GROUPS x LOG OF PRESENT NODES -----------
+    if(effect.name == "num_groups_x_log_num_nodes") {
+      stat <- 0
+      for(o in 1:num.obs){
+        stat <- stat + nums.groups[o] * log(sum(presence.tables[,o]))
       }
       statistics[e] <- stat 
     }
@@ -489,6 +648,22 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
       statistics[e] <- stat
     }
     
+    # --------- HOMOPHILY:SAME NORMALIZED -----------
+    if(effect.name == "same_norm") {
+      stat <- 0
+      att <- which(colnames(nodes) == object.name)
+      for(o in 1:num.obs){
+        if(length(groups[[o]]) > 0) {
+          att.nodes <- factor(nodes[as.logical(presence.tables[,o]),att])
+          d <- as.matrix(dist(as.numeric(att.nodes)))
+          d <- d==0
+          diag(d) <- 0
+          stat <- stat + sum(1/2 * adjacencies_norm[[o]] * d)
+        }
+      }
+      statistics[e] <- stat
+    }
+    
     # --------- HOMOPHILY:DIFF -----------
     if(effect.name == "diff") {
       stat <- 0
@@ -497,6 +672,53 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         if(length(groups[[o]]) > 0){
           d <- as.matrix(dist(as.numeric(nodes[as.logical(presence.tables[,o]),att])))
           stat <- stat + sum(1/2 * adjacencies[[o]] * d)
+        }
+      }
+      statistics[e] <- stat
+    }
+    
+    # --------- HOMOPHILY:DIFF NORMALIZED -----------
+    if(effect.name == "diff_norm") {
+      stat <- 0
+      att <- which(colnames(nodes) == object.name)
+      for(o in 1:num.obs){
+        if(length(groups[[o]]) > 0){
+          d <- as.matrix(dist(as.numeric(nodes[as.logical(presence.tables[,o]),att])))
+          stat <- stat + sum(1/2 * adjacencies_norm[[o]] * d)
+        }
+      }
+      statistics[e] <- stat
+    }
+    
+    # --------- HOMOPHILY:DIFF PER INDIVIDUAL -----------
+    if(effect.name == "diff_ind") {
+      stat <- 0
+      att <- which(colnames(nodes) == object.name)
+      for(o in 1:num.obs){
+        for(a in 1:num.nodes){
+          g <- partitions[a,o]
+          others <- which(partitions[-a,o] == g)
+          if(length(others) > 0) {
+            diffs <- abs(as.numeric(nodes[a,att]) - as.numeric(nodes[others,att]))
+            stat <- stat + min(diffs)
+          }
+        }
+      }
+      statistics[e] <- stat
+    }
+    
+    # --------- HOMOPHILY:DIFF PER INDIVIDUAL NORMALIZED -----------
+    if(effect.name == "diff_ind_norm") {
+      stat <- 0
+      att <- which(colnames(nodes) == object.name)
+      for(o in 1:num.obs){
+        for(a in 1:num.nodes){
+          g <- partitions[a,o]
+          others <- which(partitions[-a,o] == g)
+          if(length(others) > 0) {
+            diffs <- abs(as.numeric(nodes[a,att]) - as.numeric(nodes[others,att]))
+            stat <- stat + min(diffs) / (length(others)+1)
+          }
         }
       }
       statistics[e] <- stat
