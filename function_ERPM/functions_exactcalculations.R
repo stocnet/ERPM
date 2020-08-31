@@ -7,8 +7,8 @@
 
 
 
-library(numbers)
-library(combinat)
+#library(numbers)
+#library(combinat)
 
 exactestimates_numgroups <- function(num.nodes, pmin, pmax, pinc) {
   

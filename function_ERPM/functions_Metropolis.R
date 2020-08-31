@@ -121,7 +121,8 @@ draw_Metropolis_single <- function(theta, # model parameters
   # compute the average statistics and the final network generated
   if(!return.all.partitions) {
     return( list("draws" = all.z, 
-                 "last.partition" = current.partition))
+                 "last.partition" = current.partition,
+                 "all.partitions" = NULL))
   } else {
     return( list("draws" = all.z, 
                "last.partition" = current.partition,
@@ -259,7 +260,8 @@ draw_Metropolis_multiple <- function(theta, # model parameters
   # compute the average statistics and the final network generated
   if(!return.all.partitions) {
     return( list("draws" = all.z, 
-                 "last.partitions" = current.partitions))
+                 "last.partitions" = current.partitions,
+                 "all.partitions" = NULL))
   } else {
     return( list("draws" = all.z, 
                  "last.partitions" = current.partitions,
@@ -360,28 +362,34 @@ draw_step_multiple <- function(theta,
   num.obs <- ncol(presence.tables)
   new.partitions <- current.partitions
   
-  for(o in 1:num.obs) {
-    
+  rand.o <- sample(1:num.obs,1)
+  nodes.rand.o <- as.logical(presence.tables[,rand.o])
+  
+  #for(rand.o in 1:num.obs) {
+    # nodes.rand.o <- as.logical(presence.tables[,rand.o])
+  
     ## IF NEIGHBORHOOD IS: 1 = swaps, 2 = merges/splits
     if(neighborhood == 1 && is.null(sizes.allowed)) {
-      new.p <- sample_new_partition_p1(current.partitions[as.logical(presence.tables[,o]),o], mini.steps)
+      new.p <- sample_new_partition_p1(current.partitions[nodes.rand.o,rand.o], mini.steps)
     } else if(neighborhood == 2 && is.null(sizes.allowed)){
-      new.p <- sample_new_partition_p2(current.partitions[as.logical(presence.tables[,o]),o], mini.steps)
+      new.p <- sample_new_partition_p2(current.partitions[nodes.rand.o,rand.o], mini.steps)
     }
     if(neighborhood == 1 && !is.null(sizes.allowed)) {
-      new.p <- sample_new_partition_p1_restricted(current.partitions[as.logical(presence.tables[,o]),o], mini.steps, sizes.simulated)
+      new.p <- sample_new_partition_p1_restricted(current.partitions[nodes.rand.o,rand.o], mini.steps, sizes.simulated)
     } else if(neighborhood == 2 && !is.null(sizes.allowed)){
-      new.p <- sample_new_partition_p2_restricted(current.partitions[as.logical(presence.tables[,o]),o], mini.steps, sizes.simulated)
+      new.p <- sample_new_partition_p2_restricted(current.partitions[nodes.rand.o,rand.o], mini.steps, sizes.simulated)
     }
     
-    new.partitions[,o] <- rep(NA,num.nodes)
-    new.partitions[as.logical(presence.tables[,o]),o] <- new.p
+    new.partitions[,rand.o] <- rep(NA,num.nodes)
+    new.partitions[nodes.rand.o,rand.o] <- new.p
     
-  }
+  #}
   
   # compute new statistics only if it changed
   if(!all(current.partitions == new.partitions)) {
-    new.z <- computeStatistics_multiple(new.partitions, presence.tables, nodes, effects, objects)
+    old.z.o <- computeStatistics(current.partitions[nodes.rand.o,rand.o], nodes[nodes.rand.o,], effects, objects)
+    new.z.o <- computeStatistics(new.partitions[nodes.rand.o,rand.o], nodes[nodes.rand.o,], effects, objects)
+    new.z <- current.z - old.z.o + new.z.o
   } else {
     new.z <- current.z
   }
@@ -395,27 +403,27 @@ draw_step_multiple <- function(theta,
     
     neighborhoods.ratios <- 1
     
-    for(o in 1:num.obs) {
+    #for(rand.o in 1:num.obs) {
       
       if(neighborhood == 1 && is.null(sizes.allowed)) {
-        current.size <- compute_size_neighborhood_p1(current.partitions[as.logical(presence.tables[,o]),o])
-        new.size <- compute_size_neighborhood_p1(new.partitions[as.logical(presence.tables[,o]),o])
+        current.size <- compute_size_neighborhood_p1(current.partitions[nodes.rand.o,rand.o])
+        new.size <- compute_size_neighborhood_p1(new.partitions[nodes.rand.o,rand.o])
         neighborhoods.ratios <-  neighborhoods.ratios * current.size$num.swaps / new.size$num.swaps 
       } else if(neighborhood == 2 && is.null(sizes.allowed)) {
-        current.size <- compute_size_neighborhood_p2(current.partitions[as.logical(presence.tables[,o]),o])
-        new.size <- compute_size_neighborhood_p2(new.partitions[as.logical(presence.tables[,o]),o])
+        current.size <- compute_size_neighborhood_p2(current.partitions[nodes.rand.o,rand.o])
+        new.size <- compute_size_neighborhood_p2(new.partitions[nodes.rand.o,rand.o])
         neighborhoods.ratios <- neighborhoods.ratios * (new.size$num.merges + new.size$num.divisions)/ (current.size$num.merges + current.size$num.divisions)
       }
       if(neighborhood == 1 && !is.null(sizes.allowed)) {
-        current.size <- compute_size_neighborhood_p1_restricted(current.partitions[as.logical(presence.tables[,o]),o], sizes.simulated)
-        new.size <- compute_size_neighborhood_p1_restricted(new.partitions[as.logical(presence.tables[,o]),o], sizes.simulated)
+        current.size <- compute_size_neighborhood_p1_restricted(current.partitions[nodes.rand.o,rand.o], sizes.simulated)
+        new.size <- compute_size_neighborhood_p1_restricted(new.partitions[nodes.rand.o,rand.o], sizes.simulated)
         neighborhoods.ratios <- neighborhoods.ratios * current.size$num.swaps / new.size$num.swaps 
       } else if(neighborhood == 2 && !is.null(sizes.allowed)) {
-        current.size <- compute_size_neighborhood_p2_restricted(current.partitions[as.logical(presence.tables[,o]),o], sizes.simulated)
-        new.size <- compute_size_neighborhood_p2_restricted(new.partitions[as.logical(presence.tables[,o]),o], sizes.simulated)
+        current.size <- compute_size_neighborhood_p2_restricted(current.partitions[nodes.rand.o,rand.o], sizes.simulated)
+        new.size <- compute_size_neighborhood_p2_restricted(new.partitions[nodes.rand.o,rand.o], sizes.simulated)
         neighborhoods.ratios <- neighborhoods.ratios * (new.size$num.merges + new.size$num.divisions)/ (current.size$num.merges + current.size$num.divisions)
       }
-    }
+    #}
     
     hastings.ratio <- (exp(sum(new.logit) - sum(current.logit))) * neighborhoods.ratios
     
