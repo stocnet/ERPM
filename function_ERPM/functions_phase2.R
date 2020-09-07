@@ -21,6 +21,7 @@ run_phase2_single <- function(partition,
                        mini.steps, 
                        min.iter, 
                        max.iter, 
+                       multiplication.iter,
                        neighborhood,
                        fixed.estimates,
                        sizes.allowed,
@@ -31,6 +32,20 @@ run_phase2_single <- function(partition,
   num.nodes <- nrow(nodes)
   estimates <- estimates.phase1
   all.estimates <- c()
+  
+  # length of subphases
+  if(is.null(min.iter) && is.null(max.iter)){
+    min.iter <- rep(0,num.steps)
+    max.iter <- rep(0,num.steps)
+    for(i in 1:num.steps){
+      min.iter[i] <- multiplication.iter * (2.52)^i 
+      max.iter[i] <- multiplication.iter * (2.52)^i + 200
+    }
+  } else {
+    min.iter <- rep(min.iter,num.steps)
+    max.iter <- rep(max.iter,num.steps)
+  }
+  lengths.subphases <- rep(0,num.steps)
   
   # MAIN STEP: iterate over all substeps of phase 2
   for(step in 1:num.steps) {
@@ -168,9 +183,11 @@ run_phase2_single <- function(partition,
       
       mean.theta <- mean.theta / (i-1)
       estimates[unfixed.indexes] <- mean.theta
+      lengths.subphases[step] <- i-1
       
-      print(cat("step",step))
-      print(cat("current estimate",estimates))
+      print(cat("Step",step))
+      print(cat("Length of the step",(i-1),"(minimal value:",min.iter[step],"and maximal value:",max.iter[step],")"))
+      print(cat("Current estimate",estimates))
 
     }
 
@@ -181,7 +198,8 @@ run_phase2_single <- function(partition,
   }
   
   return(list(all.estimates = all.estimates,
-              final.estimates = estimates))
+              final.estimates = estimates,
+              lengths.subphases = lengths.subphases))
   
 }
 
@@ -202,6 +220,7 @@ run_phase2_multiple <- function(partitions,
                               mini.steps, 
                               min.iter, 
                               max.iter, 
+                              multiplication.iter,
                               neighborhood,
                               fixed.estimates,
                               sizes.allowed,
@@ -214,6 +233,20 @@ run_phase2_multiple <- function(partitions,
   
   estimates <- estimates.phase1
   all.estimates <- c()
+  
+  # length of subphases
+  if(is.null(min.iter) && is.null(max.iter)){
+    min.iter <- rep(0,num.steps)
+    max.iter <- rep(0,num.steps)
+    for(i in 1:num.steps){
+      min.iter[i] <- multiplication.iter * (2.52)^i 
+      max.iter[i] <- multiplication.iter * (2.52)^i + 200
+    }
+  } else {
+    min.iter <- rep(min.iter,num.steps)
+    max.iter <- rep(max.iter,num.steps)
+  }
+  lengths.subphases <- rep(0,num.steps)
   
   # MAIN STEP: iterate over all substeps of phase 2
   for(step in 1:num.steps) {
@@ -267,9 +300,9 @@ run_phase2_multiple <- function(partitions,
         mean.theta <- mean.theta + theta.i
         
         # stopping criteria
-        if( i > max.iter ){
+        if( i > max.iter[step] ){
           stop.iterations <- TRUE
-        } else if (i > min.iter) {
+        } else if (i > min.iter[step]) {
           crossedstats <- crossedstats + (sign.i_1 != sign.i)
           stop.iterations <- all(crossedstats)
         }
@@ -281,6 +314,7 @@ run_phase2_multiple <- function(partitions,
       
       mean.theta <- mean.theta / (i-1)
       estimates <- mean.theta
+      lengths.subphases[step] <- i-1
       
       # fixed estimates procedure  
     } else {
@@ -337,9 +371,9 @@ run_phase2_multiple <- function(partitions,
         mean.theta <- mean.theta + theta.i
         
         # stopping criteria
-        if( i > max.iter ){
+        if( i > max.iter[step] ){
           stop.iterations <- TRUE
-        } else if (i > min.iter) {
+        } else if (i > min.iter[step]) {
           crossedstats <- crossedstats + (sign.i_1 != sign.i)
           stop.iterations <- all(crossedstats)
         }
@@ -351,12 +385,12 @@ run_phase2_multiple <- function(partitions,
       
       mean.theta <- mean.theta / (i-1)
       estimates[unfixed.indexes] <- mean.theta
-      
-      print(cat("step",step))
-      print(cat("current estimate",estimates))
+      lengths.subphases[step] <- i-1
       
     }
     
+    print(cat("Length of the step",step))
+    print(cat((i-1),"(minimal value:",min.iter[step],"and maximal value:",max.iter[step],")"))
     print(cat("Estimated statistics after phase 2, step",step))
     print(z.i)
     print(cat("Estimates after phase 2, step",step))
@@ -364,7 +398,8 @@ run_phase2_multiple <- function(partitions,
   }
   
   return(list(all.estimates = all.estimates,
-              final.estimates = estimates))
+              final.estimates = estimates,
+              lengths.subphases = lengths.subphases))
   
 }
 

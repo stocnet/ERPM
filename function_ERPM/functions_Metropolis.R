@@ -284,16 +284,25 @@ draw_step_single <- function(theta,
                              sizes.allowed, 
                              sizes.simulated){
   
-  ## IF NEIGHBORHOOD IS: : 1 = swaps, 2 = merges/splits
+  ## IF NEIGHBORHOOD IS: : 1 = swaps, 2 = merges/splits, 3 = alternate between the two neighborhoods
+  p_alternate_1vs2 <- 0.5 
   if(neighborhood == 1 && is.null(sizes.allowed)) {
     new.partition <- sample_new_partition_p1(current.partition, mini.steps)
   } else if(neighborhood == 2 && is.null(sizes.allowed)){
     new.partition <- sample_new_partition_p2(current.partition, mini.steps)
+  } else if(neighborhood == 3 && is.null(sizes.allowed)){
+    n <- sample(c(1,2),1,prob=c(p_alternate_1vs2,1-p_alternate_1vs2))
+    if(n==1) new.partition <- sample_new_partition_p1_restricted(current.partition, mini.steps)
+    if(n==2) new.partition <- sample_new_partition_p2_restricted(current.partition, mini.steps)
   }
   if(neighborhood == 1 && !is.null(sizes.allowed)) {
     new.partition <- sample_new_partition_p1_restricted(current.partition, mini.steps, sizes.simulated)
   } else if(neighborhood == 2 && !is.null(sizes.allowed)){
     new.partition <- sample_new_partition_p2_restricted(current.partition, mini.steps, sizes.simulated)
+  } else if(neighborhood == 3 && !is.null(sizes.allowed)){
+    n <- sample(c(1,2),1,prob=c(p_alternate_1vs2,1-p_alternate_1vs2))
+    if(n==1) new.partition <- sample_new_partition_p1_restricted(current.partition, mini.steps, sizes.simulated)
+    if(n==2) new.partition <- sample_new_partition_p2_restricted(current.partition, mini.steps, sizes.simulated)
   }
   
   # compute new statistics only if it changed
@@ -368,27 +377,58 @@ draw_step_multiple <- function(theta,
   #for(rand.o in 1:num.obs) {
     # nodes.rand.o <- as.logical(presence.tables[,rand.o])
   
-    ## IF NEIGHBORHOOD IS: 1 = swaps, 2 = merges/splits
+    ## IF NEIGHBORHOOD IS: 1 = swaps, 2 = merges/splits, 3 = alternate between the two neighborhoods
+    p_alternate_1vs2 <- 0.5 
     if(neighborhood == 1 && is.null(sizes.allowed)) {
       new.p <- sample_new_partition_p1(current.partitions[nodes.rand.o,rand.o], mini.steps)
     } else if(neighborhood == 2 && is.null(sizes.allowed)){
       new.p <- sample_new_partition_p2(current.partitions[nodes.rand.o,rand.o], mini.steps)
+    } else if(neighborhood == 3 && is.null(sizes.allowed)){
+      n <- sample(c(1,2),1,prob=c(p_alternate_1vs2,1-p_alternate_1vs2))
+      if(n==1) new.p <- sample_new_partition_p1(current.partitions[nodes.rand.o,rand.o], mini.steps)
+      if(n==2) new.p <- sample_new_partition_p2(current.partitions[nodes.rand.o,rand.o], mini.steps)
     }
     if(neighborhood == 1 && !is.null(sizes.allowed)) {
       new.p <- sample_new_partition_p1_restricted(current.partitions[nodes.rand.o,rand.o], mini.steps, sizes.simulated)
     } else if(neighborhood == 2 && !is.null(sizes.allowed)){
       new.p <- sample_new_partition_p2_restricted(current.partitions[nodes.rand.o,rand.o], mini.steps, sizes.simulated)
+    } else if(neighborhood == 3 && !is.null(sizes.allowed)){
+      n <- sample(c(1,2),1,prob=c(p_alternate_1vs2,1-p_alternate_1vs2))
+      if(n==1) new.p <- sample_new_partition_p1_restricted(current.partitions[nodes.rand.o,rand.o], mini.steps, sizes.simulated)
+      if(n==2) new.p <- sample_new_partition_p2_restricted(current.partitions[nodes.rand.o,rand.o], mini.steps, sizes.simulated)
     }
+    
     
     new.partitions[,rand.o] <- rep(NA,num.nodes)
     new.partitions[nodes.rand.o,rand.o] <- new.p
     
   #}
   
-  # compute new statistics only if it changed
+  # compute new statistics only if it changed (only for the partition that changed)
   if(!all(current.partitions == new.partitions)) {
-    old.z.o <- computeStatistics(current.partitions[nodes.rand.o,rand.o], nodes[nodes.rand.o,], effects, objects)
-    new.z.o <- computeStatistics(new.partitions[nodes.rand.o,rand.o], nodes[nodes.rand.o,], effects, objects)
+    
+    #hack for inertia that needs the previous partition
+    effects.temp <- effects
+    objects.temp <- objects
+    if("inertia" %in% effects$names){
+
+      effects.temp$names[effects$names == "inertia"] <- "tie"
+      effects.temp$objects[effects$names == "inertia"] <- "net.temp"
+      objects.temp[[length(objects)+1]] <- list()
+      objects.temp[[length(objects)+1]]$name <- "net.temp"
+      if(rand.o == 1) {
+        objects.temp[[length(objects)+1]]$matrix <- matrix(0,sum(nodes.rand.o),sum(nodes.rand.o))
+      }else{
+        aff.temp <- as.matrix(table(data.frame(actor = 1:num.nodes, group= new.partitions[,rand.o-1])))
+        adj.temp <- aff.temp %*% t(aff.temp)
+        diag(adj.temp) <- 0
+        objects.temp[[length(objects)+1]]$name <- "net.temp"
+        objects.temp[[length(objects)+1]]$matrix <- adj.temp[nodes.rand.o,nodes.rand.o]
+      }
+    }
+    
+    old.z.o <- computeStatistics(current.partitions[nodes.rand.o,rand.o], nodes[nodes.rand.o,], effects.temp, objects.temp)
+    new.z.o <- computeStatistics(new.partitions[nodes.rand.o,rand.o], nodes[nodes.rand.o,], effects.temp, objects.temp)
     new.z <- current.z - old.z.o + new.z.o
   } else {
     new.z <- current.z
@@ -440,7 +480,7 @@ draw_step_multiple <- function(theta,
 }
 
 
-## NEIGHBORHOOD PI 1: only merges and divisions of 2 groups
+## NEIGHBORHOOD PI 1: only mwaps of two nodes
 compute_size_neighborhood_p1 <- function(partition){
   
   # find isolates, pairs and groups>2
@@ -664,7 +704,7 @@ sample_new_partition_p2 <- function(current.partition, mini.steps){
 
 
 
-## NEIGHBORHOOD PI 1: only merges and divisions of 2 groups
+## NEIGHBORHOOD PI 1: only swaps of two nodes
 # BUT REMOVE OUT OF SAMPLE PARTITIONS
 # WARNING!!!!: for now it only works if sizes allowed are an interval ([size_min,size_max])
 compute_size_neighborhood_p1_restricted <- function(partition, sizes.simulated){
