@@ -52,6 +52,14 @@ run_phase3_single <- function(partition,
   }
   z.phase3 <- results.phase3$draws
   
+  # calculate autocorrelation to check afterhand
+  autocors <- rep(0,num.effects)
+  for(e in 1:num.effects){
+    autocors[e] <- cor(results.phase3$draws[1:(length.p3-1),e],results.phase3$draws[2:length.p3,e])
+  }
+  print("Autocorrelations in phase 3:")
+  print(autocors)
+  
   # calculate covariance and scaling
   inverted_matrices <- calculate_inverted_covariance_and_scaling(estimates.phase2, 
                                                         z.obs, 
@@ -78,7 +86,8 @@ run_phase3_single <- function(partition,
               "standard.errors" = res.phase3$finalse, 
               "convergence.ratios" = res.phase3$finalconvratios,
               "inv.zcov" = inverted_matrices$inv.zcov,
-              "inv.scaling" = inverted_matrices$inv.scaling))
+              "inv.scaling" = inverted_matrices$inv.scaling,
+              "autocorrelations" = autocors))
   
 }
 
@@ -132,6 +141,14 @@ run_phase3_multiple <- function(partitions,
   }
   z.phase3 <- results.phase3$draws
   
+  # calculate autocorrelation to check afterhand
+  autocors <- rep(0,num.effects)
+  for(e in 1:num.effects){
+    autocors[e] <- cor(results.phase3$draws[1:(length.p3-1),e],results.phase3$draws[2:length.p3,e])
+  }
+  print("Autocorrelations in phase 3:")
+  print(autocors)
+  
   # calculate covariance and scaling
   inverted_matrices <- calculate_inverted_covariance_and_scaling(estimates.phase2, 
                                                                  z.obs, 
@@ -158,7 +175,8 @@ run_phase3_multiple <- function(partitions,
               "standard.errors" = res.phase3$finalse, 
               "convergence.ratios" = res.phase3$finalconvratios,
               "inv.zcov" = inverted_matrices$inv.zcov,
-              "inv.scaling" = inverted_matrices$inv.scaling))
+              "inv.scaling" = inverted_matrices$inv.scaling,
+              "autocorrelations" = autocors))
   
 }
 

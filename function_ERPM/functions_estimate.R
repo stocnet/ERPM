@@ -21,8 +21,9 @@ estimate_ERPM <- function(partition, # observed partition
                           burnin = 30, # integer for the number of burn-in steps before sampling
                           thining = 10, # integer for the number of thining steps between sampling
                           length.p1 = 100, # number of samples in phase 1
-                          min.iter.p2 = 10, # minimum number of sub-steps in phase 2
-                          max.iter.p2 = 200, # maximum number of sub-steps in phase 2
+                          min.iter.p2 = NULL, # minimum number of sub-steps in phase 2
+                          max.iter.p2 = NULL, # maximum number of sub-steps in phase 2
+                          multiplication.iter.p2 = 100, # value for the lengths of sub-steps in phase 2 (multiplied by  2.52^k)
                           num.steps.p2 = 6, # number of optimisation steps in phase 2
                           length.p3 = 1000, # number of samples in phase 3
                           neighborhood = 2, # way of choosing partitions, either 1 (actor swaps) or 2 (merges and divisions)
@@ -65,11 +66,13 @@ estimate_ERPM <- function(partition, # observed partition
   # --------- PHASE 1 ---------
   if(!is.null(inv.zcov)) {
     estimates.phase1 <- startingestimates
+    autocorrelations.phase1 <- NULL
   } else {
     results.phase1 <- run_phase1_single(partition, startingestimates, z.obs, nodes, effects, objects, burnin, thining, gainfactor, a.scaling, r.truncation.p1, mini.steps, length.p1, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, parallel, cpus)
     estimates.phase1 <- results.phase1$estimates
     inv.zcov <- results.phase1$inv.zcov
     inv.scaling <- results.phase1$inv.scaling
+    autocorrelations.phase1 <- results.phase1$autocorrelations
   }
   
   # --------- PHASE 2 ---------
@@ -78,7 +81,7 @@ estimate_ERPM <- function(partition, # observed partition
     sfExport("partition", "estimates.phase1", "inv.zcov", "inv.scaling", "z.obs", "nodes", "effects", "objects", "burnin", "num.steps.p2", "gainfactors", "r.truncation.p2", "mini.steps", "min.iter.p2", "max.iter.p2", "neighborhood", "fixed.estimates", "sizes.allowed", "sizes.simulated", "double.averaging")
     res <- sfLapply(1:cpus, fun = function(k) {
       set.seed(k)
-      subres <- run_phase2_single(partition, estimates.phase1, inv.zcov,inv.scaling, z.obs, nodes, effects, objects, burnin, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
+      subres <- run_phase2_single(partition, estimates.phase1, inv.zcov,inv.scaling, z.obs, nodes, effects, objects, burnin, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
       return(subres)
     }
     )
@@ -88,7 +91,7 @@ estimate_ERPM <- function(partition, # observed partition
     
   }else{
     
-    results.phase2 <- run_phase2_single(partition, estimates.phase1, inv.zcov,inv.scaling, z.obs, nodes, effects, objects, burnin, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
+    results.phase2 <- run_phase2_single(partition, estimates.phase1, inv.zcov,inv.scaling, z.obs, nodes, effects, objects, burnin, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
     estimates.phase2 <- results.phase2$final.estimates
   }
   
@@ -98,6 +101,7 @@ estimate_ERPM <- function(partition, # observed partition
   standard.deviations <- results.phase3$standard.deviations
   standard.errors <- results.phase3$standard.errors
   convergence.ratios <- results.phase3$convergence.ratios
+  autocorrelations.phase3 <- results.phase3$autocorrelations
   
   
   # ------ PRINT RESULTS ------
@@ -109,11 +113,15 @@ estimate_ERPM <- function(partition, # observed partition
   print_results(results)
   
   # ------ KEEP IMPORTANT OBJECTS ------
-  objects.phase2 <- results.phase2$all.estimates
+  objects.phase1 <- list(autocorrelations = autocorrelations.phase1)
+  objects.phase2 <- list(estimates = results.phase2$all.estimates,
+                         lengths.subphases = results.phase2$lengths.subphases)
   objects.phase3 <- list(inv.zcov = inv.zcov,
-                         inv.scaling = inv.scaling)
+                         inv.scaling = inv.scaling,
+                         autocorrelations = autocorrelations.phase3)
   
   return(list(results = results,
+              objects.phase1 = objects.phase1,
               objects.phase2 = objects.phase2,
               objects.phase3 = objects.phase3))
 }
@@ -190,8 +198,9 @@ estimate_multipleERPM <- function(partitions, # observed partitions
                           burnin = 30, # integer for the number of burn-in steps before sampling
                           thining = 10, # integer for the number of thining steps between sampling
                           length.p1 = 100, # number of samples in phase 1
-                          min.iter.p2 = 10, # minimum number of sub-steps in phase 2
-                          max.iter.p2 = 200, # maximum number of sub-steps in phase 2
+                          min.iter.p2 = NULL, # minimum number of sub-steps in phase 2
+                          max.iter.p2 = NULL, # maximum number of sub-steps in phase 2
+                          multiplication.iter.p2 = 200, # value for the lengths of sub-steps in phase 2 (multiplied by  2.52^k)
                           num.steps.p2 = 6, # number of optimisation steps in phase 2
                           length.p3 = 1000, # number of samples in phase 3
                           neighborhood = 2, # way of choosing partitions, either 1 (actor swaps) or 2 (merges and divisions)
@@ -234,11 +243,13 @@ estimate_multipleERPM <- function(partitions, # observed partitions
   # --------- PHASE 1 ---------
   if(!is.null(inv.zcov)) {
     estimates.phase1 <- startingestimates
+    autocorrelations.phase1 <- NULL
   } else {
     results.phase1 <- run_phase1_multiple(partitions, startingestimates, z.obs, presence.tables, nodes, effects, objects, burnin, thining, gainfactor, a.scaling, r.truncation.p1, mini.steps, length.p1, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, parallel, cpus)
     estimates.phase1 <- results.phase1$estimates
     inv.zcov <- results.phase1$inv.zcov
     inv.scaling <- results.phase1$inv.scaling
+    autocorrelations.phase1 <- results.phase1$autocorrelations
   }
   
   # --------- PHASE 2 ---------
@@ -247,7 +258,7 @@ estimate_multipleERPM <- function(partitions, # observed partitions
     sfExport("partitions", "estimates.phase1", "inv.zcov", "inv.scaling", "z.obs", "presence.tables", "nodes", "effects", "objects", "burnin", "num.steps.p2", "gainfactors", "r.truncation.p2", "mini.steps", "min.iter.p2", "max.iter.p2", "neighborhood", "fixed.estimates", "sizes.allowed", "sizes.simulated", "double.averaging")
     res <- sfLapply(1:cpus, fun = function(k) {
       set.seed(k)
-      subres <- run_phase2_multiple(partitions, estimates.phase1, inv.zcov,inv.scaling, z.obs, presence.tables, nodes, effects, objects, burnin, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
+      subres <- run_phase2_multiple(partitions, estimates.phase1, inv.zcov,inv.scaling, z.obs, presence.tables, nodes, effects, objects, burnin, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
       return(subres)
     }
     )
@@ -257,7 +268,7 @@ estimate_multipleERPM <- function(partitions, # observed partitions
     
   }else{
     
-    results.phase2 <- run_phase2_multiple(partitions, estimates.phase1, inv.zcov,inv.scaling, z.obs, presence.tables, nodes, effects, objects, burnin, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
+    results.phase2 <- run_phase2_multiple(partitions, estimates.phase1, inv.zcov,inv.scaling, z.obs, presence.tables, nodes, effects, objects, burnin, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
     estimates.phase2 <- results.phase2$final.estimates
   }
   
@@ -268,6 +279,7 @@ estimate_multipleERPM <- function(partitions, # observed partitions
   standard.deviations <- results.phase3$standard.deviations
   standard.errors <- results.phase3$standard.errors
   convergence.ratios <- results.phase3$convergence.ratios
+  autocorrelations.phase3 <- results.phase3$autocorrelations
   
   
   # ------ PRINT RESULTS ------
@@ -279,11 +291,15 @@ estimate_multipleERPM <- function(partitions, # observed partitions
   print_results(results)
   
   # ------ KEEP IMPORTANT OBJECTS ------
-  objects.phase2 <- results.phase2$all.estimates
+  objects.phase1 <- list(autocorrelations = autocorrelations.phase1)
+  objects.phase2 <- list(estimates = results.phase2$all.estimates,
+                         lengths.subphases = results.phase2$lengths.subphases)
   objects.phase3 <- list(inv.zcov = inv.zcov,
-                         inv.scaling = inv.scaling)
+                         inv.scaling = inv.scaling,
+                         autocorrelations = autocorrelations.phase3)
   
   return(list(results = results,
+              objects.phase1 = objects.phase1,
               objects.phase2 = objects.phase2,
               objects.phase3 = objects.phase3))
 }
