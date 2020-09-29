@@ -99,9 +99,9 @@ run_phase2_single <- function(partition,
         mean.theta <- mean.theta + theta.i
         
         # stopping criteria
-        if( i > max.iter ){
+        if( i > max.iter[step] ){
           stop.iterations <- TRUE
-        } else if (i > min.iter) {
+        } else if (i > min.iter[step]) {
           crossedstats <- crossedstats + (sign.i_1 != sign.i)
           stop.iterations <- all(crossedstats)
         }
@@ -169,9 +169,9 @@ run_phase2_single <- function(partition,
         mean.theta <- mean.theta + theta.i
         
         # stopping criteria
-        if( i > max.iter ){
+        if( i > max.iter[step] ){
           stop.iterations <- TRUE
-        } else if (i > min.iter) {
+        } else if (i > min.iter[step]) {
           crossedstats <- crossedstats + (sign.i_1 != sign.i)
           stop.iterations <- all(crossedstats)
         }

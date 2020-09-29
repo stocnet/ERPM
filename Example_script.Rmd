@@ -1,8 +1,8 @@
 ---
-title: Simulation and estimation of Exponential Random Partition Models - Example
+title: Simulation and estimation of partition models - Example
   script with random data
-author: "Marion Hoffman"
-date: "30/04/2020"
+author: "-"
+date: "28/09/2020"
 output:
   pdf_document: default
   html_document: default
@@ -14,7 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## 0. Load dependencies
 
-The following packages and scripts are required to fully run this example script.
+The following packages and scripts are required to fully run this example script. The details of the main functions can be found in the code itself, where comments help finding out what functions do and what arguments are for.
 
 ```{r loads, message=FALSE, warning=FALSE, results='hide'}
 library(ggplot2)
@@ -154,8 +154,15 @@ sample <- draw_Metropolis_single(theta = parameters,
 
 ### 2.3 Trace plots
 
-We can check the mixing of the chain with (here it's not good enough yet):
+We can check the mixing of the chain with autocorrelations (here it's not good enough yet):
 
+```{r}
+s <- 1
+cor(sample$draws[1:(nsteps-1),s], sample$draws[2:nsteps,s]) # should be below 0.4!
+```
+
+
+and with the trace plots;
 
 ```{r}
 s <- 1
@@ -178,12 +185,12 @@ partition <- c(1,1,2,2,2,3)
 The average number of groups expected at random is lower than 3 (see section 1), so let's set an initial estimate for the number of  groups parameter negative, and leave the others to zero.
 The burnin and thining are chosen from trace plots to have a good mixing.
 For phase 1, we don't need a large sample, because it is just for the scaling matrix which is not very sensitive to the number of samples.
-For phase 2, we don't need to sample much either. When approaching the correct estimates, we can increasingly reduce the number of steps of phase 2.
+For phase 2, we have to define a number of subphases and the number of iterations in the subphases. There will be (2.52)^k iterations in each subphase k, multiplied by a constant multiplication factor, that we need to choose big enough so that statistics are crossed. When approaching the correct estimates, we can increasingly reduce the number of steps of phase 2.
 For phase 3, we need a lot of samples to have correct estimates of the final distribution. When we approach the right estimates, it is the most important phase, and its results should be re-used to restart the estimation from a good starting point.
 The multiplication factor and gain factor were chosen as in the ERGM book, but they can be adjusted by looking at the evolution of parameters in phase 2.
 
 ```{r}
-startingestimates <- c(-1,0,0,0)
+startingestimates <- c(-2,0,0,0)
 estimation <- estimate_ERPM(partition, 
                           nodes, 
                           objects, 
@@ -191,34 +198,40 @@ estimation <- estimate_ERPM(partition,
                           startingestimates = startingestimates, 
                           burnin = 100, 
                           thining = 20,
-                          length.p1 = 100, 
-                          min.iter.p2 = 10, 
-                          max.iter.p2 = 200, 
-                          num.steps.p2 = 6, 
-                          length.p3 = 1000)
+                          length.p1 = 500, # number of samples in phase 1
+                          multiplication.iter.p2 = 20,  # multiplication factor for the number of iteration in phase 2 subphases 
+                          num.steps.p2 = 4, # number of phase 2 subphases
+                          length.p3 = 1000) # number of samples in phase 3
 estimation$results
 ```
 
-The convergence should be as small as possible, below 0.1 for example. We can retry to estimate the model starting from the result of phase 3:
+We get some intermediary objects calculated in the different phases
+
+```{r}
+objects.phase1 <- estimation$objects.phase1
+objects.phase2 <- estimation$objects.phase2
+objects.phase3 <- estimation$objects.phase3
+```
+
+
+The convergence should be as small as possible, below 0.1 for example. We can retry to estimate the model starting from the result of phase 3 and using the covariance calculated in phase 3 (then phase 1 is skipped). It can be good to reduce the gain factor, and make the subphases longer, or lengthen phase 3:
 
 
 ```{r}
 startingestimates <- estimation$results$est
-startingcovariance <- estimation$objects.phase3$inv.zcov
-startingscaling <- estimation$objects.phase3$inv.scaling
+startingcovariance <- objects.phase3$inv.zcov
+startingscaling <- objects.phase3$inv.scaling
 estimation <- estimate_ERPM(partition, 
                           nodes, 
                           objects, 
                           effects, 
                           startingestimates = startingestimates, 
-                          multiplicationfactor = 30, 
-                          gainfactor = 0.1, 
+                          gainfactor = 0.01, 
                           mini.steps = "normalized", 
-                          burnin = 100, 
+                          burnin = 500, 
                           thining = 20,
                           length.p1 = 100, 
-                          min.iter.p2 = 10, 
-                          max.iter.p2 = 200, 
+                          multiplication.iter.p2 = 40, 
                           num.steps.p2 = 3, 
                           length.p3 = 2000,
                           inv.zcov = startingcovariance,
@@ -226,15 +239,17 @@ estimation <- estimate_ERPM(partition,
 estimation$results
 ```
 
+Convergence improved!
+
 ### 3.3 Estimate plots 
 
 To assess convergence problems, we can have a look at how estimates evolve during phase 2.
 
 
 ```{r}
-ggplot(data = data.frame(step = 1:nrow(estimation$objects.phase2),
-                         stat = array(estimation$objects.phase2),
-                         parameter = as.character(rep(seq(1,ncol(estimation$objects.phase2)), each=nrow(estimation$objects.phase2))))) +
+ggplot(data = data.frame(step = 1:nrow(objects.phase2$estimates),
+                         stat = array(objects.phase2$estimates),
+                         parameter = as.character(rep(seq(1,ncol(objects.phase2$estimates)), each=nrow(objects.phase2$estimates))))) +
   geom_line(aes(x=step,y=stat,colour=parameter)) 
 ```
 
@@ -246,7 +261,7 @@ We can check how the model reproduces statistics of the observed data. First we 
 
 ```{r}
 nsimulations <- 1000
-simulations <- draw_Metropolis(theta = estimation$results$est, 
+simulations <- draw_Metropolis_single(theta = estimation$results$est, 
                           first.partition = partition, 
                           nodes = nodes, 
                           effects = effects, 
@@ -356,6 +371,7 @@ ggplot(df) +
 
 ```
 
+And it is also good to check other statistics even less linked to the model, for example on attributes that are not related to any effect in the model.
 
 ### 3.5 Estimated log-likelihood and AIC
 
@@ -382,6 +398,8 @@ logL_AIC <- estimate_logL(partition,
                          num.steps = 200,
                          burnin = 100,
                          thining = 20)
+logL_AIC$logL
+logL_AIC$AIC
 ```
 
 To check that there were enough steps in the algorithm (M), we can plot the statistics distributions of the intermediate models sampled and see whether they overlap (if not, we need more steps). For example for the stat about age:
@@ -397,5 +415,5 @@ ggplot(data =  data.frame(stat = c(logL_AIC$draws[[1]]$draws[,stat], logL_AIC$dr
 
 
 
-
+NOTE: with larger data, things can be parallelized. The only available "automatic" way to do it now is to specify the options "cpus" in the estimation function. In that case, phase 1 and 3 samples are parallelized.
 

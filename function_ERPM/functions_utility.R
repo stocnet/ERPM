@@ -299,6 +299,16 @@ check_sizes <- function(partition, sizes.allowed){
 
 ## Other useful functions for descriptives #####################################
 
+calculate_confidence_interval <- function(vector, conf) {
+  
+  average <- mean(vector)
+  sd <- sd(vector)
+  n <- length(vector)
+  error <- qt((conf + 1)/2, df = length(vector) - 1) * sd / sqrt(length(vector))
+  result <- c("lower" = average - error, "upper" = average + error)
+  return(result)
+}
+
 #library(clue)
 calculate_min_transferdistances <- function(allpartitions, allclasses){
   
