@@ -428,6 +428,60 @@ computeStatistics <- function (partition, nodes, effects, objects){
         statistics[e] <- 0
       }
     }
+    
+    # --------- HOMOPHILY:RANGE -----------
+    if(effect.name == "range") {
+      if(length(groups) > 0){
+        att <- which(colnames(nodes) == object.name)
+        sum <- 0
+        for(g in groups){
+          members <- which(partition == g)
+          sum <- sum + abs(max(nodes[members,att]) - min(nodes[members,att]))
+        }
+        statistics[e] <- sum
+      }else{
+        statistics[e] <- 0
+      }
+      
+    }
+    
+    # --------- HOMOPHILY:PROPORTION -----------
+    if(effect.name == "proportion") {
+      if(length(groups) > 0){
+        att <- which(colnames(nodes) == object.name)
+        attribute <- as.numeric(factor(nodes[,att]))
+        minatt <- min(attribute)
+        maxatt <- max(attribute)
+        sum <- 0
+        for(g in groups){
+          members <- which(partition == g)
+          nmax <- sum(attribute[members] == maxatt)
+          nmin <- sum(attribute[members] == minatt)
+          sum <- sum + (max(nmax,nmin) - min(nmax,nmin)) / length(members)
+        }
+        statistics[e] <- sum
+      }else{
+        statistics[e] <- 0
+      }
+      
+    }
+    
+    # --------- HOMOPHILY:NUM GROUPS SAME -----------
+    if(effect.name == "num_groups_same") {
+      if(length(groups) > 0){
+        att <- which(colnames(nodes) == object.name)
+        attribute <- as.numeric(factor(nodes[,att]))
+        sum <- 0
+        for(g in groups){
+          members <- which(partition == g)
+          sum <- sum + (length(unique(attribute[members])) == 1)
+        }
+        statistics[e] <- sum
+      }else{
+        statistics[e] <- 0
+      }
+      
+    }
    
     # ---------GROUP: NUMBER_ATTRIBUTES -----------
     if(effect.name == "number_attributes") {
@@ -770,6 +824,64 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
     }
     
     
+    # --------- HOMOPHILY:RANGE -----------
+    if(effect.name == "range") {
+      stat <- 0
+      att <- which(colnames(nodes) == object.name)
+      for(o in 1:num.obs){
+        if(length(groups[[o]]) > 0) {
+          sum <- 0
+          for(g in groups[[o]]){
+            members <- which(partitions[,o] == g)
+            sum <- sum + abs(max(nodes[members,att]) - min(nodes[members,att]))
+          }
+          stat <- stat + sum
+        }
+      }
+      statistics[e] <- stat
+    }
+
+    # --------- HOMOPHILY:PROPORTION -----------
+    if(effect.name == "proportion") {
+      stat <- 0
+      att <- which(colnames(nodes) == object.name)
+      attribute <- as.numeric(factor(nodes[,att]))
+      minatt <- min(attribute)
+      maxatt <- max(attribute)
+      for(o in 1:num.obs){
+        if(length(groups[[o]]) > 0) {
+          sum <- 0
+          for(g in groups[[o]]){
+            members <- which(partitions[,o] == g)
+            nmax <- sum(attribute[members] == maxatt)
+            nmin <- sum(attribute[members] == minatt)
+            sum <- sum + (max(nmax,nmin) - min(nmax,nmin)) / length(members)
+          }
+          stat <- stat + sum
+        }
+      }
+      statistics[e] <- stat
+    }
+    
+    # --------- HOMOPHILY:NUM GROUPS SAME -----------
+    if(effect.name == "num_groups_same") {
+      stat <- 0
+      att <- which(colnames(nodes) == object.name)
+      attribute <- as.numeric(factor(nodes[,att]))
+      for(o in 1:num.obs){
+        if(length(groups[[o]]) > 0){
+          sum <- 0
+          for(g in groups[[o]]){
+            members <- which(partitions[,o] == g)
+            sum <- sum + (length(unique(attribute[members])) == 1)
+          }
+          stat <- stat + sum
+        }
+      }
+      statistics[e] <- sum
+    }
+    
+    
     # ---------GROUP: NUMBER_ATTRIBUTES -----------
     if(effect.name == "number_attributes") {
       stat <- 0
@@ -785,8 +897,8 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
     }
     
     
-    # --------- INERTIA -----------
-    if(effect.name == "inertia") {
+    # --------- INERTIA MINUS 1 -----------
+    if(effect.name == "inertia_1") {
       stat <- 0
       for(o in 2:num.obs){
         if(length(groups[[o]]) > 0) {
@@ -796,6 +908,24 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
           adj2[as.logical(presence.tables[,o]),  as.logical(presence.tables[,o])]   <- adjacencies[[o]]
           d <- adj1 * adj2
           stat <- stat + sum(1/2 * d)
+        }
+      }
+      statistics[e] <- stat
+    }
+    
+    # --------- INERTIA TOTAL -----------
+    if(effect.name == "inertia_total") {
+      stat <- 0
+      adj_total <- matrix(0,num.nodes,num.nodes)
+      adj_total[as.logical(presence.tables[,1]),as.logical(presence.tables[,1])] <- adjacencies[[1]]
+      for(o in 2:num.obs){
+        if(length(groups[[o]]) > 0) {
+          adj2 <- matrix(0,num.nodes,num.nodes)
+          adj2[as.logical(presence.tables[,o]),  as.logical(presence.tables[,o])]   <- adjacencies[[o]]
+          d <- adj_total * adj2
+          stat <- stat + sum(1/2 * d)
+          
+          adj_total <- pmax(adj_total,adj2) 
         }
       }
       statistics[e] <- stat
