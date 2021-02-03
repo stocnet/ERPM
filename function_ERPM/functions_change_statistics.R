@@ -708,11 +708,11 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         }
       }
       for(o in 1:num.obs){
-        if(length(groups) > 0) {
+        if(length(groups[[o]]) > 0) {
           binet2 <- binet[as.logical(presence.tables[,o]),]
-          for(g in 1:dim(binet)[2]){
+          for(g in 1:dim(binet2)[2]){
             members <- which(binet2[,g] == 1)
-            stat <- stat + sum(1/2 * adjacency[members,members])
+            stat <- stat + sum(1/2 * adjacencies[[o]][members,members])
           }
         }
       }
@@ -721,24 +721,24 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
     
     # --------- BIPARTITE GROUP -----------
     if(effect.name == "bipartite_group") {
-      if(length(groups) > 0) {
-        for(o in 1:length(objects)){
-          if(objects[[o]][[1]] == object.name){
-            binet <- objects[[o]][[2]]
-          }
+      stat <- 0
+      for(o in 1:length(objects)){
+        if(objects[[o]][[1]] == object.name){
+          binet <- objects[[o]][[2]]
         }
-        stat <- 0
-        for(g in 1:dim(binet)[2]){
-          members <- which(binet[,g] == 1)
-          if(length(unique(partition[members])) == 1) {
-            stat <- stat + 1
-          }
-        }
-        statistics[e] <- stat
-      }else{
-        statistics[e] <- 0
       }
-      
+      for(o in 1:num.obs){
+        if(length(groups[[o]]) > 0) {
+          for(g in 1:dim(binet)[2]){
+            members <- which(binet[,g] == 1)
+            pmembers <- partitions[members,o]
+            if(length(unique(pmembers[!is.na(pmembers)])) == 1) {
+              stat <- stat + 1
+            }
+          }
+        }
+      }
+      statistics[e] <- stat
     }
     
     # --------- ATTRIBUTE ISOLATION -----------
@@ -947,8 +947,8 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
           adj2 <- matrix(0,num.nodes,num.nodes)
           adj1[as.logical(presence.tables[,o-1]),as.logical(presence.tables[,o-1])] <- adjacencies[[o-1]]
           adj2[as.logical(presence.tables[,o]),  as.logical(presence.tables[,o])]   <- adjacencies[[o]]
-          d <- adj1 * adj2
-          stat <- stat + sum(1/2 * d)
+          adj12 <- adj1 * adj2
+          stat <- stat + sum(1/2 * adj12)
         }
       }
       statistics[e] <- stat
@@ -963,8 +963,28 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         if(length(groups[[o]]) > 0) {
           adj2 <- matrix(0,num.nodes,num.nodes)
           adj2[as.logical(presence.tables[,o]),  as.logical(presence.tables[,o])]   <- adjacencies[[o]]
-          d <- adj_total * adj2
-          stat <- stat + sum(1/2 * d)
+          adj12 <- adj_total * adj2
+          stat <- stat + sum(1/2 * adj12)
+          
+          adj_total <- pmax(adj_total,adj2) 
+        }
+      }
+      statistics[e] <- stat
+    }
+    
+    # --------- INTERACTION: INERTIA TOTAL X DIFF -----------
+    if(effect.name == "inertia_total_X_diff") {
+      stat <- 0
+      att <- which(colnames(nodes) == object.name)
+      adj_total <- matrix(0,num.nodes,num.nodes)
+      adj_total[as.logical(presence.tables[,1]),as.logical(presence.tables[,1])] <- adjacencies[[1]]
+      for(o in 2:num.obs){
+        if(length(groups[[o]]) > 0) {
+          d <- as.matrix(dist(as.numeric(nodes[as.logical(presence.tables[,o]),att])))
+          adj2 <- matrix(0,num.nodes,num.nodes)
+          adj2[as.logical(presence.tables[,o]),  as.logical(presence.tables[,o])]   <- adjacencies[[o]]
+          adj12 <- adj_total * adj2
+          stat <- stat + sum(1/2 * adj12 * d)
           
           adj_total <- pmax(adj_total,adj2) 
         }
