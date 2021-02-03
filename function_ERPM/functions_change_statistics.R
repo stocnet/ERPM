@@ -252,8 +252,28 @@ computeStatistics <- function (partition, nodes, effects, objects){
       
     }
     
-    # --------- GROUP -----------
-    if(effect.name == "group") {
+    # --------- BIPARTITE TIE -----------
+    if(effect.name == "bipartite_tie") {
+      if(length(groups) > 0) {
+        for(o in 1:length(objects)){
+          if(objects[[o]][[1]] == object.name){
+            binet <- objects[[o]][[2]]
+          }
+        }
+        stat <- 0
+        for(g in 1:dim(binet)[2]){
+          members <- which(binet[,g] == 1)
+          stat <- stat + sum(1/2 * adjacency[members,members])
+        }
+        statistics[e] <- stat
+      }else{
+        statistics[e] <- 0
+      }
+      
+    }
+    
+    # --------- BIPARTITE GROUP -----------
+    if(effect.name == "bipartite_group") {
       if(length(groups) > 0) {
         for(o in 1:length(objects)){
           if(objects[[o]][[1]] == object.name){
@@ -672,32 +692,53 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
       }
       for(o in 1:num.obs){
         if(length(groups[[o]]) > 0) {
-          net <- net[as.logical(presence.tables[,o]),as.logical(presence.tables[,o])]
-          stat <- stat + sum(1/2 * adjacencies[[o]] * net)
+          net2 <- net[as.logical(presence.tables[,o]),as.logical(presence.tables[,o])]
+          stat <- stat + sum(1/2 * adjacencies[[o]] * net2)
         }
       }
       statistics[e] <- stat
     }
     
-    # --------- GROUP -----------
-    if(effect.name == "group") {
+    # --------- BIPARTITE TIE -----------
+    if(effect.name == "bipartite_tie") {
       stat <- 0
-      for(ob in 1:length(objects)){
-        if(objects[[ob]][[1]] == object.name){
-          binet <- objects[[ob]][[2]]
+      for(o in 1:length(objects)){
+        if(objects[[o]][[1]] == object.name){
+          binet <- objects[[o]][[2]]
         }
       }
       for(o in 1:num.obs){
-        if(length(groups[[o]]) > 0) {
+        if(length(groups) > 0) {
+          binet2 <- binet[as.logical(presence.tables[,o]),]
           for(g in 1:dim(binet)[2]){
-            members <- which(binet[,g] == 1)
-            if(length(unique(partitions[members,o])) == 1) {
-              stat <- stat + 1
-            }
+            members <- which(binet2[,g] == 1)
+            stat <- stat + sum(1/2 * adjacency[members,members])
           }
         }
       }
       statistics[e] <- stat
+    }
+    
+    # --------- BIPARTITE GROUP -----------
+    if(effect.name == "bipartite_group") {
+      if(length(groups) > 0) {
+        for(o in 1:length(objects)){
+          if(objects[[o]][[1]] == object.name){
+            binet <- objects[[o]][[2]]
+          }
+        }
+        stat <- 0
+        for(g in 1:dim(binet)[2]){
+          members <- which(binet[,g] == 1)
+          if(length(unique(partition[members])) == 1) {
+            stat <- stat + 1
+          }
+        }
+        statistics[e] <- stat
+      }else{
+        statistics[e] <- 0
+      }
+      
     }
     
     # --------- ATTRIBUTE ISOLATION -----------
