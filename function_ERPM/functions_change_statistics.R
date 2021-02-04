@@ -49,6 +49,7 @@ computeStatistics <- function (partition, nodes, effects, objects){
     
     effect.name <- effects$names[e]
     object.name <- effects$objects[e]
+    object2.name <- effects$objects2[e]
     
     # --------- ISOLATES -----------
     if(effect.name == "isolates") {
@@ -233,19 +234,24 @@ computeStatistics <- function (partition, nodes, effects, objects){
             net <- objects[[o]][[2]]
           }
         }
-        # num.ties_total <- 0
-        # for(g in groups){
-        #   members <- which(partition == g)
-        #   num.ties <- 0
-        #   for(i in 1:(length(members)-1)){
-        #     for(j in (i+1):length(members)){
-        #       num.ties <- num.ties + net[members[i],members[j]] + net[members[j],members[i]]
-        #     }
-        #   }
-        #   num.ties_total <- num.ties_total + num.ties/length(members)
-        # }
-        # statistics[e] <- num.ties_total
         statistics[e] <- sum(1/2 * adjacency * net)
+      }else{
+        statistics[e] <- 0
+      }
+      
+    }
+    
+    # --------- TIE_X_DIFF -----------
+    if(effect.name == "tie_X_diff") {
+      if(length(groups) > 0) {
+        for(o in 1:length(objects)){
+          if(objects[[o]][[1]] == object.name){
+            net <- objects[[o]][[2]]
+          }
+        }
+        att <- which(colnames(nodes) == object2.name)
+        d <- as.matrix(dist(as.numeric(nodes[,att])))
+        statistics[e] <- sum(1/2 * adjacency * net * d)
       }else{
         statistics[e] <- 0
       }
@@ -588,6 +594,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
     
     effect.name <- effects$names[e]
     object.name <- effects$objects[e]
+    object2.name <- effects$objects2[e]
     
     # --------- ISOLATES -----------
     if(effect.name == "isolates") {
@@ -919,7 +926,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
           stat <- stat + sum
         }
       }
-      statistics[e] <- sum
+      statistics[e] <- stat
     }
     
     
@@ -963,10 +970,8 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         if(length(groups[[o]]) > 0) {
           adj2 <- matrix(0,num.nodes,num.nodes)
           adj2[as.logical(presence.tables[,o]),  as.logical(presence.tables[,o])]   <- adjacencies[[o]]
-          adj12 <- adj_total * adj2
-          stat <- stat + sum(1/2 * adj12)
-          
-          adj_total <- pmax(adj_total,adj2) 
+          adj_total <- adj_total + adj2
+          stat <- stat + sum(1/2 * adj_total)
         }
       }
       statistics[e] <- stat
@@ -975,18 +980,16 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
     # --------- INTERACTION: INERTIA TOTAL X DIFF -----------
     if(effect.name == "inertia_total_X_diff") {
       stat <- 0
-      att <- which(colnames(nodes) == object.name)
+      att <- which(colnames(nodes) == object2.name)
       adj_total <- matrix(0,num.nodes,num.nodes)
       adj_total[as.logical(presence.tables[,1]),as.logical(presence.tables[,1])] <- adjacencies[[1]]
       for(o in 2:num.obs){
         if(length(groups[[o]]) > 0) {
-          d <- as.matrix(dist(as.numeric(nodes[as.logical(presence.tables[,o]),att])))
+          d <- as.matrix(dist(as.numeric(nodes[,att])))
           adj2 <- matrix(0,num.nodes,num.nodes)
           adj2[as.logical(presence.tables[,o]),  as.logical(presence.tables[,o])]   <- adjacencies[[o]]
-          adj12 <- adj_total * adj2
-          stat <- stat + sum(1/2 * adj12 * d)
-          
-          adj_total <- pmax(adj_total,adj2) 
+          adj_total <- adj_total + adj2 
+          stat <- stat + sum(1/2 * adj_total * d)
         }
       }
       statistics[e] <- stat

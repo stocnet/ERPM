@@ -430,23 +430,63 @@ draw_step_multiple <- function(theta,
   # compute new statistics only if it changed (only for the partition that changed)
   if(!all(current.partitions == new.partitions, na.rm=T)) {
     
-    #hack for inertia that needs the previous partition
+    #INERTIA_1: hack for inertia that needs the previous partition
     effects.temp <- effects
     objects.temp <- objects
-    if("inertia" %in% effects$names){
-
-      effects.temp$names[effects$names == "inertia"] <- "tie"
-      effects.temp$objects[effects$names == "inertia"] <- "net.temp"
-      objects.temp[[length(objects)+1]] <- list()
-      objects.temp[[length(objects)+1]]$name <- "net.temp"
+    if("inertia_1" %in% effects$names){
+      length.o <- length(objects.temp)
+      effects.temp$names[effects$names == "inertia_1"] <- "tie"
+      effects.temp$objects[effects$names == "inertia_1"] <- "net.temp"
+      objects.temp[[length.o+1]] <- list()
+      objects.temp[[length.o+1]]$name <- "net.temp"
       if(rand.o == 1) {
-        objects.temp[[length(objects)+1]]$matrix <- matrix(0,sum(nodes.rand.o),sum(nodes.rand.o))
+        objects.temp[[length.o+1]]$object <- matrix(0,sum(nodes.rand.o),sum(nodes.rand.o))
       }else{
         aff.temp <- as.matrix(table(data.frame(actor = 1:num.nodes, group= new.partitions[,rand.o-1])))
         adj.temp <- aff.temp %*% t(aff.temp)
         diag(adj.temp) <- 0
-        objects.temp[[length(objects)+1]]$name <- "net.temp"
-        objects.temp[[length(objects)+1]]$matrix <- adj.temp[nodes.rand.o,nodes.rand.o]
+        objects.temp[[length.o+1]]$name <- "net.temp"
+        objects.temp[[length.o+1]]$object <- adj.temp[nodes.rand.o,nodes.rand.o]
+      }
+    }
+    #INERTIA_TOTAL: hack for inertia that needs all previous partitions
+    if("inertia_total" %in% effects$names){
+      length.o <- length(objects.temp)
+      effects.temp$names[effects$names == "inertia_total"] <- "tie"
+      effects.temp$objects[effects$names == "inertia_total"] <- "net_total.temp"
+      objects.temp[[length.o+1]] <- list()
+      objects.temp[[length.o+1]]$name <- "net_total.temp"
+      if(rand.o == 1) {
+        objects.temp[[length.o+1]]$object <- matrix(0,sum(nodes.rand.o),sum(nodes.rand.o))
+      }else{
+        adj.temp <- matrix(0,num.nodes,num.nodes)
+        for(previous in 1:(rand.o-1)){
+          aff.temp <- as.matrix(table(data.frame(actor = 1:num.nodes, group=new.partitions[,previous])))
+          adj.temp <- adj.temp + aff.temp %*% t(aff.temp)
+        }
+        diag(adj.temp) <- 0
+        objects.temp[[length.o+1]]$name <- "net_total.temp"
+        objects.temp[[length.o+1]]$object <- adj.temp[nodes.rand.o,nodes.rand.o]
+      }
+    }
+    #INERTIA_TOTAL_X_DIFF: hack for inertia that needs all previous partitions
+    if("inertia_total_X_diff" %in% effects$names){
+      length.o <- length(objects.temp)
+      effects.temp$names[effects$names == "inertia_total_X_diff"] <- "tie_X_diff"
+      effects.temp$objects[effects$names == "inertia_total_X_diff"] <- "net_total.temp"
+      objects.temp[[length.o+1]] <- list()
+      objects.temp[[length.o+1]]$name <- "net_total.temp"
+      if(rand.o == 1) {
+        objects.temp[[length.o+1]]$object <- matrix(0,sum(nodes.rand.o),sum(nodes.rand.o))
+      }else{
+        adj.temp <- matrix(0,num.nodes,num.nodes)
+        for(previous in 1:(rand.o-1)){
+          aff.temp <- as.matrix(table(data.frame(actor = 1:num.nodes, group=new.partitions[,previous])))
+          adj.temp <- adj.temp + aff.temp %*% t(aff.temp)
+        }
+        diag(adj.temp) <- 0
+        objects.temp[[length.o+1]]$name <- "net_total.temp"
+        objects.temp[[length.o+1]]$object <- adj.temp[nodes.rand.o,nodes.rand.o]
       }
     }
     
