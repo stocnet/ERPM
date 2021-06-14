@@ -113,8 +113,33 @@ generate_strict_permutations_multiple <- function(partitions, n_sample, thining)
   for(i in 1:n_sample){
 
     for(o in 1:num.obs){
-      temp_p[,o] <- generate_strict_permutations(temp_p[,o], 1, thining)
+      temp_p[,o] <- generate_strict_permutations(temp_p[,o], 1, thining)[[1]]
     }
+    all_permutations[[i]] <- temp_p
+  }
+  
+  return(all_permutations)
+  
+}
+
+# generate permutations of multiple partitions while keeping the permutations of acotrs constant over all observations
+generate_strict_permutations_multiple2 <- function(partitions, n_sample){
+  
+  num.nodes <- nrow(partitions)
+  num.obs <- ncol(partitions)
+  
+  all_permutations <- list()
+  
+  temp_p <- partitions
+  
+  for(i in 1:n_sample){
+    
+    newactors <- sample(1:num.nodes)
+    
+    for(o in 1:num.obs){
+      temp_p[,o] <- partitions[newactors,o]
+    }
+    
     all_permutations[[i]] <- temp_p
   }
   
