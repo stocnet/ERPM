@@ -1161,7 +1161,7 @@ plot_outcome_space <- function(){
     
     ngs <- allclasses[c,]
     
-    # s0: sum of squared sizes
+    # s0: number of groups
     for(g in 1:n){
       s0[c] <- s0[c] + ngs[g]
     }
@@ -1171,10 +1171,11 @@ plot_outcome_space <- function(){
       s1[c] <- s1[c] + ngs[g]*g^2
     }
     
-    # s2: squared degrees
+    # s2: sum of squared sizes normalized
     for(g in 1:n){
-      s2[c] <- s2[c] + ngs[g]*g*g^2
+      s2[c] <- s2[c] + ngs[g]*g^2
     }
+    s2[c] <- s2[c] / sum(ngs)
     
     # s3: number of isolates
     s3[c] <- ngs[1]
@@ -1225,9 +1226,10 @@ plot_outcome_space <- function(){
   }
   
   # plot outcome space
-  df <- data.frame(number_groups=s0,sum_log_factorials=s11)
-  ggplot(df, aes(x=number_groups, y=sum_log_factorials)) + geom_point()
-  
+  df <- data.frame(number_groups=s0,squared_sizes=s1,squared_sizes_norm=s2)
+  ggplot(df) + 
+      geom_point( aes(x=number_groups, y=squared_sizes), color = "black") + 
+      geom_point( aes(x=number_groups, y=squared_sizes_norm), color = "red") 
   
   # plot dispersion of classes
   mode <- 1
@@ -1466,6 +1468,105 @@ barplots60nodes <- function(thetamin, thetamax, nodes,effects,objects,burnin,thi
     geom_bar(stat="identity")
   
   
+}
+
+testburninthining <- function(){
+  participants2017 <- read.csv(file="PolyHack/participants-data2017.csv")
+  networks2017 <- readRDS(file="PolyHack/networks2017.rds")
+  nodes <- data.frame(label = participants2017$key,
+                      age = participants2017$age_imputed,
+                      language = participants2017$language_imputed,
+                      level = participants2017$current.degree,
+                      major = participants2017$category)
+  net_acquaintances2017 <- networks2017$known_before_imputed
+  net_samelanguage2017 <- networks2017$same_language_imputed
+  net_samemajor2017 <- networks2017$same_major
+  net_colocation2017_total <- networks2017$
+    num.nodes <- 60
+  partition <- participants2017$Team
+  effects <- list( names = c("num_groups","sizes_squared","diff","same","same","same","tie"),
+                   objects = c("partition","partition","age","language","level","major","net_acquaintances2017"))
+  objects <- list()
+  objects[[1]] <- list(name = "net_acquaintances2017", object = net_acquaintances2017)
+  startingestimates <- c(-4.325,-0.078,0.017,-0.294,0.328,-0.307,6.575)
+  
+  burninthining_n2 <- find_burninthining(partition, 
+                                      theta = startingestimates, 
+                                      nodes, 
+                                      effects,
+                                      objects,
+                                      num.steps = 200,
+                                      mini.steps = "normalized",
+                                      neighborhood = 2, 
+                                      sizes.allowed = 2:5, 
+                                      sizes.simulated = 1:5,
+                                      max.thining = 1000)
+  burninthining_n3 <- find_burninthining(partition, 
+                                         theta = startingestimates, 
+                                         nodes, 
+                                         effects,
+                                         objects,
+                                         num.steps = 200,
+                                         mini.steps = "normalized",
+                                         neighborhood = 3, 
+                                         sizes.allowed = 2:5, 
+                                         sizes.simulated = 1:5,
+                                         max.thining = 1000)
+  burninthining_n3_0.8 <- find_burninthining(partition, 
+                                         theta = startingestimates, 
+                                         nodes, 
+                                         effects,
+                                         objects,
+                                         num.steps = 200,
+                                         mini.steps = "normalized",
+                                         neighborhood = 3, 
+                                         sizes.allowed = 2:5, 
+                                         sizes.simulated = 1:5,
+                                         max.thining = 1000)
+  burninthining_n3_0.7 <- find_burninthining(partition, 
+                                             theta = startingestimates, 
+                                             nodes, 
+                                             effects,
+                                             objects,
+                                             num.steps = 200,
+                                             mini.steps = "normalized",
+                                             neighborhood = c(0.6,0.3,0.1), 
+                                             sizes.allowed = 2:5, 
+                                             sizes.simulated = 1:5,
+                                             max.thining = 150)
+  
+  smoothedautocor <- burninthining_n3_0.7$autocorrelations
+  for(eff in 1:7) {
+    lo <- loess(y ~ x, data.frame(x=1:150,y=burninthining_n3_0.7$autocorrelations[,eff]))
+    smoothedautocor[!is.na(smoothedautocor[,eff]),eff] <- lo$fitted
+  }
+  ggplot(data.frame(autocorr = as.vector(smoothedautocor),
+                    thining = rep(1:150,7),
+                    effect = c(rep("1",150),rep("2",150),rep("3",150),rep("4",150),rep("5",150),rep("6",150),rep("7",150)))) +
+    geom_point(aes(x=thining,y=autocorr,color=effect)) +
+    scale_color_discrete()
+  
+  ggplot(data.frame(autocorr = as.vector(burninthining_n3_0.7$moving.means),
+                    thining = rep(1:200,7),
+                    effect = c(rep("1",200),rep("2",200),rep("3",200),rep("4",200),rep("5",200),rep("6",200),rep("7",200)))) +
+    geom_point(aes(x=thining,y=autocorr,color=effect)) +
+    scale_color_discrete()
+  
+  neighborhoods <- list(c(0.6,0.3,0.1),c(0.5,0.2,0.3))#,c(0.3,0.1,0.6),c(0.1,0.3,0.6))
+  gridsearch <- gridsearch_burninthining_single(partition, # observed partition
+                                              theta = startingestimates, # initial model parameters
+                                              nodes, # nodeset (data frame)
+                                              effects, # effects/sufficient statistics (list with a vector "names", and a vector "objects")
+                                              objects, # objects used for statistics calculation (list with a vector "name", and a vector "object")
+                                              num.steps = 100, # number of samples wanted in phase 1
+                                              mini.steps = "normalized", # type of transition, either "normalized", either "self-loops" (take "normalized")
+                                              neighborhoods, # list of probability vectors (proba actors swap, proba merge/division, proba single actor move)
+                                              sizes.allowed = 2:5, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
+                                              sizes.simulated = 1:5, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max) 
+                                              max.thining = 50, # where to stop adding thining
+                                              parallel = F, # to run different neighborhoods in parallel
+                                              cpus = 1)
+    
 }
 
 estimate2017 <- function(){
