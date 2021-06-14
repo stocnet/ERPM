@@ -15,6 +15,7 @@ run_phase2_single <- function(partition,
                        effects, 
                        objects, 
                        burnin, 
+                       thining,
                        num.steps, 
                        gainfactors,
                        r.truncation.p2,
@@ -38,8 +39,8 @@ run_phase2_single <- function(partition,
     min.iter <- rep(0,num.steps)
     max.iter <- rep(0,num.steps)
     for(i in 1:num.steps){
-      min.iter[i] <- multiplication.iter * (2.52)^i 
-      max.iter[i] <- multiplication.iter * (2.52)^i + 200
+      min.iter[i] <- multiplication.iter * (2.52)^(i-1) 
+      max.iter[i] <- multiplication.iter * (2.52)^(i-1) + 200
     }
   } else {
     min.iter <- rep(min.iter,num.steps)
@@ -63,6 +64,9 @@ run_phase2_single <- function(partition,
       partition.i <- partition
       sign.i_1 <- rep(0, num.effects) # used to check cross statistics
       
+      # store all stats
+      allz <- c()
+      
       # TODO: check whether this is right?
       crossedstats <- rep(FALSE,num.effects)
       
@@ -77,10 +81,17 @@ run_phase2_single <- function(partition,
       # SUB STEP: until generated statistics cross the observed ones
       while(!stop.iterations) {
         
-        # draw chain
-        results.i <- draw_Metropolis_single(theta.i, partition.i, nodes, effects, objects, burnin, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+        # draw chain 
+        if(i == 1){
+          results.i <- draw_Metropolis_single(theta.i, partition.i, nodes, effects, objects, burnin, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+        } else{
+          results.i <- draw_Metropolis_single(theta.i, partition.i, nodes, effects, objects, thining, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+        }
         z.i <- results.i$draws
         partition.i <- results.i$last.partition
+        
+        # store z
+        allz <- rbind(allz, z.i)
         
         # compute new parameters
         if(double.averaging) {
@@ -136,6 +147,9 @@ run_phase2_single <- function(partition,
       partition.i <- find_startingpoint_single(nodes,sizes.allowed)
       sign.i_1 <- rep(0, length(unfixed.indexes)) # used to check cross statistics
       
+      # store all stats
+      allz <- c()
+      
       # TODO: check whether this is right?
       crossedstats <- rep(FALSE,length(unfixed.indexes))
       
@@ -148,9 +162,16 @@ run_phase2_single <- function(partition,
         # draw chain
         fulltheta.i <- estimates.phase1
         fulltheta.i[unfixed.indexes] <- theta.i
-        results.i <- draw_Metropolis_single(fulltheta.i, partition.i, nodes, effects, objects, burnin, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+        if(i == 1){
+          results.i <- draw_Metropolis_single(fulltheta.i, partition.i, nodes, effects, objects, burnin, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+        } else {
+          results.i <- draw_Metropolis_single(fulltheta.i, partition.i, nodes, effects, objects, thining, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+        }
         z.i <- results.i$draws[unfixed.indexes]
         partition.i <- results.i$last.partition
+        
+        # store z
+        allz <- rbind(allz, z.i)
         
         # compute new parameters
         if(double.averaging) {
@@ -191,8 +212,8 @@ run_phase2_single <- function(partition,
 
     }
 
-    print(cat("Estimated statistics after phase 2, step",step))
-    print(z.i)
+    print(cat("Difference to estimated statistics after phase 2, step",step))
+    print(colMeans(allz) - z.obs)
     print(cat("Estimates after phase 2, step",step))
     print(estimates)
   }
@@ -214,6 +235,7 @@ run_phase2_multiple <- function(partitions,
                               effects, 
                               objects, 
                               burnin, 
+                              thining,
                               num.steps, 
                               gainfactors,
                               r.truncation.p2,
@@ -239,8 +261,8 @@ run_phase2_multiple <- function(partitions,
     min.iter <- rep(0,num.steps)
     max.iter <- rep(0,num.steps)
     for(i in 1:num.steps){
-      min.iter[i] <- multiplication.iter * (2.52)^i 
-      max.iter[i] <- multiplication.iter * (2.52)^i + 200
+      min.iter[i] <- multiplication.iter * (2.52)^(i-1) 
+      max.iter[i] <- multiplication.iter * (2.52)^(i-1) + 200
     }
   } else {
     min.iter <- rep(min.iter,num.steps)
@@ -264,6 +286,9 @@ run_phase2_multiple <- function(partitions,
       partitions.i <- partitions
       sign.i_1 <- rep(0, num.effects) # used to check cross statistics
       
+      # store all stats
+      allz <- c()
+      
       # TODO: check whether this is right?
       crossedstats <- rep(FALSE,num.effects)
       
@@ -278,10 +303,19 @@ run_phase2_multiple <- function(partitions,
       # SUB STEP: until generated statistics cross the observed ones
       while(!stop.iterations) {
         
+        print(theta.i[1])
+        
         # draw chain
-        results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+        if(i == 1){
+          results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+        } else {
+          results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, thining, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+        }
         z.i <- results.i$draws
         partition.i <- results.i$last.partitions
+        
+        # store z
+        allz <- rbind(allz, z.i)
         
         # compute new parameters
         if(double.averaging) {
@@ -338,6 +372,9 @@ run_phase2_multiple <- function(partitions,
       partitions.i <- find_startingpoint_multiple(presence.tables,nodes,sizes.allowed)
       sign.i_1 <- rep(0, length(unfixed.indexes)) # used to check cross statistics
       
+      # store all stats
+      allz <- c()
+      
       # TODO: check whether this is right?
       crossedstats <- rep(FALSE,length(unfixed.indexes))
       
@@ -350,9 +387,16 @@ run_phase2_multiple <- function(partitions,
         # draw chain
         fulltheta.i <- estimates.phase1
         fulltheta.i[unfixed.indexes] <- theta.i
-        results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+        if(i == 1){
+          results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+        } else {
+          results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, thining, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+        }
         z.i <- results.i$draws[unfixed.indexes]
         partitions.i <- results.i$last.partitions
+        
+        # store z
+        allz <- rbind(allz, z.i)
         
         # compute new parameters
         if(double.averaging) {
@@ -392,7 +436,7 @@ run_phase2_multiple <- function(partitions,
     print(cat("Length of the step",step))
     print(cat((i-1),"(minimal value:",min.iter[step],"and maximal value:",max.iter[step],")"))
     print(cat("Estimated statistics after phase 2, step",step))
-    print(z.i)
+    print(colMeans(allz) - z.obs)
     print(cat("Estimates after phase 2, step",step))
     print(estimates)
   }
