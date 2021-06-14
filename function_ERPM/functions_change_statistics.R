@@ -177,6 +177,11 @@ computeStatistics <- function (partition, nodes, effects, objects){
       statistics[e] <- sum(sizes^2)
     }
     
+    # --------- SIZES_SQUARED_NORM -----------
+    if(effect.name == "sizes_squared_norm") {
+      statistics[e] <- sum(sizes^2) / num.groups
+    }
+    
     # --------- DEGREE2 -----------
     if(effect.name == "degree2") {
       sum <- 0
@@ -240,6 +245,7 @@ computeStatistics <- function (partition, nodes, effects, objects){
       }
       
     }
+    
     
     # --------- TIE_X_DIFF -----------
     if(effect.name == "tie_X_diff") {
@@ -688,6 +694,15 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
       }
       statistics[e] <- stat
     }
+    
+    # --------- SIZES_SQUARED_NORM -----------
+    if(effect.name == "sizes_squared_norm") {
+      stat <- 0
+      for(o in 1:num.obs){
+        stat <- stat + sum(sizes[[o]]^2) / nums.groups[o]
+      }
+      statistics[e] <- stat
+    }
 
     # --------- TIE -----------
     if(effect.name == "tie") {
@@ -786,6 +801,26 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
       for(o in 1:num.obs){
         if(length(groups[[o]]) > 0) {
           att.nodes <- factor(nodes[as.logical(presence.tables[,o]),att])
+          d <- as.matrix(dist(as.numeric(att.nodes)))
+          d <- d==0
+          diag(d) <- 0
+          stat <- stat + sum(1/2 * adjacencies[[o]] * d)
+        }
+      }
+      statistics[e] <- stat
+    }
+    
+    # --------- HOMOPHILY:SAME_VAR -----------
+    if(effect.name == "same_var") {
+      stat <- 0
+      for(ob in 1:length(objects)){
+        if(objects[[ob]][[1]] == object.name){
+          atts <- objects[[ob]][[2]]
+        }
+      }
+      for(o in 1:num.obs){
+        if(length(groups[[o]]) > 0) {
+          att.nodes <- atts[as.logical(presence.tables[,o]),o]
           d <- as.matrix(dist(as.numeric(att.nodes)))
           d <- d==0
           diag(d) <- 0
