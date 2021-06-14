@@ -59,17 +59,7 @@ run_phase3_single <- function(partition,
   }
   print("Autocorrelations in phase 3:")
   print(autocors)
-  
-  # calculate covariance and scaling
-  inverted_matrices <- calculate_inverted_covariance_and_scaling(estimates.phase2, 
-                                                        z.obs, 
-                                                        nodes, 
-                                                        effects, 
-                                                        objects,
-                                                        a.scaling,
-                                                        length.phase = length.p3, 
-                                                        z.phase = z.phase3,
-                                                        fixed.estimates)
+
   
   # hack for size constraints
   if(!is.null(sizes.allowed)){
@@ -79,14 +69,14 @@ run_phase3_single <- function(partition,
   }
   
   # calculations of phase 3: mean, sd, se, conv ratios
-  res.phase3 <- phase3(estimates.phase2, z.phase3, z.obs, effects, length.p3)
+  res.phase3 <- phase3(estimates.phase2, z.phase3, z.obs, nodes, effects, length.p3, fixed.estimates)
   
   return(list("means" = res.phase3$finalmean, 
               "standard.deviations" = res.phase3$finalsd, 
               "standard.errors" = res.phase3$finalse, 
               "convergence.ratios" = res.phase3$finalconvratios,
-              "inv.zcov" = inverted_matrices$inv.zcov,
-              "inv.scaling" = inverted_matrices$inv.scaling,
+              "inv.zcov" = res.phase3$inv.zcov,
+              "inv.scaling" = res.phase3$inv.scaling,
               "autocorrelations" = autocors))
   
 }
@@ -149,17 +139,6 @@ run_phase3_multiple <- function(partitions,
   print("Autocorrelations in phase 3:")
   print(autocors)
   
-  # calculate covariance and scaling
-  inverted_matrices <- calculate_inverted_covariance_and_scaling(estimates.phase2, 
-                                                                 z.obs, 
-                                                                 nodes, 
-                                                                 effects, 
-                                                                 objects,
-                                                                 a.scaling,
-                                                                 length.phase = length.p3, 
-                                                                 z.phase = z.phase3,
-                                                                 fixed.estimates)
-  
   # hack for size constraints
   if(!is.null(sizes.allowed)){
     length.p3 <- nrow(z.phase3)
@@ -168,14 +147,14 @@ run_phase3_multiple <- function(partitions,
   }
   
   # calculations of phase 3: mean, sd, se, conv ratios
-  res.phase3 <- phase3(estimates.phase2, z.phase3, z.obs, effects, length.p3)
+  res.phase3 <- phase3(estimates.phase2, z.phase3, z.obs, nodes, effects, length.p3, fixed.estimates)
   
   return(list("means" = res.phase3$finalmean, 
               "standard.deviations" = res.phase3$finalsd, 
               "standard.errors" = res.phase3$finalse, 
               "convergence.ratios" = res.phase3$finalconvratios,
-              "inv.zcov" = inverted_matrices$inv.zcov,
-              "inv.scaling" = inverted_matrices$inv.scaling,
+              "inv.zcov" = res.phase3$inv.zcov,
+              "inv.scaling" = res.phase3$inv.scaling,
               "autocorrelations" = autocors))
   
 }
@@ -185,8 +164,10 @@ run_phase3_multiple <- function(partitions,
 phase3 <- function(estimates.phase2,
                    z.phase3,
                    z.obs,
+                   nodes,
                    effects,
-                   length.p3){
+                   length.p3,
+                   fixed.estimates){
   
   num.nodes <- nrow(nodes)
   num.effects <- length(effects$names)
@@ -206,7 +187,22 @@ phase3 <- function(estimates.phase2,
     }
     finalsd[e] <- sd(statse)
   }
-  finalse <- finalsd / sqrt(length.p3)
+  
+  #covariance matrix
+  inverted_matrices <- calculate_inverted_covariance_and_scaling(estimates.phase2, 
+                                                                 z.obs, 
+                                                                 nodes, 
+                                                                 effects, 
+                                                                 objects, 
+                                                                 a.scaling = 0,
+                                                                 length.phase = length.p3, 
+                                                                 z.phase = z.phase3,
+                                                                 fixed.estimates)
+  inv.zcov <- inverted_matrices$inv.zcov
+  inv.scaling <- inverted_matrices$inv.scaling
+  
+  #finalse <- finalsd / sqrt(length.p3)
+  finalse <- sqrt(diag(inv.zcov))
   
   # convergence ratios
   finalconvratios <- (finalmean - z.obs) / finalsd
@@ -219,5 +215,7 @@ phase3 <- function(estimates.phase2,
   return(list("finalmean" = finalmean,
               "finalsd" = finalsd,
               "finalse" = finalse,
-              "finalconvratios" = finalconvratios))
+              "finalconvratios" = finalconvratios,
+              "inv.zcov" = inverted_matrices$inv.zcov,
+              "inv.scaling" = inverted_matrices$inv.scaling))
 }

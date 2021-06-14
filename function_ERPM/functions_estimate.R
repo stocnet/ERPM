@@ -26,7 +26,7 @@ estimate_ERPM <- function(partition, # observed partition
                           multiplication.iter.p2 = 100, # value for the lengths of sub-steps in phase 2 (multiplied by  2.52^k)
                           num.steps.p2 = 6, # number of optimisation steps in phase 2
                           length.p3 = 1000, # number of samples in phase 3
-                          neighborhood = 2, # way of choosing partitions, either 1 (actor swaps) or 2 (merges and divisions)
+                          neighborhood = c(0.7,0.3,0), # way of choosing partitions: probability vector (proba actors swap, proba merge/division, proba single actor move)
                           fixed.estimates = NULL, # if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
                           sizes.allowed = NULL, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
                           sizes.simulated = NULL, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
@@ -78,10 +78,10 @@ estimate_ERPM <- function(partition, # observed partition
   # --------- PHASE 2 ---------
   if(parallel2){
     
-    sfExport("partition", "estimates.phase1", "inv.zcov", "inv.scaling", "z.obs", "nodes", "effects", "objects", "burnin", "num.steps.p2", "gainfactors", "r.truncation.p2", "mini.steps", "min.iter.p2", "max.iter.p2", "neighborhood", "fixed.estimates", "sizes.allowed", "sizes.simulated", "double.averaging")
+    sfExport("partition", "estimates.phase1", "inv.zcov", "inv.scaling", "z.obs", "nodes", "effects", "objects", "burnin", "thining", "num.steps.p2", "gainfactors", "r.truncation.p2", "mini.steps", "min.iter.p2", "max.iter.p2", "neighborhood", "fixed.estimates", "sizes.allowed", "sizes.simulated", "double.averaging")
     res <- sfLapply(1:cpus, fun = function(k) {
       set.seed(k)
-      subres <- run_phase2_single(partition, estimates.phase1, inv.zcov,inv.scaling, z.obs, nodes, effects, objects, burnin, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
+      subres <- run_phase2_single(partition, estimates.phase1, inv.zcov,inv.scaling, z.obs, nodes, effects, objects, burnin, thining, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
       return(subres)
     }
     )
@@ -91,7 +91,7 @@ estimate_ERPM <- function(partition, # observed partition
     
   }else{
     
-    results.phase2 <- run_phase2_single(partition, estimates.phase1, inv.zcov,inv.scaling, z.obs, nodes, effects, objects, burnin, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
+    results.phase2 <- run_phase2_single(partition, estimates.phase1, inv.zcov,inv.scaling, z.obs, nodes, effects, objects, burnin, thining, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
     estimates.phase2 <- results.phase2$final.estimates
   }
   
@@ -203,7 +203,7 @@ estimate_multipleERPM <- function(partitions, # observed partitions
                           multiplication.iter.p2 = 200, # value for the lengths of sub-steps in phase 2 (multiplied by  2.52^k)
                           num.steps.p2 = 6, # number of optimisation steps in phase 2
                           length.p3 = 1000, # number of samples in phase 3
-                          neighborhood = 2, # way of choosing partitions, either 1 (actor swaps) or 2 (merges and divisions)
+                          neighborhood = c(0.7,0.3,0), # way of choosing partitions: probability vector (proba actors swap, proba merge/division, proba single actor move)
                           fixed.estimates = NULL, # if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
                           sizes.allowed = NULL, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
                           sizes.simulated = NULL, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
@@ -255,10 +255,10 @@ estimate_multipleERPM <- function(partitions, # observed partitions
   # --------- PHASE 2 ---------
   if(parallel2){
     
-    sfExport("partitions", "estimates.phase1", "inv.zcov", "inv.scaling", "z.obs", "presence.tables", "nodes", "effects", "objects", "burnin", "num.steps.p2", "gainfactors", "r.truncation.p2", "mini.steps", "min.iter.p2", "max.iter.p2", "neighborhood", "fixed.estimates", "sizes.allowed", "sizes.simulated", "double.averaging")
+    sfExport("partitions", "estimates.phase1", "inv.zcov", "inv.scaling", "z.obs", "presence.tables", "nodes", "effects", "objects", "burnin", "thining", "num.steps.p2", "gainfactors", "r.truncation.p2", "mini.steps", "min.iter.p2", "max.iter.p2", "neighborhood", "fixed.estimates", "sizes.allowed", "sizes.simulated", "double.averaging")
     res <- sfLapply(1:cpus, fun = function(k) {
       set.seed(k)
-      subres <- run_phase2_multiple(partitions, estimates.phase1, inv.zcov,inv.scaling, z.obs, presence.tables, nodes, effects, objects, burnin, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
+      subres <- run_phase2_multiple(partitions, estimates.phase1, inv.zcov,inv.scaling, z.obs, presence.tables, nodes, effects, objects, burnin, thining, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
       return(subres)
     }
     )
@@ -268,7 +268,7 @@ estimate_multipleERPM <- function(partitions, # observed partitions
     
   }else{
     
-    results.phase2 <- run_phase2_multiple(partitions, estimates.phase1, inv.zcov,inv.scaling, z.obs, presence.tables, nodes, effects, objects, burnin, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
+    results.phase2 <- run_phase2_multiple(partitions, estimates.phase1, inv.zcov,inv.scaling, z.obs, presence.tables, nodes, effects, objects, burnin, thining, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
     estimates.phase2 <- results.phase2$final.estimates
   }
   
@@ -326,7 +326,7 @@ estimate_multipleBERPM <- function(partitions, # observed partitions
                                   mini.steps.2 = "normalized", # type of transition in the Metropolis Hastings algorithm, either "normalized", either "self-loops" (take "normalized")
                                   burnin.2 = 30, # integer for the number of burn-in steps before sampling int the MCMC to sample partitions
                                   
-                                  neighborhood.partition = 2, # way of choosing partitions, either 1 (actor swaps) or 2 (merges and divisions)
+                                  neighborhood.partition = c(0.7,0.3,0), # way of choosing partitions: probability vector (proba actors swap, proba merge/division, proba single actor move)
                                   
                                   neighborhood.augmentation = NULL, # standard deviations auround the parameters to draw the augmented distrubtion
                                   
