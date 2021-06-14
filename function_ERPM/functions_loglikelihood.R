@@ -18,11 +18,15 @@ estimate_logL <- function(partition, # observed partition
                           burnin, # integer for the number of burn-in steps before sampling
                           thining, # integer for the number of thining steps between sampling
                           mini.steps = "normalized", # type of transition in the Metropolis Hastings algorithm, either "normalized", either "self-loops" (take "normalized")
-                          neighborhood = 2, # way of choosing partitions, either 1 (actor swaps) or 2 (merges and divisions)
+                          neighborhoods = c(0,0.5,0.5), # way of choosing partitions
                           sizes.allowed = NULL,  # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
                           sizes.simulated = NULL, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-                          logL_0 = NULL ) # if known, the value of  
+                          logL_0 = NULL,  # if known, the value of the log likelihood of the basic dirichlet model
+                          parallel = F, # whether each step is run in parallel
+                          cpus = 1) # number of cpus (should be equal to M)
 {
+  
+  if(parallel && cpus != M) print("Please set the number of cpus equal to the number of steps in the path-sampling algorithm.")
   
   num.nodes <- nrow(nodes)
   num.effects <- length(effects$names)
@@ -42,20 +46,37 @@ estimate_logL <- function(partition, # observed partition
   all_draws <- list()
   
   # path sampling
-  for(m in 1:M){
-    print(paste("step",m))
-    theta_m <- m/M * theta + (1-m)/M * theta_0
-    draws_m <- draw_Metropolis_single(theta_m, first.partition, nodes, effects, objects, burnin, thining, num.steps, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
-    all_draws[[m]] <- draws_m
-    z_m <- colMeans(draws_m$draws)
-    lambda <- lambda + diff_vector %*% z_m 
+  if(parallel){
+    
+    sfExport("M", "theta", "theta_0", "diff_vector", "first.partition", "nodes", "effects", "objects", "burnin", "thining", "num.steps", "mini.steps", "neighborhoods", "sizes.allowed", "sizes.simulated")
+    res <- sfLapply(1:M, fun = function(m) {
+      theta_m <- m/M * theta + (1-m)/M * theta_0
+      draws_m <- draw_Metropolis_single(theta_m, first.partition, nodes, effects, objects, burnin, thining, num.steps, mini.steps, neighborhoods, sizes.allowed, sizes.simulated)
+      z_m <- colMeans(draws_m$draws)
+      subres <- list(contribution_lambda = diff_vector %*% z_m, draws = draws_m$draws)
+      return(subres)
+    }
+    )
+    for(m in 1:M) {
+      lambda <- lambda + res[[m]]$contribution_lambda
+      all_draws[[m]] <- res[[m]]$draws
+    }
+  }else{
+    for(m in 1:M){
+      print(paste("step",m))
+      theta_m <- m/M * theta + (1-m)/M * theta_0
+      draws_m <- draw_Metropolis_single(theta_m, first.partition, nodes, effects, objects, burnin, thining, num.steps, mini.steps, neighborhoods, sizes.allowed, sizes.simulated)
+      all_draws[[m]] <- draws_m
+      z_m <- colMeans(draws_m$draws)
+      lambda <- lambda + diff_vector %*% z_m 
+    }
   }
   lambda <- 1/M * lambda
   
   # value of log likelihood for basic Dirichlet model (theta_0)
   if(is.null(logL_0)){
     index_0 <- which(effects$names == "num_groups")
-    logL_0 <- log(exp(theta_0[index_0]*max(partition))/calculate_logL_Dirichlet(nodes, theta_0[index_0],sizes.allowed))
+    logL_0 <- log(calculate_proba_Dirichlet_restricted(theta_0[index_0],max(partition),length(partition),min(sizes.allowed),max(sizes.allowed)))
   }
   
   # estimated value of log likelihood for full model (theta)
@@ -71,13 +92,12 @@ estimate_logL <- function(partition, # observed partition
 }
 
 
-calculate_logL_Dirichlet <- function(nodes, theta_0,sizes.allowed) {
- 
-  num.nodes <- nrow(nodes)
-  denom <- 0
-  for(k in 1:num.nodes){
-    denom <- denom + Stirling2_constraints(num.nodes,k,min(sizes.allowed),max(sizes.allowed)) * exp(theta_0*k)
-  }
-  return(denom)
-   
-}
+#calculate_logL_Dirichlet <- function(nodes, theta_0,sizes.allowed) {
+# 
+#  num.nodes <- nrow(nodes)
+#  denom <- 0
+#  for(k in 1:num.nodes){
+#    denom <- denom + Stirling2_constraints(num.nodes,k,min(sizes.allowed),max(sizes.allowed)) * exp(theta_0*k)
+#  }
+#  return(denom)
+#}

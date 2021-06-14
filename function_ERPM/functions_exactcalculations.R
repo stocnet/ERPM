@@ -128,10 +128,10 @@ compute_averagesize <- function( num.nodes){
 
 
 
-# Estimation with size constraint
+# Estimation basic model with size constraint
 calculate_proba_Dirichlet_restricted <- function(alpha,stat,n,smin,smax){
   num <- exp(alpha*stat)
-  denom <- calculate_denominator(n,smin,smax,alpha,as.list(rep(-1,n+1)))
+  denom <- calculate_denominator_Dirichlet_restricted(n,smin,smax,alpha,as.list(rep(-1,n+1)))
   return(num/denom$den)
 }
 calculate_denominator_Dirichlet_restricted <- function(n,smin,smax,alpha, results){
@@ -159,7 +159,7 @@ calculate_denominator_Dirichlet_restricted <- function(n,smin,smax,alpha, result
           if(results[[i+1]] > -1) {
             deni <- results[[i+1]]
           } else {
-            calci <- calculate_denominator(i,smin,smax,alpha,results)
+            calci <- calculate_denominator_Dirichlet_restricted(i,smin,smax,alpha,results)
             deni <- calci$den
             results <- calci$res
           }
