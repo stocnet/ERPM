@@ -167,7 +167,7 @@ exchangealgorithm_multiple <- function(partitions,
                                          sizes.simulated,
                                          return.all.partitions = F) 
     augmented.partitions <- partition.draw$last.partitions
-    z.augmented <- computeStatistics_multiple(augmented.partitions, presence.tables, nodes, effects, objects)
+    z.augmented <- rowSums(computeStatistics_multiple(augmented.partitions, presence.tables, nodes, effects, objects))
     
     # compute acceptance ratio
     ratio.probas <- prod(pnorm(new.theta, mean=mean.priors, sd=sd.priors) /
