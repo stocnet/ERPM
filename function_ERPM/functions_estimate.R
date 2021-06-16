@@ -214,7 +214,7 @@ estimate_multipleERPM <- function(partitions, # observed partitions
                           parallel2 = F, # whether there should be several phases 2 run in parallel
                           cpus = 1) { # how many cores can be used
   
-  z.obs <- computeStatistics_multiple(partitions, presence.tables, nodes, effects, objects)
+  z.obs <- rowSums( computeStatistics_multiple(partitions, presence.tables, nodes, effects, objects) )
  
   gainfactors <- rep(0,num.steps.p2)
   for(i in 1:num.steps.p2){
@@ -337,7 +337,7 @@ estimate_multipleBERPM <- function(partitions, # observed partitions
                                   cpus = 1) { # how many cores can be used
   
   num.effects <- length(effects$names)
-  z.obs <- computeStatistics_multiple(partitions, presence.tables, nodes, effects, objects)
+  z.obs <- rowSUms( computeStatistics_multiple(partitions, presence.tables, nodes, effects, objects) )
   
   print("Observed statistics")
   print(z.obs)
