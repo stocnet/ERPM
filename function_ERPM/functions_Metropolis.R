@@ -155,7 +155,8 @@ draw_Metropolis_multiple <- function(theta, # model parameters
   
   # instantiate with the starting network
   current.partitions <- first.partitions
-  current.z <- computeStatistics_multiple(current.partitions, presence.tables, nodes, effects, objects)
+  current.z.contributions <- computeStatistics_multiple(current.partitions, presence.tables, nodes, effects, objects)
+  current.z <- rowSums(current.z.contributions)
   current.logit <- theta * current.z
   
   # store the statistics collected for all networks simulated after the burn in
@@ -177,6 +178,7 @@ draw_Metropolis_multiple <- function(theta, # model parameters
     new.step <- draw_step_multiple(theta,
                                  current.partitions, 
                                  current.logit,
+                                 current.z.contributions,
                                  current.z,
                                  presence.tables,  
                                  nodes, 
@@ -194,6 +196,7 @@ draw_Metropolis_multiple <- function(theta, # model parameters
     old.partitions <- current.partitions
     if(change.made) {
       current.partitions <- new.step$new.partitions
+      current.z.contributions <- new.step$new.z.contributions
       current.z <- new.step$new.z
       current.logit <- new.step$new.logit
     }
@@ -407,6 +410,7 @@ draw_step_single <- function(theta,
 draw_step_multiple <- function(theta,
                              current.partitions, 
                              current.logit,
+                             current.z.contributions,
                              current.z,
                              presence.tables,  
                              nodes, 
@@ -462,6 +466,7 @@ draw_step_multiple <- function(theta,
   
   # IF NO CHANGE, same statistics
   if(all(current.partitions == new.partitions, na.rm=T)) {
+    new.z.contributions <- current.z.contributions
     new.z <- current.z
   }
   
@@ -469,7 +474,7 @@ draw_step_multiple <- function(theta,
   if(!all(current.partitions == new.partitions, na.rm=T)) {
     
     # store new statistics
-    new.z <- rep(0,length(current.z))
+    new.z.contributions <- current.z.contributions
     
     # calculate separately each effect
     for(e in 1:length(effects$names)) {
@@ -487,9 +492,10 @@ draw_step_multiple <- function(theta,
           }
         }
         nodes.temp <- nodes[nodes.rand.o,]
-        old.z.temp <- computeStatistics(current.partitions[nodes.rand.o,rand.o], nodes.temp, effects.temp, objects.temp)
-        new.z.temp <- computeStatistics(new.partitions[nodes.rand.o,rand.o], nodes.temp, effects.temp, objects.temp)
-        new.z[e] <- current.z[e] - old.z.temp + new.z.temp
+        
+        #old.z.temp <- computeStatistics(current.partitions[nodes.rand.o,rand.o], nodes.temp, effects.temp, objects.temp)
+        new.z.contributions[e,rand.o] <- as.numeric(computeStatistics(new.partitions[nodes.rand.o,rand.o], nodes.temp, effects.temp, objects.temp))
+        #new.z[e] <- current.z[e] - old.z.temp + new.z.temp
       
       #  SAME_VAR EFFECT: adapt the varying covariate  
       } else if(effects$names[e] == "same_var"){
@@ -502,57 +508,119 @@ draw_step_multiple <- function(theta,
         }
         objects.temp <- list()
         nodes.temp <- nodes[nodes.rand.o,]
-        nodes.temp$var.temp <- atts[,rand.o]
+        nodes.temp$var.temp <- atts[nodes.rand.o,rand.o]
        
-        old.z.temp <- computeStatistics(current.partitions[nodes.rand.o,rand.o], nodes.temp, effects.temp, objects.temp)
-        new.z.temp <- computeStatistics(new.partitions[nodes.rand.o,rand.o], nodes.temp, effects.temp, objects.temp)
-        new.z[e] <- current.z[e] - old.z.temp + new.z.temp  
+        #old.z.temp <- computeStatistics(current.partitions[nodes.rand.o,rand.o], nodes.temp, effects.temp, objects.temp)
+        new.z.contributions[e,rand.o] <- as.numeric(computeStatistics(new.partitions[nodes.rand.o,rand.o], nodes.temp, effects.temp, objects.temp))
+        #new.z[e] <- current.z[e] - old.z.temp + new.z.temp  
+        
+      #  TIE_VAR EFFECT: adapt the varying network
+      } else if(effects$names[e] == "tie_var"){
+        
+        effects.temp <- list(names="tie",objects="net.temp")
+        for(ob in 1:length(objects)){
+          if(objects[[ob]][[1]] == object.name){
+            nets <- objects[[ob]][[2]]
+            net <- nets[[rand.o]]
+            objects.temp <- list(list(name="net.temp",object=net[nodes.rand.o,nodes.rand.o]))
+          }
+        }
+        nodes.temp <- nodes[nodes.rand.o,]
+        
+        #old.z.temp <- computeStatistics(current.partitions[nodes.rand.o,rand.o], nodes.temp, effects.temp, objects.temp)
+        new.z.contributions[e,rand.o] <- as.numeric(computeStatistics(new.partitions[nodes.rand.o,rand.o], nodes.temp, effects.temp, objects.temp))
+        #new.z[e] <- current.z[e] - old.z.temp + new.z.temp  
+        
+      #  TIE_VAR_X_DIFF EFFECT: adapt the varying network
+      } else if(effects$names[e] == "tie_var_X_diff"){
+        
+        effects.temp <- list(names="tie_X_diff",objects="net.temp",objects2=effects$objects2[e])
+        for(ob in 1:length(objects)){
+          if(objects[[ob]][[1]] == object.name){
+            nets <- objects[[ob]][[2]]
+            net <- nets[[rand.o]]
+            objects.temp <- list(list(name="net.temp",object=net[nodes.rand.o,nodes.rand.o]))
+          }
+        }
+        nodes.temp <- nodes[nodes.rand.o,]
+        
+        #old.z.temp <- computeStatistics(current.partitions[nodes.rand.o,rand.o], nodes.temp, effects.temp, objects.temp)
+        new.z.contributions[e,rand.o] <- as.numeric(computeStatistics(new.partitions[nodes.rand.o,rand.o], nodes.temp, effects.temp, objects.temp))
+        #new.z[e] <- current.z[e] - old.z.temp + new.z.temp  
+        
         
       # INERTIA_1 EFFECT: need to recalculate the partition before and after
       } else if(effects$names[e] == "inertia_1"){
         
-        # first partition
-        if(rand.o > 1) {
-          effects.temp <- list(names="tie",objects="net.temp")
-          aff.temp <- as.matrix(table(data.frame(actor = 1:num.nodes, group= new.partitions[,rand.o-1])))
-          adj.temp <- aff.temp %*% t(aff.temp)
-          diag(adj.temp) <- 0
-          objects.temp <- list(list(name="net.temp", object=adj.temp[nodes.rand.o,nodes.rand.o]))
-          nodes.temp <- nodes[nodes.rand.o,]
-          old.z.temp <- computeStatistics(current.partitions[nodes.rand.o,rand.o], nodes.temp, effects.temp, objects.temp)
-          new.z.temp <- computeStatistics(new.partitions[nodes.rand.o,rand.o], nodes.temp, effects.temp, objects.temp)
-          new.z[e] <- current.z[e] - old.z.temp + new.z.temp
+        aff.temp <- as.matrix(table(data.frame(actor = 1:num.nodes, group= new.partitions[,rand.o])))
+        adj.temp <- aff.temp %*% t(aff.temp)
+        diag(adj.temp) <- 0
+        
+        if(rand.o > 1) { # removed  && length(groups[[rand.o]]) > 0
+          aff.temp2 <- as.matrix(table(data.frame(actor = 1:num.nodes, group= new.partitions[,rand.o-1])))
+          adj.temp2 <- aff.temp2 %*% t(aff.temp2)
+          diag(adj.temp2) <- 0
+          adj12 <- adj.temp * adj.temp2
+          new.z.contributions[e,rand.o] <- sum(1/2 * adj12)
+        } else {
+          new.z.contributions[e,rand.o] <- 0
         }
         
-        # second partition
-        if(rand.o < num.obs){
-          nodes.rand.o2 <- as.logical(presence.tables[,rand.o+1])
-          effects.temp <- list(names="tie",objects="net.temp")
-          aff.temp <- as.matrix(table(data.frame(actor = 1:num.nodes, group= new.partitions[,rand.o])))
-          adj.temp <- aff.temp %*% t(aff.temp)
-          diag(adj.temp) <- 0
-          objects.temp <- list(list(name="net.temp", object=adj.temp[nodes.rand.o2,nodes.rand.o2]))
-          nodes.temp <- nodes[nodes.rand.o2,]
-          old.z.temp <- computeStatistics(current.partitions[nodes.rand.o,rand.o], nodes.temp, effects.temp, objects.temp)
-          new.z.temp <- computeStatistics(new.partitions[nodes.rand.o,rand.o], nodes.temp, effects.temp, objects.temp)
-          new.z[e] <- current.z[e] - old.z.temp + new.z.temp
+        if(rand.o < num.obs) { # removed  && length(groups[[rand.o]]) > 0
+          aff.temp2 <- as.matrix(table(data.frame(actor = 1:num.nodes, group= new.partitions[,rand.o+1])))
+          adj.temp2 <- aff.temp2 %*% t(aff.temp2)
+          diag(adj.temp2) <- 0
+          adj12 <- adj.temp * adj.temp2
+          new.z.contributions[e,rand.o+1] <- sum(1/2 * adj12)
         }
+          
+        #effects.temp <- list(names="inertia_1",objects="partitions",objects2="")
+        #objects.temp <- list()
+        #new.z.temp <- computeStatistics_multiple(new.partitions, presence.tables, nodes, effects.temp, objects.temp)
+        #new.z[e] <- new.z.temp
+        
+        ## first partition
+        #if(rand.o > 1) {
+        #  effects.temp <- list(names="tie",objects="net.temp")
+        #  aff.temp <- as.matrix(table(data.frame(actor = 1:num.nodes, group= new.partitions[,rand.o-1])))
+        #  adj.temp <- aff.temp %*% t(aff.temp)
+        #  diag(adj.temp) <- 0
+        #  objects.temp <- list(list(name="net.temp", object=adj.temp[nodes.rand.o,nodes.rand.o]))
+        #  nodes.temp <- nodes[nodes.rand.o,]
+        #  old.z.temp <- computeStatistics(current.partitions[nodes.rand.o,rand.o], nodes.temp, effects.temp, objects.temp)
+        #  new.z.temp <- computeStatistics(new.partitions[nodes.rand.o,rand.o], nodes.temp, effects.temp, objects.temp)
+        #  new.z[e] <- current.z[e] - old.z.temp + new.z.temp
+        #}
+        
+        ## second partition
+        #if(rand.o < num.obs){
+        #  nodes.rand.o2 <- as.logical(presence.tables[,rand.o+1])
+        #  effects.temp <- list(names="tie",objects="net.temp")
+        #  aff.temp <- as.matrix(table(data.frame(actor = 1:num.nodes, group= new.partitions[,rand.o])))
+        #  adj.temp <- aff.temp %*% t(aff.temp)
+        #  diag(adj.temp) <- 0
+        #  objects.temp <- list(list(name="net.temp", object=adj.temp[nodes.rand.o2,nodes.rand.o2]))
+        #  nodes.temp <- nodes[nodes.rand.o2,]
+        #  old.z.temp <- computeStatistics(current.partitions[nodes.rand.o2,rand.o+1], nodes.temp, effects.temp, objects.temp)
+        #  new.z.temp <- computeStatistics(new.partitions[nodes.rand.o2,rand.o+1], nodes.temp, effects.temp, objects.temp)
+        #  new.z[e] <- current.z[e] - old.z.temp + new.z.temp
+        #}
         
       # INERTIA_TOTAL: need to recalculate everything
       } else if(effects$names[e] == "inertia_total"){
 
         effects.temp <- list(names="inertia_total",objects="partitions",objects2="")
         objects.temp <- list()
-        new.z.temp <- computeStatistics_multiple(new.partitions, presence.tables, nodes, effects.temp, objects.temp)
-        new.z[e] <- new.z.temp
+        new.z.contributions[e,] <- computeStatistics_multiple(new.partitions, presence.tables, nodes, effects.temp, objects.temp)
+        #new.z[e] <- new.z.temp
 
       # INERTIA_TOTAL_X_DIFF: need to recalculate everything
       } else if(effects$names[e] == "inertia_total_X_diff"){
         
         effects.temp <- list(names="inertia_total_X_diff",objects="partitions",objects2=effects$objects2[e])
         objects.temp <- list()
-        new.z.temp <- computeStatistics_multiple(new.partitions, presence.tables, nodes, effects.temp, objects.temp)
-        new.z[e] <- new.z.temp
+        new.z.contributions[e,] <- computeStatistics_multiple(new.partitions, presence.tables, nodes, effects.temp, objects.temp)
+        #new.z[e] <- new.z.temp
         
       # ANY OTHER EFFECT: the effect also exists in the single partition version
       } else {
@@ -561,12 +629,19 @@ draw_step_multiple <- function(theta,
         objects.temp <- objects
         nodes.temp <- nodes[nodes.rand.o,]
         
-        old.z.temp <- computeStatistics(current.partitions[nodes.rand.o,rand.o], nodes.temp, effects.temp, objects.temp)
-        new.z.temp <- computeStatistics(new.partitions[nodes.rand.o,rand.o], nodes.temp, effects.temp, objects.temp)
-        new.z[e] <- current.z[e] - old.z.temp + new.z.temp  
+        #old.z.temp <- computeStatistics(current.partitions[nodes.rand.o,rand.o], nodes.temp, effects.temp, objects.temp)
+        new.z.contributions[e,rand.o] <- as.numeric(computeStatistics(new.partitions[nodes.rand.o,rand.o], nodes.temp, effects.temp, objects.temp))
+        #new.z[e] <- current.z[e] - old.z.temp + new.z.temp  
         
       }
     }
+    
+    new.z <- rowSums(new.z.contributions)
+    
+    #actual.new.z <- rowSums( computeStatistics_multiple(new.partitions, presence.tables, nodes, effects, objects) )
+    #if(!all(new.z == actual.new.z)){
+    #  print("problem")
+    #}
   } 
   
   
@@ -628,6 +703,7 @@ draw_step_multiple <- function(theta,
   
   return(list("hastings.ratio" = hastings.ratio,
               "new.partitions" = new.partitions,
+              "new.z.contributions" = new.z.contributions,
               "new.z" = new.z,
               "new.logit" = new.logit))
 }
