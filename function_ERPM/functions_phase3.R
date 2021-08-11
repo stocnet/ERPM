@@ -149,6 +149,67 @@ run_phase3_multiple <- function(partitions,
   # calculations of phase 3: mean, sd, se, conv ratios
   res.phase3 <- phase3(estimates.phase2, z.phase3, z.obs, nodes, effects, length.p3, fixed.estimates)
   
+  return(list("draws" = z.phase3, 
+              "means" = res.phase3$finalmean, 
+              "standard.deviations" = res.phase3$finalsd, 
+              "standard.errors" = res.phase3$finalse, 
+              "convergence.ratios" = res.phase3$finalconvratios,
+              "inv.zcov" = res.phase3$inv.zcov,
+              "inv.scaling" = res.phase3$inv.scaling,
+              "autocorrelations" = autocors))
+  
+}
+
+
+# Phase 3 for multiple partitions
+run_phase3_multiple_secondparallel <- function(partitions,
+                                estimates.phase2, 
+                                z.obs, 
+                                presence.tables, 
+                                nodes, 
+                                effects, 
+                                objects, 
+                                burnin, 
+                                thining,
+                                a.scaling,
+                                mini.steps, 
+                                length.p3, 
+                                neighborhood,
+                                sizes.allowed,
+                                sizes.simulated,
+                                fixed.estimates,
+                                parallel = F,
+                                cpus = 1) {
+  
+  num.nodes <- nrow(nodes)
+  num.effects <- length(effects$names)
+  
+  # find a good starting point
+  #first.partitions <- find_startingpoint_multiple(presence.tables,nodes,sizes.allowed)
+  first.partitions <- partitions
+  
+  # simulate a large sample with the estimates found in phase 2 
+  results.phase3 <- draw_Metropolis_multiple_secondparallel(estimates.phase2, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, length.p3, mini.steps, neighborhood, sizes.allowed, sizes.simulated, parallel, cpus)
+  z.phase3 <- results.phase3$draws
+  
+  # calculate autocorrelation to check afterhand
+  autocors <- rep(0,num.effects)
+  for(e in 1:num.effects){
+    autocors[e] <- cor(results.phase3$draws[1:(length.p3-1),e],results.phase3$draws[2:length.p3,e])
+  }
+  print("Autocorrelations in phase 3:")
+  print(autocors)
+  
+  # hack for size constraints
+  if(!is.null(sizes.allowed)){
+    length.p3 <- nrow(z.phase3)
+    print("new length of phase 3")
+    print(length.p3)
+  }
+  
+  # calculations of phase 3: mean, sd, se, conv ratios
+  res.phase3 <- phase3(estimates.phase2, z.phase3, z.obs, nodes, effects, length.p3, fixed.estimates)
+  
   return(list("means" = res.phase3$finalmean, 
               "standard.deviations" = res.phase3$finalsd, 
               "standard.errors" = res.phase3$finalse, 

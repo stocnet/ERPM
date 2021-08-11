@@ -26,7 +26,7 @@ estimate_ERPM <- function(partition, # observed partition
                           multiplication.iter.p2 = 100, # value for the lengths of sub-steps in phase 2 (multiplied by  2.52^k)
                           num.steps.p2 = 6, # number of optimisation steps in phase 2
                           length.p3 = 1000, # number of samples in phase 3
-                          neighborhood = c(0.7,0.3,0), # way of choosing partitions: probability vector (proba actors swap, proba merge/division, proba single actor move)
+                          neighborhood = c(0.7,0.3,0,0,0,0), # way of choosing partitions: probability vector (actors swap, merge/division, single actor move, pair move)
                           fixed.estimates = NULL, # if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
                           sizes.allowed = NULL, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
                           sizes.simulated = NULL, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
@@ -203,7 +203,7 @@ estimate_multipleERPM <- function(partitions, # observed partitions
                           multiplication.iter.p2 = 200, # value for the lengths of sub-steps in phase 2 (multiplied by  2.52^k)
                           num.steps.p2 = 6, # number of optimisation steps in phase 2
                           length.p3 = 1000, # number of samples in phase 3
-                          neighborhood = c(0.7,0.3,0), # way of choosing partitions: probability vector (proba actors swap, proba merge/division, proba single actor move)
+                          neighborhood = c(0.7,0.3,0,0,0,0,0,0,0,0,0,0), # way of choosing partitions: probability vector (actors swap, merge/division, single actor move, pair move)
                           fixed.estimates = NULL, # if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
                           sizes.allowed = NULL, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
                           sizes.simulated = NULL, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
@@ -275,6 +275,117 @@ estimate_multipleERPM <- function(partitions, # observed partitions
   
   # --------- PHASE 3 ---------
   results.phase3 <- run_phase3_multiple(partitions, estimates.phase2, z.obs, presence.tables, nodes, effects, objects, burnin, thining, a.scaling, mini.steps, length.p3, neighborhood, sizes.allowed, sizes.simulated, fixed.estimates, parallel, cpus)
+  draws <- results.phase3$draws
+  means <- results.phase3$means
+  standard.deviations <- results.phase3$standard.deviations
+  standard.errors <- results.phase3$standard.errors
+  convergence.ratios <- results.phase3$convergence.ratios
+  autocorrelations.phase3 <- results.phase3$autocorrelations
+  
+  # ------ PRINT RESULTS ------
+  results <- data.frame(effect = effects$names, 
+                        object = effects$objects,
+                        est = as.vector(estimates.phase2), 
+                        std.err = standard.errors, 
+                        conv = convergence.ratios)
+  print_results(results)
+  
+  # ------ KEEP IMPORTANT OBJECTS ------
+  objects.phase1 <- list(autocorrelations = autocorrelations.phase1)
+  objects.phase2 <- list(estimates = results.phase2$all.estimates,
+                         lengths.subphases = results.phase2$lengths.subphases)
+  objects.phase3 <- list(draws = draws,
+                         means = means,
+                         standard.deviations = standard.deviations,
+                         inv.zcov = inv.zcov,
+                         inv.scaling = inv.scaling,
+                         autocorrelations = autocorrelations.phase3)
+  
+  return(list(results = results,
+              objects.phase1 = objects.phase1,
+              objects.phase2 = objects.phase2,
+              objects.phase3 = objects.phase3))
+}
+
+
+
+## Estimation ERPM for multiple observations, other parallelization (by effect), careful, we need at least as many cpus as effects:
+
+estimate_multipleERPM_secondparallel <- function(partitions, # observed partitions
+                                  presence.tables, # matrix indicating which actors were present for each observations (mandatory)
+                                  nodes, # nodeset (data frame)
+                                  objects, # objects used for statistics calculation (list with a vector "name", and a vector "object")
+                                  effects, # effects/sufficient statistics (list with a vector "names", and a vector "objects")
+                                  startingestimates, # first guess for the model parameters
+                                  multiplicationfactor = 30, # for now, useless
+                                  gainfactor = 0.1, # numeric used to decrease the size of steps made in the Newton optimization
+                                  a.scaling = 0.2, # numeric used to reduce the influence of non-diagonal elements in the scaling matrix (for stability)
+                                  r.truncation.p1 = 2, # numeric used to limit extreme values in the covariance matrix (for stability)
+                                  r.truncation.p2 = 5, # numeric used to limit extreme values in the covariance matrix (for stability)
+                                  mini.steps = "normalized", # type of transition in the Metropolis Hastings algorithm, either "normalized", either "self-loops" (take "normalized")
+                                  burnin = 30, # integer for the number of burn-in steps before sampling
+                                  thining = 10, # integer for the number of thining steps between sampling
+                                  length.p1 = 100, # number of samples in phase 1
+                                  min.iter.p2 = NULL, # minimum number of sub-steps in phase 2
+                                  max.iter.p2 = NULL, # maximum number of sub-steps in phase 2
+                                  multiplication.iter.p2 = 200, # value for the lengths of sub-steps in phase 2 (multiplied by  2.52^k)
+                                  num.steps.p2 = 6, # number of optimisation steps in phase 2
+                                  length.p3 = 1000, # number of samples in phase 3
+                                  neighborhood = c(0.7,0.3,0,0,0,0,0,0,0,0,0,0), # way of choosing partitions: probability vector (actors swap, merge/division, single actor move, pair move)
+                                  fixed.estimates = NULL, # if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
+                                  sizes.allowed = NULL, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
+                                  sizes.simulated = NULL, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+                                  double.averaging = F, # option to average the statistics sampled in each sub-step of phase 2
+                                  inv.zcov = NULL, # initial value of the inverted covariance matrix (if a phase 3 was run before) to bypass the phase 1
+                                  inv.scaling = NULL, # initial value of the inverted scaling matrix (if a phase 3 was run before) to bypass the phase 1
+                                  parallel = F, # whether the calculation of stats should be parallelized
+                                  cpus = 1) { # how many cores can be used
+  
+  z.obs <- rowSums( computeStatistics_multiple(partitions, presence.tables, nodes, effects, objects) )
+  
+  gainfactors <- rep(0,num.steps.p2)
+  for(i in 1:num.steps.p2){
+    gainfactors[i] <- gainfactor/(2^(i-1))
+  }
+  
+  # replace the starting estimates with a fixed value
+  num.effects <- length(effects$names)
+  if(!is.null(fixed.estimates)) {
+    for(e in 1:num.effects){
+      if(!is.null(fixed.estimates[[e]])){
+        startingestimates[e] <- fixed.estimates[[e]]
+      }
+    }
+  }
+  
+  print("Observed statistics")
+  print(z.obs)
+  
+  print("Burn-in")
+  print(burnin)
+  
+  print("Thining")
+  print(thining)
+  
+  # --------- PHASE 1 ---------
+  if(!is.null(inv.zcov)) {
+    estimates.phase1 <- startingestimates
+    autocorrelations.phase1 <- NULL
+  } else {
+    results.phase1 <- run_phase1_multiple_secondparallel(partitions, startingestimates, z.obs, presence.tables, nodes, effects, objects, burnin, thining, gainfactor, a.scaling, r.truncation.p1, mini.steps, length.p1, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, parallel, cpus)
+    estimates.phase1 <- results.phase1$estimates
+    inv.zcov <- results.phase1$inv.zcov
+    inv.scaling <- results.phase1$inv.scaling
+    autocorrelations.phase1 <- results.phase1$autocorrelations
+  }
+  
+  # --------- PHASE 2 ---------
+  results.phase2 <- run_phase2_multiple_secondparallel(partitions, estimates.phase1, inv.zcov,inv.scaling, z.obs, presence.tables, nodes, effects, objects, burnin, thining, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging, parallel, cpus)
+  estimates.phase2 <- results.phase2$final.estimates
+  
+  
+  # --------- PHASE 3 ---------
+  results.phase3 <- run_phase3_multiple_secondparallel(partitions, estimates.phase2, z.obs, presence.tables, nodes, effects, objects, burnin, thining, a.scaling, mini.steps, length.p3, neighborhood, sizes.allowed, sizes.simulated, fixed.estimates, parallel, cpus)
   means <- results.phase3$means
   standard.deviations <- results.phase3$standard.deviations
   standard.errors <- results.phase3$standard.errors
@@ -306,7 +417,6 @@ estimate_multipleERPM <- function(partitions, # observed partitions
 
 
 
-
 ## Estimation ERPM for multiple observations:
 
 estimate_multipleBERPM <- function(partitions, # observed partitions
@@ -326,7 +436,7 @@ estimate_multipleBERPM <- function(partitions, # observed partitions
                                   mini.steps.2 = "normalized", # type of transition in the Metropolis Hastings algorithm, either "normalized", either "self-loops" (take "normalized")
                                   burnin.2 = 30, # integer for the number of burn-in steps before sampling int the MCMC to sample partitions
                                   
-                                  neighborhood.partition = c(0.7,0.3,0), # way of choosing partitions: probability vector (proba actors swap, proba merge/division, proba single actor move)
+                                  neighborhood.partition = c(0.7,0.3,0,0,0,0), # way of choosing partitions: probability vector (actors swap, merge/division, single actor move, pair move)
                                   
                                   neighborhood.augmentation = NULL, # standard deviations auround the parameters to draw the augmented distrubtion
                                   

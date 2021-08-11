@@ -41,6 +41,19 @@ Stirling2_constraints <- function(n,k,smin,smax){
 }
 
 
+# Function to calculate the number of partitions with k groups
+Stirling <- function(n,k){
+  
+  # base cases
+  if(n < k || k == 0) return(0)
+  if(n == k) return(1)
+  
+  # recurrence relation
+  s2 <- k * Stirling(n-1,k) + Stirling(n-1,k-1)
+  return(s2)
+}
+
+
 # Function to calculate the average number of groups
 # in a random partition for a given n
 compute_averagesize <- function( num.nodes){
