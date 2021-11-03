@@ -604,7 +604,7 @@ draw_step_single <- function(theta,
     new.partition <- sample_new_partition_p6_restricted(current.partition, mini.steps, sizes.simulated, current.size)
   }
   
-  if(!check_sizes(new.partition, sizes.simulated)) {
+  if(!check_sizes(new.partition, sizes.simulated) && !is.null(sizes.simulated)) {
     print("old partition")
     print(current.partition)
     print("new partition")

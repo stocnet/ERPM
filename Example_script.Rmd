@@ -147,7 +147,7 @@ sample <- draw_Metropolis_single(theta = parameters,
                           thining = 10, 
                           num.steps = nsteps, 
                           mini.steps = "normalized", 
-                          neighborhood = 2, 
+                          neighborhood = c(1,1,1,0,0,0), 
                           sizes.allowed = 1:n,
                           sizes.simulated = 1:n)
 ```
@@ -270,7 +270,7 @@ simulations <- draw_Metropolis_single(theta = estimation$results$est,
                           thining = 20, 
                           num.steps = nsimulations, 
                           mini.steps = "normalized", 
-                          neighborhood = 2, 
+                          neighborhood = c(1,1,1,0,0,0), 
                           sizes.allowed = 1:n,
                           sizes.simulated = 1:n,
                           return.all.partitions = T)
@@ -378,7 +378,7 @@ And it is also good to check other statistics even less linked to the model, for
 Finally, we can estimate the log-likelihood and AIC of the model (useful to compare two models for example). First we need to estimate the ML estimates of a simple model with only one parameter for number of groups (this parameter should be in the model!).
 
 ```{r}
-likelihood_function <- function(x){ exp(x*max(partition)) / calculate_logL_Dirichlet(nodes, x, sizes.allowed = 1:n)}
+likelihood_function <- function(x){ exp(x*max(partition)) / compute_numgroups_denominator(n,x)}
 curve(likelihood_function, from=-2, to=0)
 parameter_base <- optimize(likelihood_function, interval=c(-2, 0), maximum=TRUE)
 parameters_basemodel <- c(parameter_base$maximum,0,0,0)

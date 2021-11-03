@@ -18,7 +18,7 @@ estimate_logL <- function(partition, # observed partition
                           burnin, # integer for the number of burn-in steps before sampling
                           thining, # integer for the number of thining steps between sampling
                           mini.steps = "normalized", # type of transition in the Metropolis Hastings algorithm, either "normalized", either "self-loops" (take "normalized")
-                          neighborhoods = c(0,0.5,0.5), # way of choosing partitions
+                          neighborhoods = c(0.7,0.3,0,0,0,0), # way of choosing partitions
                           sizes.allowed = NULL,  # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
                           sizes.simulated = NULL, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
                           logL_0 = NULL,  # if known, the value of the log likelihood of the basic dirichlet model
