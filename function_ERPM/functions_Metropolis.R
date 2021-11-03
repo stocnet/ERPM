@@ -1630,107 +1630,103 @@ recalculate_statistics_secondparallel <- function(new.partitions, rand.o, nodes.
 
 
 ## NEIGHBORHOOD PI 1: only swaps of two nodes (careful, cannot be used alone)
-# compute_size_neighborhood_p1 <- function(partition){
-#   
-#   # find isolates, pairs and groups>2
-#   isolates <- c()
-#   pairs <- c()
-#   others <- c()
-#   num.groups <- max(partition)
-#   num.nodes <- length(partition)
-#   
-#   for(g in 1:num.groups){
-#     if(length(which(partition == g)) == 1) {
-#       isolates <- c(isolates,g)
-#     } else if(length(which(partition == g)) == 2) {
-#       pairs <- c(pairs,g)
-#     } else {
-#       others <- c(others,g)
-#     }
-#   }
-#   
-#   nums.swaps <- matrix(0,num.nodes,num.nodes)
-#   for(i in 1:(num.nodes-1)){
-#     for(j in (i+1):num.nodes){
-#       g_i <- partition[i]
-#       g_j <- partition[j]
-#       
-#       allowed <- T
-#       if(g_i == g_j) allowed <- F # two members of the same group cannot swap, it wouldn't change anything
-#       if(g_i %in% isolates && g_j %in% isolates){
-#         allowed <- F # two isolates cannot swap, it wouldn't change anything
-#       }
-#       
-#       if(allowed) nums.swaps[i,j] <- 1
-#     }
-#   }
-#   
-#   num.swaps <- sum(nums.swaps)
-#   
-#   return(list(isolates = isolates,
-#               pairs = pairs,
-#               others = others,
-#               nums.swaps = nums.swaps,
-#               num.swaps = num.swaps))
-#   
-# }
-# 
-# sample_new_partition_p1 <- function(current.partition, mini.steps, size_neighborhood){
-#   
-#   # calculate the number of neighbor partitions
-#   num.nodes <- length(current.partition)
-#   num.groups <- max(current.partition)
-#   size <- size_neighborhood
-#   isolates <- size$isolates
-#   pairs <- size$pairs
-#   others <- size$others
-#   nums.swaps <- size$nums.swaps
-#   num.swaps <- size$num.swaps
-#   
-#   if(mini.steps == "normalized") {
-#     total <- num.swaps
-#   } 
-#   
-#   pick.1 <- sample(total,1)
-#   
-#   # decide which actors to swap
-#   new.partition <- current.partition
-#   swap <- which(nums.swaps == 1)[pick.1]
-#   j <- ((swap-1) %/% num.nodes) + 1
-#   i <- (swap-1) %% num.nodes + 1
-#   new.partition[i] <- current.partition[j]
-#   new.partition[j] <- current.partition[i]
-#   new.partition <- order_groupids(new.partition)
-#   
-#   if(all(new.partition == current.partition)){
-#     print("test")
-#   }
-#   
-#   return(new.partition)
-#   
-# }
-
-
-
 compute_size_neighborhood_p1 <- function(partition){
-  
-  return(list(num.swaps =1))
-  
-}
-
+   
+   # find isolates, pairs and groups>2
+   isolates <- c()
+   pairs <- c()
+   others <- c()
+   num.groups <- max(partition)
+   num.nodes <- length(partition)
+   
+   for(g in 1:num.groups){
+     if(length(which(partition == g)) == 1) {
+       isolates <- c(isolates,g)
+     } else if(length(which(partition == g)) == 2) {
+       pairs <- c(pairs,g)
+     } else {
+       others <- c(others,g)
+     }
+   }
+   
+   nums.swaps <- matrix(0,num.nodes,num.nodes)
+   for(i in 1:(num.nodes-1)){
+     for(j in (i+1):num.nodes){
+       g_i <- partition[i]
+       g_j <- partition[j]
+       
+       allowed <- T
+       if(g_i == g_j) allowed <- F # two members of the same group cannot swap, it wouldn't change anything
+       if(g_i %in% isolates && g_j %in% isolates){
+         allowed <- F # two isolates cannot swap, it wouldn't change anything
+       }
+       
+       if(allowed) nums.swaps[i,j] <- 1
+     }
+   }
+   
+   num.swaps <- sum(nums.swaps)
+   
+   return(list(isolates = isolates,
+               pairs = pairs,
+               others = others,
+               nums.swaps = nums.swaps,
+               num.swaps = num.swaps))
+   
+ }
+ 
 sample_new_partition_p1 <- function(current.partition, mini.steps, size_neighborhood){
-  
-  n <- size_neighborhood
-  num.nodes <- length(current.partition)
-  picks <- sample(1:num.nodes,2)
-  new.partition <- current.partition
-  new.partition[picks[1]] <- current.partition[picks[2]]
-  new.partition[picks[2]] <- current.partition[picks[1]]
-  new.partition <- order_groupids(new.partition)
-  
-  return(new.partition)
-  
-}
+   
+   # calculate the number of neighbor partitions
+   num.nodes <- length(current.partition)
+   num.groups <- max(current.partition)
+   size <- size_neighborhood
+   isolates <- size$isolates
+   pairs <- size$pairs
+   others <- size$others
+   nums.swaps <- size$nums.swaps
+   num.swaps <- size$num.swaps
+   
+   if(mini.steps == "normalized") {
+     total <- num.swaps
+   } 
+   
+   pick.1 <- sample(total,1)
+   
+   # decide which actors to swap
+   new.partition <- current.partition
+   swap <- which(nums.swaps == 1)[pick.1]
+   j <- ((swap-1) %/% num.nodes) + 1
+   i <- (swap-1) %% num.nodes + 1
+   new.partition[i] <- current.partition[j]
+   new.partition[j] <- current.partition[i]
+   new.partition <- order_groupids(new.partition)
+
+   return(new.partition)
+   
+ }
+
+
+# new optimized version but wrong
+#compute_size_neighborhood_p1 <- function(partition){
+#  
+#  return(list(num.swaps =1))
+#  
+#}
+
+#sample_new_partition_p1 <- function(current.partition, mini.steps, size_neighborhood){
+#  
+#  n <- size_neighborhood
+#  num.nodes <- length(current.partition)
+#  picks <- sample(1:num.nodes,2)
+#  new.partition <- current.partition
+#  new.partition[picks[1]] <- current.partition[picks[2]]
+#  new.partition[picks[2]] <- current.partition[picks[1]]
+#  new.partition <- order_groupids(new.partition)
+#  
+#  return(new.partition)
+#  
+#}
 
 ## NEIGHBORHOOD PI 2: only merges and divisions of 2 groups
 compute_size_neighborhood_p2 <- function(partition){
@@ -2557,57 +2553,85 @@ compute_size_neighborhood_p2_restricted <- function(partition, sizes.simulated){
   num.nodes <- length(partition)
   num.groups <- max(partition)
   sizes <- table(partition)
-  #num.merges <- 0
-  #merges <- matrix(0,num.groups,num.groups)
-  #nums.divisions <- rep(0,num.groups)
-  #num.divisions <- 0
+  num.merges <- 0
+  merges <- matrix(0,num.groups,num.groups)
+  nums.divisions <- rep(0,num.groups)
+  num.divisions <- 0
   
   # merges
   if(num.groups>1){
-    # for(g1 in 1:(num.groups-1)){
-    #   for(g2 in (g1+1):num.groups){
-    #     if(length(which(partition == g1)) + length(which(partition == g2)) <= smax) {
-    #       num.merges <- num.merges + 1
-    #       merges[g1,g2] <- 1
-    #     }
-    #   }
-    # }
-    sums <- outer(sizes,sizes,FUN="+")
-    merges <- sums <= smax
-    diag(merges) <- 0
-    num.merges <- sum(merges)
+     for(g1 in 1:(num.groups-1)){
+       for(g2 in (g1+1):num.groups){
+         if(length(which(partition == g1)) + length(which(partition == g2)) <= smax) {
+           num.merges <- num.merges + 1
+           merges[g1,g2] <- 1
+         }
+       }
+     }
   }
   
   
   # divisions
-  # for(k in 1:num.groups){
-  #   sg <- sizes[k]
-  #   if(smin>1){
-  #     extras <- sum(unlist(lapply(1:(smin-1),FUN=function(x){choose(sg,x)})))
-  #     if(sg%%2 == 0 && sg/2 < smin) extras <- extras - choose(sg,sg/2)/2
-  #   } else {
-  #     extras <- 0
-  #   }
-  #   nums.divisions[k] <- 2^(sg-1) - 1 - extras
-  #   num.divisions <- num.divisions + nums.divisions[k]
-  # }
-  
-  nums.divisions <- 2^(sizes-1) - 1 
-  if(smin > 1){
-    for(k in 1:num.groups){
-       sg <- sizes[k]
-        extras <- sum(unlist(lapply(1:(smin-1),FUN=function(x){choose(sg,x)})))
-        if(sg%%2 == 0 && sg/2 < smin) extras <- extras - choose(sg,sg/2)/2
-        nums.divisions[k] <- nums.divisions[k] - extras
+  for(k in 1:num.groups){
+     sg <- sizes[k]
+     if(smin>1){
+       extras <- sum(unlist(lapply(1:(smin-1),FUN=function(x){choose(sg,x)})))
+       if(sg%%2 == 0 && sg/2 < smin) extras <- extras - choose(sg,sg/2)/2
+     } else {
+       extras <- 0
      }
+     nums.divisions[k] <- 2^(sg-1) - 1 - extras
+     num.divisions <- num.divisions + nums.divisions[k]
   }
-  num.divisions <- sum(nums.divisions)
   
   return(list(num.merges = num.merges,
               merges = merges,
               num.divisions = num.divisions,
               nums.divisions = nums.divisions))
 }
+
+# new optimized but wrong
+#compute_size_neighborhood_p2_restricted <- function(partition, sizes.simulated){
+#  
+#  # check if current partition is allowed
+#  if(!check_sizes(partition, sizes.simulated)) stop("The partition we are in is not allowed.")
+#  
+#  # find maximum size allowed
+#  smax <- max(sizes.simulated)
+#  smin <- min(sizes.simulated)
+#  
+#  # calculate the number of neighbor partitions
+#  num.nodes <- length(partition)
+#  num.groups <- max(partition)
+#  sizes <- table(partition)
+#  
+#  # merges
+#  if(num.groups>1){
+#    sums <- outer(sizes,sizes,FUN="+")
+#    merges <- sums <= smax
+#    diag(merges) <- 0
+#    num.merges <- sum(merges)
+#  } else {
+#    num.merges <- 0
+#    merges <- matrix(0,1,1)
+#  }
+#
+#  nums.divisions <- 2^(sizes-1) - 1 
+#  if(smin > 1){
+#    for(k in 1:num.groups){
+#      sg <- sizes[k]
+#      extras <- sum(unlist(lapply(1:(smin-1),FUN=function(x){choose(sg,x)})))
+#      if(sg%%2 == 0 && sg/2 < smin) extras <- extras - choose(sg,sg/2)/2
+#      nums.divisions[k] <- nums.divisions[k] - extras
+#    }
+#  }
+#  num.divisions <- sum(nums.divisions)
+#  
+#  return(list(num.merges = num.merges,
+#              merges = merges,
+#              num.divisions = num.divisions,
+#              nums.divisions = nums.divisions))
+#}
 
 
 sample_new_partition_p2_restricted <- function(current.partition, mini.steps, sizes.simulated, size_neighborhood){
@@ -2700,83 +2724,50 @@ compute_size_neighborhood_p3_restricted <- function(partition, sizes.simulated){
   sizes <- table(partition)
   
   # find isolates, pairs and groups>2
-  #isolates <- c()
-  #pairs <- c()
-  #others <- c()
-  #abovemin_groups <- c()
-  #belowmax_groups <- c()
   num.groups <- max(partition)
   num.nodes <- length(partition)
-  
-  # for(g in 1:num.groups){
-  #   if(length(which(partition == g)) == 1) {
-  #     isolates <- c(isolates,g)
-  #   } else if(length(which(partition == g)) == 2) {
-  #     pairs <- c(pairs,g)
-  #   } else {
-  #     others <- c(others,g)
-  #   }
-  #   # find the ones > smin and < smax (the first cannot be left, the second cannot be joined)
-  #   if(length(which(partition == g)) > smin) {
-  #     abovemin_groups <- c(abovemin_groups,g)
-  #   }
-  #   if(length(which(partition == g)) < smax) {
-  #     belowmax_groups <- c(belowmax_groups,g)
-  #   }
-  # }
-  
-  #isolates <- which(sizes == 1)
-  #pairs <- which(sizes == 2)
-  #others <- which(sizes > 2)
+  isolates <- which(sizes == 1)
+  pairs <- which(sizes == 2)
+  others <- which(sizes > 2)
   abovemin_groups <- which(sizes > smin)
   belowmax_groups <- which(sizes < smax)
   
   nums.swaps <- rep(0,num.nodes)
-  # done.pairs <- rep(0,length(pairs))
-  # done.isolates <- rep(0,length(isolates))
-  # for(i in 1:num.nodes){
-  #   g <- partition[i]
-  #   
-  #   if(g %in% isolates){
-  #     # can join any other group (<smax), except other isolates done before (because already done) and this one (that would not change anything)
-  #     # since it's an isolate, it means that isolates are allowed in that context so we don't worry about smin (=1)
-  #     done.isolates[isolates == g] <- 1
-  #     nums.swaps[i] <- length(belowmax_groups) - sum(done.isolates) 
-  #   }
-  #   if(g %in% pairs && g %in% abovemin_groups){
-  #     # if isolates are allowed, then it can join any other group (smax), and splitting if it's not already counted
-  #     # here we don't worry about smin (=1) because 2 > smin
-  #     gnotbelowmax <- !(g %in% belowmax_groups)
-  #     nums.swaps[i] <- length(belowmax_groups) + gnotbelowmax - done.pairs[pairs == g]
-  #     done.pairs[pairs == g] <- 1
-  #   } # if size 2 is the minimum allowed, then we can never break a pair
-  #   if(g %in% others && g %in% abovemin_groups){
-  #     # can join any other group (<smax) or create its own isolate (if it's allowed)
-  #     # we don't care here about checking that other groups are above min size, if they exist it means they are already allowed
-  #     gnotbelowmax <- !(g %in% belowmax_groups)
-  #     if(smin == 1) nums.swaps[i] <- length(belowmax_groups) + gnotbelowmax
-  #     if(smin > 1) nums.swaps[i] <- length(belowmax_groups) + gnotbelowmax - 1
-  #   } # we can never break a group that is already of minimal size
-  # }
-  for(i in 1:num.nodes){
-    nums.swaps[i] <- (partition[i] %in% abovemin_groups) * (num.groups - length(belowmax_groups) + (partition[i] %in% belowmax_groups))
-  }
+   done.pairs <- rep(0,length(pairs))
+   done.isolates <- rep(0,length(isolates))
+   for(i in 1:num.nodes){
+     g <- partition[i]
+     
+     if(g %in% isolates){
+       # can join any other group (<smax), except other isolates done before (because already done) and this one (that would not change anything)
+       # since it's an isolate, it means that isolates are allowed in that context so we don't worry about smin (=1)
+       done.isolates[isolates == g] <- 1
+       nums.swaps[i] <- length(belowmax_groups) - sum(done.isolates) 
+     }
+     if(g %in% pairs && g %in% abovemin_groups){
+       # if isolates are allowed, then it can join any other group (smax), and splitting if it's not already counted
+       # here we don't worry about smin (=1) because 2 > smin
+       gnotbelowmax <- !(g %in% belowmax_groups)
+       nums.swaps[i] <- length(belowmax_groups) + gnotbelowmax - done.pairs[pairs == g]
+       done.pairs[pairs == g] <- 1
+     } # if size 2 is the minimum allowed, then we can never break a pair
+     if(g %in% others && g %in% abovemin_groups){
+       # can join any other group (<smax) or create its own isolate (if it's allowed)
+       # we don't care here about checking that other groups are above min size, if they exist it means they are already allowed
+       gnotbelowmax <- !(g %in% belowmax_groups)
+       if(smin == 1) nums.swaps[i] <- length(belowmax_groups) + gnotbelowmax
+       if(smin > 1) nums.swaps[i] <- length(belowmax_groups) + gnotbelowmax - 1
+     } # we can never break a group that is already of minimal size
+   }
   
-  num.swaps <- sum(nums.swaps)
-  
-  #return(list(isolates = isolates,
-  #            pairs = pairs,
-  #            others = others,
-  #            abovemin_groups = abovemin_groups,
-  #            belowmax_groups = belowmax_groups,
-  #            nums.swaps = nums.swaps,
-  #            num.swaps = num.swaps))
-  
-  return(list(abovemin_groups = abovemin_groups,
+  return(list(isolates = isolates,
+              pairs = pairs,
+              others = others,
+              abovemin_groups = abovemin_groups,
               belowmax_groups = belowmax_groups,
               nums.swaps = nums.swaps,
-              num.swaps = num.swaps))
-  
+              num.swaps = sum(nums.swaps)))
+ 
 }
 
 sample_new_partition_p3_restricted <- function(current.partition, mini.steps, sizes.simulated, size_neighborhood){
@@ -2785,9 +2776,9 @@ sample_new_partition_p3_restricted <- function(current.partition, mini.steps, si
   num.nodes <- length(current.partition)
   num.groups <- max(current.partition)
   size <- size_neighborhood
-  #isolates <- size$isolates
-  #pairs <- size$pairs
-  #others <- size$others
+  isolates <- size$isolates
+  pairs <- size$pairs
+  others <- size$others
   abovemin_groups <- size$abovemin_groups
   belowmax_groups <- size$belowmax_groups
   nums.swaps <- size$nums.swaps
@@ -2806,87 +2797,145 @@ sample_new_partition_p3_restricted <- function(current.partition, mini.steps, si
   # decide which actor to swap
   all.groups <- 1:num.groups
   new.partition <- current.partition
-  # done.pairs <- rep(0,length(pairs))
-  # done.isolates <- rep(0,length(isolates))
-  # 
-  # for(i in 1:num.nodes){
-  #   
-  #   if(i == 1) {start <- 0} else {start <- sum(nums.swaps[1:i-1])}
-  #   if(i == num.nodes) {end <- num.swaps} else {end <- sum(nums.swaps[1:i])}
-  #   
-  #   g <- current.partition[i]
-  #   if(g %in% isolates) done.isolates[isolates == g] <- 1
-  #   
-  #   if(pick.1 > start && pick.1 <= end) {
-  #     
-  #     # an isolate can join any other group (<smax), except other isolates done before (because already done) and this one (that would not change anything)
-  #     if(g %in% isolates){
-  #       previousisolates <- isolates[done.isolates == 1]
-  #       tosample <- all.groups[(all.groups %in% belowmax_groups) & !(all.groups %in% previousisolates)]
-  #       if(length(tosample) == 1) newg <- tosample
-  #       if(length(tosample) >= 2) newg <- sample(tosample,1)
-  #       new.partition[i] <- newg
-  #       new.partition <- order_groupids(new.partition)
-  #     }
-  #     
-  #     # a member of a pair can join any other group (<smax), and splitting if it's not already counted, if isolates are allowed
-  #     if(g %in% pairs && g %in% abovemin_groups){
-  #       if(done.pairs[pairs == g] == 0){
-  #         tosample <- all.groups[(all.groups %in% belowmax_groups) | (all.groups == g)]
-  #         if(length(tosample) == 1) newg <- tosample
-  #         if(length(tosample) >= 2) newg <- sample(tosample,1)
-  #         if(newg == g){
-  #           newg <- num.groups + 1
-  #         }
-  #       } else {
-  #         tosample <- all.groups[(all.groups %in% belowmax_groups) & (all.groups != g)]
-  #         if(length(tosample) == 1) newg <- tosample
-  #         if(length(tosample) >= 2) newg <- sample(tosample,1)
-  #       }
-  #       new.partition[i] <- newg
-  #       new.partition <- order_groupids(new.partition)
-  #     }
-  #     
-  #     # a member of a bigger group (>smin) can join any other group (<smax) or create its own isolate (if it's allowed)
-  #     if(g %in% others && g %in% abovemin_groups){
-  #       if(smin == 1) {
-  #         tosample <- all.groups[(all.groups %in% belowmax_groups) | (all.groups == g)]
-  #         if(length(tosample) == 1) newg <- tosample
-  #         if(length(tosample) >= 2) newg <- sample(tosample,1)
-  #         if(newg == g){
-  #           newg <- num.groups + 1
-  #         }
-  #       } else if(smin > 1){
-  #         tosample <- all.groups[(all.groups %in% belowmax_groups) & (all.groups != g)]
-  #         if(length(tosample) == 1) newg <- tosample
-  #         if(length(tosample) >= 2) newg <- sample(tosample,1)
-  #       } 
-  #       new.partition[i] <- newg
-  #       new.partition <- order_groupids(new.partition)
-  #     }
-  #     
-  #   }
-  #   
-  #   if(g %in% pairs) done.pairs[pairs == g] <- 1
-  # }
-  
-  probas_nodes <- nums.swaps / num.swaps
-  if(sum(is.na(probas_nodes)) > 0) {
-    print(probas_nodes)
-  }
-  picknode <- sample(1:num.nodes,1,prob=probas_nodes)
-  
-  topick <- unique(c(belowmax_groups,current.partition[picknode]))
-  if(length(topick) == 1 ) pickgroup <- topick
-  else pickgroup <- sample(topick,1)
-  if(pickgroup == current.partition[picknode]) new.partition[picknode] <- num.groups + 1
-  else new.partition[picknode] <- pickgroup
-  new.partition <- order_groupids(new.partition)
+   done.pairs <- rep(0,length(pairs))
+   done.isolates <- rep(0,length(isolates))
+   
+   for(i in 1:num.nodes){
+     
+     if(i == 1) {start <- 0} else {start <- sum(nums.swaps[1:i-1])}
+     if(i == num.nodes) {end <- num.swaps} else {end <- sum(nums.swaps[1:i])}
+     
+     g <- current.partition[i]
+     if(g %in% isolates) done.isolates[isolates == g] <- 1
+     
+     if(pick.1 > start && pick.1 <= end) {
+       
+       # an isolate can join any other group (<smax), except other isolates done before (because already done) and this one (that would not change anything)
+       if(g %in% isolates){
+         previousisolates <- isolates[done.isolates == 1]
+         tosample <- all.groups[(all.groups %in% belowmax_groups) & !(all.groups %in% previousisolates)]
+         if(length(tosample) == 1) newg <- tosample
+         if(length(tosample) >= 2) newg <- sample(tosample,1)
+         new.partition[i] <- newg
+         new.partition <- order_groupids(new.partition)
+       }
+       
+       # a member of a pair can join any other group (<smax), and splitting if it's not already counted, if isolates are allowed
+       if(g %in% pairs && g %in% abovemin_groups){
+         if(done.pairs[pairs == g] == 0){
+           tosample <- all.groups[(all.groups %in% belowmax_groups) | (all.groups == g)]
+           if(length(tosample) == 1) newg <- tosample
+           if(length(tosample) >= 2) newg <- sample(tosample,1)
+           if(newg == g){
+             newg <- num.groups + 1
+           }
+         } else {
+           tosample <- all.groups[(all.groups %in% belowmax_groups) & (all.groups != g)]
+           if(length(tosample) == 1) newg <- tosample
+           if(length(tosample) >= 2) newg <- sample(tosample,1)
+         }
+         new.partition[i] <- newg
+         new.partition <- order_groupids(new.partition)
+       }
+       
+       # a member of a bigger group (>smin) can join any other group (<smax) or create its own isolate (if it's allowed)
+       if(g %in% others && g %in% abovemin_groups){
+         if(smin == 1) {
+           tosample <- all.groups[(all.groups %in% belowmax_groups) | (all.groups == g)]
+           if(length(tosample) == 1) newg <- tosample
+           if(length(tosample) >= 2) newg <- sample(tosample,1)
+           if(newg == g){
+             newg <- num.groups + 1
+           }
+         } else if(smin > 1){
+           tosample <- all.groups[(all.groups %in% belowmax_groups) & (all.groups != g)]
+           if(length(tosample) == 1) newg <- tosample
+           if(length(tosample) >= 2) newg <- sample(tosample,1)
+         } 
+         new.partition[i] <- newg
+         new.partition <- order_groupids(new.partition)
+       }
+       
+     }
+     
+     if(g %in% pairs) done.pairs[pairs == g] <- 1
+   }
   
   return(new.partition)
   
 }
 
+
+# new optimized but wrong
+#compute_size_neighborhood_p3_restricted <- function(partition, sizes.simulated){
+#  
+#  # find maximum size allowed
+#  smax <- max(sizes.simulated)
+#  smin <- min(sizes.simulated)
+#  sizes <- table(partition)
+#  
+#  num.groups <- max(partition)
+#  num.nodes <- length(partition)
+#  
+#  abovemin_groups <- which(sizes > smin)
+#  belowmax_groups <- which(sizes < smax)
+#  
+#  nums.swaps <- rep(0,num.nodes)
+#
+#  for(i in 1:num.nodes){
+#    nums.swaps[i] <- (partition[i] %in% abovemin_groups) * (num.groups - length(belowmax_groups) + (partition[i] %in% belowmax_groups))
+#  }
+#  
+#  num.swaps <- sum(nums.swaps)
+#  
+#  return(list(abovemin_groups = abovemin_groups,
+#              belowmax_groups = belowmax_groups,
+#              nums.swaps = nums.swaps,
+#              num.swaps = num.swaps))
+#  
+#}
+
+#sample_new_partition_p3_restricted <- function(current.partition, mini.steps, sizes.simulated, size_neighborhood){
+#  
+#  # calculate the number of neighbor partitions
+#  num.nodes <- length(current.partition)
+#  num.groups <- max(current.partition)
+#  size <- size_neighborhood
+#  abovemin_groups <- size$abovemin_groups
+#  belowmax_groups <- size$belowmax_groups
+#  nums.swaps <- size$nums.swaps
+#  num.swaps <- size$num.swaps
+#  
+#  # allowed sizes
+#  smax <- max(sizes.simulated)
+#  smin <- min(sizes.simulated)
+#  
+#  if(mini.steps == "normalized") {
+#    total <- num.swaps
+#  } 
+#  
+#  pick.1 <- sample(total,1)
+#  
+#  # decide which actor to swap
+#  all.groups <- 1:num.groups
+#  new.partition <- current.partition
+#
+#  probas_nodes <- nums.swaps / num.swaps
+#  if(sum(is.na(probas_nodes)) > 0) {
+#    print(probas_nodes)
+#  }
+#  picknode <- sample(1:num.nodes,1,prob=probas_nodes)
+#  
+#  topick <- unique(c(belowmax_groups,current.partition[picknode]))
+#  if(length(topick) == 1 ) pickgroup <- topick
+#  else pickgroup <- sample(topick,1)
+#  if(pickgroup == current.partition[picknode]) new.partition[picknode] <- num.groups + 1
+#  else new.partition[picknode] <- pickgroup
+#  new.partition <- order_groupids(new.partition)
+#  
+#  return(new.partition)
+#  
+#}
 
 
 ## NEIGHBORHOOD PI 4: swaps a pair of nodes
