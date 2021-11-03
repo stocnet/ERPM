@@ -115,18 +115,22 @@ run_phase3_multiple <- function(partitions,
     sfExport("startingestimates", "first.partitions", "presence.tables", "nodes", "effects", "objects", "burnin", "thining", "length.p3", "cpus", "mini.steps", "neighborhood", "sizes.allowed", "sizes.simulated")
     res <- sfLapply(1:cpus, fun = function(k) {
       set.seed(k)
-      subres <- draw_Metropolis_multiple(estimates.phase2, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, ceiling(length.p3/cpus), mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+      subres <- draw_Metropolis_multiple(estimates.phase2, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, ceiling(length.p3/cpus), mini.steps, neighborhood, sizes.allowed, sizes.simulated, return.all.partitions = T)
       return(subres)
     }
     )
     all.z <- c()
-    for(k in 1:cpus) all.z <- rbind(all.z,res[[k]]$draws)
+    all.partitions <- list()
+    for(k in 1:cpus) {
+      all.z <- rbind(all.z,res[[k]]$draws)
+      all.partitions[[k]] <- res[[k]]$all.partitions
+    }
     length.p3 <- cpus * ceiling(length.p3/cpus)
-    results.phase3 <- list("draws" = all.z, "last.partitions" = res[[cpus]]$last.partitions, "all.partitions" = NULL) 
+    results.phase3 <- list("draws" = all.z, "last.partitions" = res[[cpus]]$last.partitions, "all.partitions" = all.partitions) 
   
   }else{
     
-    results.phase3 <- draw_Metropolis_multiple(estimates.phase2, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, length.p3, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+    results.phase3 <- draw_Metropolis_multiple(estimates.phase2, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, length.p3, mini.steps, neighborhood, sizes.allowed, sizes.simulated, return.all.partitions = T)
   
   }
   z.phase3 <- results.phase3$draws
@@ -156,7 +160,8 @@ run_phase3_multiple <- function(partitions,
               "convergence.ratios" = res.phase3$finalconvratios,
               "inv.zcov" = res.phase3$inv.zcov,
               "inv.scaling" = res.phase3$inv.scaling,
-              "autocorrelations" = autocors))
+              "autocorrelations" = autocors,
+              "all.partitions" = results.phase3$all.partitions))
   
 }
 
