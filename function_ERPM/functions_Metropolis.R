@@ -16,7 +16,7 @@ draw_Metropolis_single <- function(theta, # model parameters
                                    thining, # integer for the number of thining steps between sampling
                                    num.steps, # number of samples
                                    mini.steps, # type of transition, either "normalized", either "self-loops" (take "normalized")
-                                   neighborhood, # way of choosing partitions: probability vector (proba actors swap, proba merge/division, proba single actor move)
+                                   neighborhood = c(0.7,0.3,0,0,0,0), # way of choosing partitions: probability vector (2 actors swap, merge/division, single actor move, single pair move, 2 pairs swap, 2 groups reshuffle)
                                    sizes.allowed, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
                                    sizes.simulated,# vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
                                    return.all.partitions = F) # option to return the sampled partitions on top of their statistics (for GOF)
@@ -143,7 +143,7 @@ draw_Metropolis_multiple <- function(theta, # model parameters
                                      thining, # integer for the number of thining steps between sampling
                                      num.steps, # number of samples
                                      mini.steps, # type of transition, either "normalized", either "self-loops" (take "normalized")
-                                     neighborhood, # way of choosing partitions: probability vector (proba actors swap, proba merge/division, proba single actor move)
+                                     neighborhood = c(0.7,0.3,0,0,0,0,0), # way of choosing partitions: probability vector (2 actors swap, merge/division, single actor move, single pair move, 2 pairs swap, 2 groups reshuffle, pair reproduction)
                                      sizes.allowed, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
                                      sizes.simulated,# vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
                                      return.all.partitions = F) # option to return the sampled partitions on top of their statistics (for GOF)
@@ -173,8 +173,9 @@ draw_Metropolis_multiple <- function(theta, # model parameters
   cpt2 <- 0
   cpt_thining <- 0
   
-  accepted <- rep(0,12)
-  tried <- rep(0,12)
+  # for debug
+  accepted <- rep(0,8)
+  tried <- rep(0,8)
   
   while(!end.walk){
     
@@ -198,6 +199,8 @@ draw_Metropolis_multiple <- function(theta, # model parameters
     change.made <- (runif(1,0,1) <= proba.change)
 
     move <- new.step$move
+    
+    # for debug
     if(move == "swap") {
       tried[1] <- tried[1] + 1
       if(change.made) accepted[1] <- accepted[1] + 1
@@ -216,24 +219,12 @@ draw_Metropolis_multiple <- function(theta, # model parameters
     } else if(move == "exchange"){
       tried[6] <- tried[6] + 1
       if(change.made) accepted[6] <- accepted[6] + 1
-    } else if(move == "partition_exchange"){
+    } else if(move == "pair_exchange"){
       tried[7] <- tried[7] + 1
       if(change.made) accepted[7] <- accepted[7] + 1
-    } else if(move == "partition_next"){
+    } else if(move == "pair_next"){
       tried[8] <- tried[8] + 1
       if(change.made) accepted[8] <- accepted[8] + 1
-    } else if(move == "group_exchange"){
-      tried[9] <- tried[9] + 1
-      if(change.made) accepted[9] <- accepted[9] + 1
-    } else if(move == "group_next"){
-      tried[10] <- tried[10] + 1
-      if(change.made) accepted[10] <- accepted[10] + 1
-    } else if(move == "pair_exchange"){
-      tried[11] <- tried[11] + 1
-      if(change.made) accepted[11] <- accepted[11] + 1
-    } else if(move == "pair_next"){
-      tried[12] <- tried[12] + 1
-      if(change.made) accepted[12] <- accepted[12] + 1
     }
     
     #if(change.made) print("change made")
@@ -345,7 +336,7 @@ draw_Metropolis_multiple_secondparallel <- function(theta, # model parameters
                                      thining, # integer for the number of thining steps between sampling
                                      num.steps, # number of samples
                                      mini.steps, # type of transition, either "normalized", either "self-loops" (take "normalized")
-                                     neighborhood, # way of choosing partitions: probability vector (proba actors swap, proba merge/division, proba single actor move)
+                                     neighborhood = c(0.7,0.3,0,0,0,0,0), # way of choosing partitions: probability vector (2 actors swap, merge/division, single actor move, single pair move, 2 pairs swap, 2 groups reshuffle, pair reproduction)
                                      sizes.allowed, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
                                      sizes.simulated,# vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
                                      return.all.partitions = F, # option to return the sampled partitions on top of their statistics (for GOF)
@@ -377,8 +368,9 @@ draw_Metropolis_multiple_secondparallel <- function(theta, # model parameters
   cpt2 <- 0
   cpt_thining <- 0
   
-  accepted <- rep(0,12)
-  tried <- rep(0,12)
+  # for debug
+  accepted <- rep(0,8)
+  tried <- rep(0,8)
   
   while(!end.walk){
     
@@ -404,6 +396,8 @@ draw_Metropolis_multiple_secondparallel <- function(theta, # model parameters
     change.made <- (runif(1,0,1) <= proba.change)
     
     move <- new.step$move
+    
+    # for debug
     if(move == "swap") {
       tried[1] <- tried[1] + 1
       if(change.made) accepted[1] <- accepted[1] + 1
@@ -422,24 +416,12 @@ draw_Metropolis_multiple_secondparallel <- function(theta, # model parameters
     } else if(move == "exchange"){
       tried[6] <- tried[6] + 1
       if(change.made) accepted[6] <- accepted[6] + 1
-    } else if(move == "partition_exchange"){
+    } else if(move == "pair_exchange"){
       tried[7] <- tried[7] + 1
       if(change.made) accepted[7] <- accepted[7] + 1
-    } else if(move == "partition_next"){
+    } else if(move == "pair_next"){
       tried[8] <- tried[8] + 1
       if(change.made) accepted[8] <- accepted[8] + 1
-    } else if(move == "group_exchange"){
-      tried[9] <- tried[9] + 1
-      if(change.made) accepted[9] <- accepted[9] + 1
-    } else if(move == "group_next"){
-      tried[10] <- tried[10] + 1
-      if(change.made) accepted[10] <- accepted[10] + 1
-    } else if(move == "pair_exchange"){
-      tried[11] <- tried[11] + 1
-      if(change.made) accepted[11] <- accepted[11] + 1
-    } else if(move == "pair_next"){
-      tried[12] <- tried[12] + 1
-      if(change.made) accepted[12] <- accepted[12] + 1
     }
     
     #if(change.made) print("change made")
@@ -555,7 +537,12 @@ draw_step_single <- function(theta,
   
   move <- sample(c("swap","mergediv","single","double","swap2","exchange"),1,prob=neighborhood)
   
-  ## IF MODE IS "swap" = swap two actors, "mergediv" = merge 2 groups or split a group in two, "single" = move one actor
+  # IF MODE IS "swap" = swap two actors, 
+  # "mergediv" = merge 2 groups or split a group in two, 
+  # "single" = move one actor,
+  # "double" = move one pair of nodes,
+  # "swap2" = swap two pairs of nodes,
+  # "exchange" = reshuffle the members of two groups
   if(move == "swap" && is.null(sizes.allowed)) {
     current.size <- compute_size_neighborhood_p1(current.partition)
     if(current.size$num.swaps > 0) {
@@ -754,12 +741,18 @@ draw_step_multiple <- function(theta,
   rand.o <- sample(1:num.obs,1)
   nodes.rand.o <- as.logical(presence.tables[,rand.o])
   
-  move <- sample(c("swap","mergediv","single","double","swap2","exchange","partition_exchange","partition_next","group_exchange","group_next","pair_exchange","pair_next"),1,prob=neighborhood)
-  #move <- sample(c("swap","mergediv","single","double","swap2","exchange","partition_exchange","partition_next","group_exchange","group_next"),1,prob=neighborhood)
-
+  move <- sample(c("swap","mergediv","single","double","swap2","exchange","pair_exchange","pair_next"),1,prob=neighborhood)
+ 
   #start <- Sys.time()
   
-  ## IF MODE IS "swap" = swap two actors, "mergediv" = merge 2 groups or split a group in two, "single" = move one actor
+  # IF MODE IS "swap" = swap two actors, 
+  # "mergediv" = merge 2 groups or split a group in two, 
+  # "single" = move one actor,
+  # "double" = move one pair of nodes,
+  # "swap2" = swap two pairs of nodes,
+  # "exchange" = reshuffle the members of two groups
+  # "pair_exchange" = reproduce a pair from another random partition
+  # "pair_next" = reproduce a pair from an adjacent partition
   if(move == "swap" && is.null(sizes.allowed)) {
     current.size <- compute_size_neighborhood_p1(current.partitions[nodes.rand.o,rand.o])
     if(current.size$num.swaps > 0){
@@ -786,40 +779,12 @@ draw_step_multiple <- function(theta,
   } else if(move == "exchange" && is.null(sizes.allowed)){
     current.size <- compute_size_neighborhood_p6(current.partitions[nodes.rand.o,rand.o])
     new.p <- sample_new_partition_p6(current.partitions[nodes.rand.o,rand.o], mini.steps, current.size)
-  } else if(move == "partition_exchange" && is.null(sizes.allowed)){
-    rand.o2 <- sample((1:num.obs)[-rand.o],1)
-    nodes.rand.o2 <- as.logical(presence.tables[,rand.o2])
-    current.size <- compute_size_neighborhood_p7(current.partitions[,rand.o],current.partitions[,rand.o2])
-    new.ps <- sample_new_partition_p7(current.partitions[,rand.o], current.partitions[,rand.o2])
-    new.p <- new.ps$new.partition1
-    new.p2 <- new.ps$new.partition2
-  } else if(move == "partition_next" && is.null(sizes.allowed)){
-    if(rand.o == 1) rand.o2 <- 2
-    if(rand.o == num.obs) rand.o2 <- num.obs-1
-    if(rand.o > 1 && rand.o < num.obs) rand.o2 <- sample(c(rand.o-1,rand.o+1),1)
-    nodes.rand.o2 <- as.logical(presence.tables[,rand.o2])
-    current.size <- compute_size_neighborhood_p7(current.partitions[,rand.o],current.partitions[,rand.o2])
-    new.ps <- sample_new_partition_p7(current.partitions[,rand.o], current.partitions[,rand.o2])
-    new.p <- new.ps$new.partition1
-    new.p2 <- new.ps$new.partition2
-  } else if(move == "group_exchange" && is.null(sizes.allowed)){
-    rand.o2 <- sample((1:num.obs)[-rand.o],1)
-    nodes.rand.o2 <- as.logical(presence.tables[,rand.o2])
-    current.size <- compute_size_neighborhood_p8(current.partitions[,rand.o],current.partitions[,rand.o2])
-    new.p <- sample_new_partition_p8(current.partitions[,rand.o], current.partitions[,rand.o2], current.size)
-  } else if(move == "group_next" && is.null(sizes.allowed)){
-    if(rand.o == 1) rand.o2 <- 2
-    if(rand.o == num.obs) rand.o2 <- num.obs-1
-    if(rand.o > 1 && rand.o < num.obs) rand.o2 <- sample(c(rand.o-1,rand.o+1),1)
-    nodes.rand.o2 <- as.logical(presence.tables[,rand.o2])
-    current.size <- compute_size_neighborhood_p8(current.partitions[,rand.o],current.partitions[,rand.o2])
-    new.p <- sample_new_partition_p8(current.partitions[,rand.o], current.partitions[,rand.o2], current.size)
   } else if(move == "pair_exchange" && is.null(sizes.allowed)){
     rand.o2 <- sample((1:num.obs)[-rand.o],1)
     nodes.rand.o2 <- as.logical(presence.tables[,rand.o2])
-    current.size <- compute_size_neighborhood_p9(current.partitions[,rand.o],current.partitions[,rand.o2])
+    current.size <- compute_size_neighborhood_p7(current.partitions[,rand.o],current.partitions[,rand.o2])
     if(current.size$num.swaps > 0){
-      new.p <- sample_new_partition_p9(current.partitions[,rand.o], current.partitions[,rand.o2], current.size)
+      new.p <- sample_new_partition_p7(current.partitions[,rand.o], current.partitions[,rand.o2], current.size)
     } else {
       new.p <- current.partitions[,rand.o]
     }
@@ -828,9 +793,9 @@ draw_step_multiple <- function(theta,
     if(rand.o == num.obs) rand.o2 <- num.obs-1
     if(rand.o > 1 && rand.o < num.obs) rand.o2 <- sample(c(rand.o-1,rand.o+1),1)
     nodes.rand.o2 <- as.logical(presence.tables[,rand.o2])
-    current.size <- compute_size_neighborhood_p9(current.partitions[,rand.o],current.partitions[,rand.o2])
+    current.size <- compute_size_neighborhood_p7(current.partitions[,rand.o],current.partitions[,rand.o2])
     if(current.size$num.swaps > 0){
-      new.p <- sample_new_partition_p9(current.partitions[,rand.o], current.partitions[,rand.o2], current.size)
+      new.p <- sample_new_partition_p7(current.partitions[,rand.o], current.partitions[,rand.o2], current.size)
     } else {
       new.p <- current.partitions[,rand.o]
     }
@@ -863,40 +828,12 @@ draw_step_multiple <- function(theta,
   } else if(move == "exchange" && !is.null(sizes.allowed)){
     current.size <- compute_size_neighborhood_p6_restricted(current.partitions[nodes.rand.o,rand.o], sizes.simulated)
     new.p <- sample_new_partition_p6_restricted(current.partitions[nodes.rand.o,rand.o], mini.steps, sizes.simulated, current.size)
-  } else if(move == "partition_exchange" && !is.null(sizes.allowed)){
-    rand.o2 <- sample((1:num.obs)[-rand.o],1)
-    nodes.rand.o2 <- as.logical(presence.tables[,rand.o2])
-    current.size <- compute_size_neighborhood_p7(current.partitions[,rand.o],current.partitions[,rand.o2])
-    new.ps <- sample_new_partition_p7(current.partitions[,rand.o], current.partitions[,rand.o2])
-    new.p <- new.ps$new.partition1
-    new.p2 <- new.ps$new.partition2
-  } else if(move == "partition_next" && !is.null(sizes.allowed)){
-    if(rand.o == 1) rand.o2 <- 2
-    if(rand.o == num.obs) rand.o2 <- num.obs-1
-    if(rand.o > 1 && rand.o < num.obs) rand.o2 <- sample(c(rand.o-1,rand.o+1),1)
-    nodes.rand.o2 <- as.logical(presence.tables[,rand.o2])
-    current.size <- compute_size_neighborhood_p7(current.partitions[,rand.o],current.partitions[,rand.o2])
-    new.ps <- sample_new_partition_p7(current.partitions[,rand.o], current.partitions[,rand.o2])
-    new.p <- new.ps$new.partition1
-    new.p2 <- new.ps$new.partition2
-  } else if(move == "group_exchange" && !is.null(sizes.allowed)){
-    rand.o2 <- sample((1:num.obs)[-rand.o],1)
-    nodes.rand.o2 <- as.logical(presence.tables[,rand.o2])
-    current.size <- compute_size_neighborhood_p8_restricted(current.partitions[,rand.o],current.partitions[,rand.o2], sizes.simulated)
-    new.p <- sample_new_partition_p8_restricted(current.partitions[,rand.o], current.partitions[,rand.o2], current.size, sizes.simulated)
-  } else if(move == "group_next" && !is.null(sizes.allowed)){
-    if(rand.o == 1) rand.o2 <- 2
-    if(rand.o == num.obs) rand.o2 <- num.obs-1
-    if(rand.o > 1 && rand.o < num.obs) rand.o2 <- sample(c(rand.o-1,rand.o+1),1)
-    nodes.rand.o2 <- as.logical(presence.tables[,rand.o2])
-    current.size <- compute_size_neighborhood_p8_restricted(current.partitions[,rand.o],current.partitions[,rand.o2], sizes.simulated)
-    new.p <- sample_new_partition_p8_restricted(current.partitions[,rand.o], current.partitions[,rand.o2], current.size, sizes.simulated)
   } else if(move == "pair_exchange" && !is.null(sizes.allowed)){
     rand.o2 <- sample((1:num.obs)[-rand.o],1)
     nodes.rand.o2 <- as.logical(presence.tables[,rand.o2])
-    current.size <- compute_size_neighborhood_p9_restricted(current.partitions[,rand.o],current.partitions[,rand.o2], sizes.simulated)
+    current.size <- compute_size_neighborhood_p7_restricted(current.partitions[,rand.o],current.partitions[,rand.o2], sizes.simulated)
     if(current.size$num.swaps > 0){
-      new.p <- sample_new_partition_p9_restricted(current.partitions[,rand.o], current.partitions[,rand.o2], current.size, sizes.simulated)
+      new.p <- sample_new_partition_p7_restricted(current.partitions[,rand.o], current.partitions[,rand.o2], current.size, sizes.simulated)
     } else {
       new.p <- current.partitions[,rand.o]
     }
@@ -905,9 +842,9 @@ draw_step_multiple <- function(theta,
     if(rand.o == num.obs) rand.o2 <- num.obs-1
     if(rand.o > 1 && rand.o < num.obs) rand.o2 <- sample(c(rand.o-1,rand.o+1),1)
     nodes.rand.o2 <- as.logical(presence.tables[,rand.o2])
-    current.size <- compute_size_neighborhood_p9_restricted(current.partitions[,rand.o],current.partitions[,rand.o2], sizes.simulated)
+    current.size <- compute_size_neighborhood_p7_restricted(current.partitions[,rand.o],current.partitions[,rand.o2], sizes.simulated)
     if(current.size$num.swaps > 0){
-      new.p <- sample_new_partition_p9_restricted(current.partitions[,rand.o], current.partitions[,rand.o2], current.size, sizes.simulated)
+      new.p <- sample_new_partition_p7_restricted(current.partitions[,rand.o], current.partitions[,rand.o2], current.size, sizes.simulated)
     } else {
       new.p <- current.partitions[,rand.o]
     }
@@ -927,10 +864,7 @@ draw_step_multiple <- function(theta,
   }
   
   
-  if(move == "partition_exchange" || move == "partition_next") {
-    new.partitions[,rand.o] <- new.p
-    new.partitions[,rand.o2] <- new.p2
-  } else if(move == "group_exchange" || move == "group_next" || move == "pair_exchange" || move == "pair_next") {
+  if(move == "pair_exchange" || move == "pair_next") {
     new.partitions[,rand.o] <- new.p
   } else {
     new.partitions[,rand.o] <- rep(NA,num.nodes)
@@ -947,18 +881,10 @@ draw_step_multiple <- function(theta,
   
   # IF CHANGE: compute new statistics
   if(!all(current.partitions == new.partitions, na.rm=T)) {
-    if(move == "partition_exchange" || move == "partition_next"){
-      recalculated.stats <- recalculate_statistics(new.partitions, rand.o, nodes.rand.o, nodes, effects, objects, current.z.contributions) 
-      new.z.contributions <- recalculated.stats$new.z.contributions
-      new.z <- recalculated.stats$new.z
-      recalculated.stats <- recalculate_statistics(new.partitions, rand.o2, nodes.rand.o2, nodes, effects, objects, new.z.contributions) 
-      new.z.contributions <- recalculated.stats$new.z.contributions
-      new.z <- recalculated.stats$new.z
-    } else {
-      recalculated.stats <- recalculate_statistics(new.partitions, rand.o, nodes.rand.o, nodes, effects, objects, current.z.contributions) 
-      new.z.contributions <- recalculated.stats$new.z.contributions
-      new.z <- recalculated.stats$new.z
-    }
+    
+    recalculated.stats <- recalculate_statistics(new.partitions, rand.o, nodes.rand.o, nodes, effects, objects, current.z.contributions) 
+    new.z.contributions <- recalculated.stats$new.z.contributions
+    new.z <- recalculated.stats$new.z
     
   } 
   
@@ -1013,28 +939,16 @@ draw_step_multiple <- function(theta,
       } else {
         neighborhoods.ratios <- 1
       }
-    } else if(move == "partition_exchange" && is.null(sizes.allowed)) {
-      new.size <- compute_size_neighborhood_p7(new.partitions[,rand.o],new.partitions[,rand.o2])
-      neighborhoods.ratios <- neighborhoods.ratios * current.size / new.size
-    } else if(move == "partition_next" && is.null(sizes.allowed)) {
-      new.size <- compute_size_neighborhood_p7(new.partitions[,rand.o],new.partitions[,rand.o2])
-      neighborhoods.ratios <- neighborhoods.ratios * current.size / new.size
-    } else if(move == "group_exchange" && is.null(sizes.allowed)) {
-      new.size <- compute_size_neighborhood_p8(new.partitions[,rand.o],new.partitions[,rand.o2])
-      neighborhoods.ratios <- 1 * current.size$num.reorganizations / new.size$num.reorganizations
-    } else if(move == "group_next" && is.null(sizes.allowed)) {
-      new.size <- compute_size_neighborhood_p8(new.partitions[,rand.o],new.partitions[,rand.o2])
-      neighborhoods.ratios <- 1 * current.size$num.reorganizations / new.size$num.reorganizations
     } else if(move == "pair_exchange" && is.null(sizes.allowed)) {
       if(current.size$num.swaps > 0){
-        new.size <- compute_size_neighborhood_p9(new.partitions[,rand.o],new.partitions[,rand.o2])
+        new.size <- compute_size_neighborhood_p7(new.partitions[,rand.o],new.partitions[,rand.o2])
         neighborhoods.ratios <- 1 * current.size$num.swaps / new.size$num.swaps
       } else {
         neighborhoods.ratios <- 1
       }
     } else if(move == "pair_next" && is.null(sizes.allowed)) {
       if(current.size$num.swaps > 0){
-        new.size <- compute_size_neighborhood_p9(new.partitions[,rand.o],new.partitions[,rand.o2])
+        new.size <- compute_size_neighborhood_p7(new.partitions[,rand.o],new.partitions[,rand.o2])
         neighborhoods.ratios <- 1 * current.size$num.swaps / new.size$num.swaps
       } else {
         neighborhoods.ratios <- 1
@@ -1080,28 +994,16 @@ draw_step_multiple <- function(theta,
       } else {
         neighborhoods.ratios <- 1
       }
-    } else if(move == "partition_exchange" && !is.null(sizes.allowed)) {
-      new.size <- compute_size_neighborhood_p7(new.partitions[,rand.o],new.partitions[,rand.o2])
-      neighborhoods.ratios <- neighborhoods.ratios * current.size / new.size
-    } else if(move == "partition_next" && !is.null(sizes.allowed)) {
-      new.size <- compute_size_neighborhood_p7(new.partitions[,rand.o],new.partitions[,rand.o2])
-      neighborhoods.ratios <- neighborhoods.ratios * current.size / new.size
-    } else if(move == "group_exchange" && !is.null(sizes.allowed)) {
-      new.size <- compute_size_neighborhood_p8_restricted(new.partitions[,rand.o],new.partitions[,rand.o2], sizes.simulated)
-      neighborhoods.ratios <- 1 * current.size$num.reorganizations / new.size$num.reorganizations
-    } else if(move == "group_next" && !is.null(sizes.allowed)) {
-      new.size <- compute_size_neighborhood_p8_restricted(new.partitions[,rand.o],new.partitions[,rand.o2], sizes.simulated)
-      neighborhoods.ratios <- 1 * current.size$num.reorganizations / new.size$num.reorganizations
     } else if(move == "pair_exchange" && !is.null(sizes.allowed)) {
       if(current.size$num.swaps > 0){
-        new.size <- compute_size_neighborhood_p9_restricted(new.partitions[,rand.o],new.partitions[,rand.o2], sizes.simulated)
+        new.size <- compute_size_neighborhood_p7_restricted(new.partitions[,rand.o],new.partitions[,rand.o2], sizes.simulated)
         neighborhoods.ratios <- 1 * current.size$num.swaps / new.size$num.swaps
       } else {
         neighborhoods.ratios <- 1
       }
     } else if(move == "group_next" && !is.null(sizes.allowed)) {
       if(current.size$num.swaps > 0){
-        new.size <- compute_size_neighborhood_p9_restricted(new.partitions[,rand.o],new.partitions[,rand.o2], sizes.simulated)
+        new.size <- compute_size_neighborhood_p7_restricted(new.partitions[,rand.o],new.partitions[,rand.o2], sizes.simulated)
         neighborhoods.ratios <- 1 * current.size$num.swaps / new.size$num.swaps
       } else {
         neighborhoods.ratios <- 1
@@ -1152,12 +1054,18 @@ draw_step_multiple_secondparallel <- function(theta,
   rand.o <- sample(1:num.obs,1)
   nodes.rand.o <- as.logical(presence.tables[,rand.o])
   
-  move <- sample(c("swap","mergediv","single","double","swap2","exchange","partition_exchange","partition_next","group_exchange","group_next","pair_exchange","pair_next"),1,prob=neighborhood)
-  #move <- sample(c("swap","mergediv","single","double","swap2","exchange","partition_exchange","partition_next","group_exchange","group_next"),1,prob=neighborhood)
+  move <- sample(c("swap","mergediv","single","double","swap2","exchange","pair_exchange","pair_next"),1,prob=neighborhood)
   
   #start <- Sys.time()
   
-  ## IF MODE IS "swap" = swap two actors, "mergediv" = merge 2 groups or split a group in two, "single" = move one actor
+  # IF MODE IS "swap" = swap two actors, 
+  # "mergediv" = merge 2 groups or split a group in two, 
+  # "single" = move one actor,
+  # "double" = move one pair of nodes,
+  # "swap2" = swap two pairs of nodes,
+  # "exchange" = reshuffle the members of two groups
+  # "pair_exchange" = reproduce a pair from another random partition
+  # "pair_next" = reproduce a pair from an adjacent partition
   if(move == "swap" && is.null(sizes.allowed)) {
     current.size <- compute_size_neighborhood_p1(current.partitions[nodes.rand.o,rand.o])
     if(current.size$num.swaps > 0){
@@ -1180,46 +1088,18 @@ draw_step_multiple_secondparallel <- function(theta,
   } else if(move == "exchange" && is.null(sizes.allowed)){
     current.size <- compute_size_neighborhood_p6(current.partitions[nodes.rand.o,rand.o])
     new.p <- sample_new_partition_p6(current.partitions[nodes.rand.o,rand.o], mini.steps, current.size)
-  } else if(move == "partition_exchange" && is.null(sizes.allowed)){
-    rand.o2 <- sample((1:num.obs)[-rand.o],1)
-    nodes.rand.o2 <- as.logical(presence.tables[,rand.o2])
-    current.size <- compute_size_neighborhood_p7(current.partitions[,rand.o],current.partitions[,rand.o2])
-    new.ps <- sample_new_partition_p7(current.partitions[,rand.o], current.partitions[,rand.o2])
-    new.p <- new.ps$new.partition1
-    new.p2 <- new.ps$new.partition2
-  } else if(move == "partition_next" && is.null(sizes.allowed)){
-    if(rand.o == 1) rand.o2 <- 2
-    if(rand.o == num.obs) rand.o2 <- num.obs-1
-    if(rand.o > 1 && rand.o < num.obs) rand.o2 <- sample(c(rand.o-1,rand.o+1),1)
-    nodes.rand.o2 <- as.logical(presence.tables[,rand.o2])
-    current.size <- compute_size_neighborhood_p7(current.partitions[,rand.o],current.partitions[,rand.o2])
-    new.ps <- sample_new_partition_p7(current.partitions[,rand.o], current.partitions[,rand.o2])
-    new.p <- new.ps$new.partition1
-    new.p2 <- new.ps$new.partition2
-  } else if(move == "group_exchange" && is.null(sizes.allowed)){
-    rand.o2 <- sample((1:num.obs)[-rand.o],1)
-    nodes.rand.o2 <- as.logical(presence.tables[,rand.o2])
-    current.size <- compute_size_neighborhood_p8(current.partitions[,rand.o],current.partitions[,rand.o2])
-    new.p <- sample_new_partition_p8(current.partitions[,rand.o], current.partitions[,rand.o2], current.size)
-  } else if(move == "group_next" && is.null(sizes.allowed)){
-    if(rand.o == 1) rand.o2 <- 2
-    if(rand.o == num.obs) rand.o2 <- num.obs-1
-    if(rand.o > 1 && rand.o < num.obs) rand.o2 <- sample(c(rand.o-1,rand.o+1),1)
-    nodes.rand.o2 <- as.logical(presence.tables[,rand.o2])
-    current.size <- compute_size_neighborhood_p8(current.partitions[,rand.o],current.partitions[,rand.o2])
-    new.p <- sample_new_partition_p8(current.partitions[,rand.o], current.partitions[,rand.o2], current.size)
   } else if(move == "pair_exchange" && is.null(sizes.allowed)){
     rand.o2 <- sample((1:num.obs)[-rand.o],1)
     nodes.rand.o2 <- as.logical(presence.tables[,rand.o2])
-    current.size <- compute_size_neighborhood_p9(current.partitions[,rand.o],current.partitions[,rand.o2])
-    new.p <- sample_new_partition_p9(current.partitions[,rand.o], current.partitions[,rand.o2], current.size)
+    current.size <- compute_size_neighborhood_p7(current.partitions[,rand.o],current.partitions[,rand.o2])
+    new.p <- sample_new_partition_p7(current.partitions[,rand.o], current.partitions[,rand.o2], current.size)
   } else if(move == "pair_next" && is.null(sizes.allowed)){
     if(rand.o == 1) rand.o2 <- 2
     if(rand.o == num.obs) rand.o2 <- num.obs-1
     if(rand.o > 1 && rand.o < num.obs) rand.o2 <- sample(c(rand.o-1,rand.o+1),1)
     nodes.rand.o2 <- as.logical(presence.tables[,rand.o2])
-    current.size <- compute_size_neighborhood_p9(current.partitions[,rand.o],current.partitions[,rand.o2])
-    new.p <- sample_new_partition_p9(current.partitions[,rand.o], current.partitions[,rand.o2], current.size)
+    current.size <- compute_size_neighborhood_p7(current.partitions[,rand.o],current.partitions[,rand.o2])
+    new.p <- sample_new_partition_p7(current.partitions[,rand.o], current.partitions[,rand.o2], current.size)
   }
   
   # Alternative if sizes are restricted
@@ -1245,55 +1125,24 @@ draw_step_multiple_secondparallel <- function(theta,
   } else if(move == "exchange" && !is.null(sizes.allowed)){
     current.size <- compute_size_neighborhood_p6_restricted(current.partitions[nodes.rand.o,rand.o], sizes.simulated)
     new.p <- sample_new_partition_p6_restricted(current.partitions[nodes.rand.o,rand.o], mini.steps, sizes.simulated, current.size)
-  } else if(move == "partition_exchange" && !is.null(sizes.allowed)){
-    rand.o2 <- sample((1:num.obs)[-rand.o],1)
-    nodes.rand.o2 <- as.logical(presence.tables[,rand.o2])
-    current.size <- compute_size_neighborhood_p7(current.partitions[,rand.o],current.partitions[,rand.o2])
-    new.ps <- sample_new_partition_p7(current.partitions[,rand.o], current.partitions[,rand.o2])
-    new.p <- new.ps$new.partition1
-    new.p2 <- new.ps$new.partition2
-  } else if(move == "partition_next" && !is.null(sizes.allowed)){
-    if(rand.o == 1) rand.o2 <- 2
-    if(rand.o == num.obs) rand.o2 <- num.obs-1
-    if(rand.o > 1 && rand.o < num.obs) rand.o2 <- sample(c(rand.o-1,rand.o+1),1)
-    nodes.rand.o2 <- as.logical(presence.tables[,rand.o2])
-    current.size <- compute_size_neighborhood_p7(current.partitions[,rand.o],current.partitions[,rand.o2])
-    new.ps <- sample_new_partition_p7(current.partitions[,rand.o], current.partitions[,rand.o2])
-    new.p <- new.ps$new.partition1
-    new.p2 <- new.ps$new.partition2
-  } else if(move == "group_exchange" && !is.null(sizes.allowed)){
-    rand.o2 <- sample((1:num.obs)[-rand.o],1)
-    nodes.rand.o2 <- as.logical(presence.tables[,rand.o2])
-    current.size <- compute_size_neighborhood_p8(current.partitions[,rand.o],current.partitions[,rand.o2])
-    new.p <- sample_new_partition_p8(current.partitions[,rand.o], current.partitions[,rand.o2], current.size)
-  } else if(move == "group_next" && !is.null(sizes.allowed)){
-    if(rand.o == 1) rand.o2 <- 2
-    if(rand.o == num.obs) rand.o2 <- num.obs-1
-    if(rand.o > 1 && rand.o < num.obs) rand.o2 <- sample(c(rand.o-1,rand.o+1),1)
-    nodes.rand.o2 <- as.logical(presence.tables[,rand.o2])
-    current.size <- compute_size_neighborhood_p8(current.partitions[,rand.o],current.partitions[,rand.o2])
-    new.p <- sample_new_partition_p8(current.partitions[,rand.o], current.partitions[,rand.o2], current.size)
   } else if(move == "pair_exchange" && !is.null(sizes.allowed)){
     rand.o2 <- sample((1:num.obs)[-rand.o],1)
     nodes.rand.o2 <- as.logical(presence.tables[,rand.o2])
-    current.size <- compute_size_neighborhood_p9_restricted(current.partitions[,rand.o],current.partitions[,rand.o2], sizes.simulated)
-    new.p <- sample_new_partition_p9_restricted(current.partitions[,rand.o], current.partitions[,rand.o2], current.size, sizes.simulated)
+    current.size <- compute_size_neighborhood_p7_restricted(current.partitions[,rand.o],current.partitions[,rand.o2], sizes.simulated)
+    new.p <- sample_new_partition_p7_restricted(current.partitions[,rand.o], current.partitions[,rand.o2], current.size, sizes.simulated)
   } else if(move == "pair_next" && !is.null(sizes.allowed)){
     if(rand.o == 1) rand.o2 <- 2
     if(rand.o == num.obs) rand.o2 <- num.obs-1
     if(rand.o > 1 && rand.o < num.obs) rand.o2 <- sample(c(rand.o-1,rand.o+1),1)
     nodes.rand.o2 <- as.logical(presence.tables[,rand.o2])
-    current.size <- compute_size_neighborhood_p9_restricted(current.partitions[,rand.o],current.partitions[,rand.o2], sizes.simulated)
-    new.p <- sample_new_partition_p9_restricted(current.partitions[,rand.o], current.partitions[,rand.o2], current.size, sizes.simulated)
+    current.size <- compute_size_neighborhood_p7_restricted(current.partitions[,rand.o],current.partitions[,rand.o2], sizes.simulated)
+    new.p <- sample_new_partition_p7_restricted(current.partitions[,rand.o], current.partitions[,rand.o2], current.size, sizes.simulated)
   }
   
   #end <- Sys.time()
   #print(end-start)
   
-  if(move == "partition_exchange" || move == "partition_next") {
-    new.partitions[,rand.o] <- new.p
-    new.partitions[,rand.o2] <- new.p2
-  } else if(move == "group_exchange" || move == "group_next" || move == "pair_exchange" || move == "pair_next") {
+  if(move == "pair_exchange" || move == "pair_next") {
     new.partitions[,rand.o] <- new.p
   } else {
     new.partitions[,rand.o] <- rep(NA,num.nodes)
@@ -1310,18 +1159,9 @@ draw_step_multiple_secondparallel <- function(theta,
   
   # IF CHANGE: compute new statistics
   if(!all(current.partitions == new.partitions, na.rm=T)) {
-    if(move == "partition_exchange" || move == "partition_next"){
-      recalculated.stats <- recalculate_statistics(new.partitions, rand.o, nodes.rand.o, nodes, effects, objects, current.z.contributions) 
-      new.z.contributions <- recalculated.stats$new.z.contributions
-      new.z <- recalculated.stats$new.z
-      recalculated.stats <- recalculate_statistics(new.partitions, rand.o2, nodes.rand.o2, nodes, effects, objects, new.z.contributions) 
-      new.z.contributions <- recalculated.stats$new.z.contributions
-      new.z <- recalculated.stats$new.z
-    } else {
-      recalculated.stats <- recalculate_statistics_secondparallel(new.partitions, rand.o, nodes.rand.o, nodes, effects, objects, current.z.contributions, parallel, cpus) 
-      new.z.contributions <- recalculated.stats$new.z.contributions
-      new.z <- recalculated.stats$new.z
-    }
+    recalculated.stats <- recalculate_statistics_secondparallel(new.partitions, rand.o, nodes.rand.o, nodes, effects, objects, current.z.contributions, parallel, cpus) 
+    new.z.contributions <- recalculated.stats$new.z.contributions
+    new.z <- recalculated.stats$new.z
     
   } 
   
@@ -1376,23 +1216,11 @@ draw_step_multiple_secondparallel <- function(theta,
       } else {
         neighborhoods.ratios <- 1
       }
-    } else if(move == "partition_exchange" && is.null(sizes.allowed)) {
-      new.size <- compute_size_neighborhood_p7(new.partitions[,rand.o],new.partitions[,rand.o2])
-      neighborhoods.ratios <- neighborhoods.ratios * current.size / new.size
-    } else if(move == "partition_next" && is.null(sizes.allowed)) {
-      new.size <- compute_size_neighborhood_p7(new.partitions[,rand.o],new.partitions[,rand.o2])
-      neighborhoods.ratios <- neighborhoods.ratios * current.size / new.size
-    } else if(move == "group_exchange" && is.null(sizes.allowed)) {
-      new.size <- compute_size_neighborhood_p8(new.partitions[,rand.o],new.partitions[,rand.o2])
-      neighborhoods.ratios <- 1 * current.size$num.reorganizations / new.size$num.reorganizations
-    } else if(move == "group_next" && is.null(sizes.allowed)) {
-      new.size <- compute_size_neighborhood_p8(new.partitions[,rand.o],new.partitions[,rand.o2])
-      neighborhoods.ratios <- 1 * current.size$num.reorganizations / new.size$num.reorganizations
     } else if(move == "pair_exchange" && is.null(sizes.allowed)) {
-      new.size <- compute_size_neighborhood_p9(new.partitions[,rand.o],new.partitions[,rand.o2])
+      new.size <- compute_size_neighborhood_p7(new.partitions[,rand.o],new.partitions[,rand.o2])
       neighborhoods.ratios <- 1 * current.size$num.swaps / new.size$num.swaps
     } else if(move == "pair_next" && is.null(sizes.allowed)) {
-      new.size <- compute_size_neighborhood_p9(new.partitions[,rand.o],new.partitions[,rand.o2])
+      new.size <- compute_size_neighborhood_p7(new.partitions[,rand.o],new.partitions[,rand.o2])
       neighborhoods.ratios <- 1 * current.size$num.swaps / new.size$num.swaps
     }
     
@@ -1435,23 +1263,11 @@ draw_step_multiple_secondparallel <- function(theta,
       } else {
         neighborhoods.ratios <- 1
       }
-    } else if(move == "partition_exchange" && !is.null(sizes.allowed)) {
-      new.size <- compute_size_neighborhood_p7(new.partitions[,rand.o],new.partitions[,rand.o2])
-      neighborhoods.ratios <- neighborhoods.ratios * current.size / new.size
-    } else if(move == "partition_next" && !is.null(sizes.allowed)) {
-      new.size <- compute_size_neighborhood_p7(new.partitions[,rand.o],new.partitions[,rand.o2])
-      neighborhoods.ratios <- neighborhoods.ratios * current.size / new.size
-    } else if(move == "group_exchange" && !is.null(sizes.allowed)) {
-      new.size <- compute_size_neighborhood_p8(new.partitions[,rand.o],new.partitions[,rand.o2])
-      neighborhoods.ratios <- 1 * current.size$num.reorganizations / new.size$num.reorganizations
-    } else if(move == "group_next" && !is.null(sizes.allowed)) {
-      new.size <- compute_size_neighborhood_p8(new.partitions[,rand.o],new.partitions[,rand.o2])
-      neighborhoods.ratios <- 1 * current.size$num.reorganizations / new.size$num.reorganizations
     } else if(move == "pair_exchange" && !is.null(sizes.allowed)) {
-      new.size <- compute_size_neighborhood_p9_restricted(new.partitions[,rand.o],new.partitions[,rand.o2], sizes.simulated)
+      new.size <- compute_size_neighborhood_p7_restricted(new.partitions[,rand.o],new.partitions[,rand.o2], sizes.simulated)
       neighborhoods.ratios <- 1 * current.size$num.swaps / new.size$num.swaps
-    } else if(move == "group_next" && !is.null(sizes.allowed)) {
-      new.size <- compute_size_neighborhood_p9_restricted(new.partitions[,rand.o],new.partitions[,rand.o2], sizes.simulated)
+    } else if(move == "pair_next" && !is.null(sizes.allowed)) {
+      new.size <- compute_size_neighborhood_p7_restricted(new.partitions[,rand.o],new.partitions[,rand.o2], sizes.simulated)
       neighborhoods.ratios <- 1 * current.size$num.swaps / new.size$num.swaps
     }
     
@@ -1777,7 +1593,8 @@ sample_new_partition_p2 <- function(current.partition, mini.steps, size_neighbor
     # pick 2 groups to merge
     old_g1 <- sample(num.groups,1)
     other.groups <- all.groups[all.groups != old_g1]
-    old_g2 <- sample(other.groups,1)
+    if(length(other.groups) == 1) old_g2 <- other.groups
+    if(length(other.groups) > 1) old_g2 <- sample(other.groups,1)
     gmin <- min(old_g1,old_g2)
     gmax <- max(old_g1,old_g2)
     old_g1 <- gmin
@@ -1789,9 +1606,7 @@ sample_new_partition_p2 <- function(current.partition, mini.steps, size_neighbor
     new.partition[which(new.partition == old_g2)] <- old_g1
     new.partition <- order_groupids(new.partition)
     
-  }
-  # if division
-  else if(pick.1 <= (num.merges+num.divisions)){
+  }else if(pick.1 <= (num.merges+num.divisions)){
     
     # pick group to divide
     pick.2 <- sample(num.divisions,1)
@@ -1965,6 +1780,7 @@ compute_size_neighborhood_p4 <- function(partition){
   pairs <- c()
   num.groups <- max(partition)
   num.nodes <- length(partition)
+  others <- c()
   
   for(g in 1:num.groups){
     if(length(which(partition == g)) == 1) {
@@ -1984,12 +1800,12 @@ compute_size_neighborhood_p4 <- function(partition){
       # nothing happens, there is no pair to swap here
     }
     if(g %in% pairs){
-      nums.swaps[g] <- length(pairs) + length(others) - 1 - sum(done.pairs) + done.pairs[pairs==g]
+      nums.swaps[g] <- length(pairs) + length(isolates) + length(others) - 1 - sum(done.pairs) + done.pairs[pairs==g]
       done.pairs[pairs == g] <- 1
     } 
     if(g %in% others){
       sizeg <- sum(partition == g)
-      nums.swaps[g] <- (length(pairs) + length(others)-1) * sizeg * (sizeg-1) / 2
+      nums.swaps[g] <- (length(pairs) + length(others) + length(isolates) ) * sizeg * (sizeg-1) / 2
     } 
   }
   
@@ -2037,21 +1853,22 @@ sample_new_partition_p4 <- function(current.partition, mini.steps, size_neighbor
       if(g %in% pairs){
         members <- which(current.partition == g)
         previous.pairs <- pairs[done.pairs == 1]
-        tosample <- all.groups[(all.groups %in% c(pairs,others)) & (all.groups != g) & !(all.groups %in% previous.pairs)]
+        tosample <- all.groups[!(all.groups == g) & !(all.groups %in% previous.pairs)]
         if(length(tosample) == 1) newg <- tosample
         if(length(tosample) >= 2) newg <- sample(tosample,1)
         new.partition[members] <- newg
         new.partition <- order_groupids(new.partition)
       }
       
-      # a pair in a bigger group can join any other group 
-      if(g %in% others && g %in% abovemin_groups){
+      # a pair in a bigger group can join any other group or create its own isolated pair
+      if(g %in% others){
         members <- which(current.partition == g)
         sizeg <- length(members)
         pairg <- sample(members,2)
-        tosample <- all.groups[(all.groups %in% c(pairs,others)) & (all.groups != g)]
+        tosample <- all.groups
         if(length(tosample) == 1) newg <- tosample
         if(length(tosample) >= 2) newg <- sample(tosample,1)
+        if(newg == g) newg <- num.groups + 1
         new.partition[pairg] <- newg
         new.partition <- order_groupids(new.partition)
       }
@@ -2151,27 +1968,31 @@ sample_new_partition_p5 <- function(current.partition, mini.steps, size_neighbor
     total <- num.swaps
   } 
   
-  # decide which actors to swap
   new.partition <- current.partition
-  found <- F
-  while(!found){
-    pick.1 <- sample(paired.actors,1)
-    pick.2 <- sample(paired.actors,1)
-    if(groups.paired.actors[which(paired.actors == pick.1)] != groups.paired.actors[which(paired.actors == pick.2)] &&
-       !(pairs.paired.actors[which(paired.actors == pick.1)] && pairs.paired.actors[which(paired.actors == pick.2)])) {
-      found <- T
+  
+  # decide which actors to swap
+  if(num.swaps > 0){
+    found <- F
+    while(!found){
+      pick.1 <- sample(paired.actors,1)
+      pick.2 <- sample(paired.actors,1)
+      if(groups.paired.actors[which(paired.actors == pick.1)] != groups.paired.actors[which(paired.actors == pick.2)] &&
+         !(pairs.paired.actors[which(paired.actors == pick.1)] && pairs.paired.actors[which(paired.actors == pick.2)])) {
+        found <- T
+      }
     }
+  
+    j1 <- ((pick.1-1) %/% num.nodes) + 1
+    i1 <- (pick.1-1) %% num.nodes + 1
+    j2 <- ((pick.2-1) %/% num.nodes) + 1
+    i2 <- (pick.2-1) %% num.nodes + 1
+    new.partition[i1] <- current.partition[i2]
+    new.partition[j1] <- current.partition[j2]
+    new.partition[i2] <- current.partition[i1]
+    new.partition[j2] <- current.partition[j1]
+    new.partition <- order_groupids(new.partition)
   }
   
-  j1 <- ((pick.1-1) %/% num.nodes) + 1
-  i1 <- (pick.1-1) %% num.nodes + 1
-  j2 <- ((pick.2-1) %/% num.nodes) + 1
-  i2 <- (pick.2-1) %% num.nodes + 1
-  new.partition[i1] <- current.partition[i2]
-  new.partition[j1] <- current.partition[j2]
-  new.partition[i2] <- current.partition[i1]
-  new.partition[j2] <- current.partition[j1]
-  new.partition <- order_groupids(new.partition)
   
   return(new.partition)
   
@@ -2204,19 +2025,26 @@ compute_size_neighborhood_p6 <- function(partition){
   group.pairs <- matrix(0,num.groups,num.groups)
   nums.swaps <- matrix(0,num.groups,num.groups)
   
-  for(g1 in 1:(num.groups-1)){
+  if(num.groups > 1) {
     
-    for(g2 in (g1+1):num.groups){
-      size.1 <- sum(partition == g1)
-      size.2 <- sum(partition == g2)
+    for(g1 in 1:(num.groups-1)){
+      for(g2 in (g1+1):num.groups){
+        size.1 <- sum(partition == g1)
+        size.2 <- sum(partition == g2)
       
-      k <- size.1
-      n <- size.1 + size.2
-      
-      nums.swaps[g1,g2] <- factorial(n) / (factorial(k)*factorial(n-k))
+        if(size.1 == 1 && size.2 == 1){
+          nums.swaps[g1,g2] <- 0
+        } else {
+          k <- size.1
+          n <- size.1 + size.2
+          nums.swaps[g1,g2] <- factorial(n) / (factorial(k)*factorial(n-k)) 
+          if(size.1 == size.2) nums.swaps[g1,g2] <- nums.swaps[g1,g2] /2
+          nums.swaps[g1,g2] <- nums.swaps[g1,g2] -1
+        }
+      }
     }
-    
   }
+  
   num.swaps <- sum(nums.swaps)
   
   return(list(isolates = isolates,
@@ -2248,22 +2076,29 @@ sample_new_partition_p6 <- function(current.partition, mini.steps, size_neighbor
   pick <- sample(1:num.swaps,1)
   start <- 0
   end <- 0
-  for(g1 in 1:(num.groups-1)){
-    for(g2 in (g1+1):num.groups){
+  
+  if(num.groups > 1){
+    for(g1 in 1:(num.groups-1)){
+      for(g2 in (g1+1):num.groups){
       
-      end <- end + nums.swaps[g1,g2]
+        end <- end + nums.swaps[g1,g2]
       
-      if(start < pick && pick <= end){
-        tosample <- c(which(current.partition==g1),which(current.partition==g2))
-        new.g1 <- sample(tosample,sum(current.partition==g1))
-        new.g2 <- tosample[-which(tosample %in% new.g1)]
-        
-        new.partition[new.g1] <- g1
-        new.partition[new.g2] <- g2
-        new.partition <- order_groupids(new.partition)
+        if(start < pick && pick <= end){
+          found <- F
+          while(!found){
+            tosample <- c(which(current.partition==g1),which(current.partition==g2))
+            new.g1 <- sample(tosample,sum(current.partition==g1))
+            new.g2 <- tosample[-which(tosample %in% new.g1)]
+            if( !(setequal(new.g1,current.partition[g1]) && setequal(new.g2,current.partition[g2])) &&
+                !(setequal(new.g1,current.partition[g2]) && setequal(new.g2,current.partition[g1])) ) found <- T
+          }
+          new.partition[new.g1] <- g1
+          new.partition[new.g2] <- g2
+          new.partition <- order_groupids(new.partition)
+        }
+      
+        start <- start + nums.swaps[g1,g2]
       }
-      
-      start <- start + nums.swaps[g1,g2]
     }
   }
   
@@ -2272,198 +2107,26 @@ sample_new_partition_p6 <- function(current.partition, mini.steps, size_neighbor
 }
 
 
-
-## NEIGHBORHOOD PI 7: pick two partitions and exchange then (only for multiple partition estimation)
-# since we force one change, and it's reversible (bijection), we don't have to care about the size of the neighborhood
-# CAREFUL, only works when singletons are allowed
+## NEIGHBORHOOD PI 7: take two nodes together in partition 2, bring them together (single move)
+## otherwise separate then
+## careful need isolates
 compute_size_neighborhood_p7 <- function(partition1, partition2){
   
   num.nodes <- length(partition1)
   present1 <- !is.na(partition1)
   present2 <- !is.na(partition2)
   
-  # calculate the number of ways to reconstruct p1 after having done the exchange with p2
-  p1withoutabsentp2 <- partition1[present1 & present2]
-  max1 <- length(unique(p1withoutabsentp2))
-  nodesunknown1 <- sum(present1 & !present2)
-  if(nodesunknown1 == 0) {
-    possibilities1 <- 1
-  } else {
-    possibilities1 <- 0
-    for(k in 1:nodesunknown1) {
-      possibilities1 <- possibilities1 + Stirling(nodesunknown1,k)*(max1+1)^k
-    }
-  }
-  
-  # same the other way around
-  p2withoutabsentp1 <- partition2[present2 & present1]
-  max2 <- length(unique(p2withoutabsentp1))
-  nodesunknown2 <- sum(present2 & !present1)
-  if(nodesunknown2 == 0) {
-    possibilities2 <- 1
-  } else {
-    possibilities2 <- 0
-    for(k in 1:nodesunknown2) {
-      possibilities2 <- possibilities2 + Stirling(nodesunknown2,k)*(max2+1)^k
-    }
-  }
-  
-  return(possibilities1 * possibilities2)
-}
-
-sample_new_partition_p7 <- function(current.partition1, current.partition2){
-  
-  num.nodes <- length(current.partition1)
-  present1 <- which(!is.na(current.partition1))
-  present2 <- which(!is.na(current.partition2))
-  
-  new.partition1 <- rep(0,num.nodes)
-  new.partition2 <- rep(0,num.nodes)
-  
-  # fill in the first with the second, and create isolates for people not present in the second
-  new.partition1[present1] <- current.partition2[present1]
-  max1 <- max(new.partition1, na.rm=T)
-  singletons1 <- which(is.na(new.partition1))
-  if(length(singletons1) > 0) { # assign randomly the ones who are not present in the other one
-    for(s in singletons1){
-      newgroup <- sample(1:(max1+1),1)
-      new.partition1[s] <- newgroup
-      if(newgroup == (max1+1)) max1 <- max1 + 1
-    }
-  }
-  new.partition1[present1] <- order_groupids(new.partition1[present1])
-  new.partition1[new.partition1 == 0] <- NA
-  
-  # same the other way around
-  new.partition2[present2] <- current.partition1[present2]
-  max2 <- max(new.partition2, na.rm=T)
-  singletons2 <- which(is.na(new.partition2))
-  if(length(singletons2) > 0) { # assign randomly the ones who are not present in the other one
-    for(s in singletons2){
-      newgroup <- sample(1:(max2+1),1)
-      new.partition2[s] <- newgroup
-      if(newgroup == (max2+1)) max2 <- max2 + 1
-    }
-  }
-  new.partition2[present2] <- order_groupids(new.partition2[present2])
-  new.partition2[new.partition2 == 0] <- NA
-  
-  return(list(new.partition1 = new.partition1,
-              new.partition2 = new.partition2))
-  
-}
-
-
-## NEIGHBORHOOD PI 8: pick another partition, a group in it, and reproduce it in the current partition, or reorganizes it
-# CAREFUL, only works when singletons are allowed
-compute_size_neighborhood_p8 <- function(partition1, partition2){
-  
-  num.nodes <- length(partition1)
-  present1 <- !is.na(partition1)
-  present2 <- !is.na(partition2)
-  
-  # count number of groups from the second partition
-  groups.toreorganize <- unique(partition2[present1 & present2])
-  nums.reorganizations <- rep(0,length(groups.toreorganize))
-  
-  # count for each of them number of moves
-  for(g in 1:length(groups.toreorganize)){
-    group <- groups.toreorganize[g]
-    members <- which(partition2 == group)
-    max1 <- length(unique(partition1[present1 & partition1 != group]))
-    for(k in 1:length(members)) {
-      nums.reorganizations[g] <- nums.reorganizations[g] + Stirling(length(members),k)*(max1+1)^k
-    }
-    nums.reorganizations[g] <- nums.reorganizations[g] + 1 # when we just copy the group
-  }
-  
-  return(list(groups.toreorganize = groups.toreorganize,
-              nums.reorganizations = nums.reorganizations,
-              num.reorganizations = sum(nums.reorganizations)))
-}
-
-sample_new_partition_p8 <- function(current.partition1, current.partition2, size_neighborhood){
-  
-  groups.toreorganize <- size_neighborhood$groups.toreorganize
-  nums.reorganizations <- size_neighborhood$nums.reorganizations
-  num.reorganizations <- size_neighborhood$num.reorganizations
-  
-  num.nodes <- length(current.partition1)
-  present1 <- !is.na(current.partition1)
-  present2 <- !is.na(current.partition2)
-  
-  new.partition <- current.partition1
-  
-  # pick 
-  probas_groups <- nums.reorganizations / num.reorganizations
-  pick <- sample(c(0,groups.toreorganize),1,prob=c(1/ num.reorganizations, probas_groups))
-    
-  #randomize group
-  if(pick > 0) {
-    group <- pick
-    members <- which(current.partition2 == group && present1)
-    max1 <- length(unique(current.partition1[present1 & current.partition1 != group]))
-    for(a in members){
-      newgroup <- sample(1:(max1+1),1)
-      new.partition[a] <- newgroup
-      if(newgroup == (max1+1)) max1 <- max1 + 1
-    }
-    new.partition[present1] <- order_groupids(new.partition[present1])
-  }
-    
-  # copy group
-  if(pick ==0) {
-    # reproduce the group
-    new.partition[members] <- max(new.partition,na.rm=T) + 1
-    #reorder
-    new.partition[present1] <- order_groupids(new.partition[present1])
-  }
-
-  return(new.partition)
-  
-}
-
-#sample_new_partition_p8 <- function(current.partition1, current.partition2){
-#  
-#  num.nodes <- length(current.partition1)
-#  present1 <- !is.na(current.partition1)
-#  present2 <- !is.na(current.partition2)
-#  
-#  new.partition <- current.partition1
-#  
-#  # pick a group to reproduce
-#  topick <- unique(current.partition2[present1 & present2])
-#  g <- sample(topick,1)
-#  members <- which(current.partition2 == g && present1)
-#  
-#  # reproduce the group
-#  new.partition[members] <- max(new.partition,na.rm=T) + 1
-#  
-#  #reorder
-#  new.partition[present1] <- order_groupids(new.partition[present1])
-#  
-#  return(new.partition)
-#  
-#}
-
-
-## NEIGHBORHOOD PI 9: take two nodes together in partition 2, bring them together (single move)
-## otherwise separate then
-## careful need isolates
-compute_size_neighborhood_p9 <- function(partition1, partition2){
-  
-  # find maximum size allowed
-  smax <- max(sizes.simulated)
-  smin <- min(sizes.simulated)
-  
-  num.nodes <- length(partition1)
-  present1 <- !is.na(partition1)
-  present2 <- !is.na(partition2)
+  num.groups1 <- max(partition1, na.rm = T)
+  sizes1 <- table(partition1)
+  isolates1 <- which(sizes1 == 1)
+  pairs1 <- which(sizes1 == 2)
   
   affiliation1 <- as.matrix(table(data.frame(actor = 1:num.nodes, group= partition1)))
   affiliation2 <- as.matrix(table(data.frame(actor = 1:num.nodes, group= partition2)))
   adjacency1 <- affiliation1 %*% t(affiliation1)
   adjacency2 <- affiliation2 %*% t(affiliation2)
+  diag(adjacency1) <- 0
+  diag(adjacency2) <- 0
   
   nums.swaps <- matrix(0,num.nodes,num.nodes)
   for(i in 1:num.nodes) {
@@ -2471,11 +2134,20 @@ compute_size_neighborhood_p9 <- function(partition1, partition2){
       ad1 <- adjacency1[i,j]
       ad2 <- adjacency2[i,j]
       if(!is.na(ad1) && !is.na(ad2) && ad2 == 1) {
-        if(ad1 == 0) {
-          nums.swaps[i,j] <- 1
+        if(ad1 == 0) {  # if separated join if possible (two isolates will only join once)
+          if(partition1[i] %in% isolates1 && partition1[j] %in% isolates1 && j < i) {
+            nums.swaps[i,j] <- 0
+          } else {
+            nums.swaps[i,j] <- 1
+          }
         }
-        if(ad1 == 1) {
-          nums.swaps[i,j] <- num.groups
+        if(ad1 == 1) {  # if together separate if possible (a pair will only separate once)
+          if(partition1[i] %in% pairs1 && j < i) {
+            nums.swaps[i,j] <- num.groups1 - 1
+          } else {
+            nums.swaps[i,j] <- num.groups1
+          }
+          
         }
       }
     }
@@ -2486,14 +2158,14 @@ compute_size_neighborhood_p9 <- function(partition1, partition2){
               num.swaps = sum(nums.swaps)))
 }
 
-sample_new_partition_p9 <- function(current.partition1, current.partition2, size_neighborhood){
+sample_new_partition_p7 <- function(current.partition1, current.partition2, size_neighborhood){
   
   # find maximum size allowed
   smax <- max(sizes.simulated)
   smin <- min(sizes.simulated)
   
   num.nodes <- length(current.partition1)
-  num.groups <- max(current.partition1,na.rm=T)
+  num.groups1 <- max(current.partition1,na.rm=T)
   adjacency1 <- size_neighborhood$adjacency1
   nums.swaps <- size_neighborhood$nums.swaps
   num.swaps <- size_neighborhood$num.swaps
@@ -2501,19 +2173,31 @@ sample_new_partition_p9 <- function(current.partition1, current.partition2, size
   present1 <- !(is.na(current.partition1))
   new.partition1 <- current.partition1
   
-  probas_pairs <- as.vector(nums.swaps) / num.swaps
-  pick <- sample(1:(num.nodes*num.nodes),1,prob=probas_pairs)
-  
-  i <- (pick-1) %% num.nodes + 1
-  j <- ((pick-1) %/% num.nodes) + 1
+  if(num.swaps == 0) {
+    return(new.partition1)
+  } else {
+    probas_pairs <- as.vector(nums.swaps) / num.swaps
+    pick <- sample(1:(num.nodes*num.nodes),1,prob=probas_pairs)
+    i <- (pick-1) %% num.nodes + 1
+    j <- ((pick-1) %/% num.nodes) + 1
+  }
   
   if(adjacency1[i,j] == 0) {
     new.partition1[i] <- current.partition1[j]
-  }
-  if(adjacency1[i,j] == 1) {
-    pickgroup <- sample(1:num.groups,1)
-    if(pickgroup == current.partition1[i]) new.partition1[i] <- num.groups + 1
-    else new.partition1[i] <- pickgroup
+  } else {
+    if(current.partition1[i] %in% pairs1 && j < i) {
+      tosample <- (1:num.groups1)[(1:num.groups1) != current.partition1[i]]
+      if(length(tosample) == 1) pickgroup <- tosample
+      else pickgroup <- sample(tosample,1)
+      if(pickgroup == current.partition1[i]) new.partition1[i] <- num.groups1 + 1
+      else new.partition1[i] <- pickgroup
+    }else {
+      tosample <- 1:num.groups1
+      if(length(tosample) == 1) pickgroup <- tosample
+      else pickgroup <- sample(tosample,1)
+      if(pickgroup == current.partition1[i]) new.partition1[i] <- num.groups1 + 1
+      else new.partition1[i] <- pickgroup
+    }
   }
   new.partition1[present1] <- order_groupids(new.partition1[present1])
   
@@ -2996,8 +2680,12 @@ compute_size_neighborhood_p4_restricted <- function(partition, sizes.simulated){
       # then any pair inside the group can be separated and added to an available group that is <smax-1, unless the group is not >smin+1
       sizeg <- sum(partition == g)
       gbelowmax <- (g %in% belowmax_groups)
-      if(gbelowmax) nums.swaps[g] <- (length(belowmax_groups)-1) * sizeg * (sizeg-1) / 2
-      if(!gbelowmax) nums.swaps[g] <- length(belowmax_groups) * sizeg * (sizeg-1) / 2
+      # if it can create its own isolated pair
+      if(gbelowmax && 2 %in% sizes.simulated) nums.swaps[g] <- length(belowmax_groups) * sizeg * (sizeg-1) / 2
+      if(!gbelowmax && 2 %in% sizes.simulated) nums.swaps[g] <- (length(belowmax_groups) + 1) * sizeg * (sizeg-1) / 2
+      # if not
+      if(gbelowmax && !(2 %in% sizes.simulated)) nums.swaps[g] <- (length(belowmax_groups)-1) * sizeg * (sizeg-1) / 2
+      if(!gbelowmax && !(2 %in% sizes.simulated)) nums.swaps[g] <- length(belowmax_groups) * sizeg * (sizeg-1) / 2
     } # we can never break a group that is already of minimal size
   }
   
@@ -3066,14 +2754,16 @@ sample_new_partition_p4_restricted <- function(current.partition, mini.steps, si
         new.partition <- order_groupids(new.partition)
       }
       
-      # a pair in a bigger group (>smin+1) can join any other group (<smax-1)
+      # a pair in a bigger group (>smin+1) can join any other group (<smax-1) or create its isolate
       if(g %in% others && g %in% abovemin_groups){
         members <- which(current.partition == g)
         sizeg <- length(members)
         pairg <- sample(members,2)
-        tosample <- all.groups[(all.groups %in% belowmax_groups) & (all.groups != g)]
+        if(2 %in% sizes.simulated) tosample <- all.groups[(all.groups %in% belowmax_groups) || (all.groups == g)]
+        else tosample <- all.groups[(all.groups %in% belowmax_groups) & (all.groups != g)]
         if(length(tosample) == 1) newg <- tosample
         if(length(tosample) >= 2) newg <- sample(tosample,1)
+        if(newg == g) newg <- num.groups + 1
         new.partition[pairg] <- newg
         new.partition <- order_groupids(new.partition)
       }
@@ -3112,156 +2802,10 @@ sample_new_partition_p6_restricted <- function(current.partition, mini.steps, si
 }
 
 
-## NEIGHBORHOOD PI 8: pick another partition, a group in it, and reproduce it in the current partition, or reorganizes it
-# CAREFUL, only works when singletons are allowed
-compute_size_neighborhood_p8_restricted <- function(partition1, partition2, sizes.simulated){
-  
-  num.nodes <- length(partition1)
-  present1 <- !is.na(partition1)
-  present2 <- !is.na(partition2)
-  smax <- max(sizes.simulated)
-  
-  # count number of groups from the second partition
-  groups.toreorganize <- unique(partition2[present1 & present2])
-  combinations.pergroup <- list()
-  nums.partitions.pergroup <- list()
-  nums.reorganizations.pergroup <- list()
-  nums.reorganizations <- rep(0,length(groups.toreorganize))
-  
-  # count for each of them number of moves
-  for(g in 1:length(groups.toreorganize)){
-    group <- groups.toreorganize[g]
-    members <- which(partition2 == group)
-    members <- which(1:num.nodes %in% members & present1)
-    
-    # if the group is not present, we will create it
-    if(length(unique(partition1[members])) == 1 && sum(partition1[-members] == (partition1[members])[1], na.rm=T) == 0) {
-      
-      nums.reorganizations.pergroup[[g]] <- NULL
-      nums.reorganizations[g] <- 1
-      
-    # if the group is present, we will reshuffle
-    } else {
-      nmembers <- length(members)
-      sizes <- table(partition1[-members])
-      
-      # find ways to divide the group
-      combs <- parts(nmembers)
-      combinations.pergroup[[g]] <- combs
-    
-      nums.p <- rep(1,ncol(combs))
-      nums.r <- rep(1,ncol(combs))
-      for(c in 1:ncol(combs)){
-      
-        # find number partitions of each
-        ncpt <- nmembers
-        for(s in 1:nrow(combs)){
-          ncs <- sum(combs[,c] == s)
-          nums.p[c] <- nums.p[c] * (choose(ncpt,s))^ncs / factorial(ncs)
-          ncpt <- ncpt - ncs*s
-        }
-      
-        # find ways to reorganize
-        for(s in 1:nrow(combs)){
-          ncs <- sum(combs[,c] == s)
-          ncpt <- sum(sizes <= (smax-s))
-          for(k in 1:ncs){
-            nums.r[c] <- nums.r[c] * ncpt
-            ncpt <- ncpt - 1
-          }
-        }
-      }
-      
-      nums.partitions.pergroup[[g]] <- nums.p
-      nums.reorganizations.pergroup[[g]] <- nums.r
-      nums.reorganizations[g] <- nums.p * nums.r
-    }
-    
-  }
-  
-  return(list(groups.toreorganize = groups.toreorganize,
-              combinations.pergroup = combinations.pergroup,
-              nums.partitions.pergroup = nums.partitions.pergroup,
-              nums.reorganizations.pergroup = nums.reorganizations.pergroup,
-              nums.reorganizations = nums.reorganizations,
-              num.reorganizations = sum(nums.reorganizations) ))
-}
-
-sample_new_partition_p8_restricted <- function(current.partition1, current.partition2, size_neighborhood, sizes.simulated){
-  
-  groups.toreorganize <- size_neighborhood$groups.toreorganize
-  combinations.pergroup <- size_neighborhood$combinations.pergroup
-  nums.partitions.pergroup <- size_neighborhood$nums.partitions.pergroup
-  nums.reorganizations.pergroup <- size_neighborhood$nums.reorganizations.pergroup
-  nums.reorganizations <- size_neighborhood$nums.reorganizations
-  num.reorganizations <- size_neighborhood$num.reorganizations
-  
-  num.nodes <- length(current.partition1)
-  present1 <- !is.na(current.partition1)
-  present2 <- !is.na(current.partition2)
-
-  new.partition <- current.partition1
-  
-  # pick 
-  probas_groups <- nums.reorganizations / num.reorganizations
-  group <- sample(groups.toreorganize,1,prob=probas_groups)
-  members <- which(current.partition2 == group)
-  members <- which(1:num.nodes %in% members & present1)
-  
-  # if the group is not present, we will create it
-  if(length(unique(current.partition1[members])) == 1 && sum(current.partition1[-members] == (current.partition1[members])[1], na.rm=T) == 0) {
-
-    new.partition[members] <- max(new.partition,na.rm=T) + 1
-    new.partition[present1] <- order_groupids(new.partition[present1])
-    
-  # if the group is present, we will reshuffle
-  } else {
-    
-    nmembers <- length(members)
-    gleft <- unique(current.partition1[-members])
-    gleft <- gleft[!is.na(gleft)]
-    sizes <- apply(gleft, FUN = function(x) {return(sum(current.partition1[-members] == x))} )
-    
-    g <- which(groups.toreorganize == group)
-    combs <- combinations.pergroup[[g]]
-    
-    # sample a combination
-    probas_combs <- nums.partitions.pergroup[[g]] * nums.reorganizations.pergroup[[g]] / nums.reorganizations[g]
-    c <- sample(1:ncol(combs),1,prob=probas_combs)
-    
-    # create a combination
-    ntaken <- rep(F,nmembers)
-    gtaken <- rep(F,length(gleft))
-    for(s in nrow(combs)) {
-      ncs <- sum(combs[,c] == s)
-      for(k in 1:ncs) {
-        ns <- choose(members[!ntaken], s)
-        topick <- gleft[sizes <= (smax-s) & !gtaken]
-        newg <- sample(c(0,topick),1)
-        if(newg == 0){
-          new.partition[ns] <- max(new.partition,na.rm=T) + 1
-        } else {
-          new.partition[ns] <- newg
-          gtaken[gleft == newg] <- T
-        }
-        ntaken[members == ns] <- T
-      }
-    }
-    newnodes <- sample(1:nmembers,nmembers)
-    
-    new.partition[present1] <- order_groupids(new.partition[present1])
-      
-  }
-  
-  return(new.partition)
-  
-}
-
-
-## NEIGHBORHOOD PI 9: take two nodes together in partition 2, bring them together (single move)
+## NEIGHBORHOOD PI 7: take two nodes together in partition 2, bring them together (single move)
 ## otherwise separate then
 ## careful need isolates
-compute_size_neighborhood_p9_restricted <- function(partition1, partition2, sizes.simulated){
+compute_size_neighborhood_p7_restricted <- function(partition1, partition2, sizes.simulated){
   
   # find maximum size allowed
   smax <- max(sizes.simulated)
@@ -3271,17 +2815,20 @@ compute_size_neighborhood_p9_restricted <- function(partition1, partition2, size
   present1 <- !is.na(partition1)
   present2 <- !is.na(partition2)
   
-  num.nodes <- length(partition1)
-  num.groups <- max(partition1,na.rm=T)
-  sizes <- table(partition1)
-  abovemin_groups <- which(sizes > smin)
-  belowmax_groups <- which(sizes < smax)
-  max_groups <- which(sizes == smax)
+  num.groups1 <- max(partition1,na.rm=T)
+  sizes1 <- table(partition1)
+  isolates1 <- which(sizes1 == 1)
+  pairs1 <- which(sizes1 == 2)
+  abovemin_groups1 <- which(sizes1 > smin)
+  belowmax_groups1 <- which(sizes1 < smax)
+  max_groups1 <- which(sizes1 == smax)
 
   affiliation1 <- as.matrix(table(data.frame(actor = 1:num.nodes, group= partition1)))
   affiliation2 <- as.matrix(table(data.frame(actor = 1:num.nodes, group= partition2)))
   adjacency1 <- affiliation1 %*% t(affiliation1)
   adjacency2 <- affiliation2 %*% t(affiliation2)
+  diag(adjacency1) <- 0
+  diag(adjacency2) <- 0
   
   nums.swaps <- matrix(0,num.nodes,num.nodes)
   for(i in 1:num.nodes) {
@@ -3289,33 +2836,45 @@ compute_size_neighborhood_p9_restricted <- function(partition1, partition2, size
       ad1 <- adjacency1[i,j]
       ad2 <- adjacency2[i,j]
       if(!is.na(ad1) && !is.na(ad2) && ad2 == 1) {
-        if(ad1 == 0) {
-          nums.swaps[i,j] <- (partition1[i] %in% abovemin_groups) & (partition1[j] %in% belowmax_groups)
+        if(ad1 == 0) { # if separated join if possible (two isolates will only join once)
+          if(partition1[i] %in% isolates1 && partition1[j] %in% isolates1 && j < i) {
+            nums.swaps[i,j] <- 0
+          } else {
+            nums.swaps[i,j] <- (partition1[i] %in% c(abovemin_groups1,isolates1) ) & (partition1[j] %in% belowmax_groups1)
+          }
         }
-        if(ad1 == 1) {
-          if(partition1[i] %in% abovemin_groups) nums.swaps[i,j] <- num.groups - length(max_groups) + (partition1[i] %in% max_groups)
+        if(ad1 == 1) { # if together separate if possible (a pair will only separate once)
+          if(partition1[i] %in% abovemin_groups1) {
+            if(partition1[i] %in% pairs1 && j < i){
+              nums.swaps[i,j] <- num.groups1 - length(max_groups1) + (partition1[i] %in% max_groups1) - !(1 %in% sizes.simulated) - 1
+            } else {
+              nums.swaps[i,j] <- num.groups1 - length(max_groups1) + (partition1[i] %in% max_groups1) - !(1 %in% sizes.simulated) 
+            }
+          }
         }
       }
     }
   } 
   
-  return(list(abovemin_groups = abovemin_groups,
-              belowmax_groups = belowmax_groups,
+  return(list(abovemin_groups1 = abovemin_groups1,
+              belowmax_groups1 = belowmax_groups1,
               adjacency1 = adjacency1,
               nums.swaps = nums.swaps,
               num.swaps = sum(nums.swaps)))
 }
 
-sample_new_partition_p9_restricted <- function(current.partition1, current.partition2, size_neighborhood, sizes.simulated){
+sample_new_partition_p7_restricted <- function(current.partition1, current.partition2, size_neighborhood, sizes.simulated){
   
   # find maximum size allowed
   smax <- max(sizes.simulated)
   smin <- min(sizes.simulated)
   
   num.nodes <- length(current.partition1)
-  num.groups <- max(current.partition1,na.rm=T)
-  abovemin_groups <- size_neighborhood$abovemin_groups
-  belowmax_groups <- size_neighborhood$belowmax_groups
+  num.groups1 <- max(current.partition1,na.rm=T)
+  sizes1 <- table(partition1)
+  pairs1 <- which(sizes1 == 2)
+  abovemin_groups1 <- size_neighborhood$abovemin_groups1
+  belowmax_groups1 <- size_neighborhood$belowmax_groups1
   adjacency1 <- size_neighborhood$adjacency1
   nums.swaps <- size_neighborhood$nums.swaps
   num.swaps <- size_neighborhood$num.swaps
@@ -3323,23 +2882,28 @@ sample_new_partition_p9_restricted <- function(current.partition1, current.parti
   present1 <- !(is.na(current.partition1))
   new.partition1 <- current.partition1
   
-  probas_pairs <- as.vector(nums.swaps) / num.swaps
-  if(sum(is.na(probas_pairs)) > 0) {
-    print(probas_pairs)
+  if(num.swaps == 0) {
+    return(new.partition1)
+  } else {
+    probas_pairs <- as.vector(nums.swaps) / num.swaps
+    pick <- sample(1:(num.nodes*num.nodes),1,prob=probas_pairs)
+    i <- (pick-1) %% num.nodes + 1
+    j <- ((pick-1) %/% num.nodes) + 1
   }
-  pick <- sample(1:(num.nodes*num.nodes),1,prob=probas_pairs)
-  
-  i <- (pick-1) %% num.nodes + 1
-  j <- ((pick-1) %/% num.nodes) + 1
   
   if(adjacency1[i,j] == 0) {
     new.partition1[i] <- current.partition1[j]
   }
   if(adjacency1[i,j] == 1) {
-    topick <- unique(c(belowmax_groups,current.partition1[i]))
-    if(length(topick) == 1 ) pickgroup <- topick
-    else pickgroup <- sample(topick,1)
-    if(pickgroup == current.partition1[i]) new.partition1[i] <- num.groups + 1
+    if(current.partition1[i] %in% pairs1 && j < i){
+      tosample <- belowmax_groups1[belowmax_groups1 != current.partition1[i]]
+    } else {
+      if(1 %in% sizes.simulated) tosample <- unique(c(belowmax_groups1,current.partition1[i]))
+      else tosample <- belowmax_groups1[belowmax_groups1 != current.partition1[i]]
+    }
+    if(length(tosample) == 1) pickgroup <- tosample
+    else pickgroup <- sample(tosample,1)
+    if(pickgroup == current.partition1[i]) new.partition1[i] <- num.groups1 + 1
     else new.partition1[i] <- pickgroup
   }
   new.partition1[present1] <- order_groupids(new.partition1[present1])
@@ -3347,3 +2911,326 @@ sample_new_partition_p9_restricted <- function(current.partition1, current.parti
   return(new.partition1)
   
 }
+
+
+##############################################################################
+
+### Deprecated: old neighborhoods 7 and 8 (old 9 is now 7)
+
+# ## NEIGHBORHOOD PI 7: pick two partitions and exchange then (only for multiple partition estimation)
+# # since we force one change, and it's reversible (bijection), we don't have to care about the size of the neighborhood
+# # CAREFUL, only works when singletons are allowed
+# compute_size_neighborhood_p7 <- function(partition1, partition2){
+#   
+#   num.nodes <- length(partition1)
+#   present1 <- !is.na(partition1)
+#   present2 <- !is.na(partition2)
+#   
+#   # calculate the number of ways to reconstruct p1 after having done the exchange with p2
+#   p1withoutabsentp2 <- partition1[present1 & present2]
+#   max1 <- length(unique(p1withoutabsentp2))
+#   nodesunknown1 <- sum(present1 & !present2)
+#   if(nodesunknown1 == 0) {
+#     possibilities1 <- 1
+#   } else {
+#     possibilities1 <- 0
+#     for(k in 1:nodesunknown1) {
+#       possibilities1 <- possibilities1 + Stirling(nodesunknown1,k)*(max1+1)^k
+#     }
+#   }
+#   
+#   # same the other way around
+#   p2withoutabsentp1 <- partition2[present2 & present1]
+#   max2 <- length(unique(p2withoutabsentp1))
+#   nodesunknown2 <- sum(present2 & !present1)
+#   if(nodesunknown2 == 0) {
+#     possibilities2 <- 1
+#   } else {
+#     possibilities2 <- 0
+#     for(k in 1:nodesunknown2) {
+#       possibilities2 <- possibilities2 + Stirling(nodesunknown2,k)*(max2+1)^k
+#     }
+#   }
+#   
+#   return(possibilities1 * possibilities2)
+# }
+# 
+# sample_new_partition_p7 <- function(current.partition1, current.partition2){
+#   
+#   num.nodes <- length(current.partition1)
+#   present1 <- which(!is.na(current.partition1))
+#   present2 <- which(!is.na(current.partition2))
+#   
+#   new.partition1 <- rep(0,num.nodes)
+#   new.partition2 <- rep(0,num.nodes)
+#   
+#   # fill in the first with the second, and create isolates for people not present in the second
+#   new.partition1[present1] <- current.partition2[present1]
+#   max1 <- max(new.partition1, na.rm=T)
+#   singletons1 <- which(is.na(new.partition1))
+#   if(length(singletons1) > 0) { # assign randomly the ones who are not present in the other one
+#     for(s in singletons1){
+#       newgroup <- sample(1:(max1+1),1)
+#       new.partition1[s] <- newgroup
+#       if(newgroup == (max1+1)) max1 <- max1 + 1
+#     }
+#   }
+#   new.partition1[present1] <- order_groupids(new.partition1[present1])
+#   new.partition1[new.partition1 == 0] <- NA
+#   
+#   # same the other way around
+#   new.partition2[present2] <- current.partition1[present2]
+#   max2 <- max(new.partition2, na.rm=T)
+#   singletons2 <- which(is.na(new.partition2))
+#   if(length(singletons2) > 0) { # assign randomly the ones who are not present in the other one
+#     for(s in singletons2){
+#       newgroup <- sample(1:(max2+1),1)
+#       new.partition2[s] <- newgroup
+#       if(newgroup == (max2+1)) max2 <- max2 + 1
+#     }
+#   }
+#   new.partition2[present2] <- order_groupids(new.partition2[present2])
+#   new.partition2[new.partition2 == 0] <- NA
+#   
+#   return(list(new.partition1 = new.partition1,
+#               new.partition2 = new.partition2))
+#   
+# }
+# 
+# 
+# ## NEIGHBORHOOD PI 8: pick another partition, a group in it, and reproduce it in the current partition, or reorganizes it
+# # CAREFUL, only works when singletons are allowed
+# compute_size_neighborhood_p8 <- function(partition1, partition2){
+#   
+#   num.nodes <- length(partition1)
+#   present1 <- !is.na(partition1)
+#   present2 <- !is.na(partition2)
+#   
+#   # count number of groups from the second partition
+#   groups.toreorganize <- unique(partition2[present1 & present2])
+#   nums.reorganizations <- rep(0,length(groups.toreorganize))
+#   
+#   # count for each of them number of moves
+#   for(g in 1:length(groups.toreorganize)){
+#     group <- groups.toreorganize[g]
+#     members <- which(partition2 == group)
+#     max1 <- length(unique(partition1[present1 & partition1 != group]))
+#     for(k in 1:length(members)) {
+#       nums.reorganizations[g] <- nums.reorganizations[g] + Stirling(length(members),k)*(max1+1)^k
+#     }
+#     nums.reorganizations[g] <- nums.reorganizations[g] + 1 # when we just copy the group
+#   }
+#   
+#   return(list(groups.toreorganize = groups.toreorganize,
+#               nums.reorganizations = nums.reorganizations,
+#               num.reorganizations = sum(nums.reorganizations)))
+# }
+# 
+# sample_new_partition_p8 <- function(current.partition1, current.partition2, size_neighborhood){
+#   
+#   groups.toreorganize <- size_neighborhood$groups.toreorganize
+#   nums.reorganizations <- size_neighborhood$nums.reorganizations
+#   num.reorganizations <- size_neighborhood$num.reorganizations
+#   
+#   num.nodes <- length(current.partition1)
+#   present1 <- !is.na(current.partition1)
+#   present2 <- !is.na(current.partition2)
+#   
+#   new.partition <- current.partition1
+#   
+#   # pick 
+#   probas_groups <- nums.reorganizations / num.reorganizations
+#   pick <- sample(c(0,groups.toreorganize),1,prob=c(1/ num.reorganizations, probas_groups))
+#   
+#   #randomize group
+#   if(pick > 0) {
+#     group <- pick
+#     members <- which(current.partition2 == group && present1)
+#     max1 <- length(unique(current.partition1[present1 & current.partition1 != group]))
+#     for(a in members){
+#       newgroup <- sample(1:(max1+1),1)
+#       new.partition[a] <- newgroup
+#       if(newgroup == (max1+1)) max1 <- max1 + 1
+#     }
+#     new.partition[present1] <- order_groupids(new.partition[present1])
+#   }
+#   
+#   # copy group
+#   if(pick ==0) {
+#     # reproduce the group
+#     new.partition[members] <- max(new.partition,na.rm=T) + 1
+#     #reorder
+#     new.partition[present1] <- order_groupids(new.partition[present1])
+#   }
+#   
+#   return(new.partition)
+#   
+# }
+# 
+# #sample_new_partition_p8 <- function(current.partition1, current.partition2){
+# #  
+# #  num.nodes <- length(current.partition1)
+# #  present1 <- !is.na(current.partition1)
+# #  present2 <- !is.na(current.partition2)
+# #  
+# #  new.partition <- current.partition1
+# #  
+# #  # pick a group to reproduce
+# #  topick <- unique(current.partition2[present1 & present2])
+# #  g <- sample(topick,1)
+# #  members <- which(current.partition2 == g && present1)
+# #  
+# #  # reproduce the group
+# #  new.partition[members] <- max(new.partition,na.rm=T) + 1
+# #  
+# #  #reorder
+# #  new.partition[present1] <- order_groupids(new.partition[present1])
+# #  
+# #  return(new.partition)
+# #  
+# #}
+# 
+# ## NEIGHBORHOOD PI 8: pick another partition, a group in it, and reproduce it in the current partition, or reorganizes it
+# # CAREFUL, only works when singletons are allowed
+# compute_size_neighborhood_p8_restricted <- function(partition1, partition2, sizes.simulated){
+#   
+#   num.nodes <- length(partition1)
+#   present1 <- !is.na(partition1)
+#   present2 <- !is.na(partition2)
+#   smax <- max(sizes.simulated)
+#   
+#   # count number of groups from the second partition
+#   groups.toreorganize <- unique(partition2[present1 & present2])
+#   combinations.pergroup <- list()
+#   nums.partitions.pergroup <- list()
+#   nums.reorganizations.pergroup <- list()
+#   nums.reorganizations <- rep(0,length(groups.toreorganize))
+#   
+#   # count for each of them number of moves
+#   for(g in 1:length(groups.toreorganize)){
+#     group <- groups.toreorganize[g]
+#     members <- which(partition2 == group)
+#     members <- which(1:num.nodes %in% members & present1)
+#     
+#     # if the group is not present, we will create it
+#     if(length(unique(partition1[members])) == 1 && sum(partition1[-members] == (partition1[members])[1], na.rm=T) == 0) {
+#       
+#       nums.reorganizations.pergroup[[g]] <- NULL
+#       nums.reorganizations[g] <- 1
+#       
+#       # if the group is present, we will reshuffle
+#     } else {
+#       nmembers <- length(members)
+#       sizes <- table(partition1[-members])
+#       
+#       # find ways to divide the group
+#       combs <- parts(nmembers)
+#       combinations.pergroup[[g]] <- combs
+#       
+#       nums.p <- rep(1,ncol(combs))
+#       nums.r <- rep(1,ncol(combs))
+#       for(c in 1:ncol(combs)){
+#         
+#         # find number partitions of each
+#         ncpt <- nmembers
+#         for(s in 1:nrow(combs)){
+#           ncs <- sum(combs[,c] == s)
+#           nums.p[c] <- nums.p[c] * (choose(ncpt,s))^ncs / factorial(ncs)
+#           ncpt <- ncpt - ncs*s
+#         }
+#         
+#         # find ways to reorganize
+#         for(s in 1:nrow(combs)){
+#           ncs <- sum(combs[,c] == s)
+#           ncpt <- sum(sizes <= (smax-s))
+#           for(k in 1:ncs){
+#             nums.r[c] <- nums.r[c] * ncpt
+#             ncpt <- ncpt - 1
+#           }
+#         }
+#       }
+#       
+#       nums.partitions.pergroup[[g]] <- nums.p
+#       nums.reorganizations.pergroup[[g]] <- nums.r
+#       nums.reorganizations[g] <- nums.p * nums.r
+#     }
+#     
+#   }
+#   
+#   return(list(groups.toreorganize = groups.toreorganize,
+#               combinations.pergroup = combinations.pergroup,
+#               nums.partitions.pergroup = nums.partitions.pergroup,
+#               nums.reorganizations.pergroup = nums.reorganizations.pergroup,
+#               nums.reorganizations = nums.reorganizations,
+#               num.reorganizations = sum(nums.reorganizations) ))
+# }
+# 
+# sample_new_partition_p8_restricted <- function(current.partition1, current.partition2, size_neighborhood, sizes.simulated){
+#   
+#   groups.toreorganize <- size_neighborhood$groups.toreorganize
+#   combinations.pergroup <- size_neighborhood$combinations.pergroup
+#   nums.partitions.pergroup <- size_neighborhood$nums.partitions.pergroup
+#   nums.reorganizations.pergroup <- size_neighborhood$nums.reorganizations.pergroup
+#   nums.reorganizations <- size_neighborhood$nums.reorganizations
+#   num.reorganizations <- size_neighborhood$num.reorganizations
+#   
+#   num.nodes <- length(current.partition1)
+#   present1 <- !is.na(current.partition1)
+#   present2 <- !is.na(current.partition2)
+#   
+#   new.partition <- current.partition1
+#   
+#   # pick 
+#   probas_groups <- nums.reorganizations / num.reorganizations
+#   group <- sample(groups.toreorganize,1,prob=probas_groups)
+#   members <- which(current.partition2 == group)
+#   members <- which(1:num.nodes %in% members & present1)
+#   
+#   # if the group is not present, we will create it
+#   if(length(unique(current.partition1[members])) == 1 && sum(current.partition1[-members] == (current.partition1[members])[1], na.rm=T) == 0) {
+#     
+#     new.partition[members] <- max(new.partition,na.rm=T) + 1
+#     new.partition[present1] <- order_groupids(new.partition[present1])
+#     
+#     # if the group is present, we will reshuffle
+#   } else {
+#     
+#     nmembers <- length(members)
+#     gleft <- unique(current.partition1[-members])
+#     gleft <- gleft[!is.na(gleft)]
+#     sizes <- apply(gleft, FUN = function(x) {return(sum(current.partition1[-members] == x))} )
+#     
+#     g <- which(groups.toreorganize == group)
+#     combs <- combinations.pergroup[[g]]
+#     
+#     # sample a combination
+#     probas_combs <- nums.partitions.pergroup[[g]] * nums.reorganizations.pergroup[[g]] / nums.reorganizations[g]
+#     c <- sample(1:ncol(combs),1,prob=probas_combs)
+#     
+#     # create a combination
+#     ntaken <- rep(F,nmembers)
+#     gtaken <- rep(F,length(gleft))
+#     for(s in nrow(combs)) {
+#       ncs <- sum(combs[,c] == s)
+#       for(k in 1:ncs) {
+#         ns <- choose(members[!ntaken], s)
+#         topick <- gleft[sizes <= (smax-s) & !gtaken]
+#         newg <- sample(c(0,topick),1)
+#         if(newg == 0){
+#           new.partition[ns] <- max(new.partition,na.rm=T) + 1
+#         } else {
+#           new.partition[ns] <- newg
+#           gtaken[gleft == newg] <- T
+#         }
+#         ntaken[members == ns] <- T
+#       }
+#     }
+#     newnodes <- sample(1:nmembers,nmembers)
+#     
+#     new.partition[present1] <- order_groupids(new.partition[present1])
+#     
+#   }
+#   
+#   return(new.partition)
+#   
+# }
