@@ -1,7 +1,7 @@
 ---
 title: Simulation and estimation of partition models - Example
   script with random data
-author: "-"
+author: "-"==
 date: "28/09/2020"
 output:
   pdf_document: default
@@ -21,10 +21,11 @@ library(ggplot2)
 library(numbers)
 library(combinat)
 library(gmp)
-library(clues)
+library(mclust)
 
 current_wd <- getwd()
 filesLoad <- list.files(paste(current_wd,"/function_ERPM",sep=""), pattern = "R$")
+filesLoad <- filesLoad[filesLoad!= "tests.R"] # uncomment for tests (takes long)
 lapply(filesLoad, function(x) source(paste(current_wd,"/function_ERPM/",x,sep="")))
 
 theme_set(theme_minimal())
@@ -92,7 +93,7 @@ One can use the Rand distance to evaluate the distance between two partitions, f
 ```{r include=TRUE, echo=FALSE}
 p1 <- all_partitions[1,]
 p2 <- all_partitions[2,]
-rand_12 <- adjustedRand(p1,p2,randMethod="Rand")
+rand_12 <- adjustedRandIndex(p1,p2)
 ```
 
 
@@ -147,7 +148,7 @@ sample <- draw_Metropolis_single(theta = parameters,
                           thining = 10, 
                           num.steps = nsteps, 
                           mini.steps = "normalized", 
-                          neighborhood = c(1,1,1,0,0,0), 
+                          neighborhood = c(1,1,1,1,0,0), 
                           sizes.allowed = 1:n,
                           sizes.simulated = 1:n)
 ```
