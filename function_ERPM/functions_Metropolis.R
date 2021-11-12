@@ -2160,15 +2160,14 @@ compute_size_neighborhood_p7 <- function(partition1, partition2){
 
 sample_new_partition_p7 <- function(current.partition1, current.partition2, size_neighborhood){
   
-  # find maximum size allowed
-  smax <- max(sizes.simulated)
-  smin <- min(sizes.simulated)
-  
   num.nodes <- length(current.partition1)
   num.groups1 <- max(current.partition1,na.rm=T)
   adjacency1 <- size_neighborhood$adjacency1
   nums.swaps <- size_neighborhood$nums.swaps
   num.swaps <- size_neighborhood$num.swaps
+  
+  sizes1 <- table(current.partition1)
+  pairs1 <- which(sizes1 == 2)
   
   present1 <- !(is.na(current.partition1))
   new.partition1 <- current.partition1
@@ -2871,7 +2870,7 @@ sample_new_partition_p7_restricted <- function(current.partition1, current.parti
   
   num.nodes <- length(current.partition1)
   num.groups1 <- max(current.partition1,na.rm=T)
-  sizes1 <- table(partition1)
+  sizes1 <- table(current.partition1)
   pairs1 <- which(sizes1 == 2)
   abovemin_groups1 <- size_neighborhood$abovemin_groups1
   belowmax_groups1 <- size_neighborhood$belowmax_groups1
