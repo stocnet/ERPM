@@ -17,8 +17,8 @@ draw_Metropolis_single <- function(theta, # model parameters
                                    num.steps, # number of samples
                                    mini.steps, # type of transition, either "normalized", either "self-loops" (take "normalized")
                                    neighborhood = c(0.7,0.3,0,0,0,0), # way of choosing partitions: probability vector (2 actors swap, merge/division, single actor move, single pair move, 2 pairs swap, 2 groups reshuffle)
-                                   sizes.allowed, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
-                                   sizes.simulated,# vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+                                   sizes.allowed = NULL, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
+                                   sizes.simulated = NULL,# vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
                                    return.all.partitions = F) # option to return the sampled partitions on top of their statistics (for GOF)
 {
   
@@ -621,7 +621,7 @@ draw_step_single <- function(theta,
       }
     } else if(move == "mergediv" && is.null(sizes.allowed)) {
       new.size <- compute_size_neighborhood_p2(new.partition)
-      neighborhoods.ratio <- (new.size$num.merges + new.size$num.divisions)/ (current.size$num.merges + current.size$num.divisions)
+      neighborhoods.ratio <- (current.size$num.merges + current.size$num.divisions)/(new.size$num.merges + new.size$num.divisions)
     } else if(move == "single" && is.null(sizes.allowed)) {
       if(current.size$num.swaps > 0){
         new.size <- compute_size_neighborhood_p3(new.partition)
@@ -662,7 +662,7 @@ draw_step_single <- function(theta,
       }
     } else if(move == "mergediv" && !is.null(sizes.allowed)) {
       new.size <- compute_size_neighborhood_p2_restricted(new.partition, sizes.simulated)
-      neighborhoods.ratio <- (new.size$num.merges + new.size$num.divisions)/ (current.size$num.merges + current.size$num.divisions)
+      neighborhoods.ratio <- (current.size$num.merges + current.size$num.divisions)/(new.size$num.merges + new.size$num.divisions)
     } else if(move == "single" && !is.null(sizes.allowed)) {
       if(current.size$num.swaps > 0){
         new.size <- compute_size_neighborhood_p3_restricted(new.partition, sizes.simulated)
@@ -910,7 +910,7 @@ draw_step_multiple <- function(theta,
       }
     } else if(move == "mergediv" && is.null(sizes.allowed)) {
       new.size <- compute_size_neighborhood_p2(new.partitions[nodes.rand.o,rand.o])
-      neighborhoods.ratios <- neighborhoods.ratios * (new.size$num.merges + new.size$num.divisions)/ (current.size$num.merges + current.size$num.divisions)
+      neighborhoods.ratios <- neighborhoods.ratios * (current.size$num.merges + current.size$num.divisions)/(new.size$num.merges + new.size$num.divisions)
     } else if(move == "single" && is.null(sizes.allowed)) {
       if(current.size$num.swaps > 0){
         new.size <- compute_size_neighborhood_p3(new.partitions[nodes.rand.o,rand.o])
@@ -965,7 +965,7 @@ draw_step_multiple <- function(theta,
       }
     } else if(move == "mergediv" && !is.null(sizes.allowed)) {
       new.size <- compute_size_neighborhood_p2_restricted(new.partitions[nodes.rand.o,rand.o], sizes.simulated)
-      neighborhoods.ratios <- neighborhoods.ratios * (new.size$num.merges + new.size$num.divisions)/ (current.size$num.merges + current.size$num.divisions)
+      neighborhoods.ratios <- neighborhoods.ratios * (current.size$num.merges + current.size$num.divisions)/(new.size$num.merges + new.size$num.divisions)
     } else if(move == "single" && !is.null(sizes.allowed)) {
       if(current.size$num.swaps > 0){
         new.size <- compute_size_neighborhood_p3_restricted(new.partitions[nodes.rand.o,rand.o], sizes.simulated)
@@ -1187,7 +1187,7 @@ draw_step_multiple_secondparallel <- function(theta,
       }
     } else if(move == "mergediv" && is.null(sizes.allowed)) {
       new.size <- compute_size_neighborhood_p2(new.partitions[nodes.rand.o,rand.o])
-      neighborhoods.ratios <- neighborhoods.ratios * (new.size$num.merges + new.size$num.divisions)/ (current.size$num.merges + current.size$num.divisions)
+      neighborhoods.ratios <- neighborhoods.ratios * (current.size$num.merges + current.size$num.divisions)/(new.size$num.merges + new.size$num.divisions)
     } else if(move == "single" && is.null(sizes.allowed)) {
       if(current.size$num.swaps > 0){
         new.size <- compute_size_neighborhood_p3(new.partitions[nodes.rand.o,rand.o])
@@ -1234,7 +1234,7 @@ draw_step_multiple_secondparallel <- function(theta,
       }
     } else if(move == "mergediv" && !is.null(sizes.allowed)) {
       new.size <- compute_size_neighborhood_p2_restricted(new.partitions[nodes.rand.o,rand.o], sizes.simulated)
-      neighborhoods.ratios <- neighborhoods.ratios * (new.size$num.merges + new.size$num.divisions)/ (current.size$num.merges + current.size$num.divisions)
+      neighborhoods.ratios <- neighborhoods.ratios * (current.size$num.merges + current.size$num.divisions)/(new.size$num.merges + new.size$num.divisions)
     } else if(move == "single" && !is.null(sizes.allowed)) {
       if(current.size$num.swaps > 0){
         new.size <- compute_size_neighborhood_p3_restricted(new.partitions[nodes.rand.o,rand.o], sizes.simulated)
@@ -1584,56 +1584,58 @@ sample_new_partition_p2 <- function(current.partition, mini.steps, size_neighbor
   
   # decide between merge or division (or self loop)
   pick.1 <- sample(total,1)
-  all.groups <- 1:num.groups
   new.partition <- current.partition
   
   # if merge
   if(pick.1 <= num.merges) {
     
     # pick 2 groups to merge
-    old_g1 <- sample(num.groups,1)
-    other.groups <- all.groups[all.groups != old_g1]
-    if(length(other.groups) == 1) old_g2 <- other.groups
-    if(length(other.groups) > 1) old_g2 <- sample(other.groups,1)
-    gmin <- min(old_g1,old_g2)
-    gmax <- max(old_g1,old_g2)
-    old_g1 <- gmin
-    old_g2 <- gmax
-    new_g1 <- old_g1
-    new_g2 <- 0
-    
+    old_gs <- sample(num.groups,2,replace = F)
     # reassign one of the groups and remove useless ids
-    new.partition[which(new.partition == old_g2)] <- old_g1
+    new.partition[which(new.partition == old_gs[2])] <- old_gs[1]
     new.partition <- order_groupids(new.partition)
     
   }else if(pick.1 <= (num.merges+num.divisions)){
     
     # pick group to divide
     pick.2 <- sample(num.divisions,1)
-    old_g1 <- 1
-    cpt2 <- 1
-    g <- 1
-    found <- FALSE
-    while(g<=num.groups && !found){
-      if(pick.2 >= cpt2 && pick.2 <= sum(nums.divisions[1:g])){
-        old_g1 <- g
-        found <- TRUE
-      }
-      cpt2 <- cpt2 + nums.divisions[g]
-      g <- g+1
-    }
-    old_g2 <- 0
-    new_g1 <- old_g1
-    new_g2 <- num.groups + 1
+    sums <- unlist(lapply(1:num.groups,FUN = function(x){sum(nums.divisions[1:x])}))
+    starts <- c(0,sums[1:(num.groups-1)])
+    ends <- sums[1:num.groups]
+    old_g <- which(starts < pick.2 & ends >= pick.2)
     
     # reassign one of the groups and remove useless ids
-    new.groups <- sample(c(old_g1,num.groups+1),length(which(new.partition==old_g1)),replace=T)
+    new.groups <- sample(c(old_g,num.groups+1),length(which(new.partition==old_g)),replace=T)
     found <- (length(unique(new.groups)) > 1)
     while(!found){
-      new.groups <- sample(c(old_g1,num.groups+1),length(which(new.partition==old_g1)),replace=T)
+      new.groups <- sample(c(old_g,num.groups+1),length(which(new.partition==old_g)),replace=T)
       found <- (length(unique(new.groups)) > 1)
     }
-    new.partition[which(new.partition == old_g1)] <- new.groups
+    
+    #sizeg <- sum(current.partition == old_g)
+    #new.groups <- rep(old_g,sizeg)
+    #if(sizeg == 2){
+    #  newi <- sample(c(1,2),1)
+    #  new.groups[newi] <- num.groups + 1
+    #} else if(sizeg == 3) {
+    #  newi <- sample(c(1,2,3),1)
+    #  new.groups[newi] <- num.groups + 1
+    #} else if(sizeg %% 2 == 0){
+    #  sizes <- 1:(sizeg/2)
+    #  counts <- unlist(lapply(sizes, FUN = function(x){choose(sizeg,x)}))
+    #  counts[sizeg/2] <- counts[sizeg/2] / 2
+    #  firstsize <- sample(sizes,1,prob=counts)
+    #  newis <- sample(sizeg,firstsize)
+    #  new.groups[newis] <- num.groups + 1
+    #} else {
+    #  sizes <- 1:(floor(sizeg/2))
+    #  counts <- unlist(lapply(sizes, FUN = function(x){choose(sizeg,x)}))
+    #  firstsize <- sample(sizes,1,prob=counts)
+    #  newis <- sample(sizeg,firstsize)
+    #  new.groups[newis] <- num.groups + 1
+    #}
+    
+    new.partition[which(new.partition == old_g)] <- new.groups
     new.partition <- order_groupids(new.partition)
   }
   

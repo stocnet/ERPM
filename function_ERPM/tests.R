@@ -1527,3 +1527,34 @@ for(i in 1:50){
     print(notin2)
   }
 }
+
+
+
+
+###################################################################################
+
+
+##### Neighborhoods tests: check that sampling for 10 nodes, with a null model,
+# we get an expected number of groups around 4.85 (can be calculated exactly)
+# uncomment, and vary the neighborhoods (it's not going to be exactly 4.85)
+
+#draws.p <- draw_Metropolis_single(theta = 0, 
+#                                  first.partition = 1:10, 
+#                                  nodes = data.frame(id = 1:10), 
+#                                  effects = list(names = "num_groups", objects = "partition"),
+#                                  objects = list(), 
+#                                  burnin = 100, 
+#                                  thining = 100, 
+#                                  num.steps = 2000, 
+#                                  mini.steps = "normalized", 
+#                                  neighborhood = c(0,0,0.2,0,0.8,0), 
+#                                  return.all.partitions = T)
+#allgroupcounts <- rep(0,10)
+#for(d in 1:2000){
+#  partition <- draws.p$all.partitions[d,]
+#  for(group in 1:max(partition)){
+#    size <- sum(partition == group)
+#    allgroupcounts[size] <- allgroupcounts[size] + 1
+#  }
+#}
+#sum(allgroupcounts / num.steps) # around 4.85
