@@ -552,10 +552,10 @@ draw_step_single <- function(theta,
   new.sizes <- rep(0,n_neighborhood)
   
   # calculate current size of neighborhood and pick new partition for the chosen move
-  current.size <- compute_size_neighborhood(move, current.partition, sizes.simulated)
+  current.size <- compute_size_neighborhood(move, current.partition, sizes.simulated = sizes.simulated)
   if(current.size$total > 0) {
-    new.partition <- sample_new_partition(move, current.partition, current.size, sizes.simulated)
-    new.size <- compute_size_neighborhood(move, new.partition, sizes.simulated)
+    new.partition <- sample_new_partition(move, current.partition, current.size, sizes.simulated = sizes.simulated)
+    new.size <- compute_size_neighborhood(move, new.partition, sizes.simulated = sizes.simulated)
   } else {
     new.partition <- current.partition
     new.size <- current.size
@@ -567,8 +567,8 @@ draw_step_single <- function(theta,
   if(current.size$total > 0) {
     for(i in 1:n_neighborhood){
       if(neighborhood[i] > 0 && i != move && reachable(i,current.partition,new.partition)) {
-        cs <- compute_size_neighborhood(i, current.partition, sizes.simulated)
-        ns <- compute_size_neighborhood(i, new.partition, sizes.simulated)
+        cs <- compute_size_neighborhood(i, current.partition, sizes.simulated = sizes.simulated)
+        ns <- compute_size_neighborhood(i, new.partition, sizes.simulated = sizes.simulated)
         current.sizes[i] <- cs$total
         new.sizes[i] <- ns$total
       }
@@ -826,10 +826,10 @@ draw_step_multiple <- function(theta,
   # calculate current size of neighborhood and pick new partition for neighborhoods 1 to 6
   for(i in 1:n_neighborhood){
     if(neighborhood[i] > 0){
-      current.size <- compute_size_neighborhood(i, current.partition, sizes.simulated)
+      current.size <- compute_size_neighborhood(i, current.partition,  sizes.simulated = sizes.simulated)
       current.sizes[i] <- current.size$total
       if(move == i) {
-        if(current.size$total > 0) new.partition <- sample_new_partition(i, current.partition, current.size, sizes.simulated)
+        if(current.size$total > 0) new.partition <- sample_new_partition(i, current.partition, current.size,  sizes.simulated = sizes.simulated)
         if(current.size$total == 0) new.partition <- current.partition
         new.partitions[,rand.o] <- rep(NA,num.nodes)
         new.partitions[nodes.rand.o,rand.o] <- new.partition
@@ -840,10 +840,10 @@ draw_step_multiple <- function(theta,
   # if(neighborhood[7] > 0){
   #   if(rand.o == 1) current.partition2 <- 1:num.nodes
   #   else current.partition2 <- current.partitions[,rand.o-1]
-  #   current.size <- compute_size_neighborhood(7, current.partitions[,rand.o], current.partition2, sizes.simulated)
+  #   current.size <- compute_size_neighborhood(7, current.partitions[,rand.o], partition2 = current.partition2,  sizes.simulated = sizes.simulated)
   #   current.sizes[7] <- current.size$total
   #   if(move == 7){
-  #     if(current.size$total > 0) new.partition <- sample_new_partition(7, current.partitions[,rand.o], current.size, current.partition2, sizes.simulated)
+  #     if(current.size$total > 0) new.partition <- sample_new_partition(7, current.partitions[,rand.o], current.size, partition2= current.partition2,  sizes.simulated = sizes.simulated)
   #     if(current.size$total == 0) new.partition <- current.partition
   #     new.partitions[,rand.o] <- new.partition
   #   }
