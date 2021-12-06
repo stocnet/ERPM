@@ -26,7 +26,7 @@ estimate_ERPM <- function(partition, # observed partition
                           multiplication.iter.p2 = 100, # value for the lengths of sub-steps in phase 2 (multiplied by  2.52^k)
                           num.steps.p2 = 6, # number of optimisation steps in phase 2
                           length.p3 = 1000, # number of samples in phase 3
-                          neighborhood = c(0.7,0.3,0,0,0,0), # way of choosing partitions: probability vector (actors swap, merge/division, single actor move, pair move)
+                          neighborhood = c(0.7,0.3,0), # way of choosing partitions: probability vector (actors swap, merge/division, single actor move)
                           fixed.estimates = NULL, # if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
                           sizes.allowed = NULL, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
                           sizes.simulated = NULL, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
@@ -136,11 +136,10 @@ estimate_ERPM_p3 <- function(partition,
                           objects, 
                           effects, 
                           startingestimates, 
-                          mini.steps = "normalized", 
                           burnin = 30, 
                           thining = 10,
                           length.p3 = 1000,
-                          neighborhood = 1,
+                          neighborhood = c(0.7,0.3,0),
                           fixed.estimates = NULL,
                           sizes.allowed = NULL,
                           sizes.simulated = NULL) {
@@ -203,7 +202,7 @@ estimate_multipleERPM <- function(partitions, # observed partitions
                           multiplication.iter.p2 = 200, # value for the lengths of sub-steps in phase 2 (multiplied by  2.52^k)
                           num.steps.p2 = 6, # number of optimisation steps in phase 2
                           length.p3 = 1000, # number of samples in phase 3
-                          neighborhood = c(0.7,0.3,0,0,0,0,0,0,0,0,0,0), # way of choosing partitions: probability vector (actors swap, merge/division, single actor move, pair move)
+                          neighborhood = c(0.7,0.3,0), # way of choosing partitions: probability vector (actors swap, merge/division, single actor move)
                           fixed.estimates = NULL, # if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
                           sizes.allowed = NULL, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
                           sizes.simulated = NULL, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
