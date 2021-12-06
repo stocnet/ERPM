@@ -17,7 +17,6 @@ estimate_ERPM <- function(partition, # observed partition
                           a.scaling = 0.2, # numeric used to reduce the influence of non-diagonal elements in the scaling matrix (for stability)
                           r.truncation.p1 = 2, # numeric used to limit extreme values in the covariance matrix (for stability)
                           r.truncation.p2 = 5, # numeric used to limit extreme values in the covariance matrix (for stability)
-                          mini.steps = "normalized", # type of transition in the Metropolis Hastings algorithm, either "normalized", either "self-loops" (take "normalized")
                           burnin = 30, # integer for the number of burn-in steps before sampling
                           thining = 10, # integer for the number of thining steps between sampling
                           length.p1 = 100, # number of samples in phase 1
@@ -68,7 +67,7 @@ estimate_ERPM <- function(partition, # observed partition
     estimates.phase1 <- startingestimates
     autocorrelations.phase1 <- NULL
   } else {
-    results.phase1 <- run_phase1_single(partition, startingestimates, z.obs, nodes, effects, objects, burnin, thining, gainfactor, a.scaling, r.truncation.p1, mini.steps, length.p1, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, parallel, cpus)
+    results.phase1 <- run_phase1_single(partition, startingestimates, z.obs, nodes, effects, objects, burnin, thining, gainfactor, a.scaling, r.truncation.p1, length.p1, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, parallel, cpus)
     estimates.phase1 <- results.phase1$estimates
     inv.zcov <- results.phase1$inv.zcov
     inv.scaling <- results.phase1$inv.scaling
@@ -78,10 +77,10 @@ estimate_ERPM <- function(partition, # observed partition
   # --------- PHASE 2 ---------
   if(parallel2){
     
-    sfExport("partition", "estimates.phase1", "inv.zcov", "inv.scaling", "z.obs", "nodes", "effects", "objects", "burnin", "thining", "num.steps.p2", "gainfactors", "r.truncation.p2", "mini.steps", "min.iter.p2", "max.iter.p2", "neighborhood", "fixed.estimates", "sizes.allowed", "sizes.simulated", "double.averaging")
+    sfExport("partition", "estimates.phase1", "inv.zcov", "inv.scaling", "z.obs", "nodes", "effects", "objects", "burnin", "thining", "num.steps.p2", "gainfactors", "r.truncation.p2", "min.iter.p2", "max.iter.p2", "neighborhood", "fixed.estimates", "sizes.allowed", "sizes.simulated", "double.averaging")
     res <- sfLapply(1:cpus, fun = function(k) {
       set.seed(k)
-      subres <- run_phase2_single(partition, estimates.phase1, inv.zcov,inv.scaling, z.obs, nodes, effects, objects, burnin, thining, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
+      subres <- run_phase2_single(partition, estimates.phase1, inv.zcov,inv.scaling, z.obs, nodes, effects, objects, burnin, thining, num.steps.p2, gainfactors, r.truncation.p2, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
       return(subres)
     }
     )
@@ -91,12 +90,12 @@ estimate_ERPM <- function(partition, # observed partition
     
   }else{
     
-    results.phase2 <- run_phase2_single(partition, estimates.phase1, inv.zcov,inv.scaling, z.obs, nodes, effects, objects, burnin, thining, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
+    results.phase2 <- run_phase2_single(partition, estimates.phase1, inv.zcov,inv.scaling, z.obs, nodes, effects, objects, burnin, thining, num.steps.p2, gainfactors, r.truncation.p2, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
     estimates.phase2 <- results.phase2$final.estimates
   }
   
   # --------- PHASE 3 ---------
-  results.phase3 <- run_phase3_single(partition, estimates.phase2, z.obs, nodes, effects, objects, burnin, thining, a.scaling, mini.steps, length.p3, neighborhood, sizes.allowed, sizes.simulated, fixed.estimates, parallel, cpus)
+  results.phase3 <- run_phase3_single(partition, estimates.phase2, z.obs, nodes, effects, objects, burnin, thining, a.scaling, length.p3, neighborhood, sizes.allowed, sizes.simulated, fixed.estimates, parallel, cpus)
   means <- results.phase3$means
   standard.deviations <- results.phase3$standard.deviations
   standard.errors <- results.phase3$standard.errors
@@ -158,7 +157,7 @@ estimate_ERPM_p3 <- function(partition,
   
   
   # --------- PHASE 3 ---------
-  results.phase3 <- run_phase3(partition, startingestimates, z.obs, nodes, effects, objects, burnin, thining, mini.steps, length.p3, neighborhood, sizes.allowed, sizes.simulated)
+  results.phase3 <- run_phase3(partition, startingestimates, z.obs, nodes, effects, objects, burnin, thining, length.p3, neighborhood, sizes.allowed, sizes.simulated)
   means <- results.phase3$means
   standard.deviations <- results.phase3$standard.deviations
   standard.errors <- results.phase3$standard.errors
@@ -193,7 +192,6 @@ estimate_multipleERPM <- function(partitions, # observed partitions
                           a.scaling = 0.2, # numeric used to reduce the influence of non-diagonal elements in the scaling matrix (for stability)
                           r.truncation.p1 = 2, # numeric used to limit extreme values in the covariance matrix (for stability)
                           r.truncation.p2 = 5, # numeric used to limit extreme values in the covariance matrix (for stability)
-                          mini.steps = "normalized", # type of transition in the Metropolis Hastings algorithm, either "normalized", either "self-loops" (take "normalized")
                           burnin = 30, # integer for the number of burn-in steps before sampling
                           thining = 10, # integer for the number of thining steps between sampling
                           length.p1 = 100, # number of samples in phase 1
@@ -244,7 +242,7 @@ estimate_multipleERPM <- function(partitions, # observed partitions
     estimates.phase1 <- startingestimates
     autocorrelations.phase1 <- NULL
   } else {
-    results.phase1 <- run_phase1_multiple(partitions, startingestimates, z.obs, presence.tables, nodes, effects, objects, burnin, thining, gainfactor, a.scaling, r.truncation.p1, mini.steps, length.p1, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, parallel, cpus)
+    results.phase1 <- run_phase1_multiple(partitions, startingestimates, z.obs, presence.tables, nodes, effects, objects, burnin, thining, gainfactor, a.scaling, r.truncation.p1, length.p1, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, parallel, cpus)
     estimates.phase1 <- results.phase1$estimates
     inv.zcov <- results.phase1$inv.zcov
     inv.scaling <- results.phase1$inv.scaling
@@ -254,10 +252,10 @@ estimate_multipleERPM <- function(partitions, # observed partitions
   # --------- PHASE 2 ---------
   if(parallel2){
     
-    sfExport("partitions", "estimates.phase1", "inv.zcov", "inv.scaling", "z.obs", "presence.tables", "nodes", "effects", "objects", "burnin", "thining", "num.steps.p2", "gainfactors", "r.truncation.p2", "mini.steps", "min.iter.p2", "max.iter.p2", "neighborhood", "fixed.estimates", "sizes.allowed", "sizes.simulated", "double.averaging")
+    sfExport("partitions", "estimates.phase1", "inv.zcov", "inv.scaling", "z.obs", "presence.tables", "nodes", "effects", "objects", "burnin", "thining", "num.steps.p2", "gainfactors", "r.truncation.p2", "min.iter.p2", "max.iter.p2", "neighborhood", "fixed.estimates", "sizes.allowed", "sizes.simulated", "double.averaging")
     res <- sfLapply(1:cpus, fun = function(k) {
       set.seed(k)
-      subres <- run_phase2_multiple(partitions, estimates.phase1, inv.zcov,inv.scaling, z.obs, presence.tables, nodes, effects, objects, burnin, thining, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
+      subres <- run_phase2_multiple(partitions, estimates.phase1, inv.zcov,inv.scaling, z.obs, presence.tables, nodes, effects, objects, burnin, thining, num.steps.p2, gainfactors, r.truncation.p2, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
       return(subres)
     }
     )
@@ -267,13 +265,13 @@ estimate_multipleERPM <- function(partitions, # observed partitions
     
   }else{
     
-    results.phase2 <- run_phase2_multiple(partitions, estimates.phase1, inv.zcov,inv.scaling, z.obs, presence.tables, nodes, effects, objects, burnin, thining, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
+    results.phase2 <- run_phase2_multiple(partitions, estimates.phase1, inv.zcov,inv.scaling, z.obs, presence.tables, nodes, effects, objects, burnin, thining, num.steps.p2, gainfactors, r.truncation.p2, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging)
     estimates.phase2 <- results.phase2$final.estimates
   }
   
   
   # --------- PHASE 3 ---------
-  results.phase3 <- run_phase3_multiple(partitions, estimates.phase2, z.obs, presence.tables, nodes, effects, objects, burnin, thining, a.scaling, mini.steps, length.p3, neighborhood, sizes.allowed, sizes.simulated, fixed.estimates, parallel, cpus)
+  results.phase3 <- run_phase3_multiple(partitions, estimates.phase2, z.obs, presence.tables, nodes, effects, objects, burnin, thining, a.scaling, length.p3, neighborhood, sizes.allowed, sizes.simulated, fixed.estimates, parallel, cpus)
   draws <- results.phase3$draws
   means <- results.phase3$means
   standard.deviations <- results.phase3$standard.deviations
@@ -321,7 +319,6 @@ estimate_multipleERPM_secondparallel <- function(partitions, # observed partitio
                                   a.scaling = 0.2, # numeric used to reduce the influence of non-diagonal elements in the scaling matrix (for stability)
                                   r.truncation.p1 = 2, # numeric used to limit extreme values in the covariance matrix (for stability)
                                   r.truncation.p2 = 5, # numeric used to limit extreme values in the covariance matrix (for stability)
-                                  mini.steps = "normalized", # type of transition in the Metropolis Hastings algorithm, either "normalized", either "self-loops" (take "normalized")
                                   burnin = 30, # integer for the number of burn-in steps before sampling
                                   thining = 10, # integer for the number of thining steps between sampling
                                   length.p1 = 100, # number of samples in phase 1
@@ -371,7 +368,7 @@ estimate_multipleERPM_secondparallel <- function(partitions, # observed partitio
     estimates.phase1 <- startingestimates
     autocorrelations.phase1 <- NULL
   } else {
-    results.phase1 <- run_phase1_multiple_secondparallel(partitions, startingestimates, z.obs, presence.tables, nodes, effects, objects, burnin, thining, gainfactor, a.scaling, r.truncation.p1, mini.steps, length.p1, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, parallel, cpus)
+    results.phase1 <- run_phase1_multiple_secondparallel(partitions, startingestimates, z.obs, presence.tables, nodes, effects, objects, burnin, thining, gainfactor, a.scaling, r.truncation.p1, length.p1, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, parallel, cpus)
     estimates.phase1 <- results.phase1$estimates
     inv.zcov <- results.phase1$inv.zcov
     inv.scaling <- results.phase1$inv.scaling
@@ -379,12 +376,12 @@ estimate_multipleERPM_secondparallel <- function(partitions, # observed partitio
   }
   
   # --------- PHASE 2 ---------
-  results.phase2 <- run_phase2_multiple_secondparallel(partitions, estimates.phase1, inv.zcov,inv.scaling, z.obs, presence.tables, nodes, effects, objects, burnin, thining, num.steps.p2, gainfactors, r.truncation.p2, mini.steps, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging, parallel, cpus)
+  results.phase2 <- run_phase2_multiple_secondparallel(partitions, estimates.phase1, inv.zcov,inv.scaling, z.obs, presence.tables, nodes, effects, objects, burnin, thining, num.steps.p2, gainfactors, r.truncation.p2, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging, parallel, cpus)
   estimates.phase2 <- results.phase2$final.estimates
   
   
   # --------- PHASE 3 ---------
-  results.phase3 <- run_phase3_multiple_secondparallel(partitions, estimates.phase2, z.obs, presence.tables, nodes, effects, objects, burnin, thining, a.scaling, mini.steps, length.p3, neighborhood, sizes.allowed, sizes.simulated, fixed.estimates, parallel, cpus)
+  results.phase3 <- run_phase3_multiple_secondparallel(partitions, estimates.phase2, z.obs, presence.tables, nodes, effects, objects, burnin, thining, a.scaling, length.p3, neighborhood, sizes.allowed, sizes.simulated, fixed.estimates, parallel, cpus)
   means <- results.phase3$means
   standard.deviations <- results.phase3$standard.deviations
   standard.errors <- results.phase3$standard.errors
@@ -432,7 +429,6 @@ estimate_multipleBERPM <- function(partitions, # observed partitions
                                   num.chains = 3, # number of MChains
                                   length.chains = 1000, # number of samples of each chain
                                   
-                                  mini.steps.2 = "normalized", # type of transition in the Metropolis Hastings algorithm, either "normalized", either "self-loops" (take "normalized")
                                   burnin.2 = 30, # integer for the number of burn-in steps before sampling int the MCMC to sample partitions
                                   
                                   neighborhood.partition = c(0.7,0.3,0,0,0,0), # way of choosing partitions: probability vector (actors swap, merge/division, single actor move, pair move)
@@ -485,7 +481,6 @@ estimate_multipleBERPM <- function(partitions, # observed partitions
                                                       thining.1,
                                                       num.chains,
                                                       length.chains,
-                                                      mini.steps.2,
                                                       burnin.2, 
                                                       neighborhood.partition,
                                                       neighborhood.augmentation,

@@ -19,7 +19,6 @@ run_phase2_single <- function(partition,
                        num.steps, 
                        gainfactors,
                        r.truncation.p2,
-                       mini.steps, 
                        min.iter, 
                        max.iter, 
                        multiplication.iter,
@@ -83,9 +82,9 @@ run_phase2_single <- function(partition,
         
         # draw chain 
         if(i == 1){
-          results.i <- draw_Metropolis_single(theta.i, partition.i, nodes, effects, objects, burnin, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+          results.i <- draw_Metropolis_single(theta.i, partition.i, nodes, effects, objects, burnin, 1, 1, neighborhood, sizes.allowed, sizes.simulated)
         } else{
-          results.i <- draw_Metropolis_single(theta.i, partition.i, nodes, effects, objects, thining, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+          results.i <- draw_Metropolis_single(theta.i, partition.i, nodes, effects, objects, thining, 1, 1, neighborhood, sizes.allowed, sizes.simulated)
         }
         z.i <- results.i$draws
         partition.i <- results.i$last.partition
@@ -163,9 +162,9 @@ run_phase2_single <- function(partition,
         fulltheta.i <- estimates.phase1
         fulltheta.i[unfixed.indexes] <- theta.i
         if(i == 1){
-          results.i <- draw_Metropolis_single(fulltheta.i, partition.i, nodes, effects, objects, burnin, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+          results.i <- draw_Metropolis_single(fulltheta.i, partition.i, nodes, effects, objects, burnin, 1, 1, neighborhood, sizes.allowed, sizes.simulated)
         } else {
-          results.i <- draw_Metropolis_single(fulltheta.i, partition.i, nodes, effects, objects, thining, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+          results.i <- draw_Metropolis_single(fulltheta.i, partition.i, nodes, effects, objects, thining, 1, 1, neighborhood, sizes.allowed, sizes.simulated)
         }
         z.i <- results.i$draws[unfixed.indexes]
         partition.i <- results.i$last.partition
@@ -239,7 +238,6 @@ run_phase2_multiple <- function(partitions,
                               num.steps, 
                               gainfactors,
                               r.truncation.p2,
-                              mini.steps, 
                               min.iter, 
                               max.iter, 
                               multiplication.iter,
@@ -306,11 +304,11 @@ run_phase2_multiple <- function(partitions,
         all.estimates <- rbind(all.estimates,matrix(theta.i,nrow=1)) 
         
         # draw chain
-        results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+        results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, neighborhood, sizes.allowed, sizes.simulated)
         #if(i == 1){
-        #  results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+        #  results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, neighborhood, sizes.allowed, sizes.simulated)
         #} else {
-        #  results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, thining, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+        #  results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, thining, 1, 1, neighborhood, sizes.allowed, sizes.simulated)
         #}
         z.i <- results.i$draws
         partition.i <- results.i$last.partitions
@@ -390,9 +388,9 @@ run_phase2_multiple <- function(partitions,
         fulltheta.i <- estimates.phase1
         fulltheta.i[unfixed.indexes] <- theta.i
         if(i == 1){
-          results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+          results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, neighborhood, sizes.allowed, sizes.simulated)
         } else {
-          results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, thining, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+          results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, thining, 1, 1, neighborhood, sizes.allowed, sizes.simulated)
         }
         z.i <- results.i$draws[unfixed.indexes]
         partitions.i <- results.i$last.partitions
@@ -464,7 +462,6 @@ run_phase2_multiple_secondparallel <- function(partitions,
                                 num.steps, 
                                 gainfactors,
                                 r.truncation.p2,
-                                mini.steps, 
                                 min.iter, 
                                 max.iter, 
                                 multiplication.iter,
@@ -534,11 +531,11 @@ run_phase2_multiple_secondparallel <- function(partitions,
         
         # draw chain
         #if(i == 1){
-        #  results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+        #  results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, neighborhood, sizes.allowed, sizes.simulated)
         #} else {
-        #  results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, thining, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+        #  results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, thining, 1, 1, neighborhood, sizes.allowed, sizes.simulated)
         #}
-        results.i <- draw_Metropolis_multiple_secondparallel(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated,parallel,cpus)
+        results.i <- draw_Metropolis_multiple_secondparallel(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, neighborhood, sizes.allowed, sizes.simulated,parallel,cpus)
         z.i <- results.i$draws
         partition.i <- results.i$last.partitions
         
@@ -616,11 +613,11 @@ run_phase2_multiple_secondparallel <- function(partitions,
         fulltheta.i <- estimates.phase1
         fulltheta.i[unfixed.indexes] <- theta.i
         #if(i == 1){
-        #  results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+        #  results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, neighborhood, sizes.allowed, sizes.simulated)
         #} else {
-        #  results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, thining, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+        #  results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, thining, 1, 1, neighborhood, sizes.allowed, sizes.simulated)
         #}
-        results.i <- draw_Metropolis_multiple_secondparallel(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, mini.steps, neighborhood, sizes.allowed, sizes.simulated,parallel,cpus)
+        results.i <- draw_Metropolis_multiple_secondparallel(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, neighborhood, sizes.allowed, sizes.simulated,parallel,cpus)
         z.i <- results.i$draws[unfixed.indexes]
         partitions.i <- results.i$last.partitions
         

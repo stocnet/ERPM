@@ -15,8 +15,7 @@ run_phase1_single <- function(partition,
                        thining,
                        gainfactor,
                        a.scaling,
-                       r.truncation.p1,
-                       mini.steps, 
+                       r.truncation.p1, 
                        length.p1, 
                        neighborhood,
                        fixed.estimates,
@@ -35,10 +34,10 @@ run_phase1_single <- function(partition,
   # simulate the statisticis distribution
   if(parallel){
     
-    sfExport("startingestimates", "first.partition", "nodes", "effects", "objects", "burnin", "thining", "length.p1", "cpus", "mini.steps", "neighborhood", "sizes.allowed", "sizes.simulated")
+    sfExport("startingestimates", "first.partition", "nodes", "effects", "objects", "burnin", "thining", "length.p1", "cpus", "neighborhood", "sizes.allowed", "sizes.simulated")
     res <- sfLapply(1:cpus, fun = function(k) {
       set.seed(k)
-      subres <- draw_Metropolis_single(startingestimates, first.partition, nodes, effects, objects, burnin, thining, ceiling(length.p1/cpus), mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+      subres <- draw_Metropolis_single(startingestimates, first.partition, nodes, effects, objects, burnin, thining, ceiling(length.p1/cpus), neighborhood, sizes.allowed, sizes.simulated)
       return(subres)
     }
     )
@@ -49,7 +48,7 @@ run_phase1_single <- function(partition,
     
   }else{
     
-    results.phase1 <- draw_Metropolis_single(startingestimates, first.partition, nodes, effects, objects, burnin, thining, length.p1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+    results.phase1 <- draw_Metropolis_single(startingestimates, first.partition, nodes, effects, objects, burnin, thining, length.p1, neighborhood, sizes.allowed, sizes.simulated)
   }
   z.phase1 <- results.phase1$draws
   
@@ -108,7 +107,6 @@ run_phase1_multiple <- function(partitions,
                               gainfactor,
                               a.scaling,
                               r.truncation.p1,
-                              mini.steps, 
                               length.p1, 
                               neighborhood,
                               fixed.estimates,
@@ -128,10 +126,10 @@ run_phase1_multiple <- function(partitions,
   # simulate the statisticis distribution
   if(parallel){
     
-    sfExport("startingestimates", "first.partitions", "presence.tables", "nodes", "effects", "objects", "burnin", "thining", "length.p1", "cpus", "mini.steps", "neighborhood", "sizes.allowed", "sizes.simulated")
+    sfExport("startingestimates", "first.partitions", "presence.tables", "nodes", "effects", "objects", "burnin", "thining", "length.p1", "cpus", "neighborhood", "sizes.allowed", "sizes.simulated")
     res <- sfLapply(1:cpus, fun = function(k) {
       set.seed(k)
-      subres <- draw_Metropolis_multiple(startingestimates, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, ceiling(length.p1/cpus), mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+      subres <- draw_Metropolis_multiple(startingestimates, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, ceiling(length.p1/cpus), neighborhood, sizes.allowed, sizes.simulated)
       return(subres)
     }
     )
@@ -142,7 +140,7 @@ run_phase1_multiple <- function(partitions,
     
   }else{
     
-    results.phase1 <- draw_Metropolis_multiple(startingestimates, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, length.p1, mini.steps, neighborhood, sizes.allowed, sizes.simulated)
+    results.phase1 <- draw_Metropolis_multiple(startingestimates, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, length.p1, neighborhood, sizes.allowed, sizes.simulated)
     
   }
   z.phase1 <- results.phase1$draws
@@ -201,7 +199,6 @@ run_phase1_multiple_secondparallel <- function(partitions,
                                 gainfactor,
                                 a.scaling,
                                 r.truncation.p1,
-                                mini.steps, 
                                 length.p1, 
                                 neighborhood,
                                 fixed.estimates,
@@ -219,7 +216,7 @@ run_phase1_multiple_secondparallel <- function(partitions,
   first.partitions <- partitions
   
   # simulate the statisticis distribution
-  results.phase1 <- draw_Metropolis_multiple_secondparallel(startingestimates, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, length.p1, mini.steps, neighborhood, sizes.allowed, sizes.simulated, parallel, cpus)
+  results.phase1 <- draw_Metropolis_multiple_secondparallel(startingestimates, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, length.p1, neighborhood, sizes.allowed, sizes.simulated, parallel, cpus)
   z.phase1 <- results.phase1$draws
   
   # calculate autocorrelation to check afterhand
