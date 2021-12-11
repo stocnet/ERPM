@@ -239,7 +239,7 @@ computeStatistics <- function (partition, nodes, effects, objects){
             net <- objects[[o]][[2]]
           }
         }
-        statistics[e] <- sum(1/2 * adjacency * net)
+        statistics[e] <- sum(1/2 * adjacency * net) 
       }else{
         statistics[e] <- 0
       }
