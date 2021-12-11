@@ -17,8 +17,7 @@ estimate_logL <- function(partition, # observed partition
                           num.steps, # number of samples in each step
                           burnin, # integer for the number of burn-in steps before sampling
                           thining, # integer for the number of thining steps between sampling
-                          mini.steps = "normalized", # type of transition in the Metropolis Hastings algorithm, either "normalized", either "self-loops" (take "normalized")
-                          neighborhoods = c(0.7,0.3,0,0,0,0), # way of choosing partitions
+                          neighborhoods = c(0.7,0.3,0), # way of choosing partitions
                           sizes.allowed = NULL,  # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
                           sizes.simulated = NULL, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
                           logL_0 = NULL,  # if known, the value of the log likelihood of the basic dirichlet model
@@ -51,7 +50,7 @@ estimate_logL <- function(partition, # observed partition
     sfExport("M", "theta", "theta_0", "diff_vector", "first.partition", "nodes", "effects", "objects", "burnin", "thining", "num.steps", "mini.steps", "neighborhoods", "sizes.allowed", "sizes.simulated")
     res <- sfLapply(1:M, fun = function(m) {
       theta_m <- m/M * theta + (1-m)/M * theta_0
-      draws_m <- draw_Metropolis_single(theta_m, first.partition, nodes, effects, objects, burnin, thining, num.steps, mini.steps, neighborhoods, sizes.allowed, sizes.simulated)
+      draws_m <- draw_Metropolis_single(theta_m, first.partition, nodes, effects, objects, burnin, thining, num.steps, neighborhoods, sizes.allowed, sizes.simulated)
       z_m <- colMeans(draws_m$draws)
       subres <- list(contribution_lambda = diff_vector %*% z_m, draws = draws_m$draws)
       return(subres)
@@ -65,7 +64,7 @@ estimate_logL <- function(partition, # observed partition
     for(m in 1:M){
       print(paste("step",m))
       theta_m <- m/M * theta + (1-m)/M * theta_0
-      draws_m <- draw_Metropolis_single(theta_m, first.partition, nodes, effects, objects, burnin, thining, num.steps, mini.steps, neighborhoods, sizes.allowed, sizes.simulated)
+      draws_m <- draw_Metropolis_single(theta_m, first.partition, nodes, effects, objects, burnin, thining, num.steps,neighborhoods, sizes.allowed, sizes.simulated)
       all_draws[[m]] <- draws_m
       z_m <- colMeans(draws_m$draws)
       lambda <- lambda + diff_vector %*% z_m 

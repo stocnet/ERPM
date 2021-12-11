@@ -82,7 +82,8 @@ simulate_burninthining_single <- function(partition, # observed partition
   }
   
   
-  return(list("autocorrelations" = allautocors,
+  return(list("draws" = draws,
+              "autocorrelations" = allautocors,
               "moving.means" = allmeans,
               "autocorrelations.smoothed" = smoothedautocors,
               "moving.means.smoothed" = smoothedmeans))
@@ -169,7 +170,8 @@ simulate_burninthining_multiple <- function(partitions, # observed partitions
   }
   
   
-  return(list("autocorrelations" = allautocors,
+  return(list("draws"= draws,
+              "autocorrelations" = allautocors,
               "moving.means" = allmeans,
               "autocorrelations.smoothed" = smoothedautocors,
               "moving.means.smoothed" = smoothedmeans))
