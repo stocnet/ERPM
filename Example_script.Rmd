@@ -16,7 +16,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 The following packages and scripts are required to fully run this example script. The details of the main functions can be found in the code itself, where comments help finding out what functions do and what arguments are for.
 
-```{r loads, message=FALSE, warning=FALSE, results='hide'}
+```{r loads, message=FALSE, warning=FALSE, include=FALSE, results='hide'}
 library(ggplot2)
 library(numbers)
 library(combinat)
