@@ -453,6 +453,12 @@ compute_ind_similar_pairs <- function(partition, attribute, threshold) {
 
 CUG <- function(observation, fun, partition_sample) {
   
+  if (is.null(partition_sample)) {
+      partition_sample = list()
+      for (i in 1:10)
+        partition_sample[[i]] <- sample(observation, replace = T)
+  }
+  
   stat_obs <- fun(observation)
   nb_partions <- length(partition_sample)
   
@@ -486,4 +492,7 @@ CUG <- function(observation, fun, partition_sample) {
 
 #Works
 sample <- list(p1,p2,p3)
-CUG(p,fun=function(part){compute_number_same_pairs(part,at3)},sample)
+CUG(p,fun=function(part){compute_number_same_pairs(part,at3)}, sample)
+
+x = list()
+x[[1]] <- sample(p, replace = T)
