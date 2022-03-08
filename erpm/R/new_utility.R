@@ -1,7 +1,12 @@
 ######################################################################
 ## Simulation and estimation of Exponential Random Partition Models ##
-## Utility functions and CUG                                        ##
+## Utility functions and CUG tests                                  ##
+## Author: Alexandra Amani & Marion Hoffman                         ##
 ######################################################################
+
+# TODOs (Marion)
+# - better specify the type of arguments the functions expect
+# - change sum, avg, and ind, into sum_pergroup, sum_perind, avg_pergroup, avg_perind (when applicable)
 
 
 ##### CORRELATION FUNCTIONS #####
@@ -148,13 +153,12 @@ correlation_with_size <- function(partition, attribute, categorical){
     } else{
 
     model <- summary(lm(sizes ~ attribute))
-    return(cor.ratio = model$r.squared)
+    return(model$r.squared)
   }
 
 }
 
-
-## UTILITY FUNCTIONS ------
+##### OTHER STATISTICS FUNCTIONS #####
 
 
 #' Statistics on the size of groups in a partition
@@ -194,9 +198,9 @@ stat_size <- function(partition, stat){
 #' @return A number corresponding to proportion of individuals alone.
 #' @examples
 #' p <- c(1,2,2,3,3,4,4,4,5)
-#' prop_isolate(p)
+#' proportion_isolate(p)
 
-prop_isolate <- function(partition){
+proportion_isolate <- function(partition){
   prop <- sum(table(partition)==1) / length(partition)
   return(prop)
 }
@@ -282,56 +286,56 @@ number_categories <- function(partition, attribute, stat, category){
 
 }
 
+# For now, removed function, because density is the same as average number of ties per group
 
-
-#' Density of intra ties
-#'
-#'This function computes the average "density" of dyadic attributes within groups and the
-#'dispersion of the "density" of dyadic attributes within groups.
-#'
-#' @param partition A partition (vector)
-#' @param matrix A matrix containing the values of the dyadic attribute
-#' @param stat The statistic to compute : 'avg' for the average and 'sd' for the standard deviation
-#' @return The statisic chosen in stat.
-#' @examples
-#' p <- c(1,2,2,3,3,4,4,4,5)
-#' mat <- matrix(1:81, ncol = 9)
-#' density(p,mat,'avg')
-
-
-density <- function(partition, matrix, stat){
-
-  m <- max(partition,na.rm=T)
-  avd <- 0
-  std <- 0
-
-  for(h in 1:m){
-    members <- which(partition==h)
-
-    if(length(members)>1){
-      beforeties <- 0
-      allties <- length(members)*(length(members)-1)/2
-
-      for(i in 1:(length(members)-1)){
-        for(j in (i+1):length(members)){
-          beforeties <- beforeties + matrix[members[i],members[j]]
-        }
-      }
-
-      avd <- avd + beforeties/allties
-      std <- std + (beforeties/allties)^2
-    }
-  }
-
-  avd <- avd/m
-  std <- sqrt(1/m*std - avd^2)
-  if (stat == 'avg'){
-   return(average=avd)
-  }
-  if (stat == 'sd'){
-    return(standard.deviation=std)
-  }
-}
+#' #' Density of intra ties
+#' #'
+#' #'This function computes the average "density" of dyadic attributes within groups and the
+#' #'dispersion of the "density" of dyadic attributes within groups.
+#' #'
+#' #' @param partition A partition (vector)
+#' #' @param matrix A matrix containing the values of the dyadic attribute
+#' #' @param stat The statistic to compute : 'avg' for the average and 'sd' for the standard deviation
+#' #' @return The statisic chosen in stat.
+#' #' @examples
+#' #' p <- c(1,2,2,3,3,4,4,4,5)
+#' #' mat <- matrix(1:81, ncol = 9)
+#' #' density(p,mat,'avg')
+#' 
+#' 
+#' density <- function(partition, matrix, stat){
+#' 
+#'   m <- max(partition,na.rm=T)
+#'   avd <- 0
+#'   std <- 0
+#' 
+#'   for(h in 1:m){
+#'     members <- which(partition==h)
+#' 
+#'     if(length(members)>1){
+#'       beforeties <- 0
+#'       allties <- length(members)*(length(members)-1)/2
+#' 
+#'       for(i in 1:(length(members)-1)){
+#'         for(j in (i+1):length(members)){
+#'           beforeties <- beforeties + matrix[members[i],members[j]]
+#'         }
+#'       }
+#' 
+#'       avd <- avd + beforeties/allties
+#'       std <- std + (beforeties/allties)^2
+#'     }
+#'   }
+#' 
+#'   avd <- avd/m
+#'   std <- sqrt(1/m*std - avd^2)
+#'   if (stat == 'avg'){
+#'    return(average=avd)
+#'   }
+#'   if (stat == 'sd'){
+#'     return(standard.deviation=std)
+#'   }
+#' }
 
 
 #' Range of attribute in groups
@@ -504,24 +508,38 @@ similar_pairs <- function(partition, attribute, stat,  threshold) {
 
 
 
-#### Fontion Globale CUG ####
+#### FUNCTION OF CUP ####
 
 
-#' CUG
+#' CUP
 #'
-#'This function computes ??
+#' This function tests a partition statistic against a "conditional uniform partition null hypothesi:
+#' It compares a statistic computed on an observed partition and the same statistic computed on a set of permuted partition  
+#' (partitions with the same group structure as the observed partition, with nodes being permuted). 
+#' 
+#' This test is similar to Conditional Uniform Graph tests in networks (we translate this into Condtional Uniform Partition tests).
+#' 
 #'
-#' @param observation The observed partition
-#' @param fun An utility function or statistic to compute
-#' @param permutations A predicted partition or partition to compare to observation. NULL by default
-#' @param num.permutations Number of permutations to do to generate a partition if permutation = NULL. 1000 by default
-#' @return The value of mean, standard deviation, p-value, and confidence interval of the estimator of the statistic in fun
+#' @param observation A vector giving the observed partition
+#' @param fun A function used to compute a given partition statistic to be computed
+#' @param permutations A matrix, whose lines contain partitions which are permutations of the observed partition. 
+#' This argument is NULL by default (in that case, the permutations are created automatically).
+#' @param num.permutations An integer indicating the number of permutations to generate, if they are not already given. 
+#' 1000 permutations are generated by default.
+#' @return The value of the statistic calculated for the observed partition, 
+#' the mean value of the statistic among permuted partitions,
+#' the standard deviation of the statistic among permuted partitions,
+#' the proportion of permutation below the observed statistic,
+#' the proportion of permutation above the observed statistic,
+#' the lower boundary of the 95% CI,
+#' the upper boundary of the 95% CI
 #' @examples
 #' p <- c(1,2,2,3,3,4,4,4,5)
-#'CUG(p,fun=function(part){compute_number_same_pairs(part,at3,'avg')})
+#' at <- c(0,1,1,1,1,0,0,0,0)
+#'CUP(p,fun=function(x){compute_number_same_pairs(x,at,'avg')})
 
 
-CUG <- function(observation, fun, permutations=NULL, num.permutations=1000) {
+CUP <- function(observation, fun, test.direction, permutations=NULL, num.permutations=1000,) {
 
   if (is.null(permutations)) {
     permutations = list()
@@ -542,20 +560,22 @@ CUG <- function(observation, fun, permutations=NULL, num.permutations=1000) {
 
   p1 <- sum(stat_sample <= stat_obs) / nb_partions
   p2 <- sum(stat_sample >= stat_obs) / nb_partions
-  if(p1 == 0) {
-    p_num <- p2
-  } else if(p2 == 0) {
-    p_num <- p1
-  } else {
-    p_num <- 2*min(p1,p2)
-  }
+  #if(test.direction == "lower") {
+  #  p_num <- p1
+  #} else if(test.direction == "upper") {
+  #  p_num <- p2
+  #} else {
+  #  p_num <- 2*min(p1,p2)
+  #}
 
   res <- list(observed = stat_obs,
               mean_sample = mean(stat_sample),
               sd_sample = sd(stat_sample),
+              prop_below = p1,
+              prop_above = p2,
               min_CI_95 = minnum,
-              max_CI_95 = maxnum,
-              p.value = p_num)
+              max_CI_95 = maxnum)
+              #p.value = p_num)
 
   return(res)
 }
