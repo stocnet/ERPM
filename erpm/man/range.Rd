@@ -2,7 +2,19 @@
 % Please edit documentation in R/new_utility.R
 \name{range}
 \alias{range}
-\title{Range of attribute in groups}
+\title{#' Density of intra ties
+#'
+#'This function computes the average "density" of dyadic attributes within groups and the
+#'dispersion of the "density" of dyadic attributes within groups.
+#'
+#' @param partition A partition (vector)
+#' @param matrix A matrix containing the values of the dyadic attribute
+#' @param stat The statistic to compute : 'avg' for the average and 'sd' for the standard deviation
+#' @return The statisic chosen in stat.
+#' @examples
+#' p <- c(1,2,2,3,3,4,4,4,5)
+#' mat <- matrix(1:81, ncol = 9)
+#' density(p,mat,'avg')}
 \usage{
 range(partition, attribute, stat)
 }
@@ -11,13 +23,16 @@ range(partition, attribute, stat)
 
 \item{attribute}{A vector containing the values of the attribute}
 
-\item{stat}{The statistic to compute : 'avg' for the average and 'sum' for the sum}
+\item{stat}{The statistic to compute : 'avg_pergroup' for the average per group  and 'sum_pergroup' for the sum of the ranges}
 }
 \value{
 The statisic chosen in stat
 }
 \description{
-This function computes the sum or the average range of an attribute for groups in a partition.
+
+}
+\details{
+
 }
 \examples{
 p <- c(1,2,2,3,3,4,4,4,5)

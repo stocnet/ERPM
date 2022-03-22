@@ -4,7 +4,7 @@
 ## Author: Alexandra Amani & Marion Hoffman                         ##
 ######################################################################
 
-# TODOs (Marion)
+# TODOs (Marion) DONE
 # - better specify the type of arguments the functions expect
 # - change sum, avg, and ind, into sum_pergroup, sum_perind, avg_pergroup, avg_perind (when applicable)
 
@@ -20,6 +20,7 @@
 #' @param partition A partition (vector)
 #' @param attribute A vector containing the values of the attribute
 #' @return A number corresponding to the ICC
+#' @export
 #' @examples
 #' p <- c(1,2,2,3,3,4,4,4,5)
 #' at <- c(3,5,23,2,1,0,3,9,2)
@@ -30,6 +31,7 @@ icc <- function(partition, attribute){
 
   sum_between <- 0
   sum_within <- 0
+  number_groups <- max(partition,na.rm = F)
 
   for (g in 1:max(partition,na.rm = F)){
     members <- which(partition == g)
@@ -41,8 +43,8 @@ icc <- function(partition, attribute){
     sum_within <- sum_within + var_w
   }
 
-  between <- sum_between / g-1
-  within <- sum_within /(length(partition)-g)
+  between <- sum_between / (number_groups-1)
+  within <- sum_within /(length(partition)-number_groups)
 
   coef <- between/(between+within)
 
@@ -60,6 +62,7 @@ icc <- function(partition, attribute){
 #' @param attribute2 A vector containing the values of the second attribute
 #' @param group A number indicating the selected group
 #' @return A number corresponding to the correlation coefficient
+#' @export
 #' @examples
 #' p <- c(1,2,2,3,3,4,4,4,5)
 #' at <- c(3,5,23,2,1,0,3,9,2)
@@ -93,6 +96,7 @@ correlation_within <- function(partition, attribute1, attribute2, group){
 #' @param attribute1 A vector containing the values of the first attribute
 #' @param attribute2 A vector containing the values of the second attribute
 #' @return A number corresponding to the correlation coefficient
+#' @export
 #' @examples
 #' p <- c(1,2,2,3,3,4,4,4,5)
 #' at <- c(3,5,23,2,1,0,3,9,2)
@@ -125,9 +129,10 @@ correlation_between <- function(partition, attribute1, attribute2) {
 #'
 #' @param partition A partition (vector)
 #' @param attribute A vector containing the values of the attribute
-#' @param categorical Boolean (True or False) indicating if the attribute is categorical
+#' @param categorical A Boolean (True or False) indicating if the attribute is categorical
 #' @return A number corresponding to the correlation coefficient if the attribute is numerical or
 #' the correlation ratio if the attribute is categorical.
+#' @export
 #' @examples
 #' p <- c(1,2,2,3,3,4,4,4,5)
 #' at <- c(3,5,23,2,1,0,3,9,2)
@@ -150,7 +155,7 @@ correlation_with_size <- function(partition, attribute, categorical){
   if (categorical == F){
     c <- cor(attribute,sizes)
     return(c)
-    } else{
+  } else{
 
     model <- summary(lm(sizes ~ attribute))
     return(model$r.squared)
@@ -170,6 +175,7 @@ correlation_with_size <- function(partition, attribute, categorical){
 #' @param stat The statistic to compute : 'avg' for average and 'sd' for standard deviation
 #' @return A number corresponding to the correlation coefficient if the attribute is numerical or
 #' the correlation ratio if the attribute is categorical.
+#' @export
 #' @examples
 #' p <- c(1,2,2,3,3,4,4,4,5)
 #' correlation_with_size(p,'avg')
@@ -178,12 +184,12 @@ correlation_with_size <- function(partition, attribute, categorical){
 stat_size <- function(partition, stat){
 
   if (stat == 'avg'){
-  av_size <- mean(table(partition))
-  return(av_size)
+    av_size <- mean(table(partition))
+    return(av_size)
   }
   if (stat == 'sd'){
-  sd_size <- sd(table(partition))
-  return(sd_size)
+    sd_size <- sd(table(partition))
+    return(sd_size)
   }
 }
 
@@ -196,6 +202,7 @@ stat_size <- function(partition, stat){
 #'
 #' @param partition A partition (vector)
 #' @return A number corresponding to proportion of individuals alone.
+#' @export
 #' @examples
 #' p <- c(1,2,2,3,3,4,4,4,5)
 #' proportion_isolate(p)
@@ -216,13 +223,14 @@ proportion_isolate <- function(partition){
 #'
 #' @param partition A partition (vector)
 #' @param attribute A vector containing the values of the attribute
-#' @param stat The statistic to compute : 'avg' for the sum of proportion and 'sum' for the total number
+#' @param stat The statistic to compute : 'avg' for the sum of proportion per group and 'sum' for the total number
 #' @param category The category to consider or category = 'all' if all categories have to be considered
 #' @return The statisic chosen in stat depending on the value of category. If category = 'all', returns a vector.
+#' @export
 #' @examples
 #' p <- c(1,2,2,3,3,4,4,4,5)
 #' at <- c(1,0,0,0,1,1,0,0,1)
-#' number_categories(p,at,sum,'all')
+#' number_categories(p,attr1,'avg','all')
 
 
 number_categories <- function(partition, attribute, stat, category){
@@ -245,7 +253,7 @@ number_categories <- function(partition, attribute, stat, category){
           x[level] <- x[level] + table_g[level]
         }
       }
-      return(x)
+      return(x[-1])
     }
 
 
@@ -301,32 +309,32 @@ number_categories <- function(partition, attribute, stat, category){
 #' #' p <- c(1,2,2,3,3,4,4,4,5)
 #' #' mat <- matrix(1:81, ncol = 9)
 #' #' density(p,mat,'avg')
-#' 
-#' 
+#'
+#'
 #' density <- function(partition, matrix, stat){
-#' 
+#'
 #'   m <- max(partition,na.rm=T)
 #'   avd <- 0
 #'   std <- 0
-#' 
+#'
 #'   for(h in 1:m){
 #'     members <- which(partition==h)
-#' 
+#'
 #'     if(length(members)>1){
 #'       beforeties <- 0
 #'       allties <- length(members)*(length(members)-1)/2
-#' 
+#'
 #'       for(i in 1:(length(members)-1)){
 #'         for(j in (i+1):length(members)){
 #'           beforeties <- beforeties + matrix[members[i],members[j]]
 #'         }
 #'       }
-#' 
+#'
 #'       avd <- avd + beforeties/allties
 #'       std <- std + (beforeties/allties)^2
 #'     }
 #'   }
-#' 
+#'
 #'   avd <- avd/m
 #'   std <- sqrt(1/m*std - avd^2)
 #'   if (stat == 'avg'){
@@ -344,8 +352,9 @@ number_categories <- function(partition, attribute, stat, category){
 #'
 #' @param partition A partition (vector)
 #' @param attribute A vector containing the values of the attribute
-#' @param stat The statistic to compute : 'avg' for the average and 'sum' for the sum
+#' @param stat The statistic to compute : 'avg_pergroup' for the average per group  and 'sum_pergroup' for the sum of the ranges
 #' @return The statisic chosen in stat
+#' @export
 #' @examples
 #' p <- c(1,2,2,3,3,4,4,4,5)
 #' at <- c(3,5,23,2,1,0,3,9,2)
@@ -359,11 +368,11 @@ range <- function(partition, attribute, stat ){
     sum <- sum + max(attribute[members], na.rm = T) - min(attribute[members], na.rm = T)
   }
 
-  if (stat == 'sum'){
-    return(sum = sum )
+  if (stat == 'sum_pergroup'){
+    return(sum_pergroup = sum )
   }
-  if (stat == 'avg'){
-    return(average = sum/max(partition, na.rm = T))
+  if (stat == 'avg_pergroup'){
+    return(avg_pergroup = sum/max(partition, na.rm = T))
   }
 }
 
@@ -376,9 +385,10 @@ range <- function(partition, attribute, stat ){
 #'
 #' @param partition A partition (vector)
 #' @param attribute A vector containing the values of the attribute
-#' @param stat The statistic to compute : 'avg' for the average, 'sum' for the sum,  'ind' for the number of ties
+#' @param stat The statistic to compute : 'avg_pergroup' for the average, 'sum_pergroup' for the sum,  'sum_perind' and 'avg_perind'  for the number of ties per individual
 #' each individual has in its group.
-#' @return The statisic chosen in stat
+#' @return The statistic chosen in stat
+#' @export
 #' @examples
 #' p <- c(1,2,2,3,3,4,4,4,5)
 #' at <- c(0,1,1,1,1,0,0,0,0)
@@ -402,17 +412,22 @@ same_pairs <- function(partition, attribute, stat ) {
 
   samepairs <- sum(distances * net_partition) / 2
   indsamepairs <- sum( rowSums(distances * net_partition) > 0 )
+  avgind <- indsamepairs / length(partition)
   avgroupsamepairs <- sum(distances * net_partition) / (2*max(partition, na.rm = T))
 
-  if (stat == 'sum'){
+  if (stat == 'sum_pergroup'){
     return(samepairs)
   }
-  if (stat == 'avg'){
+  if (stat == 'avg_pergroup'){
     return(avgroupsamepairs)
   }
 
-  if (stat == 'ind'){
+  if (stat == 'sum_perind'){
     return(indsamepairs)
+  }
+
+  if (stat == 'avg_perind'){
+    return(avgind)
   }
 
 }
@@ -425,36 +440,42 @@ same_pairs <- function(partition, attribute, stat ) {
 #'
 #' @param partition A partition (vector)
 #' @param attribute A vector containing the values of the attribute
-#' @param stat The statistic to compute : 'avg' for the average, 'sum' for the sum, 'ind' for the number of ties
+#' @param stat The statistic to compute : 'avg_pergroup' for the average per group , 'sum_pergroup' for the sum, 'sum_perind' and 'avg_perind' for the number of ties per individuals
 #' each individual has in its group.
 #' @return The statisic chosen in stat
+#' @export
 #' @examples
 #' p <- c(1,2,2,3,3,4,4,4,5)
 #' at <- c(0,1,1,1,1,0,0,0,0)
 #' number_ties(p,at,'avg')
 
-number_ties <- function(partition, dyadic_attribute) {
-
-  net_partition <- dyadic_attribute
-  net_partition[dyadic_attribute == 0] <- 1
-  net_partition[dyadic_attribute != 0] <- 0
-  net_partition[is.na(dyadic_attribute)] <- 0
+number_ties <- function(partition, dyadic_attribute, stat) {
+  dist<- as.matrix(dist(partition, diag = T, upper = T))
+  net_partition <- dist
+  net_partition[dist == 0] <- 1
+  net_partition[dist != 0] <- 0
+  net_partition[is.na(dist)] <- 0
   diag(net_partition) <- 0
 
-  numties <- sum(attribute * net_partition) / 2
-  avgroupnumties <- sum(attribute * net_partition) / (2*max(net_partition, na.rm = T))
-  indnumties <- sum( rowSums(attribute * net_partition) > 0 )
+  numties <- sum(dyadic_attribute * net_partition) / 2
+  avgroupnumties <- sum(dyadic_attribute * net_partition) / (2*max(partition, na.rm = T))
+  indnumties <- sum( rowSums(dyadic_attribute * net_partition) > 0 )
+  avgind <- indnumties/length(partition)
 
 
-  if (stat == 'sum'){
+  if (stat == 'sum_pergroup'){
     return(numties)
   }
-  if (stat == 'avg'){
+  if (stat == 'avg_pergroup'){
     return(avgroupnumties)
   }
 
-  if (stat == 'ind'){
+  if (stat == 'sum_perind'){
     return(indnumties)
+  }
+
+  if (stat == 'avg_perind'){
+    return(avgind)
   }
 
 }
@@ -467,9 +488,10 @@ number_ties <- function(partition, dyadic_attribute) {
 #'
 #' @param partition A partition (vector)
 #' @param attribute A vector containing the values of the attribute
-#' @param stat The statistic to compute : 'avg' for the average, 'sum' for the sum, 'ind' for individuals
+#' @param stat The statistic to compute : 'avg_pergroup' for the average, 'sum_pergroup' for the sum, 'sum_perind' and 'avg_perind' for individuals
 #' @param threshold Threshold to determine if 2 individuals attributes values are close
 #' @return The statisic chosen in stat
+#' @export
 #' @examples
 #' p <- c(1,2,2,3,3,4,4,4,5)
 #' at <- c(3,5,23,2,1,0,3,9,2)
@@ -493,17 +515,23 @@ similar_pairs <- function(partition, attribute, stat,  threshold) {
   sameties <- sum(distances * net_partition) / 2
   avgroupsameties <- sum(distances * net_partition) / (2*max(partition, na.rm = T))
   indsameties <- sum( rowSums(distances * net_partition) > 0 )
+  avgind<- indsameties/length(partition)
 
-  if (stat == 'sum'){
+  if (stat == 'sum_pergroup'){
     return(sameties)
   }
-  if (stat == 'avg'){
+  if (stat == 'avg_pergroup'){
     return(avgroupsameties)
   }
 
-  if (stat == 'ind'){
+  if (stat == 'sum_perind'){
     return(indsameties)
   }
+
+  if (stat == 'avg_perind'){
+    return(avgind)
+  }
+
 }
 
 
@@ -514,37 +542,38 @@ similar_pairs <- function(partition, attribute, stat,  threshold) {
 #' CUP
 #'
 #' This function tests a partition statistic against a "conditional uniform partition null hypothesi:
-#' It compares a statistic computed on an observed partition and the same statistic computed on a set of permuted partition  
-#' (partitions with the same group structure as the observed partition, with nodes being permuted). 
-#' 
+#' It compares a statistic computed on an observed partition and the same statistic computed on a set of permuted partition
+#' (partitions with the same group structure as the observed partition, with nodes being permuted).
+#'
 #' This test is similar to Conditional Uniform Graph tests in networks (we translate this into Condtional Uniform Partition tests).
-#' 
+#'
 #'
 #' @param observation A vector giving the observed partition
 #' @param fun A function used to compute a given partition statistic to be computed
-#' @param permutations A matrix, whose lines contain partitions which are permutations of the observed partition. 
+#' @param permutations A matrix, whose lines contain partitions which are permutations of the observed partition.
 #' This argument is NULL by default (in that case, the permutations are created automatically).
-#' @param num.permutations An integer indicating the number of permutations to generate, if they are not already given. 
+#' @param num.permutations An integer indicating the number of permutations to generate, if they are not already given.
 #' 1000 permutations are generated by default.
-#' @return The value of the statistic calculated for the observed partition, 
+#' @return The value of the statistic calculated for the observed partition,
 #' the mean value of the statistic among permuted partitions,
 #' the standard deviation of the statistic among permuted partitions,
 #' the proportion of permutation below the observed statistic,
 #' the proportion of permutation above the observed statistic,
 #' the lower boundary of the 95% CI,
 #' the upper boundary of the 95% CI
+#' @export
 #' @examples
 #' p <- c(1,2,2,3,3,4,4,4,5)
 #' at <- c(0,1,1,1,1,0,0,0,0)
 #'CUP(p,fun=function(x){compute_number_same_pairs(x,at,'avg')})
 
 
-CUP <- function(observation, fun, test.direction, permutations=NULL, num.permutations=1000,) {
+CUP <- function(observation, fun, test.direction, permutations=NULL, num.permutations=1000) {
 
   if (is.null(permutations)) {
     permutations = list()
-      for (i in 1:num.permutations)
-        permutations[[i]] <- order_groupids(sample(observation, replace = F))
+    for (i in 1:num.permutations)
+      permutations[[i]] <- order_groupids(sample(observation, replace = F))
   }
 
   stat_obs <- fun(observation)
@@ -552,7 +581,7 @@ CUP <- function(observation, fun, test.direction, permutations=NULL, num.permuta
 
   stat_sample <- 0:nb_partions
   for(i in 1:nb_partions) {
-      stat_sample[i] <- fun(partition_sample[[i]])
+    stat_sample[i] <- fun(partition_sample[[i]])
   }
 
   minnum <- quantile(stat_sample, probs = 0.05)
@@ -575,7 +604,7 @@ CUP <- function(observation, fun, test.direction, permutations=NULL, num.permuta
               prop_above = p2,
               min_CI_95 = minnum,
               max_CI_95 = maxnum)
-              #p.value = p_num)
+  #p.value = p_num)
 
   return(res)
 }

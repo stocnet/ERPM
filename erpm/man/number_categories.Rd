@@ -11,7 +11,7 @@ number_categories(partition, attribute, stat, category)
 
 \item{attribute}{A vector containing the values of the attribute}
 
-\item{stat}{The statistic to compute : 'avg' for the sum of proportion and 'sum' for the total number}
+\item{stat}{The statistic to compute : 'avg' for the sum of proportion per group and 'sum' for the total number}
 
 \item{category}{The category to consider or category = 'all' if all categories have to be considered}
 }
@@ -26,5 +26,5 @@ a category.
 \examples{
 p <- c(1,2,2,3,3,4,4,4,5)
 at <- c(1,0,0,0,1,1,0,0,1)
-number_categories(p,at,sum,'all')
+number_categories(p,attr1,'avg','all')
 }

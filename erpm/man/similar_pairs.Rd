@@ -11,7 +11,7 @@ similar_pairs(partition, attribute, stat, threshold)
 
 \item{attribute}{A vector containing the values of the attribute}
 
-\item{stat}{The statistic to compute : 'avg' for the average, 'sum' for the sum, 'ind' for individuals}
+\item{stat}{The statistic to compute : 'avg_pergroup' for the average, 'sum_pergroup' for the sum, 'sum_perind' and 'avg_perind' for individuals}
 
 \item{threshold}{Threshold to determine if 2 individuals attributes values are close}
 }
