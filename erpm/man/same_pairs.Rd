@@ -11,10 +11,11 @@ same_pairs(partition, attribute, stat)
 
 \item{attribute}{A vector containing the values of the attribute}
 
-\item{stat}{The statistic to compute : 'avg' for the average, 'sum' for the sum, 'ind' for individuals}
+\item{stat}{The statistic to compute : 'avg_pergroup' for the average, 'sum_pergroup' for the sum,  'sum_perind' and 'avg_perind'  for the number of ties per individual
+each individual has in its group.}
 }
 \value{
-The statisic chosen in stat
+The statistic chosen in stat
 }
 \description{
 This function computes the total number, the average number having the same value of a categorical variable

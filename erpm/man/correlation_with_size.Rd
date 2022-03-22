@@ -11,7 +11,7 @@ correlation_with_size(partition, attribute, categorical)
 
 \item{attribute}{A vector containing the values of the attribute}
 
-\item{categorical}{Boolean (True or False) indicating if the attribute is categorical}
+\item{categorical}{A Boolean (True or False) indicating if the attribute is categorical}
 }
 \value{
 A number corresponding to the correlation coefficient if the attribute is numerical or

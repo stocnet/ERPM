@@ -4,20 +4,21 @@
 \alias{number_ties}
 \title{Same pairs of individuals in a partition}
 \usage{
-number_ties(partition, attribute)
+number_ties(partition, dyadic_attribute, stat)
 }
 \arguments{
 \item{partition}{A partition (vector)}
 
-\item{attribute}{A vector containing the values of the attribute}
+\item{stat}{The statistic to compute : 'avg_pergroup' for the average per group , 'sum_pergroup' for the sum, 'sum_perind' and 'avg_perind' for the number of ties per individuals
+each individual has in its group.}
 
-\item{stat}{The statistic to compute : 'avg' for the average, 'sum' for the sum, 'ind' for individuals}
+\item{attribute}{A vector containing the values of the attribute}
 }
 \value{
 The statisic chosen in stat
 }
 \description{
-This function ?????
+This function computes the number of ties.
 }
 \examples{
 p <- c(1,2,2,3,3,4,4,4,5)

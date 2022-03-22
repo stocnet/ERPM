@@ -1,5 +1,5 @@
 ######################################################################
-## Simulation and estimation of Exponential Random Partition Models ## 
+## Simulation and estimation of Exponential Random Partition Models ##
 ## Functions for exact model calculations                           ##
 ## Author: Marion Hoffman                                           ##
 ######################################################################
@@ -10,18 +10,26 @@
 #library(numbers)
 #library(combinat)
 
+#' Exact estimates number of groups
+#'
+#'
+#' @param num.nodes
+#' @param pmin
+#' @param pmax
+#' @param pmax
+
 exactestimates_numgroups <- function(num.nodes, pmin, pmax, pinc) {
-  
+
   allm <- 2:(num.nodes-1)
   allestimates <- rep(0,num.nodes-2)
-  
+
   for(m in 1:length(allm)) {
     m.obs <- allm[m]
     print(m.obs)
-    
+
     allparameters <- seq(pmin,pmax,pinc)
     alllogLs <- rep(0,length(allparameters))
-  
+
     for(i in 1:length(allparameters)) {
       alpha <- allparameters[i]
       numerator <- exp(alpha*m.obs)
@@ -30,19 +38,31 @@ exactestimates_numgroups <- function(num.nodes, pmin, pmax, pinc) {
       #print(paste("denominator",denominator))
       alllogLs[i] <- log(numerator) - log(denominator)
     }
-    
+
     allestimates[m] <- allparameters[which(alllogLs == max(alllogLs))[1]]
   }
-  
+
   plot(allm, allestimates, main = "estimates for different number of groups observed (N=10)")
-  
+
 }
+
+
+#' Plot likelihood of number groups
+#'
+#'
+#' @param m.nodes A partition (vector)
+#' @param num.nodes
+#' @param pmin Node set (data frame)
+#' @param pmax Effects/sufficient statistics (list with a vector "names", and a vector "objects")
+#' @param pinc Objects used for statistics calculation (list with a vector "name", and a vector "object")
+
+
 
 plot_numgroups_likelihood <- function(m.obs, num.nodes, pmin, pmax, pinc) {
 
   allparameters <- seq(pmin,pmax,pinc)
   alllogLs <- rep(0,length(allparameters))
-  
+
   for(i in 1:length(allparameters)) {
     alpha <- allparameters[i]
     numerator <- exp(alpha*m.obs)
@@ -51,20 +71,27 @@ plot_numgroups_likelihood <- function(m.obs, num.nodes, pmin, pmax, pinc) {
     print(paste("denominator",denominator))
     alllogLs[i] <- numerator / denominator
   }
-  
+
   plot(allparameters, alllogLs, main="log likelihood")
-  
+
 }
+
+
+#' Recursive function to compute the value of the denominator
+#'
+#'
+#' @param num.nodes
+#' @param alpha Node set (data frame)
 
 ## recursive function to compute the value of the denominator
 compute_numgroups_denominator <- function( num.nodes, alpha){
-  
+
   # if no nodes, by convention we return 1
   if(num.nodes == 0) {
     return(1)
-    
+
   } else {
-    
+
     n <- num.nodes - 1
     sum <- 0
     for(k in 0:n){
@@ -76,17 +103,22 @@ compute_numgroups_denominator <- function( num.nodes, alpha){
         sum <- sum + dim(combn(n,k))[2]*compute_numgroups_denominator(n-k, alpha)
       }
     }
-    
+
     return(exp(alpha)*sum)
   }
-  
+
 }
+#' Plot the average size distribution
+#'
+#'
+#' @param nmin A partition (vector)
+#' @param nmax
 
 plot_averagesizes <- function(nmin, nmax, ninc) {
-  
+
   allns <- seq(nmin,nmax,ninc)
   allsizes <- rep(0,length(allns))
-  
+
   for(i in 1:length(allns)) {
     n <- allns[i]
     size <- compute_averagesize(n)
@@ -94,20 +126,26 @@ plot_averagesizes <- function(nmin, nmax, ninc) {
     print(paste("average size",size))
     allsizes[i] <- size
   }
-  
+
   plot(allns, allsizes, main="average size for a random partition depending on the number of nodes")
-  
+
 }
+
+
+#' Recursive function to compute the value of the denominator
+#'
+#'
+#' @param num.nodes
 
 ## recursive function to compute the value of the denominator
 compute_averagesize <- function( num.nodes){
-  
+
   # if no nodes, by convention we return 1
   if(num.nodes == 1) {
     return(1)
-    
+
   } else {
-    
+
     n <- num.nodes - 1
     sum <- 0
 
@@ -120,13 +158,21 @@ compute_averagesize <- function( num.nodes){
         sum <- sum + dim(combn(n,k))[2] * bell(n-k) * (n+1) / (1/bell(n-k) + (n-k)/compute_averagesize(n-k) )
       }
     }
-    
+
     return(sum/bell(num.nodes))
   }
-  
+
 }
 
 
+#' Plot likelihood of number groups
+#'
+#'
+#' @param alpha
+#' @param stat
+#' @param n
+#' @param smin
+#' @param smax
 
 # Estimation basic model with size constraint
 calculate_proba_Dirichlet_restricted <- function(alpha,stat,n,smin,smax){
@@ -167,9 +213,9 @@ calculate_denominator_Dirichlet_restricted <- function(n,smin,smax,alpha, result
         }
       }
       results[[n+1]] <- sum
-      return(list(den=sum,res=results))  
+      return(list(den=sum,res=results))
     }
-    
+
   }
 }
 
@@ -177,4 +223,4 @@ calculate_denominator_Dirichlet_restricted <- function(n,smin,smax,alpha, result
 #optimize(f = function(x){ return(calculate_proba_restricted(x,14,58,3,5))},
 #         interval = c(-17,10),
 #         maximum=T)
-  
+
