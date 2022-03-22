@@ -11,14 +11,22 @@
 computeStatistics <- function (partition, nodes, effects, objects){
   
   num.groups <- max(partition)
-  num.nodes = nrow(nodes)
+  num.nodes <- nrow(nodes)
   num.effects <- length(effects[[1]])
   statistics <- rep(0,num.effects)
   
+  # create affiliation matrix for calculations
+  affiliation<-matrix(0,nrow=num.nodes,ncol=num.groups)
+  idx<-cbind(1:num.nodes,partition)
+  affiliation[idx]<-1
+  
+  # calculate sizes
+  sizes<-colSums(affiliation)
+  
   # find isolates and groups
-  isolates <- as.vector(which(table(partition)==1))
+  isolates <- which(sizes==1)
   if(length(isolates) == 0) isolates <- NULL
-  groups <- as.vector(which(table(partition)>1))
+  groups <- which(sizes>1)
   if(length(groups) == 0) groups <- NULL
   # isolates <- c()
   # groups <- c()
@@ -30,11 +38,7 @@ computeStatistics <- function (partition, nodes, effects, objects){
   #   }
   # }
   
-  # calculate sizes
-  sizes <- as.vector(table(partition))
   
-  # create affiliation matrix for calculations
-  affiliation <- as.matrix(table(data.frame(actor = 1:num.nodes, group= partition)))
   adjacency <- affiliation %*% t(affiliation)
   
   num_dyads <- (sizes*(sizes - 1)) / 2
@@ -65,8 +69,8 @@ computeStatistics <- function (partition, nodes, effects, objects){
     # TODO DIVISER PAR DEUX
     if(effect.name == "num_ties") {
       sum <- 0
-      for(g in 1:max(partition)){
-        sum <- sum + length(which(partition==g))*(length(which(partition==g))-1)
+      for(g in 1:num.groups) { 
+        sum <- sum + sizes[g]*(sizes[g]-1)
       }
       statistics[e] <- sum
     }
@@ -74,8 +78,8 @@ computeStatistics <- function (partition, nodes, effects, objects){
     # --------- NUM GROUPS 3 -----------
     if(effect.name == "num_groups_3") {
       sum <- 0
-      for(g in 1:max(partition)){
-        size <- length(which(partition==g))
+      for(g in 1:num.groups){ 
+        size <- sizes[g]
         sum <- sum + (size == 3)
       }
       statistics[e] <- sum
@@ -84,8 +88,8 @@ computeStatistics <- function (partition, nodes, effects, objects){
     # --------- NUM GROUPS 4 -----------
     if(effect.name == "num_groups_4") {
       sum <- 0
-      for(g in 1:max(partition)){
-        size <- length(which(partition==g))
+      for(g in 1:num.groups){
+        size <- sizes[g]
         sum <- sum + (size == 4)
       }
       statistics[e] <- sum
@@ -94,8 +98,8 @@ computeStatistics <- function (partition, nodes, effects, objects){
     # --------- NUM GROUPS 5 -----------
     if(effect.name == "num_groups_5") {
       sum <- 0
-      for(g in 1:max(partition)){
-        size <- length(which(partition==g))
+      for(g in 1:num.groups){
+        size <- sizes[g]
         sum <- sum + (size == 5)
       }
       statistics[e] <- sum
@@ -104,8 +108,8 @@ computeStatistics <- function (partition, nodes, effects, objects){
     # --------- NUM GROUPS 6 -----------
     if(effect.name == "num_groups_6") {
       sum <- 0
-      for(g in 1:max(partition)){
-        size <- length(which(partition==g))
+      for(g in 1:num.groups){ 
+        size <- sizes[g] 
         sum <- sum + (size == 6)
       }
       statistics[e] <- sum
@@ -113,19 +117,19 @@ computeStatistics <- function (partition, nodes, effects, objects){
     
     # --------- NUM GROUPS x PRESENT NODES -----------
     if(effect.name == "num_groups_x_num_nodes") {
-      statistics[e] <- max(partition) * num.nodes
+      statistics[e] <- num.groups * num.nodes 
     }
     
     # --------- NUM GROUPS x LOG OF PRESENT NODES -----------
     if(effect.name == "num_groups_x_log_num_nodes") {
-      statistics[e] <- max(partition) * log(num.nodes)
+      statistics[e] <- num.groups * log(num.nodes) 
     }
     
     # --------- NUM TRIANGLES -----------
     if(effect.name == "num_triangles") {
       sum <- 0
-      for(g in 1:max(partition)){
-        size <- length(which(partition==g))
+      for(g in 1:num.groups){ 
+        size <- sizes[g] 
         if(size == 3) sum <- sum + 1
         if(size > 3) sum <- sum + dim(combn(size,3))[2]
       }
@@ -135,8 +139,8 @@ computeStatistics <- function (partition, nodes, effects, objects){
     # --------- NUM FOURS -----------
     if(effect.name == "num_fours") {
       sum <- 0
-      for(g in 1:max(partition)){
-        size <- length(which(partition==g))
+      for(g in 1:num.groups){ 
+        size <- sizes[g] 
         if(size == 4) sum <- sum + 1
         if(size > 4) sum <- sum + dim(combn(size,4))[2]
       }
@@ -146,8 +150,8 @@ computeStatistics <- function (partition, nodes, effects, objects){
     # --------- NUM FIVES -----------
     if(effect.name == "num_fives") {
       sum <- 0
-      for(g in 1:max(partition)){
-        size <- length(which(partition==g))
+      for(g in 1:num.groups){ 
+        size <- sizes[g]
         if(size == 5) sum <- sum + 1
         if(size > 5) sum <- sum + dim(combn(size,5))[2]
       }
@@ -159,8 +163,8 @@ computeStatistics <- function (partition, nodes, effects, objects){
       sum <- 0
       lambda <- 2
       allcounts <- rep(0,length(partition)-2)
-      for(g in 1:max(partition)){
-        size <- length(which(partition==g))
+      for(g in 1:num.groups){
+        size <- sizes[g] 
         for(s in 3:length(partition)){
           if(size == s) allcounts[s-2] <- allcounts[s-2] + 1
           if(size > s) allcounts[s-2] <- allcounts[s-2] + dim(combn(size,s))[2]
@@ -186,7 +190,7 @@ computeStatistics <- function (partition, nodes, effects, objects){
     if(effect.name == "degree2") {
       sum <- 0
       for(a in 1:length(partition)){
-        sum <- sum + length(which(partition == partition[a]))^2
+        sum <- sum + sizes[partitions[a]]^2 
       }
       statistics[e] <- sum
     }
@@ -195,7 +199,7 @@ computeStatistics <- function (partition, nodes, effects, objects){
     if(effect.name == "av_degree") {
       sum <- 0
       for(a in 1:length(partition)){
-        sum <- sum + length(which(partition == partition[a]))
+        sum <- sum + sizes[partitions[a]] 
       }
       statistics[e] <- sum/num.nodes
     }
@@ -204,7 +208,7 @@ computeStatistics <- function (partition, nodes, effects, objects){
     if(effect.name == "av_degree2") {
       sum <- 0
       for(a in 1:length(partition)){
-        sum <- sum + length(which(partition == partition[a]))^2
+        sum <- sum + sizes[partitions[a]]^2 
       }
       statistics[e] <- sum/num.nodes
     }
@@ -213,8 +217,8 @@ computeStatistics <- function (partition, nodes, effects, objects){
     # --------- PRODUCT SIZES -----------
     if(effect.name == "product_sizes") {
       product <- 1
-      for(g in 1:max(partition)){
-        product <- product * length(which(partition==g))
+      for(g in 1:num.groups){ 
+        product <- product * sizes[g] 
       }
       statistics[e] <- product
     }
@@ -223,7 +227,7 @@ computeStatistics <- function (partition, nodes, effects, objects){
     if(effect.name == "sum_log_factorials") {
       sum <- 1
       for(g in 1:max(partition)){
-        s <- length(which(partition==g))
+        s <- sizes[g] 
         if(s>2) {
           sum <- sum + log( factorial(s-1) )
         }
@@ -239,7 +243,7 @@ computeStatistics <- function (partition, nodes, effects, objects){
             net <- objects[[o]][[2]]
           }
         }
-        statistics[e] <- sum(1/2 * adjacency * net) 
+        statistics[e] <- sum(1/2 * adjacency * net)
       }else{
         statistics[e] <- 0
       }
@@ -254,9 +258,10 @@ computeStatistics <- function (partition, nodes, effects, objects){
           if(objects[[o]][[1]] == object.name){
             net <- objects[[o]][[2]]
           }
-        }
-        att <- which(colnames(nodes) == object2.name)
-        d <- as.matrix(dist(as.numeric(nodes[,att])))
+        }      
+        #d <- as.matrix(dist(nodes[,object2.name]))
+        d<-dist(nodes[,object2.name])
+        d<-as.matrix(d)
         statistics[e] <- sum(1/2 * adjacency * net * d)
       }else{
         statistics[e] <- 0
@@ -305,7 +310,7 @@ computeStatistics <- function (partition, nodes, effects, objects){
       }
       
     }
-
+    
     # --------- ATTRIBUTE ISOLATION -----------
     if(effect.name == "attisolation") {
       if(length(isolates) > 0) {
@@ -342,7 +347,7 @@ computeStatistics <- function (partition, nodes, effects, objects){
       sum <- 0
       
       for(a in 1:num.nodes){
-        sum <- sum + nodes[a,att]*length(which(partition == partition[a]))
+        sum <- sum + nodes[a,att]* sizes[partition[a]] 
       }
       
       statistics[e] <- sum
@@ -351,7 +356,6 @@ computeStatistics <- function (partition, nodes, effects, objects){
     # --------- HOMOPHILY:SAME -----------
     if(effect.name == "same") {
       if(length(groups) > 0) {
-        att <- which(colnames(nodes) == object.name)
         # num.same_total <- 0
         # for(g in groups){
         #   members <- which(partition == g)
@@ -364,23 +368,24 @@ computeStatistics <- function (partition, nodes, effects, objects){
         #   num.same_total <- num.same_total + num.same/length(members)
         # }
         # statistics[e] <- num.same_total
-        att.nodes <- factor(nodes[,att])
-        d <- as.matrix(dist(as.numeric(att.nodes)))
+        #d <- as.matrix(dist(nodes[,object.name]))
+        d<-dist(nodes[,object.name])
+        d<-as.matrix(d)
         d <- d==0
         diag(d) <- 0
         statistics[e] <- sum(1/2 * adjacency * d)
       } else {
         statistics[e] <- 0
       }
-     
+      
     }
     
     # --------- HOMOPHILY:SAME NORMALIZED -----------
     if(effect.name == "same_norm") {
       if(length(groups) > 0) {
-        att <- which(colnames(nodes) == object.name)
-        att.nodes <- factor(nodes[,att])
-        d <- as.matrix(dist(as.numeric(att.nodes)))
+        #d <- as.matrix(dist(nodes[,object.name]))
+        d<-dist(nodes[,object.name])
+        d<-as.matrix(d)
         d <- d==0
         diag(d) <- 0
         statistics[e] <- sum(1/2 * adjacency_norm * d)
@@ -389,11 +394,10 @@ computeStatistics <- function (partition, nodes, effects, objects){
       }
       
     }
-
+    
     # --------- HOMOPHILY:DIFF -----------
     if(effect.name == "diff") {
       if(length(groups) > 0){
-        att <- which(colnames(nodes) == object.name)
         # diff_total <- 0
         # for(g in groups){
         #   members <- which(partition == g)
@@ -406,7 +410,9 @@ computeStatistics <- function (partition, nodes, effects, objects){
         #   diff_total <- diff_total + diff/length(members)
         # }
         # statistics[e] <- diff_total
-        d <- as.matrix(dist(as.numeric(nodes[,att])))
+        #d <- as.matrix(dist(nodes[,object.name]))
+        d<-dist(nodes[,object.name])
+        d<-as.matrix(d)
         statistics[e] <- sum(1/2 * adjacency * d)
       }else{
         statistics[e] <- 0
@@ -417,8 +423,9 @@ computeStatistics <- function (partition, nodes, effects, objects){
     # --------- HOMOPHILY:DIFF NORMALIZED -----------
     if(effect.name == "diff_norm") {
       if(length(groups) > 0){
-        att <- which(colnames(nodes) == object.name)
-        d <- as.matrix(dist(as.numeric(nodes[,att])))
+        #d <- as.matrix(dist(nodes[,object.name]))
+        d<-dist(nodes[,object.name])
+        d<-as.matrix(d)
         stat <- stat + sum(1/2 * adjacency_norm * d)
       }else{
         statistics[e] <- 0
@@ -429,12 +436,11 @@ computeStatistics <- function (partition, nodes, effects, objects){
     if(effect.name == "diff_ind") {
       if(length(groups) > 0){
         stat <- 0
-        att <- which(colnames(nodes) == object.name)
         for(a in 1:num.nodes){
           g <- partition[a]
-          others <- which(partition[-a] == g)
+          others <- which(partition == g & 1:num.nodes != a)
           if(length(others) > 0) {
-            diffs <- abs(as.numeric(nodes[a,att]) - as.numeric(nodes[others,att]))
+            diffs <- abs(nodes[a,object.name] - nodes[others,object.name])
             stat <- stat + min(diffs)
           }
         }
@@ -447,12 +453,11 @@ computeStatistics <- function (partition, nodes, effects, objects){
     # --------- HOMOPHILY:DIFF PER INDIVIDUAL NORMALIZED-----------
     if(effect.name == "diff_ind_norm") {
       if(length(groups) > 0){
-        att <- which(colnames(nodes) == object.name)
         for(a in 1:num.nodes){
           g <- partitions[a]
-          others <- which(partitions[-a] == g)
+          others <- which(partition == g & 1:num.nodes != a)
           if(length(others) > 0) {
-            diffs <- abs(as.numeric(nodes[a,att]) - as.numeric(nodes[others,att]))
+            diffs <- abs(nodes[a,object.name] - nodes[others,object.name])
             stat <- stat + min(diffs) / (length(others)+1)
           }
         }
@@ -464,11 +469,10 @@ computeStatistics <- function (partition, nodes, effects, objects){
     # --------- HOMOPHILY:RANGE -----------
     if(effect.name == "range") {
       if(length(groups) > 0){
-        att <- which(colnames(nodes) == object.name)
         sum <- 0
         for(g in groups){
           members <- which(partition == g)
-          sum <- sum + abs(max(nodes[members,att]) - min(nodes[members,att]))
+          sum <- sum + abs(max(nodes[members,object.name]) - min(nodes[members,object.name]))
         }
         statistics[e] <- sum
       }else{
@@ -480,8 +484,7 @@ computeStatistics <- function (partition, nodes, effects, objects){
     # --------- HOMOPHILY:PROPORTION -----------
     if(effect.name == "proportion") {
       if(length(groups) > 0){
-        att <- which(colnames(nodes) == object.name)
-        attribute <- as.numeric(factor(nodes[,att]))
+        attribute <- as.numeric(factor(nodes[,object.name]))
         minatt <- min(attribute)
         maxatt <- max(attribute)
         sum <- 0
@@ -501,8 +504,7 @@ computeStatistics <- function (partition, nodes, effects, objects){
     # --------- HOMOPHILY:NUM GROUPS SAME -----------
     if(effect.name == "num_groups_same") {
       if(length(groups) > 0){
-        att <- which(colnames(nodes) == object.name)
-        attribute <- as.numeric(factor(nodes[,att]))
+        attribute <- as.numeric(factor(nodes[,object.name]))
         sum <- 0
         for(g in groups){
           members <- which(partition == g)
@@ -514,11 +516,10 @@ computeStatistics <- function (partition, nodes, effects, objects){
       }
       
     }
-   
+    
     # ---------GROUP: NUMBER_ATTRIBUTES -----------
     if(effect.name == "number_attributes") {
       if(length(groups) > 0) {
-        att <- which(colnames(nodes) == object.name)
         # total_sum <- 0
         # lev <- levels(nodes[,att])
         # for(g in groups){
@@ -536,7 +537,7 @@ computeStatistics <- function (partition, nodes, effects, objects){
         # }
         # statistics[e] <- total_sum
         d <- unlist(lapply(1:num.groups,
-                           function(x){return(length(unique(nodes[which(partition==x),att])))}))
+                           function(x){return(length(unique(nodes[which(partition==x),object.name])))}))
         statistics[e] <- sum(d)
       } else {
         statistics[e] <- 0
@@ -669,7 +670,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         statistics[e,o] <- nums.groups[o] * log(sum(presence.tables[,o]))
       }
     }
-
+    
     # --------- SIZES_SQUARED -----------
     if(effect.name == "sizes_squared") {
       for(o in 1:num.obs){
@@ -683,7 +684,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         statistics[e,o] <- sum(sizes[[o]]^2) / nums.groups[o]
       }
     }
-
+    
     # --------- TIE -----------
     if(effect.name == "tie") {
       for(ob in 1:length(objects)){
@@ -709,7 +710,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
       for(o in 1:num.obs){
         if(length(groups[[o]]) > 0) {
           att <- which(colnames(nodes) == object2.name)
-          d <- as.matrix(dist(as.numeric(nodes[,att])))
+          d <- as.matrix(dist(nodes[,att]))
           d <- d[as.logical(presence.tables[,o]),as.logical(presence.tables[,o])]
           net2 <- net[as.logical(presence.tables[,o]),as.logical(presence.tables[,o])]
           statistics[e,o] <- sum(1/2 * adjacencies[[o]] * net2 * d)
@@ -802,7 +803,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         }
       }
     }
-
+    
     # --------- ALTER -----------
     if(effect.name == "alter") {
       att <- which(colnames(nodes) == object.name)
@@ -924,7 +925,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         }
       }
     }
-
+    
     # --------- HOMOPHILY:PROPORTION -----------
     if(effect.name == "proportion") {
       att <- which(colnames(nodes) == object.name)
@@ -964,7 +965,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
       for(o in 1:num.obs){
         if(length(groups[[o]]) > 0) {
           d <- unlist(lapply(1:nums.groups[o],
-                           function(x){return(length(unique(nodes[which(partition==x),att])))}))
+                             function(x){return(length(unique(nodes[which(partition==x),att])))}))
           statistics[e,o] <- sum(d)
         }
       }
