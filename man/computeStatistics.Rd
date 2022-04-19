@@ -7,13 +7,13 @@
 computeStatistics(partition, nodes, effects, objects)
 }
 \arguments{
-\item{partition}{A partition (vector)}
+\item{partition}{vector, A partition}
 
-\item{nodes}{Node set (data frame)}
+\item{nodes}{data frame, Node set}
 
-\item{effects}{Effects/sufficient statistics (list with a vector "names", and a vector "objects")}
+\item{effects}{list with a vector "names", and a vector "objects", Effects/sufficient statistics}
 
-\item{objects}{Objects used for statistics calculation (list with a vector "name", and a vector "object")}
+\item{objects}{list with a vector "name", and a vector "object", Objects used for statistics calculation}
 }
 \value{
 the statistics

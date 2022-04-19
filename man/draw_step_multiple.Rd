@@ -22,6 +22,14 @@ draw_step_multiple(
 \arguments{
 \item{theta}{model parameters}
 
+\item{current.partitions}{XXX}
+
+\item{current.logit}{XXX}
+
+\item{current.z.contributions}{XXX}
+
+\item{current.z}{XXX}
+
 \item{presence.tables}{matrix indicating which actors were present for each observations (mandatory)}
 
 \item{nodes}{node set (data frame)}

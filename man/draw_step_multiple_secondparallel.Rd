@@ -24,6 +24,14 @@ draw_step_multiple_secondparallel(
 \arguments{
 \item{theta}{model parameters}
 
+\item{current.partitions}{XXX}
+
+\item{current.logit}{XXX}
+
+\item{current.z.contributions}{XXX}
+
+\item{current.z}{XXX}
+
 \item{presence.tables}{matrix indicating which actors were present for each observations (mandatory)}
 
 \item{nodes}{node set (data frame)}
@@ -37,6 +45,10 @@ draw_step_multiple_secondparallel(
 \item{sizes.allowed}{vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)}
 
 \item{sizes.simulated}{vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)}
+
+\item{parallel}{XXX}
+
+\item{cpus}{XXX}
 }
 \value{
 A list

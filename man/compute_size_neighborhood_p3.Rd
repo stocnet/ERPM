@@ -2,16 +2,16 @@
 % Please edit documentation in R/functions_Metropolis.R
 \name{compute_size_neighborhood_p3}
 \alias{compute_size_neighborhood_p3}
-\title{compute size neighborhood phase 3}
+\title{compute size neighborhood 3}
 \usage{
 compute_size_neighborhood_p3(partition)
 }
 \arguments{
-\item{partition}{a partition}
+\item{partition}{XXX}
 }
 \value{
 A list
 }
 \description{
-compute size neighborhood phase 3
+compute size neighborhood 3
 }

@@ -2,13 +2,18 @@
 % Please edit documentation in R/functions_Metropolis.R
 \name{reachable_p3}
 \alias{reachable_p3}
-\title{reachable phase 3}
+\title{reachable neighborhood 3}
 \usage{
 reachable_p3(partition1, partition2)
+}
+\arguments{
+\item{partition1}{XXX}
+
+\item{partition2}{XXX}
 }
 \value{
 A boolean
 }
 \description{
-reachable phase 3
+reachable neighborhood 3
 }

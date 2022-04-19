@@ -6,6 +6,13 @@
 \usage{
 reachable(i, partition1, partition2)
 }
+\arguments{
+\item{i}{XXX}
+
+\item{partition1}{XXX}
+
+\item{partition2}{XXX}
+}
 \value{
 A boolean
 }
