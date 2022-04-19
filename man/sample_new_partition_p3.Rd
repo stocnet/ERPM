@@ -2,13 +2,18 @@
 % Please edit documentation in R/functions_Metropolis.R
 \name{sample_new_partition_p3}
 \alias{sample_new_partition_p3}
-\title{sample new partition phase 3}
+\title{sample partition neighborhood 3}
 \usage{
 sample_new_partition_p3(current.partition, size_neighborhood)
 }
+\arguments{
+\item{current.partition}{XXX}
+
+\item{size_neighborhood}{XXX}
+}
 \value{
-A partition
+A list
 }
 \description{
-sample new partition phase 3
+sample partition neighborhood 3
 }

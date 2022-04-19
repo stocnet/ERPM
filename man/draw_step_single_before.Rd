@@ -20,6 +20,12 @@ draw_step_single_before(
 \arguments{
 \item{theta}{model parameters}
 
+\item{current.partition}{XXX}
+
+\item{current.logit}{XXX}
+
+\item{current.z}{XXX}
+
 \item{nodes}{node set (data frame)}
 
 \item{effects}{effects/sufficient statistics (list with a vector "names", and a vector "objects")}

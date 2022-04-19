@@ -11,6 +11,15 @@ compute_size_neighborhood(
   sizes.simulated = NULL
 )
 }
+\arguments{
+\item{i}{XXX}
+
+\item{partition2}{XXX}
+
+\item{sizes.simulated}{XXX}
+
+\item{partitions}{XXX}
+}
 \value{
 A list
 }
