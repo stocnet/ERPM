@@ -39,9 +39,7 @@
 #' @param parallel2 = F,  whether there should be several phases 2 run in parallel
 #' @param cpus = 1 ,how many cores can be used
 #' @return A list estimates 3 phases
-
-
-
+#' @export
 estimate_ERPM <- function(partition, # observed partition
                           nodes, # nodeset (data frame)
                           objects, # objects used for statistics calculation (list with a vector "name", and a vector "object")
@@ -184,7 +182,7 @@ estimate_ERPM <- function(partition, # observed partition
 #' @param sizes.allowed = NULL,  vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated = NULL,  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @return A estimates phase 3
-
+#' @export
 estimate_ERPM_p3 <- function(partition,
                           nodes,
                           objects,
@@ -236,6 +234,40 @@ estimate_ERPM_p3 <- function(partition,
 
 ## Estimation ERPM for multiple observations:
 
+#' Estimate ERPM for multiple observations
+#'
+#'
+#' @param partitions observed partitions
+#' @param presence.tables XXX
+#' @param nodes nodeset (data frame)
+#' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
+#' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
+#' @param startingestimates first guess for the model parameters
+#' @param multiplicationfactor = 30,  for now, useless
+#' @param gainfactor = 0.1, numeric used to decrease the size of steps made in the Newton optimization
+#' @param a.scaling = 0.2,  numeric used to reduce the influence of non-diagonal elements in the scaling matrix (for stability)
+#' @param r.truncation.p1 = 2 numeric used to limit extreme values in the covariance matrix (for stability)
+#' @param r.truncation.p2 = 5,  numeric used to limit extreme values in the covariance matrix (for stability)
+#' @param burnin = 30  integer for the number of burn-in steps before sampling
+#' @param thining = 10,  integer for the number of thining steps between sampling
+#' @param length.p1 = 100,  number of samples in phase 1
+#' @param min.iter.p2 = NULL,  minimum number of sub-steps in phase 2
+#' @param max.iter.p2 = NULL,  maximum number of sub-steps in phase 2
+#' @param multiplication.iter.p2 = 100, value for the lengths of sub-steps in phase 2 (multiplied by  2.52^k)
+#' @param num.steps.p2 = 6,  number of optimisation steps in phase 2
+#' @param length.p3 = 1000, number of samples in phase 3
+#' @param neighborhood = c(0.7,0.3,0),  way of choosing partitions: probability vector (actors swap, merge/division, single actor move)
+#' @param fixed.estimates = NULL, if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
+#' @param sizes.allowed = NULL,  vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
+#' @param sizes.simulated = NULL,  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+#' @param double.averaging = F,  option to average the statistics sampled in each sub-step of phase 2
+#' @param inv.zcov = NULL,  initial value of the inverted covariance matrix (if a phase 3 was run before) to bypass the phase 1
+#' @param inv.scaling = NULL,  initial value of the inverted scaling matrix (if a phase 3 was run before) to bypass the phase 1
+#' @param parallel = F,  whether the phase 1 and 3 should be parallelized
+#' @param parallel2 = F,  whether there should be several phases 2 run in parallel
+#' @param cpus = 1 ,how many cores can be used
+#' @return A list estimates 3 phases
+#' @export
 estimate_multipleERPM <- function(partitions, # observed partitions
                           presence.tables, # matrix indicating which actors were present for each observations (mandatory)
                           nodes, # nodeset (data frame)
@@ -363,40 +395,6 @@ estimate_multipleERPM <- function(partitions, # observed partitions
 
 ## Estimation ERPM for multiple observations, other parallelization (by effect), careful, we need at least as many cpus as effects:
 
-#'Estimation ERPM for multiple observations other parallelization
-#'
-#'
-#' @param partitions observed partitions
-#' @param presence.tables matrix indicating which actors were present for each observations (mandatory)
-#' @param nodes nodeset (data frame)
-#' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
-#' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
-#' @param startingestimates first guess for the model parameters
-#' @param multiplicationfactor = 30,  for now, useless
-#' @param gainfactor = 0.1, numeric used to decrease the size of steps made in the Newton optimization
-#' @param a.scaling = 0.2,  numeric used to reduce the influence of non-diagonal elements in the scaling matrix (for stability)
-#' @param r.truncation.p1 = 2 numeric used to limit extreme values in the covariance matrix (for stability)
-#' @param r.truncation.p2 = 5,  numeric used to limit extreme values in the covariance matrix (for stability)
-#' @param burnin = 30  integer for the number of burn-in steps before sampling
-#' @param thining = 10,  integer for the number of thining steps between sampling
-#' @param length.p1 = 100,  number of samples in phase 1
-#' @param min.iter.p2 = NULL,  minimum number of sub-steps in phase 2
-#' @param max.iter.p2 = NULL,  maximum number of sub-steps in phase 2
-#' @param multiplication.iter.p2 = 100, value for the lengths of sub-steps in phase 2 (multiplied by  2.52^k)
-#' @param num.steps.p2 = 6,  number of optimisation steps in phase 2
-#' @param length.p3 = 1000, number of samples in phase 3
-#' @param neighborhood = c(0.7,0.3,0),  way of choosing partitions: probability vector (actors swap, merge/division, single actor move)
-#' @param fixed.estimates = NULL, if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
-#' @param sizes.allowed = NULL,  vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
-#' @param sizes.simulated = NULL,  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-#' @param double.averaging = F,  option to average the statistics sampled in each sub-step of phase 2
-#' @param inv.zcov = NULL,  initial value of the inverted covariance matrix (if a phase 3 was run before) to bypass the phase 1
-#' @param inv.scaling = NULL,  initial value of the inverted scaling matrix (if a phase 3 was run before) to bypass the phase 1
-#' @param parallel = F, whether the calculation of stats should be parallelized
-#' @param cpus = 1 ,how many cores can be used
-#' @return A list estimates
-
-
 estimate_multipleERPM_secondparallel <- function(partitions, # observed partitions
                                   presence.tables, # matrix indicating which actors were present for each observations (mandatory)
                                   nodes, # nodeset (data frame)
@@ -502,32 +500,8 @@ estimate_multipleERPM_secondparallel <- function(partitions, # observed partitio
 
 
 
-## Estimation ERPM for multiple observations:
+## Estimation ERPM for multiple observations with Bayesian estimation:
 
-#'Estimation ERPM for multiple observations
-#'
-#'
-#' @param partitions observed partitions
-#' @param presence.tables matrix indicating which actors were present for each observations (mandatory)
-#' @param nodes nodeset (data frame)
-#' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
-#' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
-#' @param mean.priors,  means of the normal distributions of prior parameters
-#' @param sd.priors,  standard deviations of the normal distributions of prior parameters
-#' @param start.chains = NULL,  define a list of starting values for parameters
-#' @param burnin.1 = 30, integer for the number of burn-in steps before sampling in the main MCMC chain
-#' @param thining.1 = 10, integer for the number of thining steps between sampling in the main MCMC chain
-#' @param num.chains = 3, number of MChains
-#' @param length.chains = 1000, number of samples of each chain
-#' @param burnin.2 = 30, integer for the number of burn-in steps before sampling int the MCMC to sample partitions
-#' @param neighborhood.partition = c(0.7,0.3,0,0,0,0), way of choosing partitions: probability vector (actors swap, merge/division, single actor move, pair move)
-#' @param neighborhood.augmentation = NULL, standard deviations auround the parameters to draw the augmented distrubtion
-#' @param sizes.allowed = NULL, vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
-#' @param sizes.simulated = NULL, vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-#' @param parallel = F, whether the calculation of stats should be parallelized
-#' @param cpus = 1 , how many cores can be used
-#' @return A list of estimates
-#'
 estimate_multipleBERPM <- function(partitions, # observed partitions
                                   presence.tables, # matrix indicating which actors were present for each observations (mandatory)
                                   nodes, # nodeset (data frame)
