@@ -36,6 +36,10 @@ simulate_thining_single(
 \item{sizes.allowed}{Vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)}
 
 \item{sizes.simulated}{Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)}
+
+\item{burnin}{XXX}
+
+\item{max.thining}{XXX}
 }
 \value{
 A list

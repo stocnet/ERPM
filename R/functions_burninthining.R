@@ -4,7 +4,7 @@
 ## Author: Marion Hoffman                                           ##
 ######################################################################
 
-# SINGLE PARTITION PROCEDURE
+## ------ EXAMINE BURN-IN SEPARATELY ---------
 
 #' Simulate burn in single
 #'
@@ -19,8 +19,7 @@
 #' @param sizes.allowed Vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @return A list with list the draws, the moving.means and the moving means smoothed
-
-
+#' @export
 simulate_burnin_single <- function(partition, # observed partition
                                           theta, # initial model parameters
                                           nodes, # nodeset (data frame)
@@ -75,8 +74,7 @@ simulate_burnin_single <- function(partition, # observed partition
 #' @param parallel False, to run different neighborhoods in parallel
 #' @param cpus Equal to 1
 #' @return all simulations
-
-
+#' @export
 gridsearch_burnin_single <- function(partition, # observed partition
                                             theta, # initial model parameters
                                             nodes, # nodeset (data frame)
@@ -133,6 +131,8 @@ gridsearch_burnin_single <- function(partition, # observed partition
 }
 
 
+## ------ EXAMINE THINING SEPARATELY ---------
+
 #' Simulate thining single
 #'
 #'
@@ -145,12 +145,10 @@ gridsearch_burnin_single <- function(partition, # observed partition
 #' @param neighborhood Way of choosing partitions: probability vector (proba actors swap, proba merge/division, proba single actor move)
 #' @param sizes.allowed Vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-#' @param burnin
-#' @param max.thining
+#' @param burnin XXX
+#' @param max.thining XXX
 #' @return A list
-
-
-
+#' @export
 # SINGLE PARTITION PROCEDURE
 simulate_thining_single <- function(partition, # observed partition
                                           theta, # initial model parameters
@@ -243,7 +241,7 @@ simulate_thining_single <- function(partition, # observed partition
 #' @param parallel False, to run different neighborhoods in parallel
 #' @param cpus Equal to 1
 #' @return all simulations
-
+#' @export
 gridsearch_thining_single <- function(partition, # observed partition
                                             theta, # initial model parameters
                                             nodes, # nodeset (data frame)
@@ -344,7 +342,7 @@ gridsearch_thining_single <- function(partition, # observed partition
 
 
 
-# SINGLE PARTITION PROCEDURE
+## ------ EXAMINE BURN-IN AND THINING TOGETHER ---------
 
 
 #' Simulate burnin thining single
@@ -359,9 +357,9 @@ gridsearch_thining_single <- function(partition, # observed partition
 #' @param neighborhood Way of choosing partitions: probability vector (proba actors swap, proba merge/division, proba single actor move)
 #' @param sizes.allowed Vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-#' @param max.thining
+#' @param max.thining XXX
 #' @return A list
-
+#' @export
 simulate_burninthining_single <- function(partition, # observed partition
                                theta, # initial model parameters
                                nodes, # nodeset (data frame)
@@ -456,7 +454,7 @@ simulate_burninthining_single <- function(partition, # observed partition
 #'
 #' @param partitions Observed partitions
 #' @param theta Initial model parameters
-#' @param presence.tables, # to indicate which nodes were present when
+#' @param presence.tables # to indicate which nodes were present when
 #' @param nodes Node set (data frame)
 #' @param effects Effects/sufficient statistics (list with a vector "names", and a vector "objects")
 #' @param objects Objects used for statistics calculation (list with a vector "name", and a vector "object")
@@ -464,8 +462,9 @@ simulate_burninthining_single <- function(partition, # observed partition
 #' @param neighborhood Way of choosing partitions: probability vector (proba actors swap, proba merge/division, proba single actor move)
 #' @param sizes.allowed Vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-#' @param max.thining
+#' @param max.thining XXX
 #' @return A list
+#' @export
 simulate_burninthining_multiple <- function(partitions, # observed partitions
                                         presence.tables, # to indicate which nodes were present when
                                         theta, # initial model parameters
@@ -570,8 +569,7 @@ simulate_burninthining_multiple <- function(partitions, # observed partitions
 #' @param parallel False, to run different neighborhoods in parallel
 #' @param cpus Equal to 1
 #' @return list
-
-
+#' @export
 gridsearch_burninthining_single <- function(partition, # observed partition
                                       theta, # initial model parameters
                                       nodes, # nodeset (data frame)
@@ -689,7 +687,7 @@ gridsearch_burninthining_single <- function(partition, # observed partition
 #' @param parallel False, to run different neighborhoods in parallel
 #' @param cpus Equal to 1
 #' @return list
-#'
+#' @export
 gridsearch_burninthining_multiple <- function(partitions, # observed partitions
                                             presence.tables, # presence of nodes
                                             theta, # initial model parameters
