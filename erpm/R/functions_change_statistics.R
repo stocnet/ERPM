@@ -1,5 +1,5 @@
 ######################################################################
-## Simulation and estimation of Exponential Random Partition Models ## 
+## Simulation and estimation of Exponential Random Partition Models ##
 ## Main Function to calculate sufficient statistics of partitions   ##
 ## Author: Marion Hoffman                                           ##
 ######################################################################
@@ -8,6 +8,16 @@
 
 
 # Compute complete statistics for single partitions
+
+#' Compute Statistics
+#'
+#'
+#' @param partition vector, A partition
+#' @param nodes data frame, Node set
+#' @param effects list with a vector "names", and a vector "objects", Effects/sufficient statistics
+#' @param objects list with a vector "name", and a vector "object", Objects used for statistics calculation
+#' @return the statistics
+
 computeStatistics <- function (partition, nodes, effects, objects){
   
   num.groups <- max(partition)
@@ -556,13 +566,26 @@ computeStatistics <- function (partition, nodes, effects, objects){
 
 
 # Compute complete statistics for multiple partitions
+
+#' Compute Statistics multiple
+#'
+#'
+#' @param partitions Observed partitions
+#' @param presence.tables, # to indicate which nodes were present when
+#' @param nodes Node set (data frame)
+#' @param effects Effects/sufficient statistics (list with a vector "names", and a vector "objects")
+#' @param objects Objects used for statistics calculation (list with a vector "name", and a vector "object")
+#' @param single.obs equal NULL by default
+#' @return A list
+
+
 computeStatistics_multiple <- function(partitions, presence.tables, nodes, effects, objects, single.obs = NULL){
-  
+
   num.nodes <- nrow(nodes)
   num.obs <- ncol(presence.tables)
   num.effects <- length(effects[[1]])
   statistics <- matrix(0,num.effects,num.obs)
-  
+
   # find isolates, groups, and sizes
   nums.groups <- rep(0,num.obs)
   isolates <- list()
@@ -571,13 +594,13 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
   for(o in 1:num.obs){
     p <- partitions[,o]
     p <- p[as.logical(presence.tables[,o])]
-    
+
     nums.groups[o] <- max(p)
     isolates[[o]] <- as.vector(which(table(p)==1))
     groups[[o]] <- as.vector(which(table(p)>1))
     sizes[[o]] <- as.vector(table(p))
   }
-  
+
   # create adjacency matrices
   adjacencies <- list()
   adjacencies_norm <- list()
@@ -585,38 +608,38 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
     p <- partitions[,o]
     p <- p[as.logical(presence.tables[,o])]
     affiliation <- as.matrix(table(data.frame(actor = 1:length(p), group= p)))
-    
+
     adjacencies[[o]] <- affiliation %*% t(affiliation)
     diag(adjacencies[[o]]) <- 0
-    
+
     num_dyads <- (sizes[[o]]*(sizes[[o]] - 1)) / 2
     num_dyads[num_dyads == 0] <- 1
     adjacencies_norm[[o]] <- affiliation %*% t(affiliation) / num_dyads[p]
     diag(adjacencies_norm[[o]]) <- 0
   }
-  
-  
-  
+
+
+
   for(e in 1:num.effects) {
-    
+
     effect.name <- effects$names[e]
     object.name <- effects$objects[e]
     object2.name <- effects$objects2[e]
-    
+
     # --------- ISOLATES -----------
     if(effect.name == "isolates") {
       for(o in 1:num.obs){
         statistics[e,o] <-length(isolates[[o]])
       }
     }
-    
+
     # --------- NUM GROUPS -----------
     if(effect.name == "num_groups") {
       for(o in 1:num.obs){
         statistics[e,o] <- nums.groups[o]
       }
     }
-    
+
     # --------- NUM GROUPS 3 -----------
     if(effect.name == "num_groups_3") {
       for(o in 1:num.obs){
@@ -626,7 +649,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         }
       }
     }
-    
+
     # --------- NUM GROUPS 4 -----------
     if(effect.name == "num_groups_4") {
       for(o in 1:num.obs){
@@ -636,7 +659,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         }
       }
     }
-    
+
     # --------- NUM GROUPS 5 -----------
     if(effect.name == "num_groups_5") {
       for(o in 1:num.obs){
@@ -646,7 +669,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         }
       }
     }
-    
+
     # --------- NUM GROUPS 6 -----------
     if(effect.name == "num_groups_6") {
       for(o in 1:num.obs){
@@ -654,16 +677,16 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
           size <- length(which(partitions[,o]==g))
           statistics[e,o] <- (size == 6)
         }
-      } 
+      }
     }
-    
+
     # --------- NUM GROUPS x PRESENT NODES -----------
     if(effect.name == "num_groups_x_num_nodes") {
       for(o in 1:num.obs){
         statistics[e,o] <- nums.groups[o] * sum(presence.tables[,o])
-      } 
+      }
     }
-    
+
     # --------- NUM GROUPS x LOG OF PRESENT NODES -----------
     if(effect.name == "num_groups_x_log_num_nodes") {
       for(o in 1:num.obs){
@@ -677,7 +700,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         statistics[e,o] <- sum(sizes[[o]]^2)
       }
     }
-    
+
     # --------- SIZES_SQUARED_NORM -----------
     if(effect.name == "sizes_squared_norm") {
       for(o in 1:num.obs){
@@ -699,7 +722,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         }
       }
     }
-    
+
     # --------- TIE X DIFF -----------
     if(effect.name == "tie_X_diff") {
       for(ob in 1:length(objects)){
@@ -717,7 +740,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         }
       }
     }
-    
+
     # --------- VARIABLE TIE -----------
     if(effect.name == "tie_var") {
       for(ob in 1:length(objects)){
@@ -733,7 +756,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         }
       }
     }
-    
+
     # --------- VARIABLE TIE X DIFF -----------
     if(effect.name == "tie_var_X_diff") {
       for(ob in 1:length(objects)){
@@ -752,7 +775,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         }
       }
     }
-    
+
     # --------- BIPARTITE TIE -----------
     if(effect.name == "bipartite_tie") {
       for(o in 1:length(objects)){
@@ -770,7 +793,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         }
       }
     }
-    
+
     # --------- BIPARTITE GROUP -----------
     if(effect.name == "bipartite_group") {
       for(o in 1:length(objects)){
@@ -790,7 +813,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         }
       }
     }
-    
+
     # --------- ATTRIBUTE ISOLATION -----------
     if(effect.name == "attisolation") {
       for(o in 1:num.obs){
@@ -813,7 +836,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         }
       }
     }
-    
+
     # --------- HOMOPHILY:SAME -----------
     if(effect.name == "same") {
       att <- which(colnames(nodes) == object.name)
@@ -827,7 +850,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         }
       }
     }
-    
+
     # --------- HOMOPHILY:SAME_VAR -----------
     if(effect.name == "same_var") {
       for(ob in 1:length(objects)){
@@ -845,7 +868,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         }
       }
     }
-    
+
     # --------- HOMOPHILY:SAME NORMALIZED -----------
     if(effect.name == "same_norm") {
       att <- which(colnames(nodes) == object.name)
@@ -859,7 +882,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         }
       }
     }
-    
+
     # --------- HOMOPHILY:DIFF -----------
     if(effect.name == "diff") {
       att <- which(colnames(nodes) == object.name)
@@ -870,7 +893,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         }
       }
     }
-    
+
     # --------- HOMOPHILY:DIFF NORMALIZED -----------
     if(effect.name == "diff_norm") {
       att <- which(colnames(nodes) == object.name)
@@ -881,7 +904,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         }
       }
     }
-    
+
     # --------- HOMOPHILY:DIFF PER INDIVIDUAL -----------
     if(effect.name == "diff_ind") {
       att <- which(colnames(nodes) == object.name)
@@ -896,7 +919,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         }
       }
     }
-    
+
     # --------- HOMOPHILY:DIFF PER INDIVIDUAL NORMALIZED -----------
     if(effect.name == "diff_ind_norm") {
       att <- which(colnames(nodes) == object.name)
@@ -911,8 +934,8 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         }
       }
     }
-    
-    
+
+
     # --------- HOMOPHILY:RANGE -----------
     if(effect.name == "range") {
       att <- which(colnames(nodes) == object.name)
@@ -943,7 +966,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         }
       }
     }
-    
+
     # --------- HOMOPHILY:NUM GROUPS SAME -----------
     if(effect.name == "num_groups_same") {
       att <- which(colnames(nodes) == object.name)
@@ -957,8 +980,8 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         }
       }
     }
-    
-    
+
+
     # ---------GROUP: NUMBER_ATTRIBUTES -----------
     if(effect.name == "number_attributes") {
       att <- which(colnames(nodes) == object.name)
@@ -970,8 +993,8 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         }
       }
     }
-    
-    
+
+
     # --------- INERTIA MINUS 1 -----------
     if(effect.name == "inertia_1") {
       for(o in 2:num.obs){
@@ -985,7 +1008,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         }
       }
     }
-    
+
     # --------- INERTIA TOTAL -----------
     if(effect.name == "inertia_total") {
       adj_total <- matrix(0,num.nodes,num.nodes)
@@ -999,7 +1022,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         }
       }
     }
-    
+
     # --------- INTERACTION: INERTIA TOTAL X DIFF -----------
     if(effect.name == "inertia_total_X_diff") {
       att <- which(colnames(nodes) == object2.name)
@@ -1010,28 +1033,28 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
           d <- as.matrix(dist(as.numeric(nodes[,att])))
           adj2 <- matrix(0,num.nodes,num.nodes)
           adj2[as.logical(presence.tables[,o]),  as.logical(presence.tables[,o])]   <- adjacencies[[o]]
-          adj_total <- adj_total + adj2 
+          adj_total <- adj_total + adj2
           statistics[e,o] <- sum(1/2 * adj_total * d)
         }
       }
     }
-    
+
   }
-  
+
   return(statistics)
-  
+
 }
 
 
 
 # # Compute complete statistics for multiple partitions
 # computeStatistics_multiple <- function(partitions, presence.tables, nodes, effects, objects, single.obs = NULL){
-#   
+#
 #   num.nodes <- nrow(nodes)
 #   num.obs <- ncol(presence.tables)
 #   num.effects <- length(effects[[1]])
 #   statistics <- rep(0,num.effects)
-#   
+#
 #   # find isolates, groups, and sizes
 #   nums.groups <- rep(0,num.obs)
 #   isolates <- list()
@@ -1040,13 +1063,13 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #   for(o in 1:num.obs){
 #     p <- partitions[,o]
 #     p <- p[as.logical(presence.tables[,o])]
-#     
+#
 #     nums.groups[o] <- max(p)
 #     isolates[[o]] <- as.vector(which(table(p)==1))
 #     groups[[o]] <- as.vector(which(table(p)>1))
 #     sizes[[o]] <- as.vector(table(p))
 #   }
-#   
+#
 #   # create adjacency matrices
 #   adjacencies <- list()
 #   adjacencies_norm <- list()
@@ -1054,24 +1077,24 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #     p <- partitions[,o]
 #     p <- p[as.logical(presence.tables[,o])]
 #     affiliation <- as.matrix(table(data.frame(actor = 1:length(p), group= p)))
-#     
+#
 #     adjacencies[[o]] <- affiliation %*% t(affiliation)
 #     diag(adjacencies[[o]]) <- 0
-#     
+#
 #     num_dyads <- (sizes[[o]]*(sizes[[o]] - 1)) / 2
 #     num_dyads[num_dyads == 0] <- 1
 #     adjacencies_norm[[o]] <- affiliation %*% t(affiliation) / num_dyads[p]
 #     diag(adjacencies_norm[[o]]) <- 0
 #   }
-#   
-#   
-#   
+#
+#
+#
 #   for(e in 1:num.effects) {
-#     
+#
 #     effect.name <- effects$names[e]
 #     object.name <- effects$objects[e]
 #     object2.name <- effects$objects2[e]
-#     
+#
 #     # --------- ISOLATES -----------
 #     if(effect.name == "isolates") {
 #       stat <- 0
@@ -1080,16 +1103,16 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #       }
 #       statistics[e] <- stat
 #     }
-#     
+#
 #     # --------- NUM GROUPS -----------
 #     if(effect.name == "num_groups") {
 #       stat <- 0
 #       for(o in 1:num.obs){
 #         stat <- stat + nums.groups[o]
 #       }
-#       statistics[e] <- stat 
+#       statistics[e] <- stat
 #     }
-#     
+#
 #     # --------- NUM GROUPS 3 -----------
 #     if(effect.name == "num_groups_3") {
 #       stat <- 0
@@ -1099,9 +1122,9 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #           stat <- stat + (size == 3)
 #         }
 #       }
-#       statistics[e] <- stat 
+#       statistics[e] <- stat
 #     }
-#     
+#
 #     # --------- NUM GROUPS 4 -----------
 #     if(effect.name == "num_groups_4") {
 #       stat <- 0
@@ -1111,9 +1134,9 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #           stat <- stat + (size == 4)
 #         }
 #       }
-#       statistics[e] <- stat 
+#       statistics[e] <- stat
 #     }
-#     
+#
 #     # --------- NUM GROUPS 5 -----------
 #     if(effect.name == "num_groups_5") {
 #       stat <- 0
@@ -1123,9 +1146,9 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #           stat <- stat + (size == 5)
 #         }
 #       }
-#       statistics[e] <- stat 
+#       statistics[e] <- stat
 #     }
-#     
+#
 #     # --------- NUM GROUPS 6 -----------
 #     if(effect.name == "num_groups_6") {
 #       stat <- 0
@@ -1135,27 +1158,27 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #           stat <- stat + (size == 6)
 #         }
 #       }
-#       statistics[e] <- stat 
+#       statistics[e] <- stat
 #     }
-#     
+#
 #     # --------- NUM GROUPS x PRESENT NODES -----------
 #     if(effect.name == "num_groups_x_num_nodes") {
 #       stat <- 0
 #       for(o in 1:num.obs){
 #         stat <- stat + nums.groups[o] * sum(presence.tables[,o])
 #       }
-#       statistics[e] <- stat 
+#       statistics[e] <- stat
 #     }
-#     
+#
 #     # --------- NUM GROUPS x LOG OF PRESENT NODES -----------
 #     if(effect.name == "num_groups_x_log_num_nodes") {
 #       stat <- 0
 #       for(o in 1:num.obs){
 #         stat <- stat + nums.groups[o] * log(sum(presence.tables[,o]))
 #       }
-#       statistics[e] <- stat 
+#       statistics[e] <- stat
 #     }
-#     
+#
 #     # --------- SIZES_SQUARED -----------
 #     if(effect.name == "sizes_squared") {
 #       stat <- 0
@@ -1164,7 +1187,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #       }
 #       statistics[e] <- stat
 #     }
-#     
+#
 #     # --------- SIZES_SQUARED_NORM -----------
 #     if(effect.name == "sizes_squared_norm") {
 #       stat <- 0
@@ -1173,7 +1196,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #       }
 #       statistics[e] <- stat
 #     }
-#     
+#
 #     # --------- TIE -----------
 #     if(effect.name == "tie") {
 #       stat <- 0
@@ -1190,7 +1213,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #       }
 #       statistics[e] <- stat
 #     }
-#     
+#
 #     # --------- BIPARTITE TIE -----------
 #     if(effect.name == "bipartite_tie") {
 #       stat <- 0
@@ -1210,7 +1233,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #       }
 #       statistics[e] <- stat
 #     }
-#     
+#
 #     # --------- BIPARTITE GROUP -----------
 #     if(effect.name == "bipartite_group") {
 #       stat <- 0
@@ -1232,7 +1255,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #       }
 #       statistics[e] <- stat
 #     }
-#     
+#
 #     # --------- ATTRIBUTE ISOLATION -----------
 #     if(effect.name == "attisolation") {
 #       stat <- 0
@@ -1249,7 +1272,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #       }
 #       statistics[e] <- stat
 #     }
-#     
+#
 #     # --------- ALTER -----------
 #     if(effect.name == "alter") {
 #       stat <- 0
@@ -1263,7 +1286,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #       }
 #       statistics[e] <- stat
 #     }
-#     
+#
 #     # --------- HOMOPHILY:SAME -----------
 #     if(effect.name == "same") {
 #       stat <- 0
@@ -1279,7 +1302,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #       }
 #       statistics[e] <- stat
 #     }
-#     
+#
 #     # --------- HOMOPHILY:SAME_VAR -----------
 #     if(effect.name == "same_var") {
 #       stat <- 0
@@ -1299,7 +1322,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #       }
 #       statistics[e] <- stat
 #     }
-#     
+#
 #     # --------- HOMOPHILY:SAME NORMALIZED -----------
 #     if(effect.name == "same_norm") {
 #       stat <- 0
@@ -1315,7 +1338,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #       }
 #       statistics[e] <- stat
 #     }
-#     
+#
 #     # --------- HOMOPHILY:DIFF -----------
 #     if(effect.name == "diff") {
 #       stat <- 0
@@ -1328,7 +1351,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #       }
 #       statistics[e] <- stat
 #     }
-#     
+#
 #     # --------- HOMOPHILY:DIFF NORMALIZED -----------
 #     if(effect.name == "diff_norm") {
 #       stat <- 0
@@ -1341,7 +1364,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #       }
 #       statistics[e] <- stat
 #     }
-#     
+#
 #     # --------- HOMOPHILY:DIFF PER INDIVIDUAL -----------
 #     if(effect.name == "diff_ind") {
 #       stat <- 0
@@ -1358,7 +1381,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #       }
 #       statistics[e] <- stat
 #     }
-#     
+#
 #     # --------- HOMOPHILY:DIFF PER INDIVIDUAL NORMALIZED -----------
 #     if(effect.name == "diff_ind_norm") {
 #       stat <- 0
@@ -1375,8 +1398,8 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #       }
 #       statistics[e] <- stat
 #     }
-#     
-#     
+#
+#
 #     # --------- HOMOPHILY:RANGE -----------
 #     if(effect.name == "range") {
 #       stat <- 0
@@ -1393,7 +1416,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #       }
 #       statistics[e] <- stat
 #     }
-#     
+#
 #     # --------- HOMOPHILY:PROPORTION -----------
 #     if(effect.name == "proportion") {
 #       stat <- 0
@@ -1415,7 +1438,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #       }
 #       statistics[e] <- stat
 #     }
-#     
+#
 #     # --------- HOMOPHILY:NUM GROUPS SAME -----------
 #     if(effect.name == "num_groups_same") {
 #       stat <- 0
@@ -1433,8 +1456,8 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #       }
 #       statistics[e] <- stat
 #     }
-#     
-#     
+#
+#
 #     # ---------GROUP: NUMBER_ATTRIBUTES -----------
 #     if(effect.name == "number_attributes") {
 #       stat <- 0
@@ -1448,8 +1471,8 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #       }
 #       statistics[e] <- stat
 #     }
-#     
-#     
+#
+#
 #     # --------- INERTIA MINUS 1 -----------
 #     if(effect.name == "inertia_1") {
 #       stat <- 0
@@ -1465,7 +1488,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #       }
 #       statistics[e] <- stat
 #     }
-#     
+#
 #     # --------- INERTIA TOTAL -----------
 #     if(effect.name == "inertia_total") {
 #       stat <- 0
@@ -1481,7 +1504,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #       }
 #       statistics[e] <- stat
 #     }
-#     
+#
 #     # --------- INTERACTION: INERTIA TOTAL X DIFF -----------
 #     if(effect.name == "inertia_total_X_diff") {
 #       stat <- 0
@@ -1493,15 +1516,15 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 #           d <- as.matrix(dist(as.numeric(nodes[,att])))
 #           adj2 <- matrix(0,num.nodes,num.nodes)
 #           adj2[as.logical(presence.tables[,o]),  as.logical(presence.tables[,o])]   <- adjacencies[[o]]
-#           adj_total <- adj_total + adj2 
+#           adj_total <- adj_total + adj2
 #           stat <- stat + sum(1/2 * adj_total * d)
 #         }
 #       }
 #       statistics[e] <- stat
 #     }
-#     
+#
 #   }
-#   
+#
 #   return(statistics)
-#   
+#
 # }
