@@ -6,6 +6,12 @@
 \usage{
 compute_averagesize(num.nodes)
 }
+\arguments{
+\item{num.nodes}{XXX}
+}
+\value{
+XXX
+}
 \description{
 Recursive function to compute the value of the denominator
 }

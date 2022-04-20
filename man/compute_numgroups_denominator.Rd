@@ -7,7 +7,12 @@
 compute_numgroups_denominator(num.nodes, alpha)
 }
 \arguments{
+\item{num.nodes}{XXX}
+
 \item{alpha}{Node set (data frame)}
+}
+\value{
+XXX
 }
 \description{
 Recursive function to compute the value of the denominator
