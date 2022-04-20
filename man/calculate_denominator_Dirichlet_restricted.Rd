@@ -2,7 +2,7 @@
 % Please edit documentation in R/functions_exactcalculations.R
 \name{calculate_denominator_Dirichlet_restricted}
 \alias{calculate_denominator_Dirichlet_restricted}
-\title{Estimation basic model with size constraint}
+\title{Estimation basic model with size constraint (same as compute_num_groups_denominator with restrictions)}
 \usage{
 calculate_denominator_Dirichlet_restricted(n, smin, smax, alpha, results)
 }
@@ -21,5 +21,5 @@ calculate_denominator_Dirichlet_restricted(n, smin, smax, alpha, results)
 XXX
 }
 \description{
-Estimation basic model with size constraint
+Estimation basic model with size constraint (same as compute_num_groups_denominator with restrictions)
 }

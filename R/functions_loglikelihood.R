@@ -23,8 +23,7 @@
 #' @param sizes.simulated = NULL,  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param logL_0 = NULL, if known, the value of the log likelihood of the basic dirichlet model
 #' @return List with the log likelihood , AIC, lambda and the draws
-
-
+#' @export
 estimate_logL <- function(partition, # observed partition
                           nodes, # nodeset (data frame)
                           effects, # effects/sufficient statistics (list with a vector "names", and a vector "objects")
