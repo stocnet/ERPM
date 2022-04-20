@@ -67,6 +67,112 @@ Stirling <- function(n,k){
 }
 
 
+## Functions to enumerate partitions #########
+
+
+#' Function to enumerate all partitions for a given n
+#' 
+#' @param n XXX
+#' @return XXX
+#' @export
+find_all_partitions <- function(n){
+  
+  if(n == 0) {
+    
+    # if empty set, nothing
+    return(c())
+    
+  } else {
+    
+    # find the possibilities for 1 to n-1
+    setsn_1 <- find_all_partitions(n-1)
+    
+    # if n = 1 just return 1
+    if(is.null(setsn_1)) 
+      return(as.matrix(1))
+    
+    nsets <- dim(setsn_1)[1]
+    res <- c()
+    
+    # for all solutions, add the singleton n
+    for(s in 1:nsets){
+      partition <- setsn_1[s,] 
+      new <- c(partition,max(partition)+1)
+      res <- rbind(res, new)
+    }
+    
+    # for all solutions, add n in all possible groups
+    for(s in 1:nsets){
+      partition <- setsn_1[s,] 
+      ngroups <- max(partition)
+      for(g in 1:ngroups) {
+        new <- c(partition,g)
+        res <- rbind(res, new)
+      }
+    }
+    
+    return(res)
+  }
+  
+}
+
+
+#' Function to count the number of partitions with a certain
+#' group size structure, for all possible group size structure
+#' 
+#' @param allpartitions XXX
+#' @return XXX
+#' @export
+count_classes <- function(allpartitions){
+  
+  np <- dim(allpartitions)[1]
+  n <- dim(allpartitions)[2]
+  
+  cptclass <- 0
+  classes <- matrix()
+  classes_count <- c()
+  
+  for(i in 1:np) {
+    partition <- allpartitions[i,]
+    
+    # find distirbution of blocks
+    ngs <- rep(0,n)
+    for(g in 1:max(partition)) {
+      ngs[sum(partition == g)] <- ngs[sum(partition == g)] + 1 
+    }
+    
+    # find whether there is already classes
+    if(cptclass == 0){
+      
+      cptclass <- 1
+      classes <- t(as.matrix(ngs))
+      classes_count <- 1
+      
+    } else {
+      
+      # check previous classes
+      found <- FALSE
+      for(c in 1:dim(classes)[1]){
+        if(all(classes[c,] == ngs)) {
+          found <- TRUE
+          classes_count[c] <- classes_count[c] + 1
+        }
+      }
+      
+      # if new class
+      if(!found){
+        cptclass <- cptclass + 1
+        classes <- rbind(classes,ngs)
+        classes_count <- rbind(classes_count,1)
+      }
+      
+    }
+  }
+  
+  return(list(classes = classes,
+              counts = classes_count))
+  
+}
 
 ## Functions used to create, order, and check partitions in the main code ############
 
@@ -139,9 +245,14 @@ find_startingpoint_multiple <- function(presence.tables,
 }
 
 
-# Function to replace the ids of the group without forgetting an id
-# and put in the first appearance order
-# for example: [2 1 1 4 2] becomes [1 2 2 3 1]
+
+#' Function to replace the ids of the group without forgetting an id
+#' and put in the first appearance order
+#' for example: [2 1 1 4 2] becomes [1 2 2 3 1]
+#' 
+#' @param partition XXX
+#' @return XXX
+#' @export
 order_groupids <- function(partition) {
 
   num.nodes <- length(partition)
@@ -171,6 +282,13 @@ order_groupids <- function(partition) {
 
 
 # Function to determine whether a partition contains the allowed group sizes
+
+#' Function to determine whether a partition contains the allowed group sizes
+#' 
+#' @param partition XXX
+#' @param sizes.allowed XXX
+#' @return XXX
+#' @export
 check_sizes <- function(partition, sizes.allowed){
   allsizes <- unique(table(partition))
   check <- NA %in% match(allsizes,sizes.allowed)

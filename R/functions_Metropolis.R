@@ -8,7 +8,7 @@
 
 ## --- FUNCTIONS TO DRAW CHAINS ----
 
-#' Draw Metropolis single
+#' Draw Metropolis single 
 #'
 #'
 #' @param theta model parameters
