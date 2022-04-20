@@ -2,7 +2,7 @@
 % Please edit documentation in R/functions_phase2.R
 \name{run_phase2_single}
 \alias{run_phase2_single}
-\title{Run phase 2 single}
+\title{Phase 2 wrapper for single observation}
 \usage{
 run_phase2_single(
   partition,
@@ -28,6 +28,50 @@ run_phase2_single(
   double.averaging
 )
 }
+\arguments{
+\item{estimates.phase1}{XXX}
+
+\item{inv.zcov}{XXX}
+
+\item{inv.scaling}{XXX}
+
+\item{z.obs}{XXX}
+
+\item{nodes}{XXX}
+
+\item{effects}{XXX}
+
+\item{objects}{XXX}
+
+\item{burnin}{XXX}
+
+\item{thining}{XXX}
+
+\item{num.steps}{XXX}
+
+\item{gainfactors}{XXX}
+
+\item{r.truncation.p2}{XXX}
+
+\item{min.iter}{XXX}
+
+\item{max.iter}{XXX}
+
+\item{multiplication.iter}{XXX}
+
+\item{neighborhood}{XXX}
+
+\item{fixed.estimates}{XXX}
+
+\item{sizes.allowed}{XXX}
+
+\item{sizes.simulated}{XXX}
+
+\item{double.averaging}{XXX}
+}
+\value{
+XXX
+}
 \description{
-Run phase 2 single
+Phase 2 wrapper for single observation
 }

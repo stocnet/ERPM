@@ -4,31 +4,30 @@
 ## Author: Marion Hoffman                                           ##
 ######################################################################
 
-#' Run phase 2 single
+#' Phase 2 wrapper for single observation
 #'
-#' @param estimates.phase1,
-#' @param inv.zcov,
-#' @param inv.scaling,
-#' @param z.obs,
-#' @param nodes,
-#' @param effects,
-#' @param objects,
-#' @param burnin,
-#' @param thining,
-#' @param num.steps,
-#' @param gainfactors,
-#' @param r.truncation.p2,
-#' @param min.iter,
-#' @param max.iter,
-#' @param multiplication.iter,
-#' @param neighborhood,
-#' @param fixed.estimates,
-#' @param sizes.allowed,
-#' @param sizes.simulated,
-#' @param double.averaging
-
-
-
+#' @param estimates.phase1 XXX
+#' @param inv.zcov XXX
+#' @param inv.scaling XXX
+#' @param z.obs XXX
+#' @param nodes XXX
+#' @param effects XXX
+#' @param objects XXX
+#' @param burnin XXX
+#' @param thining XXX
+#' @param num.steps XXX
+#' @param gainfactors XXX
+#' @param r.truncation.p2 XXX
+#' @param min.iter XXX
+#' @param max.iter XXX
+#' @param multiplication.iter XXX
+#' @param neighborhood XXX
+#' @param fixed.estimates XXX
+#' @param sizes.allowed XXX
+#' @param sizes.simulated XXX
+#' @param double.averaging XXX
+#' @return XXX
+#' @export
 run_phase2_single <- function(partition,
                        estimates.phase1,
                        inv.zcov,
@@ -246,30 +245,31 @@ run_phase2_single <- function(partition,
 
 }
 
-#' Run phase 2 multiple
+#' Phase 2 wrapper for multiple observation
 #'
-#' @param partitions
-#' @param estimates.phase1,
-#' @param inv.zcov,
-#' @param inv.scaling,
-#' @param z.obs,
-#' @param nodes,
-#' @param effects,
-#' @param objects,
-#' @param burnin,
-#' @param thining,
-#' @param num.steps,
-#' @param gainfactors,
-#' @param r.truncation.p2,
-#' @param min.iter,
-#' @param max.iter,
-#' @param multiplication.iter,
-#' @param neighborhood,
-#' @param fixed.estimates,
-#' @param sizes.allowed,
-#' @param sizes.simulated,
-#' @param double.averaging
-
+#' @param partitions XXX
+#' @param estimates.phase1 XXX
+#' @param inv.zcov XXX
+#' @param inv.scaling XXX
+#' @param z.obs XXX
+#' @param nodes XXX
+#' @param effects XXX
+#' @param objects XXX
+#' @param burnin XXX
+#' @param thining XXX
+#' @param num.steps XXX
+#' @param gainfactors XXX
+#' @param r.truncation.p2 XXX
+#' @param min.iter XXX
+#' @param max.iter XXX
+#' @param multiplication.iter XXX
+#' @param neighborhood XXX
+#' @param fixed.estimates XXX
+#' @param sizes.allowed XXX
+#' @param sizes.simulated XXX
+#' @param double.averaging XXX
+#' @return XXX
+#' @export
 run_phase2_multiple <- function(partitions,
                               estimates.phase1,
                               inv.zcov,
@@ -493,31 +493,6 @@ run_phase2_multiple <- function(partitions,
 
 }
 
-#' Run phase 2 multiple second parallel
-#'
-#' @param partitions
-#' @param estimates.phase1,
-#' @param inv.zcov,
-#' @param inv.scaling,
-#' @param z.obs,
-#' @param nodes,
-#' @param effects,
-#' @param objects,
-#' @param burnin,
-#' @param thining,
-#' @param num.steps,
-#' @param gainfactors,
-#' @param r.truncation.p2,
-#' @param min.iter,
-#' @param max.iter,
-#' @param multiplication.iter,
-#' @param neighborhood,
-#' @param fixed.estimates,
-#' @param sizes.allowed,
-#' @param sizes.simulated,
-#' @param double.averaging
-#' @param parallel
-#' @param cpus
 
 run_phase2_multiple_secondparallel <- function(partitions,
                                 estimates.phase1,
@@ -745,7 +720,7 @@ run_phase2_multiple_secondparallel <- function(partitions,
 }
 
 
-# update of parameters in ones tep of phase 2 (normal procedure)
+# update of parameters in one step of phase 2 (normal procedure)
 compute_parameters_simpleaveraging <- function(z.i,
                                       z.obs,
                                       theta.i,

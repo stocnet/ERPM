@@ -2,7 +2,7 @@
 % Please edit documentation in R/functions_phase2.R
 \name{run_phase2_multiple}
 \alias{run_phase2_multiple}
-\title{Run phase 2 multiple}
+\title{Phase 2 wrapper for multiple observation}
 \usage{
 run_phase2_multiple(
   partitions,
@@ -29,6 +29,52 @@ run_phase2_multiple(
   double.averaging
 )
 }
+\arguments{
+\item{partitions}{XXX}
+
+\item{estimates.phase1}{XXX}
+
+\item{inv.zcov}{XXX}
+
+\item{inv.scaling}{XXX}
+
+\item{z.obs}{XXX}
+
+\item{nodes}{XXX}
+
+\item{effects}{XXX}
+
+\item{objects}{XXX}
+
+\item{burnin}{XXX}
+
+\item{thining}{XXX}
+
+\item{num.steps}{XXX}
+
+\item{gainfactors}{XXX}
+
+\item{r.truncation.p2}{XXX}
+
+\item{min.iter}{XXX}
+
+\item{max.iter}{XXX}
+
+\item{multiplication.iter}{XXX}
+
+\item{neighborhood}{XXX}
+
+\item{fixed.estimates}{XXX}
+
+\item{sizes.allowed}{XXX}
+
+\item{sizes.simulated}{XXX}
+
+\item{double.averaging}{XXX}
+}
+\value{
+XXX
+}
 \description{
-Run phase 2 multiple
+Phase 2 wrapper for multiple observation
 }
