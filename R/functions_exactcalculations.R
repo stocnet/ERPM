@@ -5,19 +5,17 @@
 ######################################################################
 
 
-
-
-#library(numbers)
-#library(combinat)
+## --------Calculations for simple models --------
 
 #' Exact estimates number of groups
 #'
 #'
-#' @param num.nodes
-#' @param pmin
-#' @param pmax
-#' @param pmax
-
+#' @param num.nodes XXX
+#' @param pmin XXX
+#' @param pmax XXX
+#' @param pmax XXX
+#' @return XXX
+#' @export
 exactestimates_numgroups <- function(num.nodes, pmin, pmax, pinc) {
 
   allm <- 2:(num.nodes-1)
@@ -42,7 +40,8 @@ exactestimates_numgroups <- function(num.nodes, pmin, pmax, pinc) {
     allestimates[m] <- allparameters[which(alllogLs == max(alllogLs))[1]]
   }
 
-  plot(allm, allestimates, main = "estimates for different number of groups observed (N=10)")
+  return(list(allm,allestimates))
+  #plot(allm, allestimates, main = "estimates for different number of groups observed (N=10)")
 
 }
 
@@ -50,14 +49,13 @@ exactestimates_numgroups <- function(num.nodes, pmin, pmax, pinc) {
 #' Plot likelihood of number groups
 #'
 #'
-#' @param m.nodes A partition (vector)
-#' @param num.nodes
+#' @param m.obs A partition (vector)
+#' @param num.nodes XXX
 #' @param pmin Node set (data frame)
 #' @param pmax Effects/sufficient statistics (list with a vector "names", and a vector "objects")
 #' @param pinc Objects used for statistics calculation (list with a vector "name", and a vector "object")
-
-
-
+#' @return XXX
+#' @export
 plot_numgroups_likelihood <- function(m.obs, num.nodes, pmin, pmax, pinc) {
 
   allparameters <- seq(pmin,pmax,pinc)
@@ -67,8 +65,8 @@ plot_numgroups_likelihood <- function(m.obs, num.nodes, pmin, pmax, pinc) {
     alpha <- allparameters[i]
     numerator <- exp(alpha*m.obs)
     denominator <- compute_numgroups_denominator(num.nodes, alpha)
-    print(paste("numerator",numerator))
-    print(paste("denominator",denominator))
+    #print(paste("numerator",numerator))
+    #print(paste("denominator",denominator))
     alllogLs[i] <- numerator / denominator
   }
 
@@ -80,9 +78,11 @@ plot_numgroups_likelihood <- function(m.obs, num.nodes, pmin, pmax, pinc) {
 #' Recursive function to compute the value of the denominator
 #'
 #'
-#' @param num.nodes
+#' @param num.nodes XXX
 #' @param alpha Node set (data frame)
-
+#' @return XXX
+#' @importFrom utils combn
+#' @export
 ## recursive function to compute the value of the denominator
 compute_numgroups_denominator <- function( num.nodes, alpha){
 
@@ -112,8 +112,9 @@ compute_numgroups_denominator <- function( num.nodes, alpha){
 #'
 #'
 #' @param nmin A partition (vector)
-#' @param nmax
-
+#' @param nmax XXX
+#' @return XXX
+#' @export
 plot_averagesizes <- function(nmin, nmax, ninc) {
 
   allns <- seq(nmin,nmax,ninc)
@@ -135,8 +136,11 @@ plot_averagesizes <- function(nmin, nmax, ninc) {
 #' Recursive function to compute the value of the denominator
 #'
 #'
-#' @param num.nodes
-
+#' @param num.nodes XXX
+#' @return XXX
+#' @importFrom numbers bell
+#' @importFrom utils combn
+#' @export
 ## recursive function to compute the value of the denominator
 compute_averagesize <- function( num.nodes){
 
@@ -164,22 +168,35 @@ compute_averagesize <- function( num.nodes){
 
 }
 
+## -------- Exact estimation simple models --------
 
-#' Plot likelihood of number groups
+#' Estimation basic model with size constraint
 #'
 #'
-#' @param alpha
-#' @param stat
-#' @param n
-#' @param smin
-#' @param smax
-
+#' @param alpha XXX
+#' @param stat XXX
+#' @param n XXX
+#' @param smin XXX
+#' @param smax XXX
+#' @return XXX
+#' @export
 # Estimation basic model with size constraint
 calculate_proba_Dirichlet_restricted <- function(alpha,stat,n,smin,smax){
   num <- exp(alpha*stat)
   denom <- calculate_denominator_Dirichlet_restricted(n,smin,smax,alpha,as.list(rep(-1,n+1)))
   return(num/denom$den)
 }
+
+#' Estimation basic model with size constraint (same as compute_num_groups_denominator with restrictions)
+#'
+#'
+#' @param n XXX
+#' @param smin XXX
+#' @param smax XXX
+#' @param alpha XXX
+#' @param results XXX
+#' @return XXX
+#' @export
 calculate_denominator_Dirichlet_restricted <- function(n,smin,smax,alpha, results){
   if(n == 0){
     results[[1]] <- 1

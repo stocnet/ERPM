@@ -7,6 +7,8 @@
 plot_numgroups_likelihood(m.obs, num.nodes, pmin, pmax, pinc)
 }
 \arguments{
+\item{num.nodes}{XXX}
+
 \item{pmin}{Node set (data frame)}
 
 \item{pmax}{Effects/sufficient statistics (list with a vector "names", and a vector "objects")}
@@ -14,6 +16,9 @@ plot_numgroups_likelihood(m.obs, num.nodes, pmin, pmax, pinc)
 \item{pinc}{Objects used for statistics calculation (list with a vector "name", and a vector "object")}
 
 \item{m.nodes}{A partition (vector)}
+}
+\value{
+XXX
 }
 \description{
 Plot likelihood of number groups

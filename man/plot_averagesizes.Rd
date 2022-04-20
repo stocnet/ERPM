@@ -8,6 +8,11 @@ plot_averagesizes(nmin, nmax, ninc)
 }
 \arguments{
 \item{nmin}{A partition (vector)}
+
+\item{nmax}{XXX}
+}
+\value{
+XXX
 }
 \description{
 Plot the average size distribution

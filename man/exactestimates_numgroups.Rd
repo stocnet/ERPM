@@ -6,6 +6,16 @@
 \usage{
 exactestimates_numgroups(num.nodes, pmin, pmax, pinc)
 }
+\arguments{
+\item{num.nodes}{XXX}
+
+\item{pmin}{XXX}
+
+\item{pmax}{XXX}
+}
+\value{
+XXX
+}
 \description{
 Exact estimates number of groups
 }
