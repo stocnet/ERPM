@@ -1,7 +1,8 @@
-#################################
-## Visualization of  partitions##
-#################################
-
+######################################################################
+## Simulation and estimation of Exponential Random Partition Models ##
+## Visualization of paritions                                       ##
+## Author: Alexandra Amani                                          ##
+######################################################################
 
 
 #' Visualization of partition
@@ -20,8 +21,6 @@
 #' attr2 <- c(1,1,1,1,0,0,3,0,1,0,1,1,1,1,1,2)
 #' plot_partition(p,attribute.color = attr1, attribute.shape = attr2)
 #' @export
-
-
 
 plot_partition <- function(partition, title = NULL, group.color = NULL,
                            attribute.color = NULL, attribute.shape = NULL,

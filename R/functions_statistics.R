@@ -4,50 +4,46 @@
 ## Author: Alexandra Amani & Marion Hoffman                         ##
 ######################################################################
 
-# TODOs (Marion) DONE
-# - better specify the type of arguments the functions expect
-# - change sum, avg, and ind, into sum_pergroup, sum_perind, avg_pergroup, avg_perind (when applicable)
 
+## ----- CORRELATION FUNCTIONS --------- 
 
-##### CORRELATION FUNCTIONS #####
 
 
 #' Intra class correlation
 #'
-#'This function computes the intra class correlation :correlation
+#'This function computes the intra class correlation correlation
 #'of attributes for 2 randomly drawn individuals in the same group.
 #'
-#' @param partition A partition (vector)
+#' @param partition A partition 
 #' @param attribute A vector containing the values of the attribute
 #' @return A number corresponding to the ICC
-#' @export
 #' @examples
 #' p <- c(1,2,2,3,3,4,4,4,5)
 #' at <- c(3,5,23,2,1,0,3,9,2)
 #' icc(p, at)
-
+#' @export
 
 icc <- function(partition, attribute){
-
+  
   sum_between <- 0
   sum_within <- 0
   number_groups <- max(partition,na.rm = F)
-
+  
   for (g in 1:max(partition,na.rm = F)){
     members <- which(partition == g)
-
+    
     var_b <- mean(attribute[members]) - mean(attribute)
     sum_between <- sum_between + var_b^2
-
+    
     var_w <- sum((attribute[members] - mean(attribute[members]))^2)
     sum_within <- sum_within + var_w
   }
-
+  
   between <- sum_between / (number_groups-1)
   within <- sum_within /(length(partition)-number_groups)
-
+  
   coef <- between/(between+within)
-
+  
   return(coef)
 }
 
@@ -163,7 +159,7 @@ correlation_with_size <- function(partition, attribute, categorical){
 
 }
 
-##### OTHER STATISTICS FUNCTIONS #####
+## ------------- OTHER STATISTICS FUNCTIONS -------------
 
 
 #' Statistics on the size of groups in a partition
@@ -181,7 +177,7 @@ correlation_with_size <- function(partition, attribute, categorical){
 #' correlation_with_size(p,'avg')
 #' correlation_with_size(p,'sd')
 
-stat_size <- function(partition, stat){
+group_size <- function(partition, stat){
 
   if (stat == 'avg'){
     av_size <- mean(table(partition))
@@ -295,55 +291,39 @@ number_categories <- function(partition, attribute, stat, category){
 }
 
 # For now, removed function, because density is the same as average number of ties per group
-
-#' #' Density of intra ties
-#' #'
-#' #'This function computes the average "density" of dyadic attributes within groups and the
-#' #'dispersion of the "density" of dyadic attributes within groups.
-#' #'
-#' #' @param partition A partition (vector)
-#' #' @param matrix A matrix containing the values of the dyadic attribute
-#' #' @param stat The statistic to compute : 'avg' for the average and 'sd' for the standard deviation
-#' #' @return The statisic chosen in stat.
-#' #' @examples
-#' #' p <- c(1,2,2,3,3,4,4,4,5)
-#' #' mat <- matrix(1:81, ncol = 9)
-#' #' density(p,mat,'avg')
-#'
-#'
-#' density <- function(partition, matrix, stat){
-#'
-#'   m <- max(partition,na.rm=T)
-#'   avd <- 0
-#'   std <- 0
-#'
-#'   for(h in 1:m){
-#'     members <- which(partition==h)
-#'
-#'     if(length(members)>1){
-#'       beforeties <- 0
-#'       allties <- length(members)*(length(members)-1)/2
-#'
-#'       for(i in 1:(length(members)-1)){
-#'         for(j in (i+1):length(members)){
-#'           beforeties <- beforeties + matrix[members[i],members[j]]
-#'         }
-#'       }
-#'
-#'       avd <- avd + beforeties/allties
-#'       std <- std + (beforeties/allties)^2
-#'     }
-#'   }
-#'
-#'   avd <- avd/m
-#'   std <- sqrt(1/m*std - avd^2)
-#'   if (stat == 'avg'){
-#'    return(average=avd)
-#'   }
-#'   if (stat == 'sd'){
-#'     return(standard.deviation=std)
-#'   }
-#' }
+# density <- function(partition, matrix, stat){
+#
+#   m <- max(partition,na.rm=T)
+#   avd <- 0
+#   std <- 0
+#
+#   for(h in 1:m){
+#     members <- which(partition==h)
+#
+#     if(length(members)>1){
+#       beforeties <- 0
+#       allties <- length(members)*(length(members)-1)/2
+#
+#       for(i in 1:(length(members)-1)){
+#         for(j in (i+1):length(members)){
+#           beforeties <- beforeties + matrix[members[i],members[j]]
+#         }
+#       }
+#
+#       avd <- avd + beforeties/allties
+#       std <- std + (beforeties/allties)^2
+#     }
+#   }
+#
+#   avd <- avd/m
+#   std <- sqrt(1/m*std - avd^2)
+#   if (stat == 'avg'){
+#    return(average=avd)
+#   }
+#   if (stat == 'sd'){
+#     return(standard.deviation=std)
+#   }
+# }
 
 
 #' Range of attribute in groups
@@ -360,7 +340,7 @@ number_categories <- function(partition, attribute, stat, category){
 #' at <- c(3,5,23,2,1,0,3,9,2)
 #' density(p,at,'avg')
 
-range <- function(partition, attribute, stat ){
+range_attribute <- function(partition, attribute, stat ){
 
   sum <- 0
   for(g in 1:max(partition, na.rm = T)){
@@ -536,7 +516,7 @@ similar_pairs <- function(partition, attribute, stat,  threshold) {
 
 
 
-#### FUNCTION OF CUP ####
+## ----------- FUNCTION OF CUP -----------------
 
 
 #' CUP

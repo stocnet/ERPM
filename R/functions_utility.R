@@ -8,8 +8,14 @@
 
 ## Functions used for counting partitions and descriptives ############
 
-# Function to calculate the number of partitions with groups
-# of sizes between smin and smax
+#' Function to calculate the number of partitions with groups
+#' of sizes between smin and smax
+#' 
+#' @param n XXX
+#' @param smin XXX
+#' @param smax XXX
+#' @return XXX
+#' @export
 Bell_constraints <- function(n,smin,smax){
 
   bell <- 0
@@ -20,8 +26,15 @@ Bell_constraints <- function(n,smin,smax){
 }
 
 
-# Function to calculate the number of partitions with k groups
-# of sizes between smin and smax
+#' Function to calculate the number of partitions with k groups
+#' of sizes between smin and smax
+#' 
+#' @param n XXX
+#' @param k XXX
+#' @param smin XXX
+#' @param smax XXX
+#' @return XXX
+#' @export
 Stirling2_constraints <- function(n,k,smin,smax){
 
   # base cases
@@ -53,34 +66,6 @@ Stirling <- function(n,k){
   return(s2)
 }
 
-
-# Function to calculate the average number of groups
-# in a random partition for a given n
-random_averagesize <- function( num.nodes){
-
-  # if no nodes, by convention we return 1
-  if(num.nodes == 1) {
-    return(1)
-
-  } else {
-
-    n <- num.nodes - 1
-    sum <- 0
-
-    for(k in 0:n){
-      if( k==0 ) {
-        sum <- sum + bell(n) *  (n+1) / (1/bell(n) + n/compute_averagesize(n) )
-      } else if (k==n){
-        sum <- sum + bell(0) * (n+1)
-      } else {
-        sum <- sum + choose(n,k) * bell(n-k) * (n+1) / (1/bell(n-k) + (n-k)/compute_averagesize(n-k) )
-      }
-    }
-
-    return(sum/bell(num.nodes))
-  }
-
-}
 
 
 ## Functions used to create, order, and check partitions in the main code ############
@@ -182,22 +167,6 @@ order_groupids <- function(partition) {
   }
 
   return(new.partition)
-  # while(max.id != num.groups) {
-  #
-  #   # find the first missing id
-  #   all.ids <- 1:max.id
-  #   first <- all.ids[!(all.ids %in% partition)][1]
-  #
-  #   # remove 1 from the ids following the missing id
-  #   ids.more <- which(partition > first)
-  #   partition[ids.more] <- partition[ids.more] - 1
-  #
-  #   # go to the next
-  #   max.id <- max.id - 1
-  #
-  # }
-  #
-  # return(partition)
 }
 
 
