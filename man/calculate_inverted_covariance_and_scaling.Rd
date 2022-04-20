@@ -31,6 +31,8 @@ calculate_inverted_covariance_and_scaling(
 
 \item{length.phase}{XXX}
 
+\item{z.phase}{XXX}
+
 \item{fixed.estimates}{XXX}
 }
 \value{

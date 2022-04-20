@@ -5,7 +5,26 @@
 ######################################################################
 
 
-# Phase 3 for a single partition
+#' Phase 3 wrapper for single observation
+#'
+#' @param partition XXX
+#' @param estimates.phase2 XXX
+#' @param z.obs XXX
+#' @param nodes XXX
+#' @param effects XXX
+#' @param objects XXX
+#' @param burnin XXX
+#' @param thining XXX
+#' @param a.scaling XXX
+#' @param length.p3 XXX
+#' @param neighborhood XXX
+#' @param sizes.allowed XXX
+#' @param sizes.simulated XXX
+#' @param fixed.estimates XXX
+#' @param parallel XXX
+#' @param cpus XXX
+#' @return XXX
+#' @export
 run_phase3_single <- function(partition,
                        estimates.phase2, 
                        z.obs, 
@@ -81,7 +100,27 @@ run_phase3_single <- function(partition,
 }
 
 
-# Phase 3 for multiple partitions
+#' Phase 3 wrapper for multiple observation
+#'
+#' @param partitions XXX
+#' @param estimates.phase2 XXX
+#' @param z.obs XXX
+#' @param presence.tables XXX
+#' @param nodes XXX
+#' @param effects XXX
+#' @param objects XXX
+#' @param burnin XXX
+#' @param thining XXX
+#' @param a.scaling XXX
+#' @param length.p3 XXX
+#' @param neighborhood XXX
+#' @param sizes.allowed XXX
+#' @param sizes.simulated XXX
+#' @param fixed.estimates XXX
+#' @param parallel XXX
+#' @param cpus XXX
+#' @return XXX
+#' @export
 run_phase3_multiple <- function(partitions,
                               estimates.phase2, 
                               z.obs, 
@@ -223,7 +262,17 @@ run_phase3_multiple_secondparallel <- function(partitions,
 }
 
 
-# function for the core calculations of phase 3: estimate means, s.d., s.e., and convergence ratios
+#' Core function for Phase 3
+#'
+#' @param estimates.phase2 XXX
+#' @param z.phase3 XXX
+#' @param z.obs XXX
+#' @param nodes XXX
+#' @param effects XXX
+#' @param length.p3 XXX
+#' @param fixed.estimates XXX
+#' @return XXX
+#' @export
 phase3 <- function(estimates.phase2,
                    z.phase3,
                    z.obs,

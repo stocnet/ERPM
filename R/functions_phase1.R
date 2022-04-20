@@ -418,7 +418,7 @@ phase1 <- function(startingestimates,
 #' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
 #' @param a.scaling XXX
 #' @param length.phase XXX
-#' @param z.phase
+#' @param z.phase XXX
 #' @param fixed.estimates XXX
 #' @return XXX
 #' @export
