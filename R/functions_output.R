@@ -6,7 +6,12 @@
 
 
 
-
+#' Print estimation results
+#'
+#'
+#' @param result XXX
+#' @return XXX
+#' @export
 print_results <- function(result){
   
   num.effects <- length(result$effect)
