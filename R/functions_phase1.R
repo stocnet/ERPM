@@ -4,7 +4,30 @@
 ## Author: Marion Hoffman                                           ##
 ######################################################################
 
-# Phase 1 wrapper for single observation
+
+#' Phase 1 wrapper for single observation
+#'
+#'
+#' @param partition observed partition
+#' @param startingestimates XXX
+#' @param z.obs XXX
+#' @param nodes node set (data frame)
+#' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
+#' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
+#' @param burnin integer for the number of burn-in steps before sampling
+#' @param thining integer for the number of thining steps between sampling
+#' @param gainfactor XXX
+#' @param a.scaling XXX
+#' @param r.truncation.p1 XXX
+#' @param length.p1 XXX
+#' @param neighborhood = c(0.7,0.3,0) way of choosing partitions
+#' @param fixed.estimates XXX
+#' @param sizes.allowed = NULL,   vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
+#' @param sizes.simulated = NULL,  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+#' @param parallel XXX
+#' @param cpus = 1
+#' @return XXX
+#' @export
 run_phase1_single <- function(partition,
                        startingestimates, 
                        z.obs, 
@@ -94,7 +117,30 @@ run_phase1_single <- function(partition,
 }
 
 
-# Phase 1 wrapper for multiple observations
+#' Phase 1 wrapper for multiple observations
+#'
+#'
+#' @param partitions observed partitions
+#' @param startingestimates XXX
+#' @param z.obs XXX
+#' @param presence.tables XXX
+#' @param nodes node set (data frame)
+#' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
+#' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
+#' @param burnin integer for the number of burn-in steps before sampling
+#' @param thining integer for the number of thining steps between sampling
+#' @param gainfactor XXX
+#' @param a.scaling XXX
+#' @param r.truncation.p1 XXX
+#' @param length.p1 XXX
+#' @param neighborhood = c(0.7,0.3,0) way of choosing partitions
+#' @param fixed.estimates XXX
+#' @param sizes.allowed = NULL,   vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
+#' @param sizes.simulated = NULL,  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+#' @param parallel XXX
+#' @param cpus = 1
+#' @return XXX
+#' @export
 run_phase1_multiple <- function(partitions,
                               startingestimates, 
                               z.obs, 
@@ -261,7 +307,22 @@ run_phase1_multiple_secondparallel <- function(partitions,
 }
 
 
-# Core functions of phase 1
+#' Core function for Phase 1
+#'
+#'
+#' @param startingestimates XXX
+#' @param inv.zcov XXX
+#' @param inv.scaling XXX
+#' @param z.phase1 XXX
+#' @param z.obs XXX
+#' @param nodes node set (data frame)
+#' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
+#' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
+#' @param r.truncation.p1 XXX
+#' @param length.p1 XXX
+#' @param fixed.estimates XXX
+#' @return XXX
+#' @export
 phase1 <- function(startingestimates,
                    inv.zcov,
                    inv.scaling,
@@ -347,7 +408,20 @@ phase1 <- function(startingestimates,
   
 }
 
-
+#' Calculation of the inverse of the covariance matrix and the scaling matrix
+#'
+#'
+#' @param startingestimates XXX
+#' @param z.obs XXX
+#' @param nodes node set (data frame)
+#' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
+#' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
+#' @param a.scaling XXX
+#' @param length.phase XXX
+#' @param z.phase
+#' @param fixed.estimates XXX
+#' @return XXX
+#' @export
 calculate_inverted_covariance_and_scaling <- function(startingestimates, 
                                                       z.obs, 
                                                       nodes, 
