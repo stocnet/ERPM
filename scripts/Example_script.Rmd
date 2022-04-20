@@ -1,7 +1,7 @@
 ---
 title: Simulation and estimation of partition models - Example
   script with random data
-author: "-"==
+author: "Marion Hoffman"
 date: "28/09/2020"
 output:
   pdf_document: default
@@ -17,17 +17,13 @@ knitr::opts_chunk$set(echo = TRUE)
 The following packages and scripts are required to fully run this example script. The details of the main functions can be found in the code itself, where comments help finding out what functions do and what arguments are for.
 
 ```{r loads, message=FALSE, warning=FALSE, results='hide'}
-library(ggplot2)
-library(numbers)
-library(combinat)
-library(gmp)
-library(mclust)
+library(erpm)
 
-current_wd <- getwd()
-filesLoad <- list.files(paste(current_wd,"/function_ERPM",sep=""), pattern = "R$")
-filesLoad <- filesLoad[filesLoad!= "tests.R"] # uncomment for tests (takes long)
-lapply(filesLoad, function(x) source(paste(current_wd,"/function_ERPM/",x,sep="")))
+library(numbers) # for calculations of Bell numbers
+library(gmp) # for calculations of Stirling numbers
+library(mclust) # for calculations of Rand indexes
 
+library(ggplot2) # for plots
 theme_set(theme_minimal())
 ```
 
@@ -147,8 +143,7 @@ sample <- draw_Metropolis_single(theta = parameters,
                           burnin = 100, 
                           thining = 10, 
                           num.steps = nsteps, 
-                          mini.steps = "normalized", 
-                          neighborhood = c(1,1,1,1,0,0), 
+                          neighborhood = c(1,1,1), 
                           sizes.allowed = 1:n,
                           sizes.simulated = 1:n)
 ```
@@ -227,12 +222,11 @@ estimation <- estimate_ERPM(partition,
                           objects, 
                           effects, 
                           startingestimates = startingestimates, 
-                          gainfactor = 0.01, 
-                          mini.steps = "normalized", 
+                          gainfactor = 0.05, 
                           burnin = 500, 
                           thining = 20,
                           length.p1 = 100, 
-                          multiplication.iter.p2 = 40, 
+                          multiplication.iter.p2 = 50, 
                           num.steps.p2 = 3, 
                           length.p3 = 2000,
                           inv.zcov = startingcovariance,
@@ -270,7 +264,6 @@ simulations <- draw_Metropolis_single(theta = estimation$results$est,
                           burnin = 100, 
                           thining = 20, 
                           num.steps = nsimulations, 
-                          mini.steps = "normalized", 
                           neighborhood = c(1,1,1,0,0,0), 
                           sizes.allowed = 1:n,
                           sizes.simulated = 1:n,
@@ -318,12 +311,12 @@ For continuous variables, we can check the intra-class correlation of the variab
 ```{r}
 allicc <- rep(0,nsimulations)
 for(simu in 1:nsimulations){
-  allicc[simu] <- computeicc(nodes$age,simulations$all.partitions[simu,])
+  allicc[simu] <- icc(simulations$all.partitions[simu,],nodes$age)
 }
 
 df <- data.frame(simulation = 1:nsimulations,
                  simulated_stat = allicc,
-                 observed_stat = rep(computeicc(nodes$age,partition),nsimulations),
+                 observed_stat = rep(icc(partition,nodes$age),nsimulations),
                  mean_stat = rep(mean(allicc,na.rm=T),nsimulations))
 ggplot(df) + 
     geom_violin(aes(x=1,y=simulated_stat), fill = NA) +
@@ -342,18 +335,17 @@ ggplot(df) +
 
 ```
 
-For binary variables, we can check the intra-group density (linked to the statistic used in the model, but not equal):
+We can also check the density of pairs with same gender in the groups (linked to the statistic used in the model, but not equal):
 
 ```{r}
-samegender <- as.matrix(1-dist(nodes$gender,upper=T,diag=T))
 alldensities <- rep(0,nsimulations)
 for(simu in 1:nsimulations){
-  alldensities[simu] <- computedensity(samegender,simulations$all.partitions[simu,])$average
+  alldensities[simu] <- same_pairs(simulations$all.partitions[simu,], nodes$gender, 'avg_pergroup')
 }
 
 df <- data.frame(simulation = 1:nsimulations,
                  simulated_stat = alldensities,
-                 observed_stat = rep(computedensity(samegender,partition)$average,nsimulations),
+                 observed_stat = rep(same_pairs(partition, nodes$gender, 'avg_pergroup'),nsimulations),
                  mean_stat = rep(mean(alldensities,na.rm=T),nsimulations))
 ggplot(df) + 
     geom_violin(aes(x=1,y=simulated_stat), fill = NA) +
