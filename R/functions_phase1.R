@@ -352,10 +352,12 @@ phase1 <- function(startingestimates,
     
     # compute truncating factor
     r <- 1
-    diff <- (z.mean - z.obs)
-    maxratio <-  max(sqrt((t(diff) %*% inv.zcov %*% diff / num.effects)))
-    if(maxratio > r.truncation.p1) {
-      r <- r.truncation.p1 / maxratio
+    if(r.truncation.p1 > 0){
+      diff <- (z.mean - z.obs)
+      maxratio <-  max(sqrt((t(diff) %*% inv.zcov %*% diff / num.effects)))
+      if(maxratio > r.truncation.p1) {
+        r <- r.truncation.p1 / maxratio
+      }
     }
     
     # compute new estimates
@@ -384,11 +386,15 @@ phase1 <- function(startingestimates,
     
     # compute truncating factor
     r <- 1
-    diff <- (z.mean - z.obs[unfixed.indexes])
-    maxratio <-  max(sqrt((t(diff) %*% inv.zcov %*% diff / length(unfixed.indexes))))
-    if(maxratio > r.truncation.p1) {
-      r <- r.truncation.p1 / maxratio
+    if(r.truncation.p1 > 0){
+      r <- 1
+      diff <- (z.mean - z.obs[unfixed.indexes])
+      maxratio <-  max(sqrt((t(diff) %*% inv.zcov %*% diff / length(unfixed.indexes))))
+      if(maxratio > r.truncation.p1) {
+        r <- r.truncation.p1 / maxratio
+      }
     }
+    
     
     # compute new estimates
     estimates.phase1 <- startingestimates
