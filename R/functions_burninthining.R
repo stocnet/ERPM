@@ -736,6 +736,7 @@ gridsearch_burninthining_multiple <- function(partitions, # observed partitions
     # just go through all neighborhoods one by one
     allsimulations <- list()
     for(i in 1:length(neighborhoods)){
+      print(neighborhoods[[i]])
       allsimulations[[i]] <- simulate_burninthining_multiple(partitions, presence.tables, theta, nodes, effects, objects, num.steps, neighborhoods[[i]], sizes.allowed, sizes.simulated, max.thining)
     }
 

@@ -329,7 +329,7 @@ draw_Metropolis_multiple <- function(theta, # model parameters
           all.z <- rbind(all.z,current.z)
           cpt2 <- cpt2 + 1
 
-          print(nrow(all.z))
+          #print(nrow(all.z))
 
           # store all partitions if needed
           if(return.all.partitions){
@@ -545,7 +545,7 @@ draw_Metropolis_multiple_secondparallel <- function(theta, # model parameters
           all.z <- rbind(all.z,current.z)
           cpt2 <- cpt2 + 1
 
-          print(nrow(all.z))
+          #print(nrow(all.z))
 
           # store all partitions if needed
           if(return.all.partitions){
@@ -921,7 +921,7 @@ draw_step_multiple <- function(theta,
   current.partition <- current.partitions[nodes.rand.o,rand.o]
 
   # calculate sizes for all potential moves (depending on available neighborhoods)
-  current.sizes <- rep(0,7)
+  current.sizes <- rep(0,length(neighborhood))
 
   # pick a neighborhood
   # 1 = swap two actors,
@@ -961,7 +961,7 @@ draw_step_multiple <- function(theta,
   # }
 
   # intermediate check for restricted sizes
-  if(!check_sizes(new.p, sizes.simulated)) {
+  if(!check_sizes(new.partition, sizes.simulated)) {
     print("old partition")
     print(current.partition)
     print("new partition")
