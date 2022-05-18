@@ -117,10 +117,10 @@ run_phase2_single <- function(partition,
         # compute new parameters
         if(double.averaging) {
           doubleaveraging.step <- compute_parameters_doubleaveraging(z.i, z.obs, theta.i, mean.mean.z, mean.mean.theta, mean.cpt, inv.zcov, inv.scaling, gainfactors[step], r.truncation.p2)
-          theta.i <- double.averaging$theta.i
-          mean.mean.z <- double.averaging$mean.mean.z
-          mean.mean.theta <- double.averaging$mean.mean.theta
-          mean.cpt <- double.averaging$mean.cpt
+          theta.i <- doubleaveraging.step$theta.i
+          mean.mean.z <- doubleaveraging.step$mean.mean.z
+          mean.mean.theta <- doubleaveraging.step$mean.mean.theta
+          mean.cpt <- doubleaveraging.step$mean.cpt
         } else {
           theta.i <- compute_parameters_simpleaveraging(z.i, z.obs, theta.i, inv.zcov, inv.scaling, gainfactors[step], r.truncation.p2)
         }
@@ -365,10 +365,10 @@ run_phase2_multiple <- function(partitions,
         # compute new parameters
         if(double.averaging) {
           doubleaveraging.step <- compute_parameters_doubleaveraging(z.i, z.obs, theta.i, mean.mean.z, mean.mean.theta, mean.cpt, inv.zcov, inv.scaling, gainfactors[step], r.truncation.p2)
-          theta.i <- double.averaging$theta.i
-          mean.mean.z <- double.averaging$mean.mean.z
-          mean.mean.theta <- double.averaging$mean.mean.theta
-          mean.cpt <- double.averaging$mean.cpt
+          theta.i <- doubleaveraging.step$theta.i
+          mean.mean.z <- doubleaveraging.step$mean.mean.z
+          mean.mean.theta <- doubleaveraging.step$mean.mean.theta
+          mean.cpt <- doubleaveraging.step$mean.cpt
         } else {
           theta.i <- compute_parameters_simpleaveraging(z.i, z.obs, theta.i, inv.zcov, inv.scaling, gainfactors[step], r.truncation.p2)
         }
@@ -591,10 +591,10 @@ run_phase2_multiple_secondparallel <- function(partitions,
         # compute new parameters
         if(double.averaging) {
           doubleaveraging.step <- compute_parameters_doubleaveraging(z.i, z.obs, theta.i, mean.mean.z, mean.mean.theta, mean.cpt, inv.zcov, inv.scaling, gainfactors[step], r.truncation.p2)
-          theta.i <- double.averaging$theta.i
-          mean.mean.z <- double.averaging$mean.mean.z
-          mean.mean.theta <- double.averaging$mean.mean.theta
-          mean.cpt <- double.averaging$mean.cpt
+          theta.i <- doubleaveraging.step$theta.i
+          mean.mean.z <- doubleaveraging.step$mean.mean.z
+          mean.mean.theta <- doubleaveraging.step$mean.mean.theta
+          mean.cpt <- doubleaveraging.step$mean.cpt
         } else {
           theta.i <- compute_parameters_simpleaveraging(z.i, z.obs, theta.i, inv.zcov, inv.scaling, gainfactors[step], r.truncation.p2)
         }
