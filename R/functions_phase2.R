@@ -786,6 +786,6 @@ compute_parameters_doubleaveraging <- function(z.i,
   return(list("theta.i" = theta.i,
               "mean.mean.z" = mean.mean.z,
               "mean.mean.theta" = mean.mean.theta,
-              "mean.cpt" = mean.cpt,))
+              "mean.cpt" = mean.cpt))
 
 }
