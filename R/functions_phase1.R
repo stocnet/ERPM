@@ -29,7 +29,7 @@
 #' @return XXX
 #' @export
 run_phase1_single <- function(partition,
-                       startingestimates, 
+                       startingestimates,
                        z.obs, 
                        nodes, 
                        effects, 
@@ -142,7 +142,7 @@ run_phase1_single <- function(partition,
 #' @return XXX
 #' @export
 run_phase1_multiple <- function(partitions,
-                              startingestimates, 
+                              startingestimates,
                               z.obs, 
                               presence.tables, 
                               nodes, 
@@ -200,7 +200,7 @@ run_phase1_multiple <- function(partitions,
   print(autocors)
   
   # calculate the covariance and scaling matrices
-  inverted_matrices <- calculate_inverted_covariance_and_scaling(startingestimates, 
+  inverted_matrices <- calculate_inverted_covariance_and_scaling(startingestimates,
                                                                  z.obs, 
                                                                  nodes, 
                                                                  effects, 
@@ -234,7 +234,7 @@ run_phase1_multiple <- function(partitions,
 
 # Phase 1 wrapper for multiple observations
 run_phase1_multiple_secondparallel <- function(partitions,
-                                startingestimates, 
+                                startingestimates,
                                 z.obs, 
                                 presence.tables, 
                                 nodes, 
@@ -428,7 +428,7 @@ phase1 <- function(startingestimates,
 #' @param fixed.estimates XXX
 #' @return XXX
 #' @export
-calculate_inverted_covariance_and_scaling <- function(startingestimates, 
+calculate_inverted_covariance_and_scaling <- function(startingestimates,
                                                       z.obs, 
                                                       nodes, 
                                                       effects, 
