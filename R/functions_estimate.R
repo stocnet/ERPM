@@ -15,7 +15,6 @@
 #' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
 #' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
 #' @param startingestimates first guess for the model parameters
-#' @param multiplicationfactor = 30,  for now, useless
 #' @param gainfactor = 0.1, numeric used to decrease the size of steps made in the Newton optimization
 #' @param a.scaling = 0.2,  numeric used to reduce the influence of non-diagonal elements in the scaling matrix (for stability)
 #' @param r.truncation.p1 = 2 numeric used to limit extreme values in the covariance matrix (for stability)
@@ -45,9 +44,8 @@ estimate_ERPM <- function(partition, # observed partition
                           objects, # objects used for statistics calculation (list with a vector "name", and a vector "object")
                           effects, # effects/sufficient statistics (list with a vector "names", and a vector "objects")
                           startingestimates, # first guess for the model parameters
-                          multiplicationfactor = 30, # for now, useless
                           gainfactor = 0.1, # numeric used to decrease the size of steps made in the Newton optimization
-                          a.scaling = 0.2, # numeric used to reduce the influence of non-diagonal elements in the scaling matrix (for stability)
+                          a.scaling = 0.8, # numeric used to reduce the influence of non-diagonal elements in the scaling matrix (for stability)
                           r.truncation.p1 = -1, # numeric used to limit extreme values in the covariance matrix (for stability) - -1 if no truncation
                           r.truncation.p2 = -1, # numeric used to limit extreme values in the covariance matrix (for stability) - -1 if no truncation
                           burnin = 30, # integer for the number of burn-in steps before sampling
@@ -243,7 +241,6 @@ estimate_ERPM_p3 <- function(partition,
 #' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
 #' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
 #' @param startingestimates first guess for the model parameters
-#' @param multiplicationfactor = 30,  for now, useless
 #' @param gainfactor = 0.1, numeric used to decrease the size of steps made in the Newton optimization
 #' @param a.scaling = 0.2,  numeric used to reduce the influence of non-diagonal elements in the scaling matrix (for stability)
 #' @param r.truncation.p1 = 2 numeric used to limit extreme values in the covariance matrix (for stability)
@@ -274,9 +271,8 @@ estimate_multipleERPM <- function(partitions, # observed partitions
                           objects, # objects used for statistics calculation (list with a vector "name", and a vector "object")
                           effects, # effects/sufficient statistics (list with a vector "names", and a vector "objects")
                           startingestimates, # first guess for the model parameters
-                          multiplicationfactor = 30, # for now, useless
                           gainfactor = 0.1, # numeric used to decrease the size of steps made in the Newton optimization
-                          a.scaling = 0.2, # numeric used to reduce the influence of non-diagonal elements in the scaling matrix (for stability)
+                          a.scaling = 0.8, # numeric used to reduce the influence of non-diagonal elements in the scaling matrix (for stability)
                           r.truncation.p1 = -1, # numeric used to limit extreme values in the covariance matrix (for stability)- -1 if no truncation
                           r.truncation.p2 = -1, # numeric used to limit extreme values in the covariance matrix (for stability) - -1 if no truncation
                           burnin = 30, # integer for the number of burn-in steps before sampling
@@ -401,9 +397,8 @@ estimate_multipleERPM_secondparallel <- function(partitions, # observed partitio
                                   objects, # objects used for statistics calculation (list with a vector "name", and a vector "object")
                                   effects, # effects/sufficient statistics (list with a vector "names", and a vector "objects")
                                   startingestimates, # first guess for the model parameters
-                                  multiplicationfactor = 30, # for now, useless
                                   gainfactor = 0.1, # numeric used to decrease the size of steps made in the Newton optimization
-                                  a.scaling = 0.2, # numeric used to reduce the influence of non-diagonal elements in the scaling matrix (for stability)
+                                  a.scaling = 0.8, # numeric used to reduce the influence of non-diagonal elements in the scaling matrix (for stability)
                                   r.truncation.p1 = -1, # numeric used to limit extreme values in the covariance matrix (for stability) - -1 if no truncation
                                   r.truncation.p2 = -1, # numeric used to limit extreme values in the covariance matrix (for stability) - -1 if no truncation
                                   burnin = 30, # integer for the number of burn-in steps before sampling
@@ -518,7 +513,7 @@ estimate_multipleBERPM <- function(partitions, # observed partitions
 
                                   burnin.2 = 30, # integer for the number of burn-in steps before sampling int the MCMC to sample partitions
 
-                                  neighborhood.partition = c(0.7,0.3,0,0,0,0), # way of choosing partitions: probability vector (actors swap, merge/division, single actor move, pair move)
+                                  neighborhood.partition = c(0.7,0.3,0), # way of choosing partitions: probability vector (actors swap, merge/division, single actor move, pair move)
 
                                   neighborhood.augmentation = NULL, # standard deviations auround the parameters to draw the augmented distrubtion
 
