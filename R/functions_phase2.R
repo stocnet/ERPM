@@ -733,10 +733,12 @@ compute_parameters_simpleaveraging <- function(z.i,
 
     # compute truncating factor
     r <- 1
-    diff <- t(z.i - z.obs)
-    maxratio <-  max(sqrt((t(diff) %*% inv.zcov %*% diff / num.effects)))
-    if(maxratio > r.truncation.p2) {
-      r <- r.truncation.p2 / maxratio
+    if(r.truncation.p2 > 0){
+      diff <- t(z.i - z.obs)
+      maxratio <-  max(sqrt((t(diff) %*% inv.zcov %*% diff / num.effects)))
+      if(maxratio > r.truncation.p2) {
+        r <- r.truncation.p2 / maxratio
+      }
     }
 
     # new theta
@@ -763,10 +765,12 @@ compute_parameters_doubleaveraging <- function(z.i,
 
   # compute truncating factor
   r <- 1
-  diff <- t(mean.mean.z - z.obs)
-  maxratio <-  max(sqrt((t(diff) %*% inv.zcov %*% diff / num.effects)))
-  if(maxratio > r.truncation.p2) {
-    r <- r.truncation.p2 / maxratio
+  if(r.truncation.p2 > 0){
+    diff <- t(mean.mean.z - z.obs)
+    maxratio <-  max(sqrt((t(diff) %*% inv.zcov %*% diff / num.effects)))
+    if(maxratio > r.truncation.p2) {
+      r <- r.truncation.p2 / maxratio
+    }
   }
 
   # new theta

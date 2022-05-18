@@ -48,8 +48,8 @@ estimate_ERPM <- function(partition, # observed partition
                           multiplicationfactor = 30, # for now, useless
                           gainfactor = 0.1, # numeric used to decrease the size of steps made in the Newton optimization
                           a.scaling = 0.2, # numeric used to reduce the influence of non-diagonal elements in the scaling matrix (for stability)
-                          r.truncation.p1 = 2, # numeric used to limit extreme values in the covariance matrix (for stability)
-                          r.truncation.p2 = 5, # numeric used to limit extreme values in the covariance matrix (for stability)
+                          r.truncation.p1 = -1, # numeric used to limit extreme values in the covariance matrix (for stability) - -1 if no truncation
+                          r.truncation.p2 = -1, # numeric used to limit extreme values in the covariance matrix (for stability) - -1 if no truncation
                           burnin = 30, # integer for the number of burn-in steps before sampling
                           thining = 10, # integer for the number of thining steps between sampling
                           length.p1 = 100, # number of samples in phase 1
@@ -277,8 +277,8 @@ estimate_multipleERPM <- function(partitions, # observed partitions
                           multiplicationfactor = 30, # for now, useless
                           gainfactor = 0.1, # numeric used to decrease the size of steps made in the Newton optimization
                           a.scaling = 0.2, # numeric used to reduce the influence of non-diagonal elements in the scaling matrix (for stability)
-                          r.truncation.p1 = 2, # numeric used to limit extreme values in the covariance matrix (for stability)
-                          r.truncation.p2 = 5, # numeric used to limit extreme values in the covariance matrix (for stability)
+                          r.truncation.p1 = -1, # numeric used to limit extreme values in the covariance matrix (for stability)- -1 if no truncation
+                          r.truncation.p2 = -1, # numeric used to limit extreme values in the covariance matrix (for stability) - -1 if no truncation
                           burnin = 30, # integer for the number of burn-in steps before sampling
                           thining = 10, # integer for the number of thining steps between sampling
                           length.p1 = 100, # number of samples in phase 1
@@ -404,8 +404,8 @@ estimate_multipleERPM_secondparallel <- function(partitions, # observed partitio
                                   multiplicationfactor = 30, # for now, useless
                                   gainfactor = 0.1, # numeric used to decrease the size of steps made in the Newton optimization
                                   a.scaling = 0.2, # numeric used to reduce the influence of non-diagonal elements in the scaling matrix (for stability)
-                                  r.truncation.p1 = 2, # numeric used to limit extreme values in the covariance matrix (for stability)
-                                  r.truncation.p2 = 5, # numeric used to limit extreme values in the covariance matrix (for stability)
+                                  r.truncation.p1 = -1, # numeric used to limit extreme values in the covariance matrix (for stability) - -1 if no truncation
+                                  r.truncation.p2 = -1, # numeric used to limit extreme values in the covariance matrix (for stability) - -1 if no truncation
                                   burnin = 30, # integer for the number of burn-in steps before sampling
                                   thining = 10, # integer for the number of thining steps between sampling
                                   length.p1 = 100, # number of samples in phase 1
