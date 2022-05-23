@@ -374,7 +374,7 @@ run_phase2_multiple <- function(partitions,
           sfExport("cpus", "theta.i", "partitions.i", "presence.tables", "nodes", "effects", "objects", "burnin", "neighborhood", "sizes.allowed", "sizes.simulated")
           res <- sfLapply(1:cpus, fun = function(k) {
             set.seed(k)
-            subres <- results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, neighborhood, sizes.allowed, sizes.simulated)
+            subres <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, neighborhood, sizes.allowed, sizes.simulated)
             return(subres)
           }
           )
