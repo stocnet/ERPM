@@ -96,7 +96,7 @@ run_phase2_single <- function(partition,
       if(double.averaging) {
         mean.mean.z <- rep(0,num.effects)
         mean.mean.theta <- rep(0,num.effects)
-        mean.cpt <- 0
+        mean.cpt <- 1
       }
 
       # SUB STEP: until generated statistics cross the observed ones
@@ -340,7 +340,7 @@ run_phase2_multiple <- function(partitions,
       if(double.averaging) {
         mean.mean.z <- rep(0,num.effects)
         mean.mean.theta <- rep(0,num.effects)
-        mean.cpt <- 0
+        mean.cpt <- 1
       }
 
       # SUB STEP: until generated statistics cross the observed ones
@@ -567,7 +567,7 @@ run_phase2_multiple_secondparallel <- function(partitions,
       if(double.averaging) {
         mean.mean.z <- rep(0,num.effects)
         mean.mean.theta <- rep(0,num.effects)
-        mean.cpt <- 0
+        mean.cpt <- 1
       }
 
       # SUB STEP: until generated statistics cross the observed ones
@@ -761,7 +761,9 @@ compute_parameters_doubleaveraging <- function(z.i,
                                                r.truncation.p2){
   num.effects <- length(theta.i)
 
-  mean.mean.z <- mean.cpt / (mean.cpt+1) *  mean.mean.z + z.i / (mean.cpt+1)
+  # mean.cpt = N, mean.mean.z = average of stats from 1 to N 
+  if(mean.cpt == 1) mean.mean.z <- z.i
+  if(mean.cpt > 1) mean.mean.z <- (mean.cpt-1) / mean.cpt *  mean.mean.z + z.i / mean.cpt
 
   # compute truncating factor
   r <- 1
@@ -772,15 +774,14 @@ compute_parameters_doubleaveraging <- function(z.i,
       r <- r.truncation.p2 / maxratio
     }
   }
+  
+  # mean.mean.theta = average of thetas from 1 to N 
+  if(mean.cpt == 1) mean.mean.theta <- theta.i
+  if(mean.cpt > 1) mean.mean.theta <- (mean.cpt-1) / mean.cpt * mean.mean.theta + theta.i / mean.cpt
+  
+  # theta.i (theta_N+1) = [average theta until N] - a_N * N * r * D^-1 * ([average stats until N] - obs stats)  
+  theta.i <- mean.mean.theta - gainfactor * mean.cpt * r * inv.scaling %*% t(mean.mean.z - z.obs)
 
-  # new theta
-  theta.i <- theta.i - gainfactor * mean.cpt * r * inv.scaling %*% t(mean.mean.z - z.obs)
-
-  if(mean.cpt == 0) {
-    mean.mean.theta <- theta.i
-  } else {
-    mean.mean.theta <- mean.cpt / (mean.cpt+1) * mean.mean.theta + theta.i / (mean.cpt+1)
-  }
   mean.cpt <- mean.cpt + 1
 
   return(list("theta.i" = theta.i,
