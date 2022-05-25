@@ -588,7 +588,7 @@ compute_parameters_doubleaveraging <- function(z.i,
   if(mean.cpt > 1) mean.mean.theta <- (mean.cpt-1) / mean.cpt * mean.mean.theta + theta.i / mean.cpt
   
   # theta.i (theta_N+1) = [average theta until N] - a_N * N * r * D^-1 * ([average stats until N] - obs stats)  
-  theta.i <- mean.mean.theta - gainfactor * mean.cpt * r * inv.scaling %*% t(mean.mean.z - z.obs)
+  theta.i <- mean.mean.theta - gainfactor * mean.cpt * r * inv.scaling %*% (mean.mean.z - z.obs)
 
   mean.cpt <- mean.cpt + 1
 
