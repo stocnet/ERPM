@@ -548,7 +548,7 @@ similar_pairs <- function(partition, attribute, stat,  threshold) {
 #'CUP(p,fun=function(x){compute_number_same_pairs(x,at,'avg')})
 
 
-CUP <- function(observation, fun, test.direction, permutations=NULL, num.permutations=1000) {
+CUP <- function(observation, fun, permutations=NULL, num.permutations=1000) {
 
   if (is.null(permutations)) {
     permutations = list()
