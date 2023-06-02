@@ -16,8 +16,14 @@ knitr::opts_chunk$set(echo = TRUE)
 
 The following packages and scripts are required to fully run this example script. The details of the main functions can be found in the code itself, where comments help finding out what functions do and what arguments are for.
 
+<<<<<<< HEAD:scripts/Example_script.Rmd
 ```{r loads, message=FALSE, warning=FALSE, results='hide'}
 library(erpm)
+library(ggplot2)
+library(numbers)
+library(combinat)
+library(gmp)
+library(mclust)
 
 library(numbers) # for calculations of Bell numbers
 library(gmp) # for calculations of Stirling numbers
