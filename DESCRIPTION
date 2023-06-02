@@ -1,0 +1,35 @@
+Package: erpm
+Type: Package
+Title: What the Package Does (Title Case)
+Version: 0.1.0
+Author: Who wrote it
+Maintainer: The package maintainer <yourself@somewhere.net>
+Description: More about what it does (maybe more than one line)
+    Use four spaces when indenting paragraphs within the Description.
+License: What license is it under?
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.1.2
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+Depends: 
+    numbers
+Imports: 
+    utils
+Collate: 
+    'erpm-package.R'
+    'functions_utility.R'
+    'functions_Metropolis.R'
+    'functions_burninthining.R'
+    'functions_change_statistics.R'
+    'functions_estimate.R'
+    'functions_exactcalculations.R'
+    'functions_exchange_algorithm.R'
+    'functions_loglikelihood.R'
+    'functions_output.R'
+    'functions_phase1.R'
+    'functions_phase2.R'
+    'functions_phase3.R'
+    'functions_statistics.R'
+    'functions_visualisation.R'
