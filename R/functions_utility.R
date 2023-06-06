@@ -178,6 +178,7 @@ count_classes <- function(allpartitions){
 
 # Find a good starting point for the simple estimation procedure
 find_startingpoint_single <- function(nodes,
+                                      numgroups.allowed,
                                       sizes.allowed){
 
   num.nodes <- nrow(nodes)
@@ -208,6 +209,7 @@ find_startingpoint_single <- function(nodes,
 # Find a good starting point for the multiple estimation procedure
 find_startingpoint_multiple <- function(presence.tables,
                                         nodes,
+                                        numgroups.allowed,
                                         sizes.allowed){
 
   num.nodes <- nrow(nodes)

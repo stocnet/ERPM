@@ -29,6 +29,8 @@
 #' @param length.p3 = 1000, number of samples in phase 3
 #' @param neighborhood = c(0.7,0.3,0),  way of choosing partitions: probability vector (actors swap, merge/division, single actor move)
 #' @param fixed.estimates = NULL, if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
+#' @param numgroups.allowed = NULL, # vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
+#' @param numgroups.simulated = NULL, # vector containing the number of groups simulated
 #' @param sizes.allowed = NULL,  vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated = NULL,  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param double.averaging = F,  option to average the statistics sampled in each sub-step of phase 2
@@ -39,33 +41,35 @@
 #' @param cpus = 1 ,how many cores can be used
 #' @return A list estimates 3 phases
 #' @export
-estimate_ERPM <- function(partition, # observed partition
-                          nodes, # nodeset (data frame)
-                          objects, # objects used for statistics calculation (list with a vector "name", and a vector "object")
-                          effects, # effects/sufficient statistics (list with a vector "names", and a vector "objects")
-                          startingestimates, # first guess for the model parameters
-                          gainfactor = 0.1, # numeric used to decrease the size of steps made in the Newton optimization
-                          a.scaling = 0.8, # numeric used to reduce the influence of non-diagonal elements in the scaling matrix (for stability)
-                          r.truncation.p1 = -1, # numeric used to limit extreme values in the covariance matrix (for stability) - -1 if no truncation
-                          r.truncation.p2 = -1, # numeric used to limit extreme values in the covariance matrix (for stability) - -1 if no truncation
-                          burnin = 30, # integer for the number of burn-in steps before sampling
-                          thining = 10, # integer for the number of thining steps between sampling
-                          length.p1 = 100, # number of samples in phase 1
-                          min.iter.p2 = NULL, # minimum number of sub-steps in phase 2
-                          max.iter.p2 = NULL, # maximum number of sub-steps in phase 2
-                          multiplication.iter.p2 = 100, # value for the lengths of sub-steps in phase 2 (multiplied by  2.52^k)
-                          num.steps.p2 = 6, # number of optimisation steps in phase 2
-                          length.p3 = 1000, # number of samples in phase 3
-                          neighborhood = c(0.7,0.3,0), # way of choosing partitions: probability vector (actors swap, merge/division, single actor move)
-                          fixed.estimates = NULL, # if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
-                          sizes.allowed = NULL, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
-                          sizes.simulated = NULL, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-                          double.averaging = F, # option to average the statistics sampled in each sub-step of phase 2
-                          inv.zcov = NULL, # initial value of the inverted covariance matrix (if a phase 3 was run before) to bypass the phase 1
-                          inv.scaling = NULL, # initial value of the inverted scaling matrix (if a phase 3 was run before) to bypass the phase 1
-                          parallel = F, # whether the phase 1 and 3 should be parallelized
-                          parallel2 = F, # whether there should be several phases 2 run in parallel
-                          cpus = 1) { # how many cores can be used
+estimate_ERPM <- function(partition, 
+                          nodes, 
+                          objects, 
+                          effects, 
+                          startingestimates,
+                          gainfactor = 0.1, 
+                          a.scaling = 0.8,
+                          r.truncation.p1 = -1, 
+                          r.truncation.p2 = -1, 
+                          burnin = 30, 
+                          thining = 10, 
+                          length.p1 = 100, 
+                          min.iter.p2 = NULL,
+                          max.iter.p2 = NULL,
+                          multiplication.iter.p2 = 100,
+                          num.steps.p2 = 6,
+                          length.p3 = 1000, 
+                          neighborhood = c(0.7,0.3,0), 
+                          fixed.estimates = NULL, 
+                          numgroups.allowed = NULL,
+                          numgroups.simulated = NULL,
+                          sizes.allowed = NULL,
+                          sizes.simulated = NULL,
+                          double.averaging = F,
+                          inv.zcov = NULL,
+                          inv.scaling = NULL,
+                          parallel = F, 
+                          parallel2 = F, 
+                          cpus = 1) { 
 
   z.obs <- computeStatistics(partition, nodes, effects, objects)
 
@@ -98,7 +102,7 @@ estimate_ERPM <- function(partition, # observed partition
     estimates.phase1 <- startingestimates
     autocorrelations.phase1 <- NULL
   } else {
-    results.phase1 <- run_phase1_single(partition, startingestimates, z.obs, nodes, effects, objects, burnin, thining, gainfactor, a.scaling, r.truncation.p1, length.p1, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, parallel, cpus)
+    results.phase1 <- run_phase1_single(partition, startingestimates, z.obs, nodes, effects, objects, burnin, thining, gainfactor, a.scaling, r.truncation.p1, length.p1, neighborhood, fixed.estimates, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, parallel, cpus)
     estimates.phase1 <- results.phase1$estimates
     inv.zcov <- results.phase1$inv.zcov
     inv.scaling <- results.phase1$inv.scaling
@@ -106,11 +110,11 @@ estimate_ERPM <- function(partition, # observed partition
   }
 
   # --------- PHASE 2 ---------
-  results.phase2 <- run_phase2_single(partition, estimates.phase1, inv.zcov,inv.scaling, z.obs, nodes, effects, objects, burnin, thining, num.steps.p2, gainfactors, r.truncation.p2, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging, parallel2, cpus)
+  results.phase2 <- run_phase2_single(partition, estimates.phase1, inv.zcov,inv.scaling, z.obs, nodes, effects, objects, burnin, thining, num.steps.p2, gainfactors, r.truncation.p2, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, numgroups.allowed, numgroups.simulated,sizes.allowed, sizes.simulated, double.averaging, parallel2, cpus)
   estimates.phase2 <- results.phase2$final.estimates
 
   # --------- PHASE 3 ---------
-  results.phase3 <- run_phase3_single(partition, estimates.phase2, z.obs, nodes, effects, objects, burnin, thining, a.scaling, length.p3, neighborhood, sizes.allowed, sizes.simulated, fixed.estimates, parallel, cpus)
+  results.phase3 <- run_phase3_single(partition, estimates.phase2, z.obs, nodes, effects, objects, burnin, thining, a.scaling, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, fixed.estimates, parallel, cpus)
   means <- results.phase3$means
   standard.deviations <- results.phase3$standard.deviations
   standard.errors <- results.phase3$standard.errors
@@ -161,6 +165,8 @@ estimate_ERPM <- function(partition, # observed partition
 #' @param length.p3 = 1000, number of samples in phase 3
 #' @param neighborhood = c(0.7,0.3,0),  way of choosing partitions: probability vector (actors swap, merge/division, single actor move)
 #' @param fixed.estimates = NULL, if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
+#' @param numgroups.allowed = NULL, # vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
+#' @param numgroups.simulated = NULL, # vector containing the number of groups simulated
 #' @param sizes.allowed = NULL,  vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated = NULL,  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @return A estimates phase 3
@@ -175,6 +181,8 @@ estimate_ERPM_p3 <- function(partition,
                           length.p3 = 1000,
                           neighborhood = c(0.7,0.3,0),
                           fixed.estimates = NULL,
+                          numgroups.allowed = NULL,
+                          numgroups.simulated = NULL,
                           sizes.allowed = NULL,
                           sizes.simulated = NULL) {
 
@@ -192,7 +200,7 @@ estimate_ERPM_p3 <- function(partition,
 
 
   # --------- PHASE 3 ---------
-  results.phase3 <- run_phase3(partition, startingestimates, z.obs, nodes, effects, objects, burnin, thining, length.p3, neighborhood, sizes.allowed, sizes.simulated)
+  results.phase3 <- run_phase3(partition, startingestimates, z.obs, nodes, effects, objects, burnin, thining, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
   means <- results.phase3$means
   standard.deviations <- results.phase3$standard.deviations
   standard.errors <- results.phase3$standard.errors
@@ -239,6 +247,8 @@ estimate_ERPM_p3 <- function(partition,
 #' @param length.p3 = 1000, number of samples in phase 3
 #' @param neighborhood = c(0.7,0.3,0),  way of choosing partitions: probability vector (actors swap, merge/division, single actor move)
 #' @param fixed.estimates = NULL, if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
+#' @param numgroups.allowed = NULL, # vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
+#' @param numgroups.simulated = NULL, # vector containing the number of groups simulated
 #' @param sizes.allowed = NULL,  vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated = NULL,  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param double.averaging = F,  option to average the statistics sampled in each sub-step of phase 2
@@ -249,34 +259,36 @@ estimate_ERPM_p3 <- function(partition,
 #' @param cpus = 1 ,how many cores can be used
 #' @return A list estimates 3 phases
 #' @export
-estimate_multipleERPM <- function(partitions, # observed partitions
-                          presence.tables, # matrix indicating which actors were present for each observations (mandatory)
-                          nodes, # nodeset (data frame)
-                          objects, # objects used for statistics calculation (list with a vector "name", and a vector "object")
-                          effects, # effects/sufficient statistics (list with a vector "names", and a vector "objects")
-                          startingestimates, # first guess for the model parameters
-                          gainfactor = 0.1, # numeric used to decrease the size of steps made in the Newton optimization
-                          a.scaling = 0.8, # numeric used to reduce the influence of non-diagonal elements in the scaling matrix (for stability)
-                          r.truncation.p1 = -1, # numeric used to limit extreme values in the covariance matrix (for stability)- -1 if no truncation
-                          r.truncation.p2 = -1, # numeric used to limit extreme values in the covariance matrix (for stability) - -1 if no truncation
-                          burnin = 30, # integer for the number of burn-in steps before sampling
-                          thining = 10, # integer for the number of thining steps between sampling
-                          length.p1 = 100, # number of samples in phase 1
-                          min.iter.p2 = NULL, # minimum number of sub-steps in phase 2
-                          max.iter.p2 = NULL, # maximum number of sub-steps in phase 2
-                          multiplication.iter.p2 = 200, # value for the lengths of sub-steps in phase 2 (multiplied by  2.52^k)
-                          num.steps.p2 = 6, # number of optimisation steps in phase 2
-                          length.p3 = 1000, # number of samples in phase 3
-                          neighborhood = c(0.7,0.3,0), # way of choosing partitions: probability vector (actors swap, merge/division, single actor move)
-                          fixed.estimates = NULL, # if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
-                          sizes.allowed = NULL, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
-                          sizes.simulated = NULL, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-                          double.averaging = F, # option to average the statistics sampled in each sub-step of phase 2
-                          inv.zcov = NULL, # initial value of the inverted covariance matrix (if a phase 3 was run before) to bypass the phase 1
-                          inv.scaling = NULL, # initial value of the inverted scaling matrix (if a phase 3 was run before) to bypass the phase 1
-                          parallel = F, # whether the phase 1 and 3 should be parallelized
-                          parallel2 = F, # whether there should be several phases 2 run in parallel
-                          cpus = 1) { # how many cores can be used
+estimate_multipleERPM <- function(partitions, 
+                                  presence.tables, 
+                                  nodes, 
+                                  objects, 
+                                  effects, 
+                                  startingestimates, 
+                                  gainfactor = 0.1, 
+                                  a.scaling = 0.8, 
+                                  r.truncation.p1 = -1, 
+                                  r.truncation.p2 = -1, 
+                                  burnin = 30, 
+                                  thining = 10, 
+                                  length.p1 = 100, 
+                                  min.iter.p2 = NULL, 
+                                  max.iter.p2 = NULL, 
+                                  multiplication.iter.p2 = 200, 
+                                  num.steps.p2 = 6, 
+                                  length.p3 = 1000, 
+                                  neighborhood = c(0.7,0.3,0), 
+                                  fixed.estimates = NULL, 
+                                  numgroups.allowed = NULL, 
+                                  numgroups.simulated = NULL,
+                                  sizes.allowed = NULL, 
+                                  sizes.simulated = NULL, 
+                                  double.averaging = F, 
+                                  inv.zcov = NULL, 
+                                  inv.scaling = NULL, 
+                                  parallel = F, 
+                                  parallel2 = F, 
+                                  cpus = 1) { 
 
   z.obs <- rowSums( computeStatistics_multiple(partitions, presence.tables, nodes, effects, objects) )
 
@@ -309,7 +321,7 @@ estimate_multipleERPM <- function(partitions, # observed partitions
     estimates.phase1 <- startingestimates
     autocorrelations.phase1 <- NULL
   } else {
-    results.phase1 <- run_phase1_multiple(partitions, startingestimates, z.obs, presence.tables, nodes, effects, objects, burnin, thining, gainfactor, a.scaling, r.truncation.p1, length.p1, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, parallel, cpus)
+    results.phase1 <- run_phase1_multiple(partitions, startingestimates, z.obs, presence.tables, nodes, effects, objects, burnin, thining, gainfactor, a.scaling, r.truncation.p1, length.p1, neighborhood, fixed.estimates, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, parallel, cpus)
     estimates.phase1 <- results.phase1$estimates
     inv.zcov <- results.phase1$inv.zcov
     inv.scaling <- results.phase1$inv.scaling
@@ -317,12 +329,12 @@ estimate_multipleERPM <- function(partitions, # observed partitions
   }
 
   # --------- PHASE 2 ---------
-  results.phase2 <- run_phase2_multiple(partitions, estimates.phase1, inv.zcov,inv.scaling, z.obs, presence.tables, nodes, effects, objects, burnin, thining, num.steps.p2, gainfactors, r.truncation.p2, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, sizes.allowed, sizes.simulated, double.averaging, parallel2, cpus)
+  results.phase2 <- run_phase2_multiple(partitions, estimates.phase1, inv.zcov,inv.scaling, z.obs, presence.tables, nodes, effects, objects, burnin, thining, num.steps.p2, gainfactors, r.truncation.p2, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, double.averaging, parallel2, cpus)
   estimates.phase2 <- results.phase2$final.estimates
 
 
   # --------- PHASE 3 ---------
-  results.phase3 <- run_phase3_multiple(partitions, estimates.phase2, z.obs, presence.tables, nodes, effects, objects, burnin, thining, a.scaling, length.p3, neighborhood, sizes.allowed, sizes.simulated, fixed.estimates, parallel, cpus)
+  results.phase3 <- run_phase3_multiple(partitions, estimates.phase2, z.obs, presence.tables, nodes, effects, objects, burnin, thining, a.scaling, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, fixed.estimates, parallel, cpus)
   draws <- results.phase3$draws
   means <- results.phase3$means
   standard.deviations <- results.phase3$standard.deviations
@@ -381,6 +393,8 @@ estimate_multipleBERPM <- function(partitions, # observed partitions
 
                                   neighborhood.augmentation = NULL, # standard deviations auround the parameters to draw the augmented distrubtion
 
+                                  numgroups.allowed = NULL, # vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
+                                  numgroups.simulated = NULL, # vector containing the number of groups simulated
                                   sizes.allowed = NULL, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
                                   sizes.simulated = NULL, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 
@@ -430,6 +444,8 @@ estimate_multipleBERPM <- function(partitions, # observed partitions
                                                       burnin.2,
                                                       neighborhood.partition,
                                                       neighborhood.augmentation,
+                                                      numgroups.allowed,
+                                                      numgroups.simulated,
                                                       sizes.allowed,
                                                       sizes.simulated,
                                                       parallel,

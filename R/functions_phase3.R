@@ -18,6 +18,8 @@
 #' @param a.scaling XXX
 #' @param length.p3 XXX
 #' @param neighborhood XXX
+#' @param numgroups.allowed XXX
+#' @param numgroups.simulated XXX
 #' @param sizes.allowed XXX
 #' @param sizes.simulated XXX
 #' @param fixed.estimates XXX
@@ -36,6 +38,8 @@ run_phase3_single <- function(partition,
                        a.scaling,
                        length.p3, 
                        neighborhood,
+                       numgroups.allowed,
+                       numgroups.simulated,
                        sizes.allowed,
                        sizes.simulated,
                        fixed.estimates,
@@ -52,10 +56,10 @@ run_phase3_single <- function(partition,
   # simulate a large sample with the estimates found in phase 2 
   if(parallel){
     
-    sfExport("startingestimates", "first.partition", "nodes", "effects", "objects", "burnin", "thining", "length.p3", "cpus", "neighborhood", "sizes.allowed", "sizes.simulated")
+    sfExport("startingestimates", "first.partition", "nodes", "effects", "objects", "burnin", "thining", "length.p3", "cpus", "neighborhood", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated")
     res <- sfLapply(1:cpus, fun = function(k) {
       set.seed(k)
-      subres <- draw_Metropolis_single(estimates.phase2, first.partition, nodes, effects, objects, burnin, thining, ceiling(length.p3/cpus), neighborhood, sizes.allowed, sizes.simulated)
+      subres <- draw_Metropolis_single(estimates.phase2, first.partition, nodes, effects, objects, burnin, thining, ceiling(length.p3/cpus), neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
       return(subres)
     }
     )
@@ -66,7 +70,7 @@ run_phase3_single <- function(partition,
     
   }else{
     
-    results.phase3 <- draw_Metropolis_single(estimates.phase2, first.partition, nodes, effects, objects, burnin, thining, length.p3, neighborhood, sizes.allowed, sizes.simulated)
+    results.phase3 <- draw_Metropolis_single(estimates.phase2, first.partition, nodes, effects, objects, burnin, thining, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
   }
   z.phase3 <- results.phase3$draws
   
@@ -114,6 +118,8 @@ run_phase3_single <- function(partition,
 #' @param a.scaling XXX
 #' @param length.p3 XXX
 #' @param neighborhood XXX
+#' @param numgroups.allowed XXX
+#' @param numgroups.simulated XXX
 #' @param sizes.allowed XXX
 #' @param sizes.simulated XXX
 #' @param fixed.estimates XXX
@@ -133,6 +139,8 @@ run_phase3_multiple <- function(partitions,
                               a.scaling,
                               length.p3, 
                               neighborhood,
+                              numgroups.allowed,
+                              numgroups.simulated,
                               sizes.allowed,
                               sizes.simulated,
                               fixed.estimates,
@@ -149,10 +157,10 @@ run_phase3_multiple <- function(partitions,
   # simulate a large sample with the estimates found in phase 2 
   if(parallel){
     
-    sfExport("startingestimates", "first.partitions", "presence.tables", "nodes", "effects", "objects", "burnin", "thining", "length.p3", "cpus", "neighborhood", "sizes.allowed", "sizes.simulated")
+    sfExport("startingestimates", "first.partitions", "presence.tables", "nodes", "effects", "objects", "burnin", "thining", "length.p3", "cpus", "neighborhood", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated")
     res <- sfLapply(1:cpus, fun = function(k) {
       set.seed(k)
-      subres <- draw_Metropolis_multiple(estimates.phase2, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, ceiling(length.p3/cpus), neighborhood, sizes.allowed, sizes.simulated, return.all.partitions = T)
+      subres <- draw_Metropolis_multiple(estimates.phase2, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, ceiling(length.p3/cpus), neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = T)
       return(subres)
     }
     )
@@ -167,7 +175,7 @@ run_phase3_multiple <- function(partitions,
   
   }else{
     
-    results.phase3 <- draw_Metropolis_multiple(estimates.phase2, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, length.p3, neighborhood, sizes.allowed, sizes.simulated, return.all.partitions = T)
+    results.phase3 <- draw_Metropolis_multiple(estimates.phase2, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = T)
   
   }
   z.phase3 <- results.phase3$draws

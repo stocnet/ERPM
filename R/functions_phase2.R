@@ -23,6 +23,8 @@
 #' @param multiplication.iter XXX
 #' @param neighborhood XXX
 #' @param fixed.estimates XXX
+#' @param numgroups.allowed XXX
+#' @param numgroups.simulated XXX
 #' @param sizes.allowed XXX
 #' @param sizes.simulated XXX
 #' @param double.averaging XXX
@@ -46,6 +48,8 @@ run_phase2_single <- function(partition,
                        multiplication.iter,
                        neighborhood,
                        fixed.estimates,
+                       numgroups.allowed,
+                       numgroups.simulated,
                        sizes.allowed,
                        sizes.simulated,
                        double.averaging,
@@ -83,7 +87,7 @@ run_phase2_single <- function(partition,
       all.estimates <- rbind(all.estimates,matrix(theta.i,nrow=1))
 
       # find a good starting point
-      #partition.i <- find_startingpoint_single(nodes,sizes.allowed)
+      #partition.i <- find_startingpoint_single(nodes, numgroups.allowed, sizes.allowed)
       partition.i <- partition
       sign.i_1 <- rep(0, num.effects) # used to check cross statistics
 
@@ -107,10 +111,10 @@ run_phase2_single <- function(partition,
         # draw one element from the chain
         if(parallel){
           
-          sfExport("cpus", "theta.i", "partition.i", "nodes", "effects", "objects", "burnin", "neighborhood", "sizes.allowed", "sizes.simulated")
+          sfExport("cpus", "theta.i", "partition.i", "nodes", "effects", "objects", "burnin", "neighborhood", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated")
           res <- sfLapply(1:cpus, fun = function(k) {
             set.seed(k)
-            subres <- draw_Metropolis_single(theta.i, partition.i, nodes, effects, objects, burnin, 1, 1, neighborhood, sizes.allowed, sizes.simulated)
+            subres <- draw_Metropolis_single(theta.i, partition.i, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
             return(subres)
           }
           )
@@ -121,7 +125,7 @@ run_phase2_single <- function(partition,
           
         } else {
           
-          results.i <- draw_Metropolis_single(theta.i, partition.i, nodes, effects, objects, burnin, 1, 1, neighborhood, sizes.allowed, sizes.simulated)
+          results.i <- draw_Metropolis_single(theta.i, partition.i, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
           z.i <- results.i$draws
           partition.i <- results.i$last.partition
           
@@ -182,7 +186,8 @@ run_phase2_single <- function(partition,
       all.estimates <- rbind(all.estimates,matrix(theta.i,nrow=1))
 
       # find a good starting point
-      partition.i <- find_startingpoint_single(nodes,sizes.allowed)
+      #partition.i <- find_startingpoint_single(nodes, numgroups.allowed, sizes.allowed)
+      partition.i <- partition
       sign.i_1 <- rep(0, length(unfixed.indexes)) # used to check cross statistics
 
       # store all stats
@@ -201,9 +206,9 @@ run_phase2_single <- function(partition,
         fulltheta.i <- estimates.phase1
         fulltheta.i[unfixed.indexes] <- theta.i
         if(i == 1){
-          results.i <- draw_Metropolis_single(fulltheta.i, partition.i, nodes, effects, objects, burnin, 1, 1, neighborhood, sizes.allowed, sizes.simulated)
+          results.i <- draw_Metropolis_single(fulltheta.i, partition.i, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
         } else {
-          results.i <- draw_Metropolis_single(fulltheta.i, partition.i, nodes, effects, objects, thining, 1, 1, neighborhood, sizes.allowed, sizes.simulated)
+          results.i <- draw_Metropolis_single(fulltheta.i, partition.i, nodes, effects, objects, thining, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
         }
         z.i <- results.i$draws[unfixed.indexes]
         partition.i <- results.i$last.partition
@@ -282,6 +287,8 @@ run_phase2_single <- function(partition,
 #' @param multiplication.iter XXX
 #' @param neighborhood XXX
 #' @param fixed.estimates XXX
+#' @param numgroups.allowed XXX
+#' @param numgroups.simulated XXX
 #' @param sizes.allowed XXX
 #' @param sizes.simulated XXX
 #' @param double.averaging XXX
@@ -306,6 +313,8 @@ run_phase2_multiple <- function(partitions,
                               multiplication.iter,
                               neighborhood,
                               fixed.estimates,
+                              numgroups.allowed,
+                              numgroups.simulated,
                               sizes.allowed,
                               sizes.simulated,
                               double.averaging,
@@ -344,7 +353,7 @@ run_phase2_multiple <- function(partitions,
       theta.i <- estimates
 
       # find a good starting point
-      #partitions.i <- find_startingpoint_multiple(presence.tables,nodes,sizes.allowed)
+      #partitions.i <- find_startingpoint_multiple(presence.tables, nodes, numgroups.allowed, sizes.allowed)
       partitions.i <- partitions
       sign.i_1 <- rep(0, num.effects) # used to check cross statistics
 
@@ -371,10 +380,10 @@ run_phase2_multiple <- function(partitions,
         # draw one element from the chain
         if(parallel){
           
-          sfExport("cpus", "theta.i", "partitions.i", "presence.tables", "nodes", "effects", "objects", "burnin", "neighborhood", "sizes.allowed", "sizes.simulated")
+          sfExport("cpus", "theta.i", "partitions.i", "presence.tables", "nodes", "effects", "objects", "burnin", "neighborhood", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated")
           res <- sfLapply(1:cpus, fun = function(k) {
             set.seed(k)
-            subres <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, neighborhood, sizes.allowed, sizes.simulated)
+            subres <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
             return(subres)
           }
           )
@@ -385,7 +394,7 @@ run_phase2_multiple <- function(partitions,
           
         } else {
           
-          results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, neighborhood, sizes.allowed, sizes.simulated)
+          results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
           z.i <- results.i$draws
           partitions.i <- results.i$last.partitions
           
@@ -447,7 +456,8 @@ run_phase2_multiple <- function(partitions,
       all.estimates <- rbind(all.estimates,matrix(theta.i,nrow=1))
 
       # find a good starting point
-      partitions.i <- find_startingpoint_multiple(presence.tables,nodes,sizes.allowed)
+      # partitions.i <- find_startingpoint_multiple(presence.table, nodes, numgroups.allowed, sizes.allowed)
+      partitions.i <- partitions
       sign.i_1 <- rep(0, length(unfixed.indexes)) # used to check cross statistics
 
       # store all stats
@@ -466,9 +476,9 @@ run_phase2_multiple <- function(partitions,
         fulltheta.i <- estimates.phase1
         fulltheta.i[unfixed.indexes] <- theta.i
         if(i == 1){
-          results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, neighborhood, sizes.allowed, sizes.simulated)
+          results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
         } else {
-          results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, thining, 1, 1, neighborhood, sizes.allowed, sizes.simulated)
+          results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, thining, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
         }
         z.i <- results.i$draws[unfixed.indexes]
         partitions.i <- results.i$last.partitions

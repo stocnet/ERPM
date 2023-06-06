@@ -22,6 +22,8 @@
 #' @param length.p1 XXX
 #' @param neighborhood = c(0.7,0.3,0) way of choosing partitions
 #' @param fixed.estimates XXX
+#' @param numgroups.allowed = NULL, # vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
+#' @param numgroups.simulated = NULL, # vector containing the number of groups simulated
 #' @param sizes.allowed = NULL,   vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated = NULL,  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param parallel XXX
@@ -42,6 +44,8 @@ run_phase1_single <- function(partition,
                        length.p1, 
                        neighborhood,
                        fixed.estimates,
+                       numgroups.allowed,
+                       numgroups.simulated,
                        sizes.allowed,
                        sizes.simulated,
                        parallel = T,
@@ -57,10 +61,10 @@ run_phase1_single <- function(partition,
   # simulate the statisticis distribution
   if(parallel){
     
-    sfExport("startingestimates", "first.partition", "nodes", "effects", "objects", "burnin", "thining", "length.p1", "cpus", "neighborhood", "sizes.allowed", "sizes.simulated")
+    sfExport("startingestimates", "first.partition", "nodes", "effects", "objects", "burnin", "thining", "length.p1", "cpus", "neighborhood", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated")
     res <- sfLapply(1:cpus, fun = function(k) {
       set.seed(k)
-      subres <- draw_Metropolis_single(startingestimates, first.partition, nodes, effects, objects, burnin, thining, ceiling(length.p1/cpus), neighborhood, sizes.allowed, sizes.simulated)
+      subres <- draw_Metropolis_single(startingestimates, first.partition, nodes, effects, objects, burnin, thining, ceiling(length.p1/cpus), neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
       return(subres)
     }
     )
@@ -71,7 +75,7 @@ run_phase1_single <- function(partition,
     
   }else{
     
-    results.phase1 <- draw_Metropolis_single(startingestimates, first.partition, nodes, effects, objects, burnin, thining, length.p1, neighborhood, sizes.allowed, sizes.simulated)
+    results.phase1 <- draw_Metropolis_single(startingestimates, first.partition, nodes, effects, objects, burnin, thining, length.p1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
   }
   z.phase1 <- results.phase1$draws
   
@@ -135,6 +139,8 @@ run_phase1_single <- function(partition,
 #' @param length.p1 XXX
 #' @param neighborhood = c(0.7,0.3,0) way of choosing partitions
 #' @param fixed.estimates XXX
+#' @param numgroups.allowed = NULL, # vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
+#' @param numgroups.simulated = NULL, # vector containing the number of groups simulated
 #' @param sizes.allowed = NULL,   vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated = NULL,  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param parallel XXX
@@ -156,6 +162,8 @@ run_phase1_multiple <- function(partitions,
                               length.p1, 
                               neighborhood,
                               fixed.estimates,
+                              numgroups.allowed,
+                              numgroups.simulated,
                               sizes.allowed,
                               sizes.simulated,
                               parallel = F,
@@ -172,10 +180,10 @@ run_phase1_multiple <- function(partitions,
   # simulate the statisticis distribution
   if(parallel){
     
-    sfExport("startingestimates", "first.partitions", "presence.tables", "nodes", "effects", "objects", "burnin", "thining", "length.p1", "cpus", "neighborhood", "sizes.allowed", "sizes.simulated")
+    sfExport("startingestimates", "first.partitions", "presence.tables", "nodes", "effects", "objects", "burnin", "thining", "length.p1", "cpus", "neighborhood", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated")
     res <- sfLapply(1:cpus, fun = function(k) {
       set.seed(k)
-      subres <- draw_Metropolis_multiple(startingestimates, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, ceiling(length.p1/cpus), neighborhood, sizes.allowed, sizes.simulated)
+      subres <- draw_Metropolis_multiple(startingestimates, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, ceiling(length.p1/cpus), neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
       return(subres)
     }
     )
@@ -186,7 +194,7 @@ run_phase1_multiple <- function(partitions,
     
   }else{
     
-    results.phase1 <- draw_Metropolis_multiple(startingestimates, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, length.p1, neighborhood, sizes.allowed, sizes.simulated)
+    results.phase1 <- draw_Metropolis_multiple(startingestimates, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, length.p1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
     
   }
   z.phase1 <- results.phase1$draws

@@ -16,26 +16,30 @@
 #' @param objects Objects used for statistics calculation (list with a vector "name", and a vector "object")
 #' @param num.steps Number of samples wanted
 #' @param neighborhood Way of choosing partitions: probability vector (proba actors swap, proba merge/division, proba single actor move)
+#' @param numgroups.allowed vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
+#' @param numgroups.simulated vector containing the number of groups simulated
 #' @param sizes.allowed Vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @return A list with list the draws, the moving.means and the moving means smoothed
 #' @export
-simulate_burnin_single <- function(partition, # observed partition
-                                          theta, # initial model parameters
-                                          nodes, # nodeset (data frame)
-                                          effects, # effects/sufficient statistics (list with a vector "names", and a vector "objects")
-                                          objects, # objects used for statistics calculation (list with a vector "name", and a vector "object")
-                                          num.steps, # number of samples wanted
-                                          neighborhood, # way of choosing partitions: probability vector (proba actors swap, proba merge/division, proba single actor move)
-                                          sizes.allowed, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
-                                          sizes.simulated) # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+simulate_burnin_single <- function(partition, 
+                                   theta, 
+                                   nodes, 
+                                   effects, 
+                                   objects, 
+                                   num.steps, 
+                                   neighborhood, 
+                                   numgroups.allowed, 
+                                   numgroups.simulated,
+                                   sizes.allowed, 
+                                   sizes.simulated) 
 {
   num.effects <- length(effects$names)
 
   print("Neighborhood: ")
   print(neighborhood)
 
-  chain <- draw_Metropolis_single(theta, partition, nodes, effects, objects, 1, 1, num.steps, neighborhood, sizes.allowed, sizes.simulated, return.all.partitions = F)
+  chain <- draw_Metropolis_single(theta, partition, nodes, effects, objects, 1, 1, num.steps, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = F)
 
   # now we check the evolution of the mean for choosing the burnin
   allmeans <- matrix(0,nrow(chain$draws),num.effects)
@@ -69,23 +73,27 @@ simulate_burnin_single <- function(partition, # observed partition
 #' @param objects Objects used for statistics calculation (list with a vector "name", and a vector "object")
 #' @param num.steps Number of samples wanted
 #' @param neighborhoods List of probability vectors (proba actors swap, proba merge/division, proba single actor move)
+#' @param numgroups.allowed = NULL, # vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
+#' @param numgroups.simulated vector containing the number of groups simulated
 #' @param sizes.allowed Vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param parallel False, to run different neighborhoods in parallel
 #' @param cpus Equal to 1
 #' @return all simulations
 #' @export
-gridsearch_burnin_single <- function(partition, # observed partition
-                                            theta, # initial model parameters
-                                            nodes, # nodeset (data frame)
-                                            effects, # effects/sufficient statistics (list with a vector "names", and a vector "objects")
-                                            objects, # objects used for statistics calculation (list with a vector "name", and a vector "object")
-                                            num.steps, # number of samples
-                                            neighborhoods, # list of probability vectors (proba actors swap, proba merge/division, proba single actor move)
-                                            sizes.allowed, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
-                                            sizes.simulated, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-                                            parallel = F, # to run different neighborhoods in parallel
-                                            cpus = 1) {
+gridsearch_burnin_single <- function(partition, 
+                                     theta, 
+                                     nodes, 
+                                     effects, 
+                                     objects, 
+                                     num.steps, 
+                                     neighborhoods, 
+                                     numgroups.allowed, 
+                                     numgroups.simulated,
+                                     sizes.allowed, 
+                                     sizes.simulated, 
+                                     parallel = F, 
+                                     cpus = 1) {
 
   # parallel procedure
   if(parallel){
@@ -100,13 +108,13 @@ gridsearch_burnin_single <- function(partition, # observed partition
       subindexes[[c]] <- start:end
     }
 
-    sfExport("partition", "theta", "nodes", "effects", "objects", "num.steps", "neighborhoods", "sizes.allowed", "sizes.simulated", "subindexes")
+    sfExport("partition", "theta", "nodes", "effects", "objects", "num.steps", "neighborhoods", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated", "subindexes")
     res <- sfLapply(1:cpus, fun = function(k) {
       subres <- list()
       for(i in 1:length(subindexes[[k]])){
         index <- subindexes[[k]][i]
         subneighborhood <- neighborhoods[[index]]
-        subres[[i]] <- simulate_burnin_single(partition, theta, nodes, effects, objects, num.steps, subneighborhood, sizes.allowed, sizes.simulated)
+        subres[[i]] <- simulate_burnin_single(partition, theta, nodes, effects, objects, num.steps, subneighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
       }
       return(subres)
     }
@@ -121,7 +129,7 @@ gridsearch_burnin_single <- function(partition, # observed partition
     # just go through all neighborhoods one by one
     allsimulations <- list()
     for(i in 1:length(neighborhoods)){
-      allsimulations[[i]] <- simulate_burnin_single(partition, theta, nodes, effects, objects, num.steps, neighborhoods[[i]], sizes.allowed, sizes.simulated)
+      allsimulations[[i]] <- simulate_burnin_single(partition, theta, nodes, effects, objects, num.steps, neighborhoods[[i]], numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
     }
 
   }
@@ -143,6 +151,8 @@ gridsearch_burnin_single <- function(partition, # observed partition
 #' @param objects Objects used for statistics calculation (list with a vector "name", and a vector "object")
 #' @param num.steps Number of samples wanted
 #' @param neighborhood Way of choosing partitions: probability vector (proba actors swap, proba merge/division, proba single actor move)
+#' @param numgroups.allowed vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
+#' @param numgroups.simulated vector containing the number of groups simulated
 #' @param sizes.allowed Vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param burnin XXX
@@ -150,21 +160,23 @@ gridsearch_burnin_single <- function(partition, # observed partition
 #' @return A list
 #' @export
 # SINGLE PARTITION PROCEDURE
-simulate_thining_single <- function(partition, # observed partition
-                                          theta, # initial model parameters
-                                          nodes, # nodeset (data frame)
-                                          effects, # effects/sufficient statistics (list with a vector "names", and a vector "objects")
-                                          objects, # objects used for statistics calculation (list with a vector "name", and a vector "object")
-                                          num.steps, # number of samples wanted in phase 1
-                                          neighborhood, # way of choosing partitions: probability vector (proba actors swap, proba merge/division, proba single actor move)
-                                          sizes.allowed, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
-                                          sizes.simulated, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-                                          burnin,
-                                          max.thining)
+simulate_thining_single <- function(partition, 
+                                    theta, 
+                                    nodes, 
+                                    effects, 
+                                    objects,
+                                    num.steps, 
+                                    neighborhood, 
+                                    numgroups.allowed,
+                                    numgroups.simulated,
+                                    sizes.allowed, 
+                                    sizes.simulated, 
+                                    burnin,
+                                    max.thining)
 {
   num.effects <- length(effects$names)
 
-  chain <- draw_Metropolis_single(theta, partition, nodes, effects, objects, burnin, 1, num.steps, neighborhood, sizes.allowed, sizes.simulated, return.all.partitions = F)
+  chain <- draw_Metropolis_single(theta, partition, nodes, effects, objects, burnin, 1, num.steps, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = F)
 
   # first look at autocorrelations find ok thining (either max thining reached or autocor < 0.4)
   ok <- F
@@ -200,7 +212,7 @@ simulate_thining_single <- function(partition, # observed partition
     } else{
 
       # we continue the chain
-      new.chain <- draw_Metropolis_single(theta, current.last, nodes, effects, objects, 1, 1, num.steps, neighborhood, sizes.allowed, sizes.simulated, return.all.partitions = F)
+      new.chain <- draw_Metropolis_single(theta, current.last, nodes, effects, objects, 1, 1, num.steps, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = F)
       current.draws <- rbind(current.draws,new.chain$draws)
       current.last <- new.chain$last.partition
 
@@ -236,25 +248,29 @@ simulate_thining_single <- function(partition, # observed partition
 #' @param objects Objects used for statistics calculation (list with a vector "name", and a vector "object")
 #' @param num.steps Number of samples wanted
 #' @param neighborhoods List of probability vectors (proba actors swap, proba merge/division, proba single actor move)
+#' @param numgroups.allowed vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
+#' @param numgroups.simulated vector containing the number of groups simulated
 #' @param sizes.allowed Vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param parallel False, to run different neighborhoods in parallel
 #' @param cpus Equal to 1
 #' @return all simulations
 #' @export
-gridsearch_thining_single <- function(partition, # observed partition
-                                            theta, # initial model parameters
-                                            nodes, # nodeset (data frame)
-                                            effects, # effects/sufficient statistics (list with a vector "names", and a vector "objects")
-                                            objects, # objects used for statistics calculation (list with a vector "name", and a vector "object")
-                                            num.steps, # number of samples wanted in phase 1
-                                            neighborhoods, # list of probability vectors (proba actors swap, proba merge/division, proba single actor move)
-                                            sizes.allowed, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
-                                            sizes.simulated, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-                                            burnins, # burnins necessary for each neighborhood
-                                            max.thining, # where to stop adding thining
-                                            parallel = F, # to run different neighborhoods in parallel
-                                            cpus = 1) {
+gridsearch_thining_single <- function(partition,
+                                      theta, 
+                                      nodes, 
+                                      effects, 
+                                      objects, 
+                                      num.steps, 
+                                      neighborhoods, 
+                                      numgroups.allowed, 
+                                      numgroups.simulated,
+                                      sizes.allowed, 
+                                      sizes.simulated, 
+                                      burnins, 
+                                      max.thining, 
+                                      parallel = F, 
+                                      cpus = 1) {
 
   # parallel procedure
   if(parallel){
@@ -269,13 +285,13 @@ gridsearch_thining_single <- function(partition, # observed partition
       subindexes[[c]] <- start:end
     }
 
-    sfExport("partition", "theta", "nodes", "effects", "objects", "num.steps", "neighborhoods", "sizes.allowed", "sizes.simulated", "burnins", "max.thining", "subindexes")
+    sfExport("partition", "theta", "nodes", "effects", "objects", "num.steps", "neighborhoods", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated", "burnins", "max.thining", "subindexes")
     res <- sfLapply(1:cpus, fun = function(k) {
       subres <- list()
       for(i in 1:length(subindexes[[k]])){
         index <- subindexes[[k]][i]
         subneighborhood <- neighborhoods[[index]]
-        subres[[i]] <- simulate_thining_single(partition, theta, nodes, effects, objects, num.steps, subneighborhood, sizes.allowed, sizes.simulated, burnins[i], max.thining)
+        subres[[i]] <- simulate_thining_single(partition, theta, nodes, effects, objects, num.steps, subneighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, burnins[i], max.thining)
       }
       return(subres)
     }
@@ -290,7 +306,7 @@ gridsearch_thining_single <- function(partition, # observed partition
     # just go through all neighborhoods one by one
     allsimulations <- list()
     for(i in 1:length(neighborhoods)){
-      allsimulations[[i]] <- simulate_thining_single(partition, theta, nodes, effects, objects, num.steps, neighborhoods[[i]], sizes.allowed, sizes.simulated, burnins[i], max.thining)
+      allsimulations[[i]] <- simulate_thining_single(partition, theta, nodes, effects, objects, num.steps, neighborhoods[[i]], numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, burnins[i], max.thining)
     }
 
   }
@@ -355,25 +371,29 @@ gridsearch_thining_single <- function(partition, # observed partition
 #' @param objects Objects used for statistics calculation (list with a vector "name", and a vector "object")
 #' @param num.steps Number of samples wanted
 #' @param neighborhood Way of choosing partitions: probability vector (proba actors swap, proba merge/division, proba single actor move)
+#' @param numgroups.allowed vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
+#' @param numgroups.simulated vector containing the number of groups simulated
 #' @param sizes.allowed Vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param max.thining XXX
 #' @return A list
 #' @export
-simulate_burninthining_single <- function(partition, # observed partition
-                               theta, # initial model parameters
-                               nodes, # nodeset (data frame)
-                               effects, # effects/sufficient statistics (list with a vector "names", and a vector "objects")
-                               objects, # objects used for statistics calculation (list with a vector "name", and a vector "object")
-                               num.steps, # number of samples wanted in phase 1
-                               neighborhood, # way of choosing partitions: probability vector (proba actors swap, proba merge/division, proba single actor move)
-                               sizes.allowed, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
-                               sizes.simulated, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-                               max.thining)
+simulate_burninthining_single <- function(partition, 
+                                          theta,
+                                          nodes,
+                                          effects,
+                                          objects,
+                                          num.steps,
+                                          neighborhood,
+                                          numgroups.allowed,
+                                          numgroups.simulated,
+                                          sizes.allowed, 
+                                          sizes.simulated, 
+                                          max.thining)
 {
   num.effects <- length(effects$names)
 
-  chain <- draw_Metropolis_single(theta, partition, nodes, effects, objects, 1, 1, num.steps, neighborhood, sizes.allowed, sizes.simulated, return.all.partitions = F)
+  chain <- draw_Metropolis_single(theta, partition, nodes, effects, objects, 1, 1, num.steps, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = F)
 
   # first look at autocorrelations find ok thining (either max thining reached or autocor < 0.4)
   ok <- F
@@ -409,7 +429,7 @@ simulate_burninthining_single <- function(partition, # observed partition
     } else{
 
       # we continue the chain
-      new.chain <- draw_Metropolis_single(theta, current.last, nodes, effects, objects, 1, 1, num.steps, neighborhood, sizes.allowed, sizes.simulated, return.all.partitions = F)
+      new.chain <- draw_Metropolis_single(theta, current.last, nodes, effects, objects, 1, 1, num.steps, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = F)
       current.draws <- rbind(current.draws,new.chain$draws)
       current.last <- new.chain$last.partition
 
@@ -460,26 +480,30 @@ simulate_burninthining_single <- function(partition, # observed partition
 #' @param objects Objects used for statistics calculation (list with a vector "name", and a vector "object")
 #' @param num.steps Number of samples wanted
 #' @param neighborhood Way of choosing partitions: probability vector (proba actors swap, proba merge/division, proba single actor move)
+#' @param numgroups.allowed vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
+#' @param numgroups.simulated vector containing the number of groups simulated
 #' @param sizes.allowed Vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param max.thining XXX
 #' @return A list
 #' @export
-simulate_burninthining_multiple <- function(partitions, # observed partitions
-                                        presence.tables, # to indicate which nodes were present when
-                                        theta, # initial model parameters
-                                        nodes, # nodeset (data frame)
-                                        effects, # effects/sufficient statistics (list with a vector "names", and a vector "objects")
-                                        objects, # objects used for statistics calculation (list with a vector "name", and a vector "object")
-                                        num.steps, # number of samples wanted in phase 1
-                                        neighborhood, # way of choosing partitions: probability vector (proba actors swap, proba merge/division, proba single actor move)
-                                        sizes.allowed, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
-                                        sizes.simulated, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-                                        max.thining)
+simulate_burninthining_multiple <- function(partitions, 
+                                            presence.tables,
+                                            theta,
+                                            nodes, 
+                                            effects,
+                                            objects, 
+                                            num.steps,
+                                            neighborhood, 
+                                            numgroups.allowed,
+                                            numgroups.simulated, 
+                                            sizes.allowed,
+                                            sizes.simulated,
+                                            max.thining)
 {
   num.effects <- length(effects$names)
 
-  chain <- draw_Metropolis_multiple(theta, partitions, presence.tables, nodes, effects, objects, 1, 1, num.steps, neighborhood, sizes.allowed, sizes.simulated, return.all.partitions = F)
+  chain <- draw_Metropolis_multiple(theta, partitions, presence.tables, nodes, effects, objects, 1, 1, num.steps, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = F)
 
   # first look at autocorrelations find ok thining (either max thining reached or autocor < 0.4)
   ok <- F
@@ -515,7 +539,7 @@ simulate_burninthining_multiple <- function(partitions, # observed partitions
     } else{
 
       # we continue the chain
-      new.chain <- draw_Metropolis_multiple(theta, current.last, presence.tables, nodes, effects, objects, 1, 1, num.steps, neighborhood, sizes.allowed, sizes.simulated, return.all.partitions = F)
+      new.chain <- draw_Metropolis_multiple(theta, current.last, presence.tables, nodes, effects, objects, 1, 1, num.steps, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = F)
       current.draws <- rbind(current.draws,new.chain$draws)
       current.last <- new.chain$last.partitions
 
@@ -563,6 +587,8 @@ simulate_burninthining_multiple <- function(partitions, # observed partitions
 #' @param objects Objects used for statistics calculation (list with a vector "name", and a vector "object")
 #' @param num.steps Number of samples wanted
 #' @param neighborhoods List of probability vectors (proba actors swap, proba merge/division, proba single actor move)
+#' @param numgroups.allowed vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
+#' @param numgroups.simulated vector containing the number of groups simulated
 #' @param sizes.allowed Vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param max.thining Where to stop adding thining
@@ -570,18 +596,20 @@ simulate_burninthining_multiple <- function(partitions, # observed partitions
 #' @param cpus Equal to 1
 #' @return list
 #' @export
-gridsearch_burninthining_single <- function(partition, # observed partition
-                                      theta, # initial model parameters
-                                      nodes, # nodeset (data frame)
-                                      effects, # effects/sufficient statistics (list with a vector "names", and a vector "objects")
-                                      objects, # objects used for statistics calculation (list with a vector "name", and a vector "object")
-                                      num.steps, # number of samples wanted in phase 1
-                                      neighborhoods, # list of probability vectors (proba actors swap, proba merge/division, proba single actor move)
-                                      sizes.allowed, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
-                                      sizes.simulated, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-                                      max.thining, # where to stop adding thining
-                                      parallel = F, # to run different neighborhoods in parallel
-                                      cpus = 1) {
+gridsearch_burninthining_single <- function(partition,
+                                            theta,
+                                            nodes,
+                                            effects, 
+                                            objects, 
+                                            num.steps, 
+                                            neighborhoods,
+                                            numgroups.allowed, 
+                                            numgroups.simulated,
+                                            sizes.allowed, 
+                                            sizes.simulated, 
+                                            max.thining, 
+                                            parallel = F, 
+                                            cpus = 1) {
 
   # parallel procedure
   if(parallel){
@@ -596,13 +624,13 @@ gridsearch_burninthining_single <- function(partition, # observed partition
       subindexes[[c]] <- start:end
     }
 
-    sfExport("partition", "theta", "nodes", "effects", "objects", "num.steps", "neighborhoods", "sizes.allowed", "sizes.simulated", "max.thining", "subindexes")
+    sfExport("partition", "theta", "nodes", "effects", "objects", "num.steps", "neighborhoods", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated", "max.thining", "subindexes")
     res <- sfLapply(1:cpus, fun = function(k) {
       subres <- list()
       for(i in 1:length(subindexes[[k]])){
         index <- subindexes[[k]][i]
         subneighborhood <- neighborhoods[[index]]
-        subres[[i]] <- simulate_burninthining_single(partition, theta, nodes, effects, objects, num.steps, subneighborhood, sizes.allowed, sizes.simulated, max.thining)
+        subres[[i]] <- simulate_burninthining_single(partition, theta, nodes, effects, objects, num.steps, subneighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, max.thining)
       }
       return(subres)
     }
@@ -617,7 +645,7 @@ gridsearch_burninthining_single <- function(partition, # observed partition
     # just go through all neighborhoods one by one
     allsimulations <- list()
     for(i in 1:length(neighborhoods)){
-      allsimulations[[i]] <- simulate_burninthining_single(partition, theta, nodes, effects, objects, num.steps, neighborhoods[[i]], sizes.allowed, sizes.simulated, max.thining)
+      allsimulations[[i]] <- simulate_burninthining_single(partition, theta, nodes, effects, objects, num.steps, neighborhoods[[i]], numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, max.thining)
     }
 
   }
@@ -681,6 +709,8 @@ gridsearch_burninthining_single <- function(partition, # observed partition
 #' @param objects Objects used for statistics calculation (list with a vector "name", and a vector "object")
 #' @param num.steps Number of samples wanted
 #' @param neighborhoods List of probability vectors (proba actors swap, proba merge/division, proba single actor move)
+#' @param numgroups.allowed vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
+#' @param numgroups.simulated vector containing the number of groups simulated
 #' @param sizes.allowed Vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param max.thining Where to stop adding thining
@@ -688,19 +718,21 @@ gridsearch_burninthining_single <- function(partition, # observed partition
 #' @param cpus Equal to 1
 #' @return list
 #' @export
-gridsearch_burninthining_multiple <- function(partitions, # observed partitions
-                                            presence.tables, # presence of nodes
-                                            theta, # initial model parameters
-                                            nodes, # nodeset (data frame)
-                                            effects, # effects/sufficient statistics (list with a vector "names", and a vector "objects")
-                                            objects, # objects used for statistics calculation (list with a vector "name", and a vector "object")
-                                            num.steps, # number of samples wanted in phase 1
-                                            neighborhoods, # list of probability vectors (proba actors swap, proba merge/division, proba single actor move)
-                                            sizes.allowed, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
-                                            sizes.simulated, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-                                            max.thining, # where to stop adding thining
-                                            parallel = F, # to run different neighborhoods in parallel
-                                            cpus = 1) {
+gridsearch_burninthining_multiple <- function(partitions, 
+                                              presence.tables, 
+                                              theta, 
+                                              nodes, 
+                                              effects, 
+                                              objects, 
+                                              num.steps, 
+                                              neighborhoods,
+                                              numgroups.allowed,
+                                              numgroups.simulated,
+                                              sizes.allowed, 
+                                              sizes.simulated,
+                                              max.thining, 
+                                              parallel = F, 
+                                              cpus = 1) {
 
   # parallel procedure
   if(parallel){
@@ -715,13 +747,13 @@ gridsearch_burninthining_multiple <- function(partitions, # observed partitions
       subindexes[[c]] <- start:end
     }
 
-    sfExport("partitions", "presence.tables", "theta", "nodes", "effects", "objects", "num.steps", "neighborhoods", "sizes.allowed", "sizes.simulated", "max.thining", "subindexes")
+    sfExport("partitions", "presence.tables", "theta", "nodes", "effects", "objects", "num.steps", "neighborhoods", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated", "max.thining", "subindexes")
     res <- sfLapply(1:cpus, fun = function(k) {
       subres <- list()
       for(i in 1:length(subindexes[[k]])){
         index <- subindexes[[k]][i]
         subneighborhood <- neighborhoods[[index]]
-        subres[[i]] <- simulate_burninthining_multiple(partitions, presence.tables, theta, nodes, effects, objects, num.steps, subneighborhood, sizes.allowed, sizes.simulated, max.thining)
+        subres[[i]] <- simulate_burninthining_multiple(partitions, presence.tables, theta, nodes, effects, objects, num.steps, subneighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, max.thining)
       }
       return(subres)
     }
@@ -737,7 +769,7 @@ gridsearch_burninthining_multiple <- function(partitions, # observed partitions
     allsimulations <- list()
     for(i in 1:length(neighborhoods)){
       print(neighborhoods[[i]])
-      allsimulations[[i]] <- simulate_burninthining_multiple(partitions, presence.tables, theta, nodes, effects, objects, num.steps, neighborhoods[[i]], sizes.allowed, sizes.simulated, max.thining)
+      allsimulations[[i]] <- simulate_burninthining_multiple(partitions, presence.tables, theta, nodes, effects, objects, num.steps, neighborhoods[[i]], numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, max.thining)
     }
 
   }
