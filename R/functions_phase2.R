@@ -4,31 +4,36 @@
 ## Author: Marion Hoffman                                           ##
 ######################################################################
 
+
+
 #' Phase 2 wrapper for single observation
 #'
-#' @param estimates.phase1 XXX
-#' @param inv.zcov XXX
-#' @param inv.scaling XXX
-#' @param z.obs XXX
-#' @param nodes XXX
-#' @param effects XXX
-#' @param objects XXX
-#' @param burnin XXX
-#' @param thining XXX
-#' @param num.steps XXX
-#' @param gainfactors XXX
-#' @param r.truncation.p2 XXX
-#' @param min.iter XXX
-#' @param max.iter XXX
-#' @param multiplication.iter XXX
-#' @param neighborhood XXX
-#' @param fixed.estimates XXX
-#' @param numgroups.allowed XXX
-#' @param numgroups.simulated XXX
-#' @param sizes.allowed XXX
-#' @param sizes.simulated XXX
-#' @param double.averaging XXX
-#' @return XXX
+#' @param partition observed partition
+#' @param estimates.phase1 vector containing parameter values after phase 1
+#' @param inv.zcov inverted covariance matrix
+#' @param inv.scaling scaling matrix
+#' @param z.obs observed statistics
+#' @param nodes node set (data frame)
+#' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
+#' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
+#' @param burnin integer for the number of burn-in steps before sampling
+#' @param thining integer for the number of thining steps between sampling
+#' @param num.steps number of sub-phases in phase 2
+#' @param gainfactors vector of gain factors
+#' @param r.truncation.p2 truncation factor 
+#' @param min.iter minimum numbers of steps in each subphase
+#' @param max.iter maximum numbers of steps in each subphase
+#' @param multiplication.iter used to calculate min.iter and max.iter if not specified
+#' @param neighborhood vector for the probability of choosing a particular transition in the chain
+#' @param fixed.estimates if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
+#' @param numgroups.allowed vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
+#' @param numgroups.simulated vector containing the number of groups simulated
+#' @param sizes.allowed vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
+#' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+#' @param double.averaging boolean to indicate whether we follow the double-averaging procedure (often leads to better convergence)
+#' @param parallel boolean to indicate whether the code should be run in parallel
+#' @param cpus number of cpus if parallel = T
+#' @return a list
 #' @export
 run_phase2_single <- function(partition,
                        estimates.phase1,
@@ -267,32 +272,35 @@ run_phase2_single <- function(partition,
 
 }
 
+
+
 #' Phase 2 wrapper for multiple observation
 #'
-#' @param partitions XXX
-#' @param estimates.phase1 XXX
-#' @param inv.zcov XXX
-#' @param inv.scaling XXX
-#' @param z.obs XXX
-#' @param nodes XXX
-#' @param effects XXX
-#' @param objects XXX
-#' @param burnin XXX
-#' @param thining XXX
-#' @param num.steps XXX
-#' @param gainfactors XXX
-#' @param r.truncation.p2 XXX
-#' @param min.iter XXX
-#' @param max.iter XXX
-#' @param multiplication.iter XXX
-#' @param neighborhood XXX
-#' @param fixed.estimates XXX
-#' @param numgroups.allowed XXX
-#' @param numgroups.simulated XXX
-#' @param sizes.allowed XXX
-#' @param sizes.simulated XXX
-#' @param double.averaging XXX
-#' @return XXX
+#' @param partitions observed partitions
+#' @param estimates.phase1 vector containing parameter values after phase 1
+#' @param inv.zcov inverted covariance matrix
+#' @param inv.scaling scaling matrix
+#' @param z.obs observed statistics
+#' @param presence.tables data frame to indicate which times nodes are present in the partition
+#' @param nodes node set (data frame)
+#' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
+#' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
+#' @param burnin integer for the number of burn-in steps before sampling
+#' @param thining integer for the number of thining steps between sampling
+#' @param num.steps number of sub-phases in phase 2
+#' @param gainfactors vector of gain factors
+#' @param r.truncation.p2 truncation factor 
+#' @param min.iter minimum numbers of steps in each subphase
+#' @param max.iter maximum numbers of steps in each subphase
+#' @param multiplication.iter used to calculate min.iter and max.iter if not specified
+#' @param neighborhood vector for the probability of choosing a particular transition in the chain
+#' @param fixed.estimates if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
+#' @param numgroups.allowed vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
+#' @param numgroups.simulated vector containing the number of groups simulated
+#' @param sizes.allowed vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
+#' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+#' @param double.averaging boolean to indicate whether we follow the double-averaging procedure (often leads to better convergence)
+#' @return a list
 #' @export
 run_phase2_multiple <- function(partitions,
                               estimates.phase1,

@@ -9,6 +9,7 @@
 
 #' Compute Statistics
 #'
+#' Function that computes the statistic vector for a given partition and a given model
 #'
 #' @param partition vector, A partition
 #' @param nodes data frame, Node set
@@ -567,6 +568,7 @@ computeStatistics <- function (partition, nodes, effects, objects){
 
 #' Compute Statistics multiple
 #'
+#' Function that computes the statistic vector for given (multiple) partitions and a given model
 #'
 #' @param partitions Observed partitions
 #' @param presence.tables, # to indicate which nodes were present when

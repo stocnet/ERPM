@@ -11,10 +11,10 @@
 #' Function to calculate the number of partitions with groups
 #' of sizes between smin and smax
 #' 
-#' @param n XXX
-#' @param smin XXX
-#' @param smax XXX
-#' @return XXX
+#' @param n number of nodes
+#' @param smin minimum group size possible in the partition
+#' @param smax minimum group size possible in the partition
+#' @return a numeric
 #' @export
 Bell_constraints <- function(n,smin,smax){
 
@@ -29,11 +29,11 @@ Bell_constraints <- function(n,smin,smax){
 #' Function to calculate the number of partitions with k groups
 #' of sizes between smin and smax
 #' 
-#' @param n XXX
-#' @param k XXX
-#' @param smin XXX
-#' @param smax XXX
-#' @return XXX
+#' @param n number of nodes
+#' @param k number of groups
+#' @param smin minimum group size possible in the partition
+#' @param smax maximum group size possible in the partition
+#' @return a numeric
 #' @export
 Stirling2_constraints <- function(n,k,smin,smax){
 
@@ -180,8 +180,8 @@ count_classes <- function(allpartitions){
 #' and put in the first appearance order
 #' for example: [2 1 1 4 2] becomes [1 2 2 3 1]
 #' 
-#' @param partition XXX
-#' @return XXX
+#' @param partition observed partition
+#' @return a vector (partition)
 #' @export
 order_groupids <- function(partition) {
 
@@ -215,9 +215,9 @@ order_groupids <- function(partition) {
 
 #' Function to determine whether a partition contains the allowed group sizes
 #' 
-#' @param partition XXX
-#' @param sizes.allowed XXX
-#' @return XXX
+#' @param partition observed partition
+#' @param sizes.allowed vector containing possible group sizes in the partition
+#' @return boolean
 #' @export
 check_sizes <- function(partition, sizes.allowed){
   allsizes <- unique(table(partition))

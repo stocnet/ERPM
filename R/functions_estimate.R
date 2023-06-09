@@ -9,37 +9,40 @@
 
 #' Estimate ERPM
 #'
+#' Function to estimate a given model for a given observed partition.
+#' All options of the algorithm can be specified here.
+#'
 #'
 #' @param partition observed partition
 #' @param nodes nodeset (data frame)
 #' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
 #' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
 #' @param startingestimates first guess for the model parameters
-#' @param gainfactor = 0.1, numeric used to decrease the size of steps made in the Newton optimization
-#' @param a.scaling = 0.2,  numeric used to reduce the influence of non-diagonal elements in the scaling matrix (for stability)
-#' @param r.truncation.p1 = 2 numeric used to limit extreme values in the covariance matrix (for stability)
-#' @param r.truncation.p2 = 5,  numeric used to limit extreme values in the covariance matrix (for stability)
-#' @param burnin = 30  integer for the number of burn-in steps before sampling
-#' @param thining = 10,  integer for the number of thining steps between sampling
-#' @param length.p1 = 100,  number of samples in phase 1
-#' @param min.iter.p2 = NULL,  minimum number of sub-steps in phase 2
-#' @param max.iter.p2 = NULL,  maximum number of sub-steps in phase 2
-#' @param multiplication.iter.p2 = 100, value for the lengths of sub-steps in phase 2 (multiplied by  2.52^k)
-#' @param num.steps.p2 = 6,  number of optimisation steps in phase 2
-#' @param length.p3 = 1000, number of samples in phase 3
-#' @param neighborhood = c(0.7,0.3,0),  way of choosing partitions: probability vector (actors swap, merge/division, single actor move)
-#' @param fixed.estimates = NULL, if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
-#' @param numgroups.allowed = NULL, # vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
-#' @param numgroups.simulated = NULL, # vector containing the number of groups simulated
-#' @param sizes.allowed = NULL,  vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
-#' @param sizes.simulated = NULL,  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-#' @param double.averaging = F,  option to average the statistics sampled in each sub-step of phase 2
-#' @param inv.zcov = NULL,  initial value of the inverted covariance matrix (if a phase 3 was run before) to bypass the phase 1
-#' @param inv.scaling = NULL,  initial value of the inverted scaling matrix (if a phase 3 was run before) to bypass the phase 1
-#' @param parallel = F,  whether the phase 1 and 3 should be parallelized
-#' @param parallel2 = F,  whether there should be several phases 2 run in parallel
-#' @param cpus = 1 ,how many cores can be used
-#' @return A list estimates 3 phases
+#' @param gainfactor numeric used to decrease the size of steps made in the Newton optimization
+#' @param a.scaling numeric used to reduce the influence of non-diagonal elements in the scaling matrix (for stability)
+#' @param r.truncation.p1 numeric used to limit extreme values in the covariance matrix (for stability)
+#' @param r.truncation.p2 numeric used to limit extreme values in the covariance matrix (for stability)
+#' @param burnin integer for the number of burn-in steps before sampling
+#' @param thining integer for the number of thining steps between sampling
+#' @param length.p1 number of samples in phase 1
+#' @param min.iter.p2 minimum number of sub-steps in phase 2
+#' @param max.iter.p2 maximum number of sub-steps in phase 2
+#' @param multiplication.iter.p2 value for the lengths of sub-steps in phase 2 (multiplied by  2.52^k)
+#' @param num.steps.p2 number of optimisation steps in phase 2
+#' @param length.p3 number of samples in phase 3
+#' @param neighborhood way of choosing partitions: probability vector (actors swap, merge/division, single actor move)
+#' @param fixed.estimates if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
+#' @param numgroups.allowed vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
+#' @param numgroups.simulated vector containing the number of groups simulated
+#' @param sizes.allowed vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
+#' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+#' @param double.averaging option to average the statistics sampled in each sub-step of phase 2
+#' @param inv.zcov initial value of the inverted covariance matrix (if a phase 3 was run before) to bypass the phase 1
+#' @param inv.scaling initial value of the inverted scaling matrix (if a phase 3 was run before) to bypass the phase 1
+#' @param parallel whether the phase 1 and 3 should be parallelized
+#' @param parallel2 whether there should be several phases 2 run in parallel
+#' @param cpus how many cores can be used
+#' @return A list with the outputs of the three different phases of the algorithm
 #' @export
 estimate_ERPM <- function(partition, 
                           nodes, 
@@ -153,23 +156,25 @@ estimate_ERPM <- function(partition,
 
 #' Estimate ERPM phase 3
 #'
+#' Function to run only the phase 3 of the estimation algorithm, for a given model, a given observed partition, and estimates (from phase 2).
+#' All options of the algorithm can be specified here.
 #'
 #' @param partition observed partition
 #' @param nodes nodeset (data frame)
 #' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
 #' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
 #' @param startingestimates first guess for the model parameters
-#' @param multiplicationfactor = 30,  for now, useless
-#' @param burnin = 30  integer for the number of burn-in steps before sampling
-#' @param thining = 10,  integer for the number of thining steps between sampling
-#' @param length.p3 = 1000, number of samples in phase 3
-#' @param neighborhood = c(0.7,0.3,0),  way of choosing partitions: probability vector (actors swap, merge/division, single actor move)
-#' @param fixed.estimates = NULL, if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
-#' @param numgroups.allowed = NULL, # vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
-#' @param numgroups.simulated = NULL, # vector containing the number of groups simulated
-#' @param sizes.allowed = NULL,  vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
-#' @param sizes.simulated = NULL,  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-#' @return A estimates phase 3
+#' @param multiplicationfactor for now, useless
+#' @param burnin integer for the number of burn-in steps before sampling
+#' @param thining integer for the number of thining steps between sampling
+#' @param length.p3 number of samples in phase 3
+#' @param neighborhood way of choosing partitions: probability vector (actors swap, merge/division, single actor move)
+#' @param fixed.estimates if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
+#' @param numgroups.allowed vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
+#' @param numgroups.simulated vector containing the number of groups simulated
+#' @param sizes.allowed vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
+#' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+#' @return A list with the outputs of the phase 3 of the algorithm
 #' @export
 estimate_ERPM_p3 <- function(partition,
                           nodes,
@@ -226,6 +231,8 @@ estimate_ERPM_p3 <- function(partition,
 
 #' Estimate ERPM for multiple observations
 #'
+#' Function to estimate a given model for given observed (multiple) partitions.
+#' All options of the algorithm can be specified here.
 #'
 #' @param partitions observed partitions
 #' @param presence.tables XXX
@@ -233,31 +240,31 @@ estimate_ERPM_p3 <- function(partition,
 #' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
 #' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
 #' @param startingestimates first guess for the model parameters
-#' @param gainfactor = 0.1, numeric used to decrease the size of steps made in the Newton optimization
-#' @param a.scaling = 0.2,  numeric used to reduce the influence of non-diagonal elements in the scaling matrix (for stability)
-#' @param r.truncation.p1 = 2 numeric used to limit extreme values in the covariance matrix (for stability)
-#' @param r.truncation.p2 = 5,  numeric used to limit extreme values in the covariance matrix (for stability)
-#' @param burnin = 30  integer for the number of burn-in steps before sampling
-#' @param thining = 10,  integer for the number of thining steps between sampling
-#' @param length.p1 = 100,  number of samples in phase 1
-#' @param min.iter.p2 = NULL,  minimum number of sub-steps in phase 2
-#' @param max.iter.p2 = NULL,  maximum number of sub-steps in phase 2
-#' @param multiplication.iter.p2 = 100, value for the lengths of sub-steps in phase 2 (multiplied by  2.52^k)
-#' @param num.steps.p2 = 6,  number of optimisation steps in phase 2
-#' @param length.p3 = 1000, number of samples in phase 3
-#' @param neighborhood = c(0.7,0.3,0),  way of choosing partitions: probability vector (actors swap, merge/division, single actor move)
-#' @param fixed.estimates = NULL, if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
-#' @param numgroups.allowed = NULL, # vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
-#' @param numgroups.simulated = NULL, # vector containing the number of groups simulated
-#' @param sizes.allowed = NULL,  vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
-#' @param sizes.simulated = NULL,  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-#' @param double.averaging = F,  option to average the statistics sampled in each sub-step of phase 2
-#' @param inv.zcov = NULL,  initial value of the inverted covariance matrix (if a phase 3 was run before) to bypass the phase 1
-#' @param inv.scaling = NULL,  initial value of the inverted scaling matrix (if a phase 3 was run before) to bypass the phase 1
-#' @param parallel = F,  whether the phase 1 and 3 should be parallelized
-#' @param parallel2 = F,  whether there should be several phases 2 run in parallel
-#' @param cpus = 1 ,how many cores can be used
-#' @return A list estimates 3 phases
+#' @param gainfactor numeric used to decrease the size of steps made in the Newton optimization
+#' @param a.scaling numeric used to reduce the influence of non-diagonal elements in the scaling matrix (for stability)
+#' @param r.truncation.p1 numeric used to limit extreme values in the covariance matrix (for stability)
+#' @param r.truncation.p2 numeric used to limit extreme values in the covariance matrix (for stability)
+#' @param burnin integer for the number of burn-in steps before sampling
+#' @param thining integer for the number of thining steps between sampling
+#' @param length.p1 number of samples in phase 1
+#' @param min.iter.p2 minimum number of sub-steps in phase 2
+#' @param max.iter.p2 maximum number of sub-steps in phase 2
+#' @param multiplication.iter.p2 value for the lengths of sub-steps in phase 2 (multiplied by  2.52^k)
+#' @param num.steps.p2 number of optimisation steps in phase 2
+#' @param length.p3 number of samples in phase 3
+#' @param neighborhood way of choosing partitions: probability vector (actors swap, merge/division, single actor move)
+#' @param fixed.estimates if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
+#' @param numgroups.allowed vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
+#' @param numgroups.simulated vector containing the number of groups simulated
+#' @param sizes.allowed vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
+#' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+#' @param double.averaging option to average the statistics sampled in each sub-step of phase 2
+#' @param inv.zcov initial value of the inverted covariance matrix (if a phase 3 was run before) to bypass the phase 1
+#' @param inv.scaling initial value of the inverted scaling matrix (if a phase 3 was run before) to bypass the phase 1
+#' @param parallel whether the phase 1 and 3 should be parallelized
+#' @param parallel2 whether there should be several phases 2 run in parallel
+#' @param cpus how many cores can be used
+#' @return A list with the outputs of the three different phases of the algorithm
 #' @export
 estimate_multipleERPM <- function(partitions, 
                                   presence.tables, 
@@ -372,6 +379,7 @@ estimate_multipleERPM <- function(partitions,
 
 
 ## Estimation ERPM for multiple observations with Bayesian estimation:
+## Beta version
 
 estimate_multipleBERPM <- function(partitions, # observed partitions
                                   presence.tables, # matrix indicating which actors were present for each observations (mandatory)
