@@ -8,6 +8,8 @@
 
 #' Simulate burn in single
 #'
+#' Function that can be used to find a good length for the burn-in of the Markov chain for a given model and a given set of transitions in the chain (the neighborhood).
+#' It draws a chain and calculates the mean statistics for different burn-ins.
 #'
 #' @param partition A partition (vector)
 #' @param theta Initial model parameters
@@ -63,7 +65,10 @@ simulate_burnin_single <- function(partition,
 
 
 
-#' Grid - search burning single
+#' Grid - search burnin single
+#'
+#' Function that can be used to find a good length for the burn-in of the Markov chain for a given model and differents sets of transitions in the chain (the neighborhoods).
+#' For each neighborhood, it draws a chain and calculates the mean statistics for different burn-ins.
 #'
 #'
 #' @param partition A partition (vector)
@@ -143,6 +148,8 @@ gridsearch_burnin_single <- function(partition,
 
 #' Simulate thining single
 #'
+#' Function that can be used to find a good length for the thining of the Markov chain for a given model and a set of transitions in the chain (the neighborhood).
+#' It draws a chain and calculates the autocorrelation of statistics for different thinings.
 #'
 #' @param partition A partition (vector)
 #' @param theta Initial model parameters
@@ -155,8 +162,8 @@ gridsearch_burnin_single <- function(partition,
 #' @param numgroups.simulated vector containing the number of groups simulated
 #' @param sizes.allowed Vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-#' @param burnin XXX
-#' @param max.thining XXX
+#' @param burnin number of simulated steps for the burn-in
+#' @param max.thining maximal number of simulated steps in the thining
 #' @return A list
 #' @export
 # SINGLE PARTITION PROCEDURE
@@ -240,6 +247,8 @@ simulate_thining_single <- function(partition,
 
 #' Grid - search thining single
 #'
+#' Function that can be used to find a good length for the thining of the Markov chain for a given model and differents sets of transitions in the chain (the neighborhoods).
+#' For each neighborhood, it draws a chain and calculates the autocorrelation of statistics for different thinings.
 #'
 #' @param partition A partition (vector)
 #' @param theta Initial model parameters
@@ -363,6 +372,8 @@ gridsearch_thining_single <- function(partition,
 
 #' Simulate burnin thining single
 #'
+#' Function that simulates the Markov chain for a given model and a set of transitions (the neighborhood), for a single partition.
+#' It calculates the autocorrelation of statistics for different thinings and the average statistics for different burn-ins.
 #'
 #' @param partition Observed partition (vector)
 #' @param theta Initial model parameters
@@ -471,6 +482,8 @@ simulate_burninthining_single <- function(partition,
 
 #' Simulate burnin thining multiple
 #'
+#' Function that simulates the Markov chain for a given model and a set of transitions (the neighborhood), for multiple partitions.
+#' It calculates the autocorrelation of statistics for different thinings and the average statistics for different burn-ins.
 #'
 #' @param partitions Observed partitions
 #' @param theta Initial model parameters
@@ -579,6 +592,9 @@ simulate_burninthining_multiple <- function(partitions,
 
 #' Grid - search burnin thining single
 #'
+#' Function that simulates the Markov chain for a given model and several sets of transitions (the neighborhoods), for a single partition.
+#' For each neighborhood, it calculates the autocorrelation of statistics for different thinings and the average statistics for different burn-ins.
+#' Then the best neighborhood can be selected along with good values for burn-in and thining
 #'
 #' @param partition A partition (vector)
 #' @param theta Initial model parameters
@@ -700,6 +716,9 @@ gridsearch_burninthining_single <- function(partition,
 
 #' Grid - search burnin thining multiple
 #'
+#' Function that simulates the Markov chain for a given model and several sets of transitions (the neighborhoods), for multiple partitions.
+#' For each neighborhood, it calculates the autocorrelation of statistics for different thinings and the average statistics for different burn-ins.
+#' Then the best neighborhood can be selected along with good values for burn-in and thining
 #'
 #' @param partitions Observed partitions
 #' @param presence.tables Presence of nodes

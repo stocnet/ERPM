@@ -7,6 +7,7 @@
 
 #' Estimate log likelihood
 #'
+#' Function to estimate the log likelihood of a model for an observed partition
 #'
 #' @param partition observed partition
 #' @param nodes node set (data frame)

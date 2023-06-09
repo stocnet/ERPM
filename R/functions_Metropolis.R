@@ -9,6 +9,8 @@
 ## --- FUNCTIONS TO DRAW CHAINS ----
 
 #' Draw Metropolis single 
+#' 
+#' Function to sample the model with a Markov chain (single partition procedure).
 #'
 #'
 #' @param theta model parameters
@@ -162,6 +164,7 @@ draw_Metropolis_single <- function(theta,
 
 #' Draw Metropolis multiple
 #'
+#' Function to sample the model with a Markov chain (single partition procedure).
 #'
 #' @param theta model parameters
 #' @param first.partitions starting partition for the Markov chain

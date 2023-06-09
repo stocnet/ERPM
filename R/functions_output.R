@@ -9,8 +9,8 @@
 #' Print estimation results
 #'
 #'
-#' @param result XXX
-#' @return XXX
+#' @param result output of the estimate function
+#' @return a data frame
 #' @export
 print_results <- function(result){
   
