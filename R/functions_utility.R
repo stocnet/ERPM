@@ -217,12 +217,15 @@ order_groupids <- function(partition) {
 #' 
 #' @param partition observed partition
 #' @param sizes.allowed vector containing possible group sizes in the partition
+#' @param numgroups.allowed vector containing possible number of groups in the partition
 #' @return boolean
 #' @export
-check_sizes <- function(partition, sizes.allowed){
+check_sizes <- function(partition, sizes.allowed, numgroups.allowed){
   allsizes <- unique(table(partition))
-  check <- NA %in% match(allsizes,sizes.allowed)
-  return(!check)
+  check1 <- (!NA %in% match(allsizes,sizes.allowed))
+  numgroup <- length(table(partition))
+  check2 <- numgroup %in% numgroups.allowed
+  return(check1 & check2)
 }
 
 
