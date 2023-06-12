@@ -124,7 +124,7 @@ draw_Metropolis_single <- function(theta,
       # store the results if we are out of burnin
       if(cpt >= burnin && cpt_thining == thining) {
         cpt_thining <- thining - 1
-        if(check_sizes(current.partition,sizes.allowed)){
+        if(check_sizes(current.partition,sizes.allowed,numgroups.allowed)){
           cpt_thining <- 0
           all.z <- rbind(all.z,current.z)
           #if(nrow(all.z)>1) print(all.z[nrow(all.z),] - all.z[nrow(all.z)-1,])
@@ -332,7 +332,7 @@ draw_Metropolis_multiple <- function(theta,
 
         # check all partitions one by one
         check_all <- T
-        for(o in 1:num.obs) check_all <- check_all && check_sizes(current.partitions[as.logical(presence.tables[,o]),o],sizes.allowed)
+        for(o in 1:num.obs) check_all <- check_all && check_sizes(current.partitions[as.logical(presence.tables[,o]),o],sizes.allowed,numgroups.allowed)
 
         if(check_all){
 
@@ -449,16 +449,16 @@ draw_step_single <- function(theta,
     }
   }
 
-  # intermediate check for restricted sizes
-  if(!check_sizes(new.partition, sizes.simulated) && !is.null(sizes.simulated)) {
-    print("old partition")
-    print(current.partition)
-    print("new partition")
-    print(new.partition)
-    print("neighborhood")
-    print(move)
-    stop("The partition we are in is not allowed.")
-  }
+  # # intermediate check for restricted sizes
+  # if(!check_sizes(new.partition, sizes.simulated,numgroups.allowed) && !is.null(sizes.simulated)) {
+  #   print("old partition")
+  #   print(current.partition)
+  #   print("new partition")
+  #   print(new.partition)
+  #   print("neighborhood")
+  #   print(move)
+  #   stop("The partition we are in is not allowed.")
+  # }
 
   # compute new statistics only if it changed
   if(current.size$total > 0) {
@@ -565,16 +565,16 @@ draw_step_multiple <- function(theta,
   #   }
   # }
 
-  # intermediate check for restricted sizes
-  if(!check_sizes(new.partition, sizes.simulated)) {
-    print("old partition")
-    print(current.partition)
-    print("new partition")
-    print(new.partition)
-    print("neighborhood")
-    print(move)
-    stop("The partition we are in is not allowed.")
-  }
+  # # intermediate check for restricted sizes
+  # if(!check_sizes(new.partition, sizes.simulated,numgroups.allowed)) {
+  #   print("old partition")
+  #   print(current.partition)
+  #   print("new partition")
+  #   print(new.partition)
+  #   print("neighborhood")
+  #   print(move)
+  #   stop("The partition we are in is not allowed.")
+  # }
 
 
   # compute new statistics only if it changed
@@ -1330,7 +1330,7 @@ reachable_p3 <- function(partition1,partition2){
 #' @export
 compute_size_neighborhood_p1_restricted <- function(partition, numgroups.simulated, sizes.simulated){
   # check if current partition is allowed
-  if(!check_sizes(partition, sizes.simulated)) stop("The partition we are in is not allowed.")
+  if(!check_sizes(partition, sizes.simulated,numgroups.simulated)) stop("The partition we are in is not allowed.")
   return(compute_size_neighborhood_p1(partition))
 }
 
@@ -1362,7 +1362,7 @@ sample_new_partition_p1_restricted <- function(current.partition, size_neighborh
 compute_size_neighborhood_p2_restricted <- function(partition, numgroups.simulated, sizes.simulated){
   
   # check if current partition is allowed
-  if(!check_sizes(partition, sizes.simulated)) stop("The partition we are in is not allowed.")
+  if(!check_sizes(partition, sizes.simulated,numgroups.simulated)) stop("The partition we are in is not allowed.")
   
   # find maximum size allowed
   smax <- max(sizes.simulated)
@@ -1511,6 +1511,9 @@ sample_new_partition_p2_restricted <- function(current.partition, size_neighborh
 #' @return A list
 #' @export
 compute_size_neighborhood_p3_restricted <- function(partition, numgroups.simulated, sizes.simulated){
+  
+  # check if current partition is allowed
+  if(!check_sizes(partition, sizes.simulated,numgroups.simulated)) stop("The partition we are in is not allowed.")
   
   # find maximum size allowed
   smax <- max(sizes.simulated)
