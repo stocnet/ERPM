@@ -74,8 +74,10 @@ estimate_ERPM <- function(partition,
                           parallel2 = F, 
                           cpus = 1) { 
 
+  # calculate observed statistics
   z.obs <- computeStatistics(partition, nodes, effects, objects)
 
+  # set gain factors for phase 2
   gainfactors <- rep(0,num.steps.p2)
   for(i in 1:num.steps.p2){
     gainfactors[i] <- gainfactor/(2^(i-1))
@@ -297,8 +299,10 @@ estimate_multipleERPM <- function(partitions,
                                   parallel2 = F, 
                                   cpus = 1) { 
 
+  # calculate observed statistics
   z.obs <- rowSums( computeStatistics_multiple(partitions, presence.tables, nodes, effects, objects) )
-
+  
+  # set gain factors for phase 2
   gainfactors <- rep(0,num.steps.p2)
   for(i in 1:num.steps.p2){
     gainfactors[i] <- gainfactor/(2^(i-1))
