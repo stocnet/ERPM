@@ -702,22 +702,22 @@ compute_size_neighborhood <- function(i, partition, partition2 = NULL, sizes.sim
     if(is.null(sizes.simulated)) return(compute_size_neighborhood_p3(partition))
     else return(compute_size_neighborhood_p3_restricted(partition,sizes.simulated))
   }
-  if(i == 4) {
-    if(is.null(sizes.simulated)) return(compute_size_neighborhood_p4(partition))
-    else return(compute_size_neighborhood_p4_restricted(partition,sizes.simulated))
-  }
-  if(i == 5) {
-    if(is.null(sizes.simulated)) return(compute_size_neighborhood_p5(partition))
-    else return(compute_size_neighborhood_p5_restricted(partition,sizes.simulated))
-  }
-  if(i == 6) {
-    if(is.null(sizes.simulated)) return(compute_size_neighborhood_p6(partition))
-    else return(compute_size_neighborhood_p6_restricted(partition,sizes.simulated))
-  }
-  if(i == 7) {
-    if(is.null(sizes.simulated)) return(compute_size_neighborhood_p7(partition))
-    else return(compute_size_neighborhood_p7_restricted(partition,sizes.simulated))
-  }
+  # if(i == 4) {
+  #   if(is.null(sizes.simulated)) return(compute_size_neighborhood_p4(partition))
+  #   else return(compute_size_neighborhood_p4_restricted(partition,sizes.simulated))
+  # }
+  # if(i == 5) {
+  #   if(is.null(sizes.simulated)) return(compute_size_neighborhood_p5(partition))
+  #   else return(compute_size_neighborhood_p5_restricted(partition,sizes.simulated))
+  # }
+  # if(i == 6) {
+  #   if(is.null(sizes.simulated)) return(compute_size_neighborhood_p6(partition))
+  #   else return(compute_size_neighborhood_p6_restricted(partition,sizes.simulated))
+  # }
+  # if(i == 7) {
+  #   if(is.null(sizes.simulated)) return(compute_size_neighborhood_p7(partition))
+  #   else return(compute_size_neighborhood_p7_restricted(partition,sizes.simulated))
+  # }
 }
 
 ## GENERIC FUNCTION TO COMPUTE NEIGHBORHOOD SIZE
@@ -745,22 +745,22 @@ sample_new_partition <- function(i, current.partition, size_neighborhood, curren
     if(is.null(sizes.simulated)) return(sample_new_partition_p3(current.partition, size_neighborhood))
     else return(sample_new_partition_p3_restricted(current.partition, size_neighborhood, sizes.simulated))
   }
-  if(i == 4) {
-    if(is.null(sizes.simulated)) return(sample_new_partition_p4(current.partition, size_neighborhood))
-    else return(sample_new_partition_p4_restricted(current.partition, size_neighborhood, sizes.simulated))
-  }
-  if(i == 5) {
-    if(is.null(sizes.simulated)) return(sample_new_partition_p5(current.partition, size_neighborhood))
-    else return(sample_new_partition_p5_restricted(current.partition, size_neighborhood, sizes.simulated))
-  }
-  if(i == 6) {
-    if(is.null(sizes.simulated)) return(sample_new_partition_p6(current.partition, size_neighborhood))
-    else return(sample_new_partition_p6_restricted(current.partition, size_neighborhood, sizes.simulated))
-  }
-  if(i == 7) {
-    if(is.null(sizes.simulated)) return(sample_new_partition_p7(current.partition, size_neighborhood, current.partition2))
-    else return(sample_new_partition_p7_restricted(current.partition, size_neighborhood, current.partition2, sizes.simulated))
-  }
+  # if(i == 4) {
+  #   if(is.null(sizes.simulated)) return(sample_new_partition_p4(current.partition, size_neighborhood))
+  #   else return(sample_new_partition_p4_restricted(current.partition, size_neighborhood, sizes.simulated))
+  # }
+  # if(i == 5) {
+  #   if(is.null(sizes.simulated)) return(sample_new_partition_p5(current.partition, size_neighborhood))
+  #   else return(sample_new_partition_p5_restricted(current.partition, size_neighborhood, sizes.simulated))
+  # }
+  # if(i == 6) {
+  #   if(is.null(sizes.simulated)) return(sample_new_partition_p6(current.partition, size_neighborhood))
+  #   else return(sample_new_partition_p6_restricted(current.partition, size_neighborhood, sizes.simulated))
+  # }
+  # if(i == 7) {
+  #   if(is.null(sizes.simulated)) return(sample_new_partition_p7(current.partition, size_neighborhood, current.partition2))
+  #   else return(sample_new_partition_p7_restricted(current.partition, size_neighborhood, current.partition2, sizes.simulated))
+  # }
 }
 
 ## GENERIC FUNCTION TO TEST WHETHER A PARTITION IS REACHABLE WITH A GIVEN NEIGHBORHOOD
