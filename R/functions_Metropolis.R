@@ -685,11 +685,10 @@ step_recalculate <- function(new.partitions, rand.o, nodes.rand.o, nodes, effect
 #'
 #' @param i XXX
 #' @param partitions XXX
-#' @param partition2 XXX
 #' @param sizes.simulated XXX
 #' @return A list
 #' @export
-compute_size_neighborhood <- function(i, partition, partition2 = NULL, sizes.simulated = NULL){
+compute_size_neighborhood <- function(i, partition, sizes.simulated = NULL){ # partition2 = NULL, for neighborhood 7
   if(i == 1) {
     if(is.null(sizes.simulated)) return(compute_size_neighborhood_p1(partition))
     else return(compute_size_neighborhood_p1_restricted(partition,sizes.simulated))
@@ -728,11 +727,10 @@ compute_size_neighborhood <- function(i, partition, partition2 = NULL, sizes.sim
 #' @param i XXX
 #' @param current.partition XXX
 #' @param size_neighborhood XXX
-#' @param current.partition2 XXX
 #' @param sizes.simulated XXX
 #' @return A partition
 #' @export
-sample_new_partition <- function(i, current.partition, size_neighborhood, current.partition2 = NULL, sizes.simulated = NULL){
+sample_new_partition <- function(i, current.partition, size_neighborhood, sizes.simulated = NULL){  # current.partition2 = NULL, for neighborhood 7
   if(i == 1) {
     if(is.null(sizes.simulated)) return(sample_new_partition_p1(current.partition, size_neighborhood))
     else return(sample_new_partition_p1_restricted(current.partition, size_neighborhood, sizes.simulated))
@@ -780,13 +778,14 @@ reachable <- function(i,partition1,partition2){
     return(reachable_p2(partition1,partition2))
   } else if(i == 3) {
     return(reachable_p3(partition1,partition2))
-  } else if(i == 4) {
-    return(reachable_p4(partition1,partition2))
-  } else if(i == 5) {
-    return(reachable_p5(partition1,partition2))
-  } else if(i == 6) {
-    return(reachable_p6(partition1,partition2))
-  }
+  } 
+  # else if(i == 4) {
+  #   return(reachable_p4(partition1,partition2))
+  # } else if(i == 5) {
+  #   return(reachable_p5(partition1,partition2))
+  # } else if(i == 6) {
+  #   return(reachable_p6(partition1,partition2))
+  # }
 }
 
 
