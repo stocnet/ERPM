@@ -9,12 +9,14 @@
 
 #' Exact estimates number of groups
 #'
+#' This function finds the best estimate for a model only including the statistics of number of groups.
+#' It does a grid search for a vector of potential parameters, for all numbers of groups.
 #'
-#' @param num.nodes XXX
-#' @param pmin XXX
-#' @param pmax XXX
-#' @param pmax XXX
-#' @return XXX
+#' @param num.nodes number of nodes
+#' @param pmin lowest parameter value
+#' @param pmax highest parameter value
+#' @param pinc increment between different parameter values
+#' @return a list
 #' @export
 exactestimates_numgroups <- function(num.nodes, pmin, pmax, pinc) {
 
@@ -41,20 +43,21 @@ exactestimates_numgroups <- function(num.nodes, pmin, pmax, pinc) {
   }
 
   return(list(allm,allestimates))
-  #plot(allm, allestimates, main = "estimates for different number of groups observed (N=10)")
 
 }
 
 
 #' Plot likelihood of number groups
 #'
+#' Function to plot the log-likelihood of the model with a single statistic (number of groups)
+#' depending on the parameter value for this statistic
 #'
-#' @param m.obs A partition (vector)
-#' @param num.nodes XXX
-#' @param pmin Node set (data frame)
-#' @param pmax Effects/sufficient statistics (list with a vector "names", and a vector "objects")
-#' @param pinc Objects used for statistics calculation (list with a vector "name", and a vector "object")
-#' @return XXX
+#' @param m.obs observed number of groups
+#' @param num.nodes number of nodes
+#' @param pmin lowest parameter value
+#' @param pmax highest parameter value
+#' @param pinc increment between different parameter values
+#' @return a vector
 #' @export
 plot_numgroups_likelihood <- function(m.obs, num.nodes, pmin, pmax, pinc) {
 
@@ -75,15 +78,17 @@ plot_numgroups_likelihood <- function(m.obs, num.nodes, pmin, pmax, pinc) {
 }
 
 
-#' Recursive function to compute the value of the denominator
+#' Compute denominator for model with number of groups
+#' 
+#' Recursive function to compute the value of the denominator for the model
+#' with a single statistic which is the number of groups
 #'
 #'
-#' @param num.nodes XXX
-#' @param alpha Node set (data frame)
-#' @return XXX
+#' @param num.nodes number of nodes
+#' @param alpha parameter value
+#' @return a numeric
 #' @importFrom utils combn
 #' @export
-## recursive function to compute the value of the denominator
 compute_numgroups_denominator <- function( num.nodes, alpha){
 
   # if no nodes, by convention we return 1
@@ -108,12 +113,14 @@ compute_numgroups_denominator <- function( num.nodes, alpha){
   }
 
 }
-#' Plot the average size distribution
+#' Plot average sizes
 #'
+#' Function to plot the average size of a random partition depending on the number of nodes
 #'
-#' @param nmin A partition (vector)
-#' @param nmax XXX
-#' @return XXX
+#' @param nmin minimum number of nodes
+#' @param nmax maximum number of nodes
+#' @param ninc increment between the different number of nodes
+#' @return a vector
 #' @export
 plot_averagesizes <- function(nmin, nmax, ninc) {
 
@@ -133,15 +140,16 @@ plot_averagesizes <- function(nmin, nmax, ninc) {
 }
 
 
-#' Recursive function to compute the value of the denominator
+#' Compute the average size of a random partition 
+#' 
+#' Recursive function to compute the average size of a random partition for a given number of nodes
 #'
 #'
-#' @param num.nodes XXX
-#' @return XXX
+#' @param num.nodes number of nodes
+#' @return a numeric
 #' @importFrom numbers bell
 #' @importFrom utils combn
-#' @export
-## recursive function to compute the value of the denominator
+#' @export 
 compute_averagesize <- function( num.nodes){
 
   # if no nodes, by convention we return 1
@@ -170,32 +178,38 @@ compute_averagesize <- function( num.nodes){
 
 ## -------- Exact estimation simple models --------
 
-#' Estimation basic model with size constraint
+#' Calculate Dirichlet probability
 #'
+#' Calculate the probability of observing a partition with a given number of groups
+#' for a model with a single statistic for the number of groups and a given parameter value.
+#' The set of possible partitions can be restricted to partitions with groups of a certain size.
+#' 
 #'
-#' @param alpha XXX
-#' @param stat XXX
-#' @param n XXX
-#' @param smin XXX
-#' @param smax XXX
-#' @return XXX
+#' @param alpha parameter value
+#' @param stat observed stat (number of groups)
+#' @param n number of nodes
+#' @param smin minimum size for a group
+#' @param smax maximum size for a group
+#' @return a numeric
 #' @export
-# Estimation basic model with size constraint
 calculate_proba_Dirichlet_restricted <- function(alpha,stat,n,smin,smax){
   num <- exp(alpha*stat)
   denom <- calculate_denominator_Dirichlet_restricted(n,smin,smax,alpha,as.list(rep(-1,n+1)))
   return(num/denom$den)
 }
 
-#' Estimation basic model with size constraint (same as compute_num_groups_denominator with restrictions)
+#' Calculate Dirichlet denominator
+#' 
+#' Recursive function to calculate the denominator for the model with a single statistic 
+#' for the number of groups and a given parameter value.
+#' The set of possible partitions can be restricted to partitions with groups of a certain size.
 #'
-#'
-#' @param n XXX
-#' @param smin XXX
-#' @param smax XXX
-#' @param alpha XXX
-#' @param results XXX
-#' @return XXX
+#' @param n number of nodes
+#' @param smin minimum size for a group
+#' @param smax maximum size for a group
+#' @param alpha parameter value
+#' @param results 
+#' @return a numeric
 #' @export
 calculate_denominator_Dirichlet_restricted <- function(n,smin,smax,alpha, results){
   if(n == 0){

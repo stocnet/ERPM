@@ -23,6 +23,8 @@ draw_exchangealgorithm_multiple <- function(partitions,
                                             burnin.2, 
                                             neighborhood.partition,
                                             neighborhood.augmentation,
+                                            numgroups.allowed,
+                                            numgroups.simulated,
                                             sizes.allowed,
                                             sizes.simulated,
                                             parallel,
@@ -42,7 +44,7 @@ draw_exchangealgorithm_multiple <- function(partitions,
     chains_per_cpu <- c()
     for(c in 1:num.chains) chains_per_cpu <- c(chains_per_cpu,rep(c,cpus_per_chain[c]))
     
-    sfExport("partitions", "z.obs","presence.tables","nodes", "objects","effects", "mean.priors","sd.priors", "start.chains","burnin.1","thining.1","length.chains","burnin.2", "neighborhood.partition","neighborhood.augmentation","sizes.allowed","sizes.simulated","chains_per_cpu")
+    sfExport("partitions", "z.obs","presence.tables","nodes", "objects","effects", "mean.priors","sd.priors", "start.chains","burnin.1","thining.1","length.chains","burnin.2", "neighborhood.partition","neighborhood.augmentation","numgroups.allowed", "numgroups.simulated","sizes.allowed","sizes.simulated","chains_per_cpu")
     all.chains <- sfLapply(1:cpus, fun = function(k) {
       set.seed(k)
       c <- chains_per_cpu[k]
@@ -61,6 +63,8 @@ draw_exchangealgorithm_multiple <- function(partitions,
                                           burnin.2, 
                                           neighborhood.partition,
                                           neighborhood.augmentation,
+                                          numgroups.allowed,
+                                          numgroups.simulated,
                                           sizes.allowed,
                                           sizes.simulated)
       return(chain)
@@ -87,6 +91,8 @@ draw_exchangealgorithm_multiple <- function(partitions,
                                                     burnin.2, 
                                                     neighborhood.partition,
                                                     neighborhood.augmentation,
+                                                    numgroups.allowed,
+                                                    numgroups.simulated,
                                                     sizes.allowed,
                                                     sizes.simulated)
     }
@@ -123,6 +129,8 @@ exchangealgorithm_multiple <- function(partitions,
                                        burnin.2, 
                                        neighborhood.partition,
                                        neighborhood.augmentation,
+                                       numgroups.allowed,
+                                       numgroups.simulated,
                                        sizes.allowed,
                                        sizes.simulated) {
   
@@ -158,6 +166,8 @@ exchangealgorithm_multiple <- function(partitions,
                                          thining = 1, 
                                          num.steps = 1, 
                                          neighborhood = neighborhood.partition, 
+                                         numgroups.allowed,
+                                         numgroups.simulated,
                                          sizes.allowed, 
                                          sizes.simulated,
                                          return.all.partitions = F) 

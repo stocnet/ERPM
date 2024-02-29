@@ -9,6 +9,8 @@
 ## --- FUNCTIONS TO DRAW CHAINS ----
 
 #' Draw Metropolis single 
+#' 
+#' Function to sample the model with a Markov chain (single partition procedure).
 #'
 #'
 #' @param theta model parameters
@@ -20,24 +22,28 @@
 #' @param thining integer for the number of thining steps between sampling
 #' @param num.steps number of samples
 #' @param neighborhood = c(0.7,0.3,0), way of choosing partitions: probability vector (2 actors swap, merge/division, single actor move, single pair move, 2 pairs swap, 2 groups reshuffle)
+#' @param numgroups.allowed = NULL, # vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
+#' @param numgroups.simulated = NULL, # vector containing the number of groups simulated
 #' @param sizes.allowed = NULL,  vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated = NULL, vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param return.all.partitions = F option to return the sampled partitions on top of their statistics (for GOF)
 #' @return A list
 #' @export
 
-draw_Metropolis_single <- function(theta, # model parameters
-                                   first.partition, # starting partition for the Markov chain
-                                   nodes, # nodeset (data frame)
-                                   effects, # effects/sufficient statistics (list with a vector "names", and a vector "objects")
-                                   objects, # objects used for statistics calculation (list with a vector "name", and a vector "object")
-                                   burnin, # integer for the number of burn-in steps before sampling
-                                   thining, # integer for the number of thining steps between sampling
-                                   num.steps, # number of samples
-                                   neighborhood = c(0.7,0.3,0), # way of choosing partitions: probability vector (2 actors swap, merge/division, single actor move, single pair move, 2 pairs swap, 2 groups reshuffle)
-                                   sizes.allowed = NULL, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
-                                   sizes.simulated = NULL,# vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-                                   return.all.partitions = F) # option to return the sampled partitions on top of their statistics (for GOF)
+draw_Metropolis_single <- function(theta, 
+                                   first.partition, 
+                                   nodes, 
+                                   effects,
+                                   objects,
+                                   burnin, 
+                                   thining,
+                                   num.steps,
+                                   neighborhood = c(0.7,0.3,0), 
+                                   numgroups.allowed = NULL, 
+                                   numgroups.simulated = NULL,
+                                   sizes.allowed = NULL, 
+                                   sizes.simulated = NULL,
+                                   return.all.partitions = F) 
 {
 
   num.nodes <- nrow(nodes)
@@ -47,7 +53,17 @@ draw_Metropolis_single <- function(theta, # model parameters
   if(sum(neighborhood) != 1){
     neighborhood <- neighborhood / sum(neighborhood)
   }
-
+  
+  # check whether there are constraints
+  constraints <- F
+  if(!is.null(numgroups.allowed) || !is.null(sizes.allowed)) {
+    constraints <- T
+    if(is.null(numgroups.allowed)) numgroups.allowed <- 1:nrow(nodes)
+    if(is.null(numgroups.simulated)) numgroups.simulated <- numgroups.allowed
+    if(is.null(sizes.allowed)) sizes.allowed <- 1:nrow(nodes)
+    if(is.null(sizes.simulated)) sizes.simulated <- sizes.allowed
+  }
+  
   # instantiate with the starting network
   current.partition <- first.partition
   current.z <- computeStatistics(current.partition, nodes, effects, objects)
@@ -59,12 +75,12 @@ draw_Metropolis_single <- function(theta, # model parameters
   # store the partitions if needed (for GOF)
   if(return.all.partitions){
     all.partitions <- c()
-  }
+  } 
 
   end.walk <- FALSE
-  cpt <- 0
-  cpt2 <- 0
+  cpt_burnin <- 0
   cpt_thining <- 0
+  cpt_steps <- 0
 
   while(!end.walk){
 
@@ -76,7 +92,7 @@ draw_Metropolis_single <- function(theta, # model parameters
                                  effects,
                                  objects,
                                  neighborhood,
-                                 sizes.allowed,
+                                 numgroups.simulated,
                                  sizes.simulated)
 
     proba.change <- min(1,new.step$hastings.ratio)
@@ -90,51 +106,32 @@ draw_Metropolis_single <- function(theta, # model parameters
       current.logit <- new.step$new.logit
     }
 
-    cpt <- cpt + 1
-    if(cpt > burnin) cpt_thining <- cpt_thining + 1
+    cpt_burnin <- cpt_burnin + 1
+    if(cpt_burnin > burnin) cpt_thining <- cpt_thining + 1
 
-
-    # storing results if all sizes are allowed
-    if(is.null(sizes.allowed)){
-      # store the results if we are out of burnin
-      if(cpt >= burnin && cpt_thining == thining) {
+    
+    # store the results if we are out of burnin
+    if(cpt_burnin >= burnin && cpt_thining == thining) {
+      
+      store <- T
+      if(constraints) store <- check_sizes(current.partition,sizes.allowed,numgroups.allowed)
+      
+      if(store) {
         all.z <- rbind(all.z,current.z)
         cpt_thining <- 0
-
-        # store all partitions if needed
-        if(return.all.partitions){
+        cpt_steps <- cpt_steps + 1
+        if(return.all.partitions){ # store all partitions if needed
           all.partitions <- rbind(all.partitions,current.partition)
         }
-
-      }
-
-      # stop the walk if number of steps reached
-      end.walk <- (cpt >= (burnin+thining*num.steps))
-    }
-
-    # storing results if sizes are constrained
-    if(!is.null(sizes.allowed)){
-
-      # store the results if we are out of burnin
-      if(cpt >= burnin && cpt_thining == thining) {
+      } else {
         cpt_thining <- thining - 1
-        if(check_sizes(current.partition,sizes.allowed)){
-          cpt_thining <- 0
-          all.z <- rbind(all.z,current.z)
-          #if(nrow(all.z)>1) print(all.z[nrow(all.z),] - all.z[nrow(all.z)-1,])
-          cpt2 <- cpt2 + 1
-
-          # store all partitions if needed
-          if(return.all.partitions){
-            all.partitions <- rbind(all.partitions,current.partition)
-          }
-        }
       }
-
-      # stop the walk if number of steps reached
-      end.walk <- (cpt2 >= num.steps)
+      
     }
-
+    
+    # stop the walk if number of steps reached
+    end.walk <- (cpt_steps >= num.steps)
+    
   }
 
   # TODO: change this hack
@@ -158,6 +155,7 @@ draw_Metropolis_single <- function(theta, # model parameters
 
 #' Draw Metropolis multiple
 #'
+#' Function to sample the model with a Markov chain (single partition procedure).
 #'
 #' @param theta model parameters
 #' @param first.partitions starting partition for the Markov chain
@@ -169,24 +167,28 @@ draw_Metropolis_single <- function(theta, # model parameters
 #' @param thining integer for the number of thining steps between sampling
 #' @param num.steps number of samples
 #' @param neighborhood = c(0.7,0.3,0), way of choosing partitions: probability vector (2 actors swap, merge/division, single actor move, single pair move, 2 pairs swap, 2 groups reshuffle)
+#' @param numgroups.allowed = NULL, # vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
+#' @param numgroups.simulated = NULL, # vector containing the number of groups simulated
 #' @param sizes.allowed = NULL,  vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated = NULL, vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param return.all.partitions = F, option to return the sampled partitions on top of their statistics (for GOF)
 #' @return A list
 #' @export
-draw_Metropolis_multiple <- function(theta, # model parameters
-                                     first.partitions, # starting partition for the Markov chain
-                                     presence.tables,  # matrix indicating which actors were present for each observations (mandatory)
-                                     nodes, # nodeset (data frame)
-                                     effects, # effects/sufficient statistics (list with a vector "names", and a vector "objects")
-                                     objects, # objects used for statistics calculation (list with a vector "name", and a vector "object")
-                                     burnin, # integer for the number of burn-in steps before sampling
-                                     thining, # integer for the number of thining steps between sampling
-                                     num.steps, # number of samples
-                                     neighborhood = c(0.7,0.3,0), # way of choosing partitions: probability vector (2 actors swap, merge/division, single actor move, single pair move, 2 pairs swap, 2 groups reshuffle, pair reproduction)
-                                     sizes.allowed, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
-                                     sizes.simulated,# vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-                                     return.all.partitions = F) # option to return the sampled partitions on top of their statistics (for GOF)
+draw_Metropolis_multiple <- function(theta, 
+                                     first.partitions,
+                                     presence.tables, 
+                                     nodes, 
+                                     effects,
+                                     objects,
+                                     burnin, 
+                                     thining,
+                                     num.steps,
+                                     neighborhood = c(0.7,0.3,0),
+                                     numgroups.allowed,
+                                     numgroups.simulated,
+                                     sizes.allowed,
+                                     sizes.simulated,
+                                     return.all.partitions = F) 
 {
 
   num.nodes <- nrow(nodes)
@@ -198,6 +200,16 @@ draw_Metropolis_multiple <- function(theta, # model parameters
     neighborhood <- neighborhood / sum(neighborhood)
   }
 
+  # check whether there are constraints
+  constraints <- F
+  if(!is.null(numgroups.allowed) || !is.null(sizes.allowed)) {
+    constraints <- T
+    if(is.null(numgroups.allowed)) numgroups.allowed <- 1:nrow(nodes)
+    if(is.null(numgroups.simulated)) numgroups.simulated <- numgroups.allowed
+    if(is.null(sizes.allowed)) sizes.allowed <- 1:nrow(nodes)
+    if(is.null(sizes.simulated)) sizes.simulated <- sizes.allowed
+  }
+  
   # instantiate with the starting network
   current.partitions <- first.partitions
   current.z.contributions <- computeStatistics_multiple(current.partitions, presence.tables, nodes, effects, objects)
@@ -214,17 +226,12 @@ draw_Metropolis_multiple <- function(theta, # model parameters
   }
 
   end.walk <- FALSE
-  cpt <- 0
-  cpt2 <- 0
+  cpt_burnin <- 0
   cpt_thining <- 0
-
-  # for debug
-  accepted <- rep(0,8)
-  tried <- rep(0,8)
+  cpt_steps <- 0
 
   while(!end.walk){
 
-    #start <- Sys.time()
     new.step <- draw_step_multiple(theta,
                                    current.partitions,
                                    current.logit,
@@ -235,9 +242,8 @@ draw_Metropolis_multiple <- function(theta, # model parameters
                                    effects,
                                    objects,
                                    neighborhood,
-                                   sizes.allowed,
+                                   numgroups.simulated,
                                    sizes.simulated)
-    #end <- Sys.time()
 
     proba.change <- min(1,new.step$hastings.ratio)
     change.made <- (runif(1,0,1) <= proba.change)
@@ -253,62 +259,35 @@ draw_Metropolis_multiple <- function(theta, # model parameters
       current.logit <- new.step$new.logit
     }
 
-    cpt <- cpt + 1
+    cpt_burnin <- cpt_burnin + 1
     if(cpt > burnin) cpt_thining <- cpt_thining + 1
 
-    if(cpt %% 10000 == 0) print(cpt)
+    if(cpt_burnin %% 10000 == 0) print(cpt_burnin)
 
-    # storing results if all sizes are allowed
-    if(is.null(sizes.allowed)){
-
-      # store the results if we are out of burnin
-      if(cpt >= burnin && cpt_thining == thining) {
+    # store the results if we are out of burnin
+    if(cpt_burnin >= burnin && cpt_thining == thining) {
+      
+      store <- T
+      if(constraints) { # check all partitions one by one
+        for(o in 1:num.obs) store <- store && check_sizes(current.partitions[as.logical(presence.tables[,o]),o],sizes.allowed,numgroups.allowed)
+      }
+      
+      if(store) {
         all.z <- rbind(all.z,current.z)
         cpt_thining <- 0
-
+        cpt_steps <- cpt_steps+1
         # store all partitions if needed
         if(return.all.partitions){
-          cpt_all <- cpt_all + 1
-          all.partitions[[cpt_all]] <- current.partitions
+          all.partitions[[cpt_steps]] <- current.partitions
         }
-
+      } else {
+        cpt_thining <- thining-1
       }
-
-      # stop the walk if number of steps reached
-      end.walk <- (cpt >= (burnin+thining*num.steps))
+      
     }
-
-    # storing results if sizes are constrained
-    if(!is.null(sizes.allowed)){
-
-      # store the results if we are out of burnin
-      if(cpt >= burnin && cpt_thining == thining) {
-
-        cpt_thining <- thining - 1
-
-        # check all partitions one by one
-        check_all <- T
-        for(o in 1:num.obs) check_all <- check_all && check_sizes(current.partitions[as.logical(presence.tables[,o]),o],sizes.allowed)
-
-        if(check_all){
-
-          cpt_thining <- 0
-          all.z <- rbind(all.z,current.z)
-          cpt2 <- cpt2 + 1
-
-          #print(nrow(all.z))
-
-          # store all partitions if needed
-          if(return.all.partitions){
-            cpt_all <- cpt_all + 1
-            all.partitions[[cpt_all]] <- current.partitions
-          }
-        }
-      }
-
-      # stop the walk if number of steps reached
-      end.walk <- (cpt2 >= num.steps)
-    }
+    
+    # stop the walk if number of steps reached
+    end.walk <- (cpt_steps >= num.steps)
 
   }
 
@@ -329,7 +308,9 @@ draw_Metropolis_multiple <- function(theta, # model parameters
 }
 
 
+
 # MULTIPLE PARTITIONS PROCEDURE
+
 
 
 ## --- FUNCTIONS TO DRAW ONE STEP IN THE CHAIN ----
@@ -347,7 +328,7 @@ draw_Metropolis_multiple <- function(theta, # model parameters
 #' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
 #' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
 #' @param neighborhood  way of choosing partitions: probability vector (2 actors swap, merge/division, single actor move, single pair move, 2 pairs swap, 2 groups reshuffle)
-#' @param sizes.allowed  vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
+#' @param numgroups.simulated vector containing the number of groups simulated
 #' @param sizes.simulated  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @return A list
 #' @export
@@ -359,16 +340,16 @@ draw_step_single <- function(theta,
                              effects,
                              objects,
                              neighborhood,
-                             sizes.allowed,
+                             numgroups.simulated,
                              sizes.simulated){
 
   # pick a neighborhood
   # 1 = swap two actors,
   # 2 = merge 2 groups or split a group in two,
   # 3 = move one actor,
-  # 4 = move one pair of nodes (FOR NOW REMOVED)
-  # 5 = swap two pairs of nodes (FOR NOW REMOVED)
-  # 6 = reshuffle the members of two groups (FOR NOW REMOVED)
+  ## 4 = move one pair of nodes (FOR NOW REMOVED)
+  ## 5 = swap two pairs of nodes (FOR NOW REMOVED)
+  ## 6 = reshuffle the members of two groups (FOR NOW REMOVED)
   n_neighborhood <- length(neighborhood)
   move <- sample(1:n_neighborhood,1,prob=neighborhood)
 
@@ -376,10 +357,10 @@ draw_step_single <- function(theta,
   new.sizes <- rep(0,n_neighborhood)
 
   # calculate current size of neighborhood and pick new partition for the chosen move
-  current.size <- compute_size_neighborhood(move, current.partition, sizes.simulated = sizes.simulated)
+  current.size <- compute_size_neighborhood(move, current.partition, numgroups.simulated, sizes.simulated)
   if(current.size$total > 0) {
-    new.partition <- sample_new_partition(move, current.partition, current.size, sizes.simulated = sizes.simulated)
-    new.size <- compute_size_neighborhood(move, new.partition, sizes.simulated = sizes.simulated)
+    new.partition <- sample_new_partition(move, current.partition, current.size, numgroups.simulated, sizes.simulated)
+    new.size <- compute_size_neighborhood(move, new.partition, numgroups.simulated, sizes.simulated)
   } else {
     new.partition <- current.partition
     new.size <- current.size
@@ -391,8 +372,8 @@ draw_step_single <- function(theta,
   if(current.size$total > 0) {
     for(i in 1:n_neighborhood){
       if(neighborhood[i] > 0 && i != move && reachable(i,current.partition,new.partition)) {
-        cs <- compute_size_neighborhood(i, current.partition, sizes.simulated = sizes.simulated)
-        ns <- compute_size_neighborhood(i, new.partition, sizes.simulated = sizes.simulated)
+        cs <- compute_size_neighborhood(i, current.partition, numgroups.simulated, sizes.simulated)
+        ns <- compute_size_neighborhood(i, new.partition, numgroups.simulated, sizes.simulated)
         current.sizes[i] <- cs$total
         new.sizes[i] <- ns$total
       }
@@ -439,6 +420,7 @@ draw_step_single <- function(theta,
 #' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
 #' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
 #' @param neighborhood  way of choosing partitions: probability vector (2 actors swap, merge/division, single actor move, single pair move, 2 pairs swap, 2 groups reshuffle)
+#' @param numgroups.simulated vector containing the number of groups simulated
 #' @param sizes.allowed   vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @return A list
@@ -453,6 +435,7 @@ draw_step_multiple <- function(theta,
                                effects,
                                objects,
                                neighborhood,
+                               numgroups.simulated,
                                sizes.allowed,
                                sizes.simulated){
 
@@ -481,10 +464,10 @@ draw_step_multiple <- function(theta,
   # calculate current size of neighborhood and pick new partition for neighborhoods 1 to 6
   for(i in 1:n_neighborhood){
     if(neighborhood[i] > 0){
-      current.size <- compute_size_neighborhood(i, current.partition,  sizes.simulated = sizes.simulated)
+      current.size <- compute_size_neighborhood(i, current.partition,  numgroups.simulated, sizes.simulated)
       current.sizes[i] <- current.size$total
       if(move == i) {
-        if(current.size$total > 0) new.partition <- sample_new_partition(i, current.partition, current.size,  sizes.simulated = sizes.simulated)
+        if(current.size$total > 0) new.partition <- sample_new_partition(i, current.partition, current.size,  numgroups.simulated, sizes.simulated)
         if(current.size$total == 0) new.partition <- current.partition
         new.partitions[,rand.o] <- rep(NA,num.nodes)
         new.partitions[nodes.rand.o,rand.o] <- new.partition
@@ -495,25 +478,14 @@ draw_step_multiple <- function(theta,
   # if(neighborhood[7] > 0){
   #   if(rand.o == 1) current.partition2 <- 1:num.nodes
   #   else current.partition2 <- current.partitions[,rand.o-1]
-  #   current.size <- compute_size_neighborhood(7, current.partitions[,rand.o], partition2 = current.partition2,  sizes.simulated = sizes.simulated)
+  #   current.size <- compute_size_neighborhood(7, current.partitions[,rand.o], partition2 = current.partition2,  numgroups.simulated, sizes.simulated)
   #   current.sizes[7] <- current.size$total
   #   if(move == 7){
-  #     if(current.size$total > 0) new.partition <- sample_new_partition(7, current.partitions[,rand.o], current.size, partition2= current.partition2,  sizes.simulated = sizes.simulated)
+  #     if(current.size$total > 0) new.partition <- sample_new_partition(7, current.partitions[,rand.o], current.size, partition2= current.partition2,  numgroups.simulated, sizes.simulated)
   #     if(current.size$total == 0) new.partition <- current.partition
   #     new.partitions[,rand.o] <- new.partition
   #   }
   # }
-
-  # intermediate check for restricted sizes
-  if(!check_sizes(new.partition, sizes.simulated)) {
-    print("old partition")
-    print(current.partition)
-    print("new partition")
-    print(new.partition)
-    print("neighborhood")
-    print(move)
-    stop("The partition we are in is not allowed.")
-  }
 
 
   # compute new statistics only if it changed
@@ -531,13 +503,13 @@ draw_step_multiple <- function(theta,
   new.sizes <- rep(0,n_neighborhood)
   for(i in 1:n_neighborhood) {
     if(neighborhood[i] > 0){
-      new.size <- compute_size_neighborhood(i, new.partition, sizes.simulated)
+      new.size <- compute_size_neighborhood(i, new.partition, numgroups.simulated, sizes.simulated)
       new.sizes[i] <- new.size$total
     }
   }
   # # this should be for neighborhood 7
   # if(neighborhood[7] > 0){
-  #   new.size <- compute_size_neighborhood(7, new.partition, current.partition2, sizes.simulated)
+  #   new.size <- compute_size_neighborhood(7, new.partition, current.partition2, numgroups.simulated, sizes.simulated)
   #   new.sizes[7] <- new.size$total
   # }
   neighborhoods.ratio <- sum(current.sizes * neighborhood) /
@@ -552,7 +524,6 @@ draw_step_multiple <- function(theta,
               "new.logit" = new.logit,
               "move" = move))
 }
-
 
 
 
@@ -675,6 +646,7 @@ step_recalculate <- function(new.partitions, rand.o, nodes.rand.o, nodes, effect
 
 }
 
+    
 
 ## --- FUNCTIONS FOR THE PROPOSALS MADE AT EACH STEP ----
 
@@ -684,38 +656,51 @@ step_recalculate <- function(new.partitions, rand.o, nodes.rand.o, nodes, effect
 #'
 #'
 #' @param i XXX
-#' @param partitions XXX
+#' @param partition XXX
+#' @param numgroups.simulated XXX
 #' @param sizes.simulated XXX
 #' @return A list
 #' @export
-compute_size_neighborhood <- function(i, partition, sizes.simulated = NULL){ # partition2 = NULL, for neighborhood 7
+compute_size_neighborhood <- function(i, 
+                                      partition, 
+                                      numgroups.simulated = NULL, 
+                                      sizes.simulated = NULL){#,partition2 = NULL, # for neighborhood 7, now deprecated){
+  
+  # check whether there are constraints
+  constraints <- F
+  if(!is.null(numgroups.simulated) || !is.null(sizes.simulated)) {
+    constraints <- T
+  }
+  
   if(i == 1) {
-    if(is.null(sizes.simulated)) return(compute_size_neighborhood_p1(partition))
-    else return(compute_size_neighborhood_p1_restricted(partition,sizes.simulated))
+    if(!constraints) return(compute_size_neighborhood_p1(partition))
+    else return(compute_size_neighborhood_p1_restricted(partition, numgroups.simulated, sizes.simulated))
   }
   if(i == 2) {
-    if(is.null(sizes.simulated)) return(compute_size_neighborhood_p2(partition))
-    else return(compute_size_neighborhood_p2_restricted(partition,sizes.simulated))
+    if(!constraints) return(compute_size_neighborhood_p2(partition))
+    else return(compute_size_neighborhood_p2_restricted(partition, numgroups.simulated, sizes.simulated))
   }
   if(i == 3) {
-    if(is.null(sizes.simulated)) return(compute_size_neighborhood_p3(partition))
-    else return(compute_size_neighborhood_p3_restricted(partition,sizes.simulated))
+    if(!constraints) return(compute_size_neighborhood_p3(partition))
+    else return(compute_size_neighborhood_p3_restricted(partition, numgroups.simulated, sizes.simulated))
   }
+  
+  # For now, other neighborhoods removed
   # if(i == 4) {
   #   if(is.null(sizes.simulated)) return(compute_size_neighborhood_p4(partition))
-  #   else return(compute_size_neighborhood_p4_restricted(partition,sizes.simulated))
+  #   else return(compute_size_neighborhood_p4_restricted(partition, numgroups.simulated, sizes.simulated))
   # }
   # if(i == 5) {
   #   if(is.null(sizes.simulated)) return(compute_size_neighborhood_p5(partition))
-  #   else return(compute_size_neighborhood_p5_restricted(partition,sizes.simulated))
+  #   else return(compute_size_neighborhood_p5_restricted(partition, numgroups.simulated, sizes.simulated))
   # }
   # if(i == 6) {
   #   if(is.null(sizes.simulated)) return(compute_size_neighborhood_p6(partition))
-  #   else return(compute_size_neighborhood_p6_restricted(partition,sizes.simulated))
+  #   else return(compute_size_neighborhood_p6_restricted(partition, numgroups.simulated, sizes.simulated))
   # }
   # if(i == 7) {
   #   if(is.null(sizes.simulated)) return(compute_size_neighborhood_p7(partition))
-  #   else return(compute_size_neighborhood_p7_restricted(partition,sizes.simulated))
+  #   else return(compute_size_neighborhood_p7_restricted(partition, numgroups.simulated, sizes.simulated))  
   # }
 }
 
@@ -727,37 +712,51 @@ compute_size_neighborhood <- function(i, partition, sizes.simulated = NULL){ # p
 #' @param i XXX
 #' @param current.partition XXX
 #' @param size_neighborhood XXX
+#' @param numgroups.simulated XXX
 #' @param sizes.simulated XXX
 #' @return A partition
 #' @export
-sample_new_partition <- function(i, current.partition, size_neighborhood, sizes.simulated = NULL){  # current.partition2 = NULL, for neighborhood 7
+sample_new_partition <- function(i, 
+                                 current.partition, 
+                                 size_neighborhood, 
+                                 numgroups.simulated = NULL,
+                                 sizes.simulated = NULL){#,current.partition2 = NULL, # for neighborhood 7, now deprecated){
+  
+  # check whether there are constraints
+  constraints <- F
+  if(!is.null(numgroups.simulated) || !is.null(sizes.simulated)) {
+    constraints <- T
+  }
+  
   if(i == 1) {
-    if(is.null(sizes.simulated)) return(sample_new_partition_p1(current.partition, size_neighborhood))
-    else return(sample_new_partition_p1_restricted(current.partition, size_neighborhood, sizes.simulated))
+    if(!constraints) return(sample_new_partition_p1(current.partition, size_neighborhood))
+    else return(sample_new_partition_p1_restricted(current.partition, size_neighborhood, numgroups.simulated, sizes.simulated))
   }
   if(i == 2) {
-    if(is.null(sizes.simulated)) return(sample_new_partition_p2(current.partition, size_neighborhood))
-    else return(sample_new_partition_p2_restricted(current.partition, size_neighborhood, sizes.simulated))
+    if(!constraints) return(sample_new_partition_p2(current.partition, size_neighborhood))
+    else return(sample_new_partition_p2_restricted(current.partition, size_neighborhood, numgroups.simulated, sizes.simulated))
   }
   if(i == 3) {
-    if(is.null(sizes.simulated)) return(sample_new_partition_p3(current.partition, size_neighborhood))
-    else return(sample_new_partition_p3_restricted(current.partition, size_neighborhood, sizes.simulated))
+    if(!constraints) return(sample_new_partition_p3(current.partition, size_neighborhood))
+    else return(sample_new_partition_p3_restricted(current.partition, size_neighborhood, numgroups.simulated, sizes.simulated))
   }
+  
+  # for now, other neighborhoods removed
   # if(i == 4) {
   #   if(is.null(sizes.simulated)) return(sample_new_partition_p4(current.partition, size_neighborhood))
-  #   else return(sample_new_partition_p4_restricted(current.partition, size_neighborhood, sizes.simulated))
+  #   else return(sample_new_partition_p4_restricted(current.partition, size_neighborhood, numgroups.simulated, sizes.simulated))
   # }
   # if(i == 5) {
   #   if(is.null(sizes.simulated)) return(sample_new_partition_p5(current.partition, size_neighborhood))
-  #   else return(sample_new_partition_p5_restricted(current.partition, size_neighborhood, sizes.simulated))
+  #   else return(sample_new_partition_p5_restricted(current.partition, size_neighborhood, numgroups.simulated, sizes.simulated))
   # }
   # if(i == 6) {
   #   if(is.null(sizes.simulated)) return(sample_new_partition_p6(current.partition, size_neighborhood))
-  #   else return(sample_new_partition_p6_restricted(current.partition, size_neighborhood, sizes.simulated))
+  #   else return(sample_new_partition_p6_restricted(current.partition, size_neighborhood, numgroups.simulated, sizes.simulated))
   # }
   # if(i == 7) {
   #   if(is.null(sizes.simulated)) return(sample_new_partition_p7(current.partition, size_neighborhood, current.partition2))
-  #   else return(sample_new_partition_p7_restricted(current.partition, size_neighborhood, current.partition2, sizes.simulated))
+  #   else return(sample_new_partition_p7_restricted(current.partition, size_neighborhood, current.partition2, numgroups.simulated, sizes.simulated))
   # }
 }
 
@@ -779,7 +778,9 @@ reachable <- function(i,partition1,partition2){
   } else if(i == 3) {
     return(reachable_p3(partition1,partition2))
   } 
-  # else if(i == 4) {
+    
+  # for now, other nieghborhoods, removed
+  #  else if(i == 4) {
   #   return(reachable_p4(partition1,partition2))
   # } else if(i == 5) {
   #   return(reachable_p5(partition1,partition2))
@@ -918,6 +919,7 @@ reachable_p1 <- function(partition1,partition2){
 
   return(check)
 }
+
 
 
 ## NEIGHBORHOOD PI 2: only merges and divisions of 2 groups
@@ -1250,12 +1252,13 @@ reachable_p3 <- function(partition1,partition2){
 #'
 #'
 #' @param partition XXX
+#' @param numgroups.simulated XXX
 #' @param sizes.simulated XXX
 #' @return A list
 #' @export
-compute_size_neighborhood_p1_restricted <- function(partition, sizes.simulated){
+compute_size_neighborhood_p1_restricted <- function(partition, numgroups.simulated, sizes.simulated){
   # check if current partition is allowed
-  if(!check_sizes(partition, sizes.simulated)) stop("The partition we are in is not allowed.")
+  if(!check_sizes(partition, sizes.simulated,numgroups.simulated)) stop("The partition we are in is not allowed.")
   return(compute_size_neighborhood_p1(partition))
 }
 
@@ -1264,10 +1267,11 @@ compute_size_neighborhood_p1_restricted <- function(partition, sizes.simulated){
 #'
 #' @param current.partition XXX
 #' @param size_neighborhood XXX
+#' @param numgroups.simulated XXX
 #' @param sizes.simulated XXX
 #' @return A list
 #' @export
-sample_new_partition_p1_restricted <- function(current.partition, size_neighborhood, sizes.simulated){
+sample_new_partition_p1_restricted <- function(current.partition, size_neighborhood, numgroups.simulated, sizes.simulated){
   return(sample_new_partition_p1(current.partition, size_neighborhood))
 }
 
@@ -1279,18 +1283,19 @@ sample_new_partition_p1_restricted <- function(current.partition, size_neighborh
 #'
 #'
 #' @param partition XXX
+#' @param numgroups.simulated XXX
 #' @param sizes.simulated XXX
 #' @return A list
 #' @export
-compute_size_neighborhood_p2_restricted <- function(partition, sizes.simulated){
+compute_size_neighborhood_p2_restricted <- function(partition, numgroups.simulated, sizes.simulated){
   
   # check if current partition is allowed
-  if(!check_sizes(partition, sizes.simulated)) stop("The partition we are in is not allowed.")
+  if(!check_sizes(partition, sizes.simulated,numgroups.simulated)) stop("The partition we are in is not allowed.")
   
-  # find maximum size allowed
+  # find minimum and maximum size allowed
   smax <- max(sizes.simulated)
   smin <- min(sizes.simulated)
-  
+
   # calculate the number of neighbor partitions
   num.nodes <- length(partition)
   num.groups <- max(partition)
@@ -1301,10 +1306,10 @@ compute_size_neighborhood_p2_restricted <- function(partition, sizes.simulated){
   num.divisions <- 0
   
   # merges
-  if(num.groups>1){
+  if(num.groups>1 && (num.groups-1) %in% numgroups.simulated){ # we count merges if we have more than one group and having one less group is allowed
     for(g1 in 1:(num.groups-1)){
       for(g2 in (g1+1):num.groups){
-        if(length(which(partition == g1)) + length(which(partition == g2)) <= smax) {
+        if(length(which(partition == g1)) + length(which(partition == g2)) <= smax) { # merges are only possible if the new group size is allowed
           num.merges <- num.merges + 1
           merges[g1,g2] <- 1
         }
@@ -1314,17 +1319,20 @@ compute_size_neighborhood_p2_restricted <- function(partition, sizes.simulated){
   
   
   # divisions
-  for(k in 1:num.groups){
-    sg <- sizes[k]
-    if(smin>1){
-      extras <- sum(unlist(lapply(1:(smin-1),FUN=function(x){choose(sg,x)})))
-      if(sg%%2 == 0 && sg/2 < smin) extras <- extras - choose(sg,sg/2)/2
-    } else {
-      extras <- 0
+  if((num.groups+1) %in% numgroups.simulated){ # we count divisions if having one more group is allowed
+    for(k in 1:num.groups){
+      sg <- sizes[k]
+      if(smin>1){
+        extras <- sum(unlist(lapply(1:(smin-1),FUN=function(x){choose(sg,x)})))
+        if(sg%%2 == 0 && sg/2 < smin) extras <- extras - choose(sg,sg/2)/2
+      } else {
+        extras <- 0
+      }
+      nums.divisions[k] <- 2^(sg-1) - 1 - extras
+      num.divisions <- num.divisions + nums.divisions[k]
     }
-    nums.divisions[k] <- 2^(sg-1) - 1 - extras
-    num.divisions <- num.divisions + nums.divisions[k]
   }
+  
   
   return(list(num.merges = num.merges,
               merges = merges,
@@ -1334,15 +1342,17 @@ compute_size_neighborhood_p2_restricted <- function(partition, sizes.simulated){
 }
 
 
+
 #' sample partition neighborhood 2 restricted
 #'
 #'
 #' @param current.partition XXX
 #' @param size_neighborhood XXX
+#' @param numgroups.simulated XXX
 #' @param sizes.simulated XXX
 #' @return A list
 #' @export
-sample_new_partition_p2_restricted <- function(current.partition, size_neighborhood, sizes.simulated){
+sample_new_partition_p2_restricted <- function(current.partition, size_neighborhood, numgroups.simulated, sizes.simulated){
   
   # calculate the number of neighbor partitions
   num.nodes <- length(current.partition)
@@ -1427,10 +1437,14 @@ sample_new_partition_p2_restricted <- function(current.partition, size_neighborh
 #'
 #'
 #' @param partition XXX
+#' @param numgroups.simulated XXX
 #' @param sizes.simulated XXX
 #' @return A list
 #' @export
-compute_size_neighborhood_p3_restricted <- function(partition, sizes.simulated){
+compute_size_neighborhood_p3_restricted <- function(partition, numgroups.simulated, sizes.simulated){
+  
+  # check if current partition is allowed
+  if(!check_sizes(partition, sizes.simulated, numgroups.simulated)) stop("The partition we are in is not allowed.")
   
   # find maximum size allowed
   smax <- max(sizes.simulated)
@@ -1452,26 +1466,35 @@ compute_size_neighborhood_p3_restricted <- function(partition, sizes.simulated){
   for(i in 1:num.nodes){
     g <- partition[i]
     
-    if(g %in% isolates){
-      # can join any other group (<smax), except other isolates done before (because already done) and this one (that would not change anything)
+    if(g %in% isolates && (num.groups-1) %in% numgroups.simulated){ 
+      # i can join any other group (<smax), except other isolates done before (because already done) and this one (that would not change anything)
       # since it's an isolate, it means that isolates are allowed in that context so we don't worry about smin (=1)
       done.isolates[isolates == g] <- 1
       nums.swaps[i] <- length(belowmax_groups) - sum(done.isolates)
-    }
-    if(g %in% pairs && g %in% abovemin_groups){
-      # if isolates are allowed, then it can join any other group (smax), and splitting if it's not already counted
+    } # to move an isolate, a partition with one group less must be allowed
+    
+    if(g %in% pairs && g %in% abovemin_groups){ 
+      # if isolates are allowed, then i can join any other group (smax), and splitting if it's not already counted
       # here we don't worry about smin (=1) because 2 > smin
       gnotbelowmax <- !(g %in% belowmax_groups)
-      nums.swaps[i] <- length(belowmax_groups) + gnotbelowmax - done.pairs[pairs == g]
+      if((num.groups+1) %in% numgroups.simulated && done.pairs[pairs == g] == 0) { # we check whether it's possible to create an isolate
+        nums.swaps[i] <- length(belowmax_groups) + gnotbelowmax 
+      } else {
+        nums.swaps[i] <- length(belowmax_groups) + gnotbelowmax - 1
+      }
       done.pairs[pairs == g] <- 1
-    } # if size 2 is the minimum allowed, then we can never break a pair
+    } # to break a pair, size 2 should not be the minimum allowed
+    
     if(g %in% others && g %in% abovemin_groups){
       # can join any other group (<smax) or create its own isolate (if it's allowed)
       # we don't care here about checking that other groups are above min size, if they exist it means they are already allowed
       gnotbelowmax <- !(g %in% belowmax_groups)
-      if(smin == 1) nums.swaps[i] <- length(belowmax_groups) + gnotbelowmax
-      if(smin > 1) nums.swaps[i] <- length(belowmax_groups) + gnotbelowmax - 1
-    } # we can never break a group that is already of minimal size
+      if(smin == 1 && (num.groups+1) %in% numgroups.simulated) { # we check whether it's possible to create an isolate
+        nums.swaps[i] <- length(belowmax_groups) + gnotbelowmax 
+      } else {
+        nums.swaps[i] <- length(belowmax_groups) + gnotbelowmax - 1
+      }
+    } # to break a group, it should not be of minimal size
   }
   
   return(list(isolates = isolates,
@@ -1490,10 +1513,11 @@ compute_size_neighborhood_p3_restricted <- function(partition, sizes.simulated){
 #'
 #' @param current.partition XXX
 #' @param size_neighborhood XXX
+#' @param numgroups.simulated XXX
 #' @param sizes.simulated XXX
 #' @return A list
 #' @export
-sample_new_partition_p3_restricted <- function(current.partition, size_neighborhood, sizes.simulated){
+sample_new_partition_p3_restricted <- function(current.partition, size_neighborhood, numgroups.simulated, sizes.simulated){
   
   # calculate the number of neighbor partitions
   num.nodes <- length(current.partition)
@@ -1533,6 +1557,7 @@ sample_new_partition_p3_restricted <- function(current.partition, size_neighborh
     if(pick.1 > start && pick.1 <= end) {
       
       # an isolate can join any other group (<smax), except other isolates done before (because already done) and this one (that would not change anything)
+      # if we are here, this implies that a partition with one less group is allowed
       if(g %in% isolates){
         previousisolates <- isolates[done.isolates == 1]
         tosample <- all.groups[(all.groups %in% belowmax_groups) & !(all.groups %in% previousisolates)]
@@ -1544,7 +1569,7 @@ sample_new_partition_p3_restricted <- function(current.partition, size_neighborh
       
       # a member of a pair can join any other group (<smax), and splitting if it's not already counted, if isolates are allowed
       if(g %in% pairs && g %in% abovemin_groups){
-        if(done.pairs[pairs == g] == 0){
+        if((num.groups+1) %in% numgroups.simulated && done.pairs[pairs == g] == 0){ # if a split of the pair is possible
           tosample <- all.groups[(all.groups %in% belowmax_groups) | (all.groups == g)]
           if(length(tosample) == 1) newg <- tosample
           if(length(tosample) >= 2) newg <- sample(tosample,1)
@@ -1562,14 +1587,14 @@ sample_new_partition_p3_restricted <- function(current.partition, size_neighborh
       
       # a member of a bigger group (>smin) can join any other group (<smax) or create its own isolate (if it's allowed)
       if(g %in% others && g %in% abovemin_groups){
-        if(smin == 1) {
+        if(smin == 1 && (num.groups+1) %in% numgroups.simulated) { # if we can create a isolate
           tosample <- all.groups[(all.groups %in% belowmax_groups) | (all.groups == g)]
           if(length(tosample) == 1) newg <- tosample
           if(length(tosample) >= 2) newg <- sample(tosample,1)
           if(newg == g){
             newg <- num.groups + 1
           }
-        } else if(smin > 1){
+        } else {
           tosample <- all.groups[(all.groups %in% belowmax_groups) & (all.groups != g)]
           if(length(tosample) == 1) newg <- tosample
           if(length(tosample) >= 2) newg <- sample(tosample,1)
@@ -1588,9 +1613,9 @@ sample_new_partition_p3_restricted <- function(current.partition, size_neighborh
 }
 
 
+### Deprecated: unused neighborhoods 
+### Can be reintroduced, but they don't work with constraints on number of groups (only on sizes)
 
-# ## ----------- UNUSED PROPOSALS --------------------------------------------
-# 
 # ## NEIGHBORHOOD PI 4: swaps a pair of nodes
 # 
 # compute_size_neighborhood_p4 <- function(partition){
@@ -2387,14 +2412,14 @@ sample_new_partition_p3_restricted <- function(current.partition, size_neighborh
 #   return(new.partition)
 # 
 # }
-
-
+# 
+# 
 
 
 
 ##############################################################################
 
-### Deprecated: old neighborhoods 7 and 8 (old 9 is now 7)
+### Deprecated 2: neighborhoods for the multiple partition estimation
 
 # ## NEIGHBORHOOD PI 7: pick two partitions and exchange then (only for multiple partition estimation)
 # # since we force one change, and it's reversible (bijection), we don't have to care about the size of the neighborhood
