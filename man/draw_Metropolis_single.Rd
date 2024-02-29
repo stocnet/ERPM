@@ -14,6 +14,8 @@ draw_Metropolis_single(
   thining,
   num.steps,
   neighborhood = c(0.7, 0.3, 0),
+  numgroups.allowed = NULL,
+  numgroups.simulated = NULL,
   sizes.allowed = NULL,
   sizes.simulated = NULL,
   return.all.partitions = F
@@ -38,6 +40,10 @@ draw_Metropolis_single(
 
 \item{neighborhood}{= c(0.7,0.3,0), way of choosing partitions: probability vector (2 actors swap, merge/division, single actor move, single pair move, 2 pairs swap, 2 groups reshuffle)}
 
+\item{numgroups.allowed}{= NULL, # vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)}
+
+\item{numgroups.simulated}{= NULL, # vector containing the number of groups simulated}
+
 \item{sizes.allowed}{= NULL,  vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)}
 
 \item{sizes.simulated}{= NULL, vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)}
@@ -48,5 +54,5 @@ draw_Metropolis_single(
 A list
 }
 \description{
-Draw Metropolis single
+Function to sample the model with a Markov chain (single partition procedure).
 }

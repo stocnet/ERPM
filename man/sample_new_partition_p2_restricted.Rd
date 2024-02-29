@@ -7,6 +7,7 @@
 sample_new_partition_p2_restricted(
   current.partition,
   size_neighborhood,
+  numgroups.simulated,
   sizes.simulated
 )
 }
@@ -14,6 +15,8 @@ sample_new_partition_p2_restricted(
 \item{current.partition}{XXX}
 
 \item{size_neighborhood}{XXX}
+
+\item{numgroups.simulated}{XXX}
 
 \item{sizes.simulated}{XXX}
 }

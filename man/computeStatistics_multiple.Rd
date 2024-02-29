@@ -30,5 +30,5 @@ computeStatistics_multiple(
 A list
 }
 \description{
-Compute Statistics multiple
+Function that computes the statistic vector for given (multiple) partitions and a given model
 }

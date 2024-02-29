@@ -8,7 +8,7 @@ sample_new_partition(
   i,
   current.partition,
   size_neighborhood,
-  current.partition2 = NULL,
+  numgroups.simulated = NULL,
   sizes.simulated = NULL
 )
 }
@@ -19,7 +19,7 @@ sample_new_partition(
 
 \item{size_neighborhood}{XXX}
 
-\item{current.partition2}{XXX}
+\item{numgroups.simulated}{XXX}
 
 \item{sizes.simulated}{XXX}
 }

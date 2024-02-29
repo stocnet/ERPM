@@ -8,16 +8,16 @@ of sizes between smin and smax}
 Stirling2_constraints(n, k, smin, smax)
 }
 \arguments{
-\item{n}{XXX}
+\item{n}{number of nodes}
 
-\item{k}{XXX}
+\item{k}{number of groups}
 
-\item{smin}{XXX}
+\item{smin}{minimum group size possible in the partition}
 
-\item{smax}{XXX}
+\item{smax}{maximum group size possible in the partition}
 }
 \value{
-XXX
+a numeric
 }
 \description{
 Function to calculate the number of partitions with k groups

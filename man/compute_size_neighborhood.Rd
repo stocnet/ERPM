@@ -7,18 +7,18 @@
 compute_size_neighborhood(
   i,
   partition,
-  partition2 = NULL,
+  numgroups.simulated = NULL,
   sizes.simulated = NULL
 )
 }
 \arguments{
 \item{i}{XXX}
 
-\item{partition2}{XXX}
+\item{partition}{XXX}
+
+\item{numgroups.simulated}{XXX}
 
 \item{sizes.simulated}{XXX}
-
-\item{partitions}{XXX}
 }
 \value{
 A list

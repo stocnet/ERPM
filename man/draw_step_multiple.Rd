@@ -15,6 +15,7 @@ draw_step_multiple(
   effects,
   objects,
   neighborhood,
+  numgroups.simulated,
   sizes.allowed,
   sizes.simulated
 )
@@ -39,6 +40,8 @@ draw_step_multiple(
 \item{objects}{objects used for statistics calculation (list with a vector "name", and a vector "object")}
 
 \item{neighborhood}{way of choosing partitions: probability vector (2 actors swap, merge/division, single actor move, single pair move, 2 pairs swap, 2 groups reshuffle)}
+
+\item{numgroups.simulated}{vector containing the number of groups simulated}
 
 \item{sizes.allowed}{vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)}
 

@@ -16,6 +16,8 @@ estimate_logL(
   burnin,
   thining,
   neighborhoods = c(0.7, 0.3, 0),
+  numgroups.allowed = NULL,
+  numgroups.simulated = NULL,
   sizes.allowed = NULL,
   sizes.simulated = NULL,
   logL_0 = NULL,
@@ -46,6 +48,10 @@ estimate_logL(
 
 \item{neighborhoods}{= c(0.7,0.3,0) way of choosing partitions}
 
+\item{numgroups.allowed}{= NULL, # vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)}
+
+\item{numgroups.simulated}{= NULL, # vector containing the number of groups simulated}
+
 \item{sizes.allowed}{= NULL,   vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)}
 
 \item{sizes.simulated}{= NULL,  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)}
@@ -56,5 +62,5 @@ estimate_logL(
 List with the log likelihood , AIC, lambda and the draws
 }
 \description{
-Estimate log likelihood
+Function to estimate the log likelihood of a model for an observed partition
 }

@@ -12,6 +12,8 @@ simulate_burnin_single(
   objects,
   num.steps,
   neighborhood,
+  numgroups.allowed,
+  numgroups.simulated,
   sizes.allowed,
   sizes.simulated
 )
@@ -31,6 +33,10 @@ simulate_burnin_single(
 
 \item{neighborhood}{Way of choosing partitions: probability vector (proba actors swap, proba merge/division, proba single actor move)}
 
+\item{numgroups.allowed}{vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)}
+
+\item{numgroups.simulated}{vector containing the number of groups simulated}
+
 \item{sizes.allowed}{Vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)}
 
 \item{sizes.simulated}{Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)}
@@ -39,5 +45,6 @@ simulate_burnin_single(
 A list with list the draws, the moving.means and the moving means smoothed
 }
 \description{
-Simulate burn in single
+Function that can be used to find a good length for the burn-in of the Markov chain for a given model and a given set of transitions in the chain (the neighborhood).
+It draws a chain and calculates the mean statistics for different burn-ins.
 }
