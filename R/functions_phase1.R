@@ -9,24 +9,26 @@
 #'
 #'
 #' @param partition observed partition
-#' @param startingestimates XXX
-#' @param z.obs XXX
+#' @param startingestimates vector containing initial parameter values
+#' @param z.obs observed statistics
 #' @param nodes node set (data frame)
 #' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
 #' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
 #' @param burnin integer for the number of burn-in steps before sampling
 #' @param thining integer for the number of thining steps between sampling
-#' @param gainfactor XXX
-#' @param a.scaling XXX
-#' @param r.truncation.p1 XXX
-#' @param length.p1 XXX
-#' @param neighborhood = c(0.7,0.3,0) way of choosing partitions
-#' @param fixed.estimates XXX
-#' @param sizes.allowed = NULL,   vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
-#' @param sizes.simulated = NULL,  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-#' @param parallel XXX
-#' @param cpus = 1
-#' @return XXX
+#' @param gainfactor gain factor (useless now)
+#' @param a.scaling scaling factor
+#' @param r.truncation.p1 truncation factor (for stability)
+#' @param length.p1 number of samples for phase 1
+#' @param neighborhood vector for the probability of choosing a particular transition in the chain
+#' @param fixed.estimates if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
+#' @param numgroups.allowed vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
+#' @param numgroups.simulated vector containing the number of groups simulated
+#' @param sizes.allowed vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
+#' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+#' @param parallel boolean to indicate whether the code should be run in parallel
+#' @param cpus number of cpus if parallel = T
+#' @return a list
 #' @export
 run_phase1_single <- function(partition,
                        startingestimates,
@@ -42,6 +44,8 @@ run_phase1_single <- function(partition,
                        length.p1, 
                        neighborhood,
                        fixed.estimates,
+                       numgroups.allowed,
+                       numgroups.simulated,
                        sizes.allowed,
                        sizes.simulated,
                        parallel = T,
@@ -57,10 +61,10 @@ run_phase1_single <- function(partition,
   # simulate the statisticis distribution
   if(parallel){
     
-    sfExport("startingestimates", "first.partition", "nodes", "effects", "objects", "burnin", "thining", "length.p1", "cpus", "neighborhood", "sizes.allowed", "sizes.simulated")
+    sfExport("startingestimates", "first.partition", "nodes", "effects", "objects", "burnin", "thining", "length.p1", "cpus", "neighborhood", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated")
     res <- sfLapply(1:cpus, fun = function(k) {
       set.seed(k)
-      subres <- draw_Metropolis_single(startingestimates, first.partition, nodes, effects, objects, burnin, thining, ceiling(length.p1/cpus), neighborhood, sizes.allowed, sizes.simulated)
+      subres <- draw_Metropolis_single(startingestimates, first.partition, nodes, effects, objects, burnin, thining, ceiling(length.p1/cpus), neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
       return(subres)
     }
     )
@@ -71,7 +75,7 @@ run_phase1_single <- function(partition,
     
   }else{
     
-    results.phase1 <- draw_Metropolis_single(startingestimates, first.partition, nodes, effects, objects, burnin, thining, length.p1, neighborhood, sizes.allowed, sizes.simulated)
+    results.phase1 <- draw_Metropolis_single(startingestimates, first.partition, nodes, effects, objects, burnin, thining, length.p1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
   }
   z.phase1 <- results.phase1$draws
   
@@ -121,25 +125,27 @@ run_phase1_single <- function(partition,
 #'
 #'
 #' @param partitions observed partitions
-#' @param startingestimates XXX
-#' @param z.obs XXX
-#' @param presence.tables XXX
+#' @param startingestimates vector containing initial parameter values
+#' @param z.obs observed statistics
+#' @param presence.tables data frame to indicate which times nodes are present in the partition
 #' @param nodes node set (data frame)
 #' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
 #' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
 #' @param burnin integer for the number of burn-in steps before sampling
 #' @param thining integer for the number of thining steps between sampling
-#' @param gainfactor XXX
-#' @param a.scaling XXX
-#' @param r.truncation.p1 XXX
-#' @param length.p1 XXX
-#' @param neighborhood = c(0.7,0.3,0) way of choosing partitions
-#' @param fixed.estimates XXX
-#' @param sizes.allowed = NULL,   vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
-#' @param sizes.simulated = NULL,  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-#' @param parallel XXX
-#' @param cpus = 1
-#' @return XXX
+#' @param gainfactor gain factor (useless now)
+#' @param a.scaling scaling factor
+#' @param r.truncation.p1 truncation factor (for stability)
+#' @param length.p1 number of samples for phase 1
+#' @param neighborhood vector for the probability of choosing a particular transition in the chain
+#' @param fixed.estimates if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
+#' @param numgroups.allowed vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
+#' @param numgroups.simulated vector containing the number of groups simulated
+#' @param sizes.allowed vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
+#' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+#' @param parallel boolean to indicate whether the code should be run in parallel
+#' @param cpus number of cpus if parallel = T
+#' @return a list
 #' @export
 run_phase1_multiple <- function(partitions,
                               startingestimates,
@@ -156,6 +162,8 @@ run_phase1_multiple <- function(partitions,
                               length.p1, 
                               neighborhood,
                               fixed.estimates,
+                              numgroups.allowed,
+                              numgroups.simulated,
                               sizes.allowed,
                               sizes.simulated,
                               parallel = F,
@@ -172,10 +180,10 @@ run_phase1_multiple <- function(partitions,
   # simulate the statisticis distribution
   if(parallel){
     
-    sfExport("startingestimates", "first.partitions", "presence.tables", "nodes", "effects", "objects", "burnin", "thining", "length.p1", "cpus", "neighborhood", "sizes.allowed", "sizes.simulated")
+    sfExport("startingestimates", "first.partitions", "presence.tables", "nodes", "effects", "objects", "burnin", "thining", "length.p1", "cpus", "neighborhood", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated")
     res <- sfLapply(1:cpus, fun = function(k) {
       set.seed(k)
-      subres <- draw_Metropolis_multiple(startingestimates, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, ceiling(length.p1/cpus), neighborhood, sizes.allowed, sizes.simulated)
+      subres <- draw_Metropolis_multiple(startingestimates, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, ceiling(length.p1/cpus), neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
       return(subres)
     }
     )
@@ -186,7 +194,7 @@ run_phase1_multiple <- function(partitions,
     
   }else{
     
-    results.phase1 <- draw_Metropolis_multiple(startingestimates, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, length.p1, neighborhood, sizes.allowed, sizes.simulated)
+    results.phase1 <- draw_Metropolis_multiple(startingestimates, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, length.p1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
     
   }
   z.phase1 <- results.phase1$draws
@@ -201,80 +209,6 @@ run_phase1_multiple <- function(partitions,
   
   # calculate the covariance and scaling matrices
   inverted_matrices <- calculate_inverted_covariance_and_scaling(startingestimates,
-                                                                 z.obs, 
-                                                                 nodes, 
-                                                                 effects, 
-                                                                 objects, 
-                                                                 a.scaling,
-                                                                 length.phase = length.p1, 
-                                                                 z.phase = z.phase1,
-                                                                 fixed.estimates)
-  inv.zcov <- inverted_matrices$inv.zcov
-  inv.scaling <- inverted_matrices$inv.scaling
-  
-  # Phase 1 procedure
-  estimates.phase1 <- phase1(startingestimates,
-                             inv.zcov,
-                             inv.scaling,
-                             z.phase1,
-                             z.obs, 
-                             nodes, 
-                             effects, 
-                             objects, 
-                             r.truncation.p1,
-                             length.p1, 
-                             fixed.estimates)
-  
-  return( list("estimates" = estimates.phase1, 
-               "inv.zcov" = inv.zcov,
-               "inv.scaling" = inv.scaling,
-               "autocorrelations" = autocors) )
-  
-}
-
-# Phase 1 wrapper for multiple observations
-run_phase1_multiple_secondparallel <- function(partitions,
-                                startingestimates,
-                                z.obs, 
-                                presence.tables, 
-                                nodes, 
-                                effects, 
-                                objects, 
-                                burnin, 
-                                thining,
-                                gainfactor,
-                                a.scaling,
-                                r.truncation.p1,
-                                length.p1, 
-                                neighborhood,
-                                fixed.estimates,
-                                sizes.allowed,
-                                sizes.simulated,
-                                parallel = F,
-                                cpus = 1) {
-  
-  num.nodes <- nrow(nodes)
-  num.effects <- length(effects$names)
-  num.obs <- ncol(presence.tables)
-  
-  # find good starting pointS
-  #first.partitions <- find_startingpoint_multiple(presence.tables,nodes,sizes.allowed)
-  first.partitions <- partitions
-  
-  # simulate the statisticis distribution
-  results.phase1 <- draw_Metropolis_multiple_secondparallel(startingestimates, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, length.p1, neighborhood, sizes.allowed, sizes.simulated, parallel, cpus)
-  z.phase1 <- results.phase1$draws
-  
-  # calculate autocorrelation to check afterhand
-  autocors <- rep(0,num.effects)
-  for(e in 1:num.effects){
-    autocors[e] <- cor(results.phase1$draws[1:(length.p1-1),e],results.phase1$draws[2:length.p1,e])
-  }
-  print("Autocorrelations in phase 1:")
-  print(autocors)
-  
-  # calculate the covariance and scaling matrices
-  inverted_matrices <- calculate_inverted_covariance_and_scaling(startingestimates, 
                                                                  z.obs, 
                                                                  nodes, 
                                                                  effects, 

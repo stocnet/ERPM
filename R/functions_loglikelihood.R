@@ -7,6 +7,7 @@
 
 #' Estimate log likelihood
 #'
+#' Function to estimate the log likelihood of a model for an observed partition
 #'
 #' @param partition observed partition
 #' @param nodes node set (data frame)
@@ -19,27 +20,31 @@
 #' @param burnin integer for the number of burn-in steps before sampling
 #' @param thining integer for the number of thining steps between sampling
 #' @param neighborhoods = c(0.7,0.3,0) way of choosing partitions
+#' @param numgroups.allowed = NULL, # vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
+#' @param numgroups.simulated = NULL, # vector containing the number of groups simulated
 #' @param sizes.allowed = NULL,   vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated = NULL,  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param logL_0 = NULL, if known, the value of the log likelihood of the basic dirichlet model
 #' @return List with the log likelihood , AIC, lambda and the draws
 #' @export
-estimate_logL <- function(partition, # observed partition
-                          nodes, # nodeset (data frame)
-                          effects, # effects/sufficient statistics (list with a vector "names", and a vector "objects")
-                          objects, # objects used for statistics calculation (list with a vector "name", and a vector "object")
-                          theta, # estimated model parameters
-                          theta_0, # model parameters if all other effects than "num-groups" are fixed to 0 (basic Dirichlet partition model)
-                          M, # number of steps in the path-sampling algorithm
-                          num.steps, # number of samples in each step
-                          burnin, # integer for the number of burn-in steps before sampling
-                          thining, # integer for the number of thining steps between sampling
-                          neighborhoods = c(0.7,0.3,0), # way of choosing partitions
-                          sizes.allowed = NULL,  # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
-                          sizes.simulated = NULL, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-                          logL_0 = NULL,  # if known, the value of the log likelihood of the basic dirichlet model
-                          parallel = F, # whether each step is run in parallel
-                          cpus = 1) # number of cpus (should be equal to M)
+estimate_logL <- function(partition, 
+                          nodes, 
+                          effects, 
+                          objects, 
+                          theta, 
+                          theta_0, 
+                          M, 
+                          num.steps, 
+                          burnin, 
+                          thining, 
+                          neighborhoods = c(0.7,0.3,0), 
+                          numgroups.allowed = NULL, 
+                          numgroups.simulated = NULL,
+                          sizes.allowed = NULL, 
+                          sizes.simulated = NULL,
+                          logL_0 = NULL, 
+                          parallel = F, 
+                          cpus = 1)
 {
 
   if(parallel && cpus != M) print("Please set the number of cpus equal to the number of steps in the path-sampling algorithm.")
@@ -64,10 +69,10 @@ estimate_logL <- function(partition, # observed partition
   # path sampling
   if(parallel){
 
-    sfExport("M", "theta", "theta_0", "diff_vector", "first.partition", "nodes", "effects", "objects", "burnin", "thining", "num.steps", "mini.steps", "neighborhoods", "sizes.allowed", "sizes.simulated")
+    sfExport("M", "theta", "theta_0", "diff_vector", "first.partition", "nodes", "effects", "objects", "burnin", "thining", "num.steps", "mini.steps", "neighborhoods", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated")
     res <- sfLapply(1:M, fun = function(m) {
       theta_m <- m/M * theta + (1-m)/M * theta_0
-      draws_m <- draw_Metropolis_single(theta_m, first.partition, nodes, effects, objects, burnin, thining, num.steps, neighborhoods, sizes.allowed, sizes.simulated)
+      draws_m <- draw_Metropolis_single(theta_m, first.partition, nodes, effects, objects, burnin, thining, num.steps, neighborhoods, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
       z_m <- colMeans(draws_m$draws)
       subres <- list(contribution_lambda = diff_vector %*% z_m, draws = draws_m$draws)
       return(subres)
@@ -81,7 +86,7 @@ estimate_logL <- function(partition, # observed partition
     for(m in 1:M){
       print(paste("step",m))
       theta_m <- m/M * theta + (1-m)/M * theta_0
-      draws_m <- draw_Metropolis_single(theta_m, first.partition, nodes, effects, objects, burnin, thining, num.steps,neighborhoods, sizes.allowed, sizes.simulated)
+      draws_m <- draw_Metropolis_single(theta_m, first.partition, nodes, effects, objects, burnin, thining, num.steps,neighborhoods, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
       all_draws[[m]] <- draws_m
       z_m <- colMeans(draws_m$draws)
       lambda <- lambda + diff_vector %*% z_m

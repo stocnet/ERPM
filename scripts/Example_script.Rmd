@@ -142,16 +142,19 @@ Now we can generate our simulated sample, by setting the desired additional para
 ```{r}
 nsteps <- 100
 sample <- draw_Metropolis_single(theta = parameters, 
-                          first.partition = 1:n, 
+                          first.partition = c(1,1,2,2,3,3), 
                           nodes = nodes, 
                           effects = effects, 
                           objects = objects, 
                           burnin = 100, 
                           thining = 10, 
                           num.steps = nsteps, 
-                          neighborhood = c(1,1,1), 
+                          neighborhood = c(1,0,0), 
+                          numgroups.allowed = 1:n,
+                          numgroups.simulated = 1:n,
                           sizes.allowed = 1:n,
-                          sizes.simulated = 1:n)
+                          sizes.simulated = 1:n,
+                          return.all.partitions = T)
 ```
 
 ### 2.3 Trace plots
