@@ -309,6 +309,9 @@ draw_Metropolis_multiple <- function(theta,
 
 
 
+# MULTIPLE PARTITIONS PROCEDURE
+
+
 
 ## --- FUNCTIONS TO DRAW ONE STEP IN THE CHAIN ----
 
@@ -418,6 +421,7 @@ draw_step_single <- function(theta,
 #' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
 #' @param neighborhood  way of choosing partitions: probability vector (2 actors swap, merge/division, single actor move, single pair move, 2 pairs swap, 2 groups reshuffle)
 #' @param numgroups.simulated vector containing the number of groups simulated
+#' @param sizes.allowed   vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @return A list
 #' @export
@@ -432,6 +436,7 @@ draw_step_multiple <- function(theta,
                                objects,
                                neighborhood,
                                numgroups.simulated,
+                               sizes.allowed,
                                sizes.simulated){
 
   num.nodes <- nrow(nodes)
@@ -641,7 +646,7 @@ step_recalculate <- function(new.partitions, rand.o, nodes.rand.o, nodes, effect
 
 }
 
-
+    
 
 ## --- FUNCTIONS FOR THE PROPOSALS MADE AT EACH STEP ----
 
@@ -695,7 +700,7 @@ compute_size_neighborhood <- function(i,
   # }
   # if(i == 7) {
   #   if(is.null(sizes.simulated)) return(compute_size_neighborhood_p7(partition))
-  #   else return(compute_size_neighborhood_p7_restricted(partition, numgroups.simulated, sizes.simulated))
+  #   else return(compute_size_neighborhood_p7_restricted(partition, numgroups.simulated, sizes.simulated))  
   # }
 }
 
@@ -707,7 +712,6 @@ compute_size_neighborhood <- function(i,
 #' @param i XXX
 #' @param current.partition XXX
 #' @param size_neighborhood XXX
-#' @param current.partition2 XXX
 #' @param numgroups.simulated XXX
 #' @param sizes.simulated XXX
 #' @return A partition
@@ -774,7 +778,7 @@ reachable <- function(i,partition1,partition2){
   } else if(i == 3) {
     return(reachable_p3(partition1,partition2))
   } 
-
+    
   # for now, other nieghborhoods, removed
   #  else if(i == 4) {
   #   return(reachable_p4(partition1,partition2))
@@ -1608,8 +1612,6 @@ sample_new_partition_p3_restricted <- function(current.partition, size_neighborh
   
 }
 
-
-##############################################################################
 
 ### Deprecated: unused neighborhoods 
 ### Can be reintroduced, but they don't work with constraints on number of groups (only on sizes)
