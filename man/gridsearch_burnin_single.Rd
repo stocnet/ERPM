@@ -2,7 +2,7 @@
 % Please edit documentation in R/functions_burninthining.R
 \name{gridsearch_burnin_single}
 \alias{gridsearch_burnin_single}
-\title{Grid - search burning single}
+\title{Grid - search burnin single}
 \usage{
 gridsearch_burnin_single(
   partition,
@@ -12,6 +12,8 @@ gridsearch_burnin_single(
   objects,
   num.steps,
   neighborhoods,
+  numgroups.allowed,
+  numgroups.simulated,
   sizes.allowed,
   sizes.simulated,
   parallel = F,
@@ -33,6 +35,10 @@ gridsearch_burnin_single(
 
 \item{neighborhoods}{List of probability vectors (proba actors swap, proba merge/division, proba single actor move)}
 
+\item{numgroups.allowed}{= NULL, # vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)}
+
+\item{numgroups.simulated}{vector containing the number of groups simulated}
+
 \item{sizes.allowed}{Vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)}
 
 \item{sizes.simulated}{Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)}
@@ -45,5 +51,6 @@ gridsearch_burnin_single(
 all simulations
 }
 \description{
-Grid - search burning single
+Function that can be used to find a good length for the burn-in of the Markov chain for a given model and differents sets of transitions in the chain (the neighborhoods).
+For each neighborhood, it draws a chain and calculates the mean statistics for different burn-ins.
 }

@@ -4,10 +4,16 @@
 \alias{compute_size_neighborhood_p3_restricted}
 \title{compute size neighborhood 3 restricted}
 \usage{
-compute_size_neighborhood_p3_restricted(partition, sizes.simulated)
+compute_size_neighborhood_p3_restricted(
+  partition,
+  numgroups.simulated,
+  sizes.simulated
+)
 }
 \arguments{
 \item{partition}{XXX}
+
+\item{numgroups.simulated}{XXX}
 
 \item{sizes.simulated}{XXX}
 }

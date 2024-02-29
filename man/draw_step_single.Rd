@@ -13,7 +13,7 @@ draw_step_single(
   effects,
   objects,
   neighborhood,
-  sizes.allowed,
+  numgroups.simulated,
   sizes.simulated
 )
 }
@@ -34,7 +34,7 @@ draw_step_single(
 
 \item{neighborhood}{way of choosing partitions: probability vector (2 actors swap, merge/division, single actor move, single pair move, 2 pairs swap, 2 groups reshuffle)}
 
-\item{sizes.allowed}{vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)}
+\item{numgroups.simulated}{vector containing the number of groups simulated}
 
 \item{sizes.simulated}{vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)}
 }

@@ -2,24 +2,26 @@
 % Please edit documentation in R/functions_exactcalculations.R
 \name{calculate_denominator_Dirichlet_restricted}
 \alias{calculate_denominator_Dirichlet_restricted}
-\title{Estimation basic model with size constraint (same as compute_num_groups_denominator with restrictions)}
+\title{Calculate Dirichlet denominator}
 \usage{
 calculate_denominator_Dirichlet_restricted(n, smin, smax, alpha, results)
 }
 \arguments{
-\item{n}{XXX}
+\item{n}{number of nodes}
 
-\item{smin}{XXX}
+\item{smin}{minimum size for a group}
 
-\item{smax}{XXX}
+\item{smax}{maximum size for a group}
 
-\item{alpha}{XXX}
+\item{alpha}{parameter value}
 
-\item{results}{XXX}
+\item{results}{}
 }
 \value{
-XXX
+a numeric
 }
 \description{
-Estimation basic model with size constraint (same as compute_num_groups_denominator with restrictions)
+Recursive function to calculate the denominator for the model with a single statistic 
+for the number of groups and a given parameter value.
+The set of possible partitions can be restricted to partitions with groups of a certain size.
 }

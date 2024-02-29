@@ -2,18 +2,19 @@
 % Please edit documentation in R/functions_exactcalculations.R
 \name{compute_numgroups_denominator}
 \alias{compute_numgroups_denominator}
-\title{Recursive function to compute the value of the denominator}
+\title{Compute denominator for model with number of groups}
 \usage{
 compute_numgroups_denominator(num.nodes, alpha)
 }
 \arguments{
-\item{num.nodes}{XXX}
+\item{num.nodes}{number of nodes}
 
-\item{alpha}{Node set (data frame)}
+\item{alpha}{parameter value}
 }
 \value{
-XXX
+a numeric
 }
 \description{
-Recursive function to compute the value of the denominator
+Recursive function to compute the value of the denominator for the model
+with a single statistic which is the number of groups
 }

@@ -4,13 +4,7 @@
 \alias{CUP}
 \title{CUP}
 \usage{
-CUP(
-  observation,
-  fun,
-  test.direction,
-  permutations = NULL,
-  num.permutations = 1000
-)
+CUP(observation, fun, permutations = NULL, num.permutations = 1000)
 }
 \arguments{
 \item{observation}{A vector giving the observed partition}

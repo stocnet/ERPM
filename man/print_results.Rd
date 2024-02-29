@@ -7,10 +7,10 @@
 print_results(result)
 }
 \arguments{
-\item{result}{XXX}
+\item{result}{output of the estimate function}
 }
 \value{
-XXX
+a data frame
 }
 \description{
 Print estimation results

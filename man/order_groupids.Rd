@@ -9,10 +9,10 @@ for example: [2 1 1 4 2] becomes [1 2 2 3 1]}
 order_groupids(partition)
 }
 \arguments{
-\item{partition}{XXX}
+\item{partition}{observed partition}
 }
 \value{
-XXX
+a vector (partition)
 }
 \description{
 Function to replace the ids of the group without forgetting an id

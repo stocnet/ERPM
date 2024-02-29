@@ -4,15 +4,17 @@
 \alias{check_sizes}
 \title{Function to determine whether a partition contains the allowed group sizes}
 \usage{
-check_sizes(partition, sizes.allowed)
+check_sizes(partition, sizes.allowed, numgroups.allowed)
 }
 \arguments{
-\item{partition}{XXX}
+\item{partition}{observed partition}
 
-\item{sizes.allowed}{XXX}
+\item{sizes.allowed}{vector containing possible group sizes in the partition}
+
+\item{numgroups.allowed}{vector containing possible number of groups in the partition}
 }
 \value{
-XXX
+boolean
 }
 \description{
 Function to determine whether a partition contains the allowed group sizes

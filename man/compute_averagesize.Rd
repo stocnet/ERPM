@@ -2,16 +2,16 @@
 % Please edit documentation in R/functions_exactcalculations.R
 \name{compute_averagesize}
 \alias{compute_averagesize}
-\title{Recursive function to compute the value of the denominator}
+\title{Compute the average size of a random partition}
 \usage{
 compute_averagesize(num.nodes)
 }
 \arguments{
-\item{num.nodes}{XXX}
+\item{num.nodes}{number of nodes}
 }
 \value{
-XXX
+a numeric
 }
 \description{
-Recursive function to compute the value of the denominator
+Recursive function to compute the average size of a random partition for a given number of nodes
 }
