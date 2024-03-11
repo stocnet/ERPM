@@ -23,8 +23,8 @@ the mean value of the statistic among permuted partitions,
 the standard deviation of the statistic among permuted partitions,
 the proportion of permutation below the observed statistic,
 the proportion of permutation above the observed statistic,
-the lower boundary of the 95% CI,
-the upper boundary of the 95% CI
+the lower boundary of the 95\% CI,
+the upper boundary of the 95\% CI
 }
 \description{
 This function tests a partition statistic against a "conditional uniform partition null hypothesi:

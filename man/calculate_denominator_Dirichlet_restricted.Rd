@@ -21,7 +21,7 @@ calculate_denominator_Dirichlet_restricted(n, smin, smax, alpha, results)
 a numeric
 }
 \description{
-Recursive function to calculate the denominator for the model with a single statistic 
+Recursive function to calculate the denominator for the model with a single statistic
 for the number of groups and a given parameter value.
 The set of possible partitions can be restricted to partitions with groups of a certain size.
 }

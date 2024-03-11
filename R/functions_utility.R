@@ -178,7 +178,7 @@ count_classes <- function(allpartitions){
 
 #' Function to replace the ids of the group without forgetting an id
 #' and put in the first appearance order
-#' for example: [2 1 1 4 2] becomes [1 2 2 3 1]
+#' for example: `[2 1 1 4 2]` becomes `[1 2 2 3 1]`
 #' 
 #' @param partition observed partition
 #' @return a vector (partition)

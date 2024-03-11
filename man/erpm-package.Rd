@@ -4,7 +4,7 @@
 \name{erpm-package}
 \alias{erpm-package}
 \alias{erpm}
-\title{`erpm` package}
+\title{\code{erpm} package}
 \description{
 The erpm package is an R package that allows to fit an exponential partition model
 to cross-sectional or longitudinal partition data.
