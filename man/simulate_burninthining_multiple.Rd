@@ -23,7 +23,7 @@ simulate_burninthining_multiple(
 \arguments{
 \item{partitions}{Observed partitions}
 
-\item{presence.tables}{# to indicate which nodes were present when}
+\item{presence.tables}{to indicate which nodes were present when}
 
 \item{theta}{Initial model parameters}
 
