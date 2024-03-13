@@ -26,6 +26,7 @@
 #' @param parallel boolean to indicate whether the code should be run in parallel
 #' @param cpus number of cpus if parallel = T
 #' @return a list
+#' @importFrom stats cor
 #' @export
 run_phase3_single <- function(partition,
                        estimates.phase2, 
@@ -126,6 +127,7 @@ run_phase3_single <- function(partition,
 #' @param parallel boolean to indicate whether the code should be run in parallel
 #' @param cpus number of cpus if parallel = T
 #' @return a list
+#' @importFrom stats cor
 #' @export
 run_phase3_multiple <- function(partitions,
                               estimates.phase2, 
@@ -222,6 +224,7 @@ run_phase3_multiple <- function(partitions,
 #' @param length.p3 XXX
 #' @param fixed.estimates XXX
 #' @return XXX
+#' @importFrom stats sd
 #' @export
 phase3 <- function(estimates.phase2,
                    z.phase3,

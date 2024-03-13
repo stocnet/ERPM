@@ -28,6 +28,7 @@
 #' @param sizes.simulated = NULL, vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param return.all.partitions = F option to return the sampled partitions on top of their statistics (for GOF)
 #' @return A list
+#' @importFrom stats runif
 #' @export
 
 draw_Metropolis_single <- function(theta, 
@@ -173,6 +174,7 @@ draw_Metropolis_single <- function(theta,
 #' @param sizes.simulated = NULL, vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param return.all.partitions = F, option to return the sampled partitions on top of their statistics (for GOF)
 #' @return A list
+#' @importFrom stats runif
 #' @export
 draw_Metropolis_multiple <- function(theta, 
                                      first.partitions,
