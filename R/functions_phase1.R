@@ -29,6 +29,7 @@
 #' @param parallel boolean to indicate whether the code should be run in parallel
 #' @param cpus number of cpus if parallel = T
 #' @return a list
+#' @importFrom stats cor
 #' @export
 run_phase1_single <- function(partition,
                        startingestimates,
@@ -146,6 +147,7 @@ run_phase1_single <- function(partition,
 #' @param parallel boolean to indicate whether the code should be run in parallel
 #' @param cpus number of cpus if parallel = T
 #' @return a list
+#' @importFrom stats cor
 #' @export
 run_phase1_multiple <- function(partitions,
                               startingestimates,
@@ -361,6 +363,7 @@ phase1 <- function(startingestimates,
 #' @param z.phase XXX
 #' @param fixed.estimates XXX
 #' @return XXX
+#' @importFrom stats cov
 #' @export
 calculate_inverted_covariance_and_scaling <- function(startingestimates,
                                                       z.obs, 

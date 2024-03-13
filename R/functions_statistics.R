@@ -128,6 +128,7 @@ correlation_between <- function(partition, attribute1, attribute2) {
 #' @param categorical A Boolean (True or False) indicating if the attribute is categorical
 #' @return A number corresponding to the correlation coefficient if the attribute is numerical or
 #' the correlation ratio if the attribute is categorical.
+#' @importFrom stats cor lm
 #' @export
 #' @examples
 #' p <- c(1,2,2,3,3,4,4,4,5)
@@ -171,6 +172,7 @@ correlation_with_size <- function(partition, attribute, categorical){
 #' @param stat The statistic to compute : 'avg' for average and 'sd' for standard deviation
 #' @return A number corresponding to the correlation coefficient if the attribute is numerical or
 #' the correlation ratio if the attribute is categorical.
+#' @importFrom stats sd
 #' @export
 #' @examples
 #' p <- c(1,2,2,3,3,4,4,4,5)
@@ -368,6 +370,7 @@ range_attribute <- function(partition, attribute, stat ){
 #' @param stat The statistic to compute : 'avg_pergroup' for the average, 'sum_pergroup' for the sum,  'sum_perind' and 'avg_perind'  for the number of ties per individual
 #' each individual has in its group.
 #' @return The statistic chosen in stat
+#' @importFrom stats dist
 #' @export
 #' @examples
 #' p <- c(1,2,2,3,3,4,4,4,5)
@@ -423,6 +426,7 @@ same_pairs <- function(partition, attribute, stat ) {
 #' @param stat The statistic to compute : 'avg_pergroup' for the average per group , 'sum_pergroup' for the sum, 'sum_perind' and 'avg_perind' for the number of ties per individuals
 #' each individual has in its group.
 #' @return The statisic chosen in stat
+#' @importFrom stats dist
 #' @export
 #' @examples
 #' p <- c(1,2,2,3,3,4,4,4,5)
@@ -471,6 +475,7 @@ number_ties <- function(partition, dyadic_attribute, stat) {
 #' @param stat The statistic to compute : 'avg_pergroup' for the average, 'sum_pergroup' for the sum, 'sum_perind' and 'avg_perind' for individuals
 #' @param threshold Threshold to determine if 2 individuals attributes values are close
 #' @return The statisic chosen in stat
+#' @importFrom stats dist
 #' @export
 #' @examples
 #' p <- c(1,2,2,3,3,4,4,4,5)
@@ -541,6 +546,7 @@ similar_pairs <- function(partition, attribute, stat,  threshold) {
 #' the proportion of permutation above the observed statistic,
 #' the lower boundary of the 95% CI,
 #' the upper boundary of the 95% CI
+#' @importFrom stats quantile sd
 #' @export
 #' @examples
 #' p <- c(1,2,2,3,3,4,4,4,5)

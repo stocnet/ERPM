@@ -15,6 +15,7 @@
 #' @param attribute.color A vector, attribute to represent with colors (default=NULL)
 #' @param attribute.shape A vector, attribute to represent with shapes (default=NULL)
 #' @return A plot of the partition
+#' @importFrom grDevices rgb
 #' @examples
 #' p <- c(1,1,1,2,2,2,2,3,3,3,4,4,4,4,4,4)
 #' attr1 <- c(1,0,0,1,0,0,1,0,1,0,1,1,1,1,1,2)

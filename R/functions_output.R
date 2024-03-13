@@ -11,6 +11,7 @@
 #'
 #' @param result output of the estimate function
 #' @return a data frame
+#' @importFrom stats qnorm
 #' @export
 print_results <- function(result){
   

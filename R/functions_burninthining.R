@@ -23,6 +23,7 @@
 #' @param sizes.allowed Vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @return A list with list the draws, the moving.means and the moving means smoothed
+#' @importFrom stats loess
 #' @export
 simulate_burnin_single <- function(partition, 
                                    theta, 
@@ -165,6 +166,7 @@ gridsearch_burnin_single <- function(partition,
 #' @param burnin number of simulated steps for the burn-in
 #' @param max.thining maximal number of simulated steps in the thining
 #' @return A list
+#' @importFrom stats cor loess
 #' @export
 # SINGLE PARTITION PROCEDURE
 simulate_thining_single <- function(partition, 
@@ -388,6 +390,7 @@ gridsearch_thining_single <- function(partition,
 #' @param sizes.simulated Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param max.thining XXX
 #' @return A list
+#' @importFrom stats loess
 #' @export
 simulate_burninthining_single <- function(partition, 
                                           theta,
@@ -487,7 +490,7 @@ simulate_burninthining_single <- function(partition,
 #'
 #' @param partitions Observed partitions
 #' @param theta Initial model parameters
-#' @param presence.tables # to indicate which nodes were present when
+#' @param presence.tables to indicate which nodes were present when
 #' @param nodes Node set (data frame)
 #' @param effects Effects/sufficient statistics (list with a vector "names", and a vector "objects")
 #' @param objects Objects used for statistics calculation (list with a vector "name", and a vector "object")
@@ -499,6 +502,7 @@ simulate_burninthining_single <- function(partition,
 #' @param sizes.simulated Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param max.thining XXX
 #' @return A list
+#' @importFrom stats cor loess
 #' @export
 simulate_burninthining_multiple <- function(partitions, 
                                             presence.tables,

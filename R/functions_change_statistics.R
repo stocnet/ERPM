@@ -16,6 +16,7 @@
 #' @param effects list with a vector "names", and a vector "objects", Effects/sufficient statistics
 #' @param objects list with a vector "name", and a vector "object", Objects used for statistics calculation
 #' @return the statistics
+#' @importFrom stats dist rnorm qt pnorm
 #' @export
 computeStatistics <- function (partition, nodes, effects, objects){
   
@@ -571,12 +572,13 @@ computeStatistics <- function (partition, nodes, effects, objects){
 #' Function that computes the statistic vector for given (multiple) partitions and a given model
 #'
 #' @param partitions Observed partitions
-#' @param presence.tables, # to indicate which nodes were present when
+#' @param presence.tables to indicate which nodes were present when
 #' @param nodes Node set (data frame)
 #' @param effects Effects/sufficient statistics (list with a vector "names", and a vector "objects")
 #' @param objects Objects used for statistics calculation (list with a vector "name", and a vector "object")
 #' @param single.obs equal NULL by default
 #' @return A list
+#' @importFrom stats dist
 #' @export
 computeStatistics_multiple <- function(partitions, presence.tables, nodes, effects, objects, single.obs = NULL){
 
