@@ -37,5 +37,5 @@ This test is similar to Conditional Uniform Graph tests in networks (we translat
 \examples{
 p <- c(1,2,2,3,3,4,4,4,5)
 at <- c(0,1,1,1,1,0,0,0,0)
-CUP(p,fun=function(x){compute_number_same_pairs(x,at,'avg')})
+CUP(p,fun=function(x){same_pairs(x,at,'avg')})
 }
