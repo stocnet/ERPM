@@ -6,8 +6,9 @@ Date: 2024-03-13
 Authors@R: c(person("Marion", "Hoffman", role = c("cre", "aut", "cph"), 
       email = "marion.hoffman.31@gmail.com", comment = c(ORCID = "0000-0002-0741-7760")),
       person("Alexandra", "Amani", role = "aut"))
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
+Description: This package can be used to simulate and estimate the Exponential Random Partition Model presented in the paper Hoffman, Block, and Snijders, 2023.
+It can also be used to estimate longitudinal partitions, following the model proposed in Hoffman and Chabot, 2023.
+The model is an exponential family distribution on the space of partitions (sets of non-overlapping groups) and is called in reference to the Exponential Random Graph Models (ERGM) for networks.
 Depends: R (>= 4.2), numbers
 License: What license is it under?
 Encoding: UTF-8
