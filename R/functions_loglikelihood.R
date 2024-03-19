@@ -57,7 +57,7 @@ estimate_logL <- function(partition,
   if(is.null(sizes.simulated)) {sizes.simulated <- 1:num.nodes}
 
   # find a good starting point
-  first.partition <- find_startingpoint_single(nodes,sizes.allowed)
+  first.partition <- partition
 
   # value of estimated denominators ratio
   lambda <- 0
