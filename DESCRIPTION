@@ -4,7 +4,7 @@ Title: Exponential Random Partition Models
 Version: 0.1.0
 Date: 2024-03-13
 Authors@R: c(person("Marion", "Hoffman", role = c("cre", "aut", "cph"), 
-      email = "marion.hoffman@iast.fr", comment = c(ORCID = "0000-0002-0741-7760")),
+      email = "marion.hoffman.31@gmail.com", comment = c(ORCID = "0000-0002-0741-7760")),
       person("Alexandra", "Amani", role = "aut"))
 Description: More about what it does (maybe more than one line)
     Use four spaces when indenting paragraphs within the Description.
