@@ -9,3 +9,12 @@
 The erpm package is an R package that allows to fit an exponential partition model
 to cross-sectional or longitudinal partition data.
 }
+\author{
+\strong{Maintainer}: Marion Hoffman \email{marion.hoffman.31@gmail.com} (\href{https://orcid.org/0000-0002-0741-7760}{ORCID}) [copyright holder]
+
+Authors:
+\itemize{
+  \item Alexandra Amani
+}
+
+}
