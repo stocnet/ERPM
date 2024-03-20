@@ -300,6 +300,8 @@ run_phase2_single <- function(partition,
 #' @param sizes.allowed vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param double.averaging boolean to indicate whether we follow the double-averaging procedure (often leads to better convergence)
+#' @param parallel boolean to indicate whether the code should be run in parallel
+#' @param cpus number of cpus if parallel = T
 #' @return a list
 #' @export
 run_phase2_multiple <- function(partitions,

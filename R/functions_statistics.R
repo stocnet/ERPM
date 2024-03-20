@@ -421,15 +421,15 @@ same_pairs <- function(partition, attribute, stat ) {
 #'This function computes the number of ties.
 #'
 #' @param partition A partition (vector)
-#' @param attribute A vector containing the values of the attribute
+#' @param dyadic_attribute A matrix containing the values of the attribute
 #' @param stat The statistic to compute : 'avg_pergroup' for the average per group , 'sum_pergroup' for the sum, 'sum_perind' and 'avg_perind' for the number of ties per individuals
 #' each individual has in its group.
 #' @return The statisic chosen in stat
 #' @importFrom stats dist
 #' @export
 #' @examples
-#' p <- c(1,2,2,3,3,4,4,4,5)
-#' at <- c(0,1,1,1,1,0,0,0,0)
+#' p <- c(1,2,2,3,3,4)
+#' at <- matrix(c(0,0,0,0,0,1,0,0,1,0,0,0,0,1,0,0,0,0,a,1,0,0,0,0,0),6,6, byrow = T)
 #' number_ties(p,at,'avg_pergroup')
 
 number_ties <- function(partition, dyadic_attribute, stat) {

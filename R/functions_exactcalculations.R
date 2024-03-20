@@ -208,7 +208,7 @@ calculate_proba_Dirichlet_restricted <- function(alpha,stat,n,smin,smax){
 #' @param smin minimum size for a group
 #' @param smax maximum size for a group
 #' @param alpha parameter value
-#' @param results 
+#' @param results a list
 #' @return a numeric
 #' @export
 calculate_denominator_Dirichlet_restricted <- function(n,smin,smax,alpha, results){

@@ -263,6 +263,8 @@ simulate_thining_single <- function(partition,
 #' @param numgroups.simulated vector containing the number of groups simulated
 #' @param sizes.allowed Vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+#' @param burnin length of the burn-in period
+#' @param max.thining maximal value for the thining to be tested
 #' @param parallel False, to run different neighborhoods in parallel
 #' @param cpus Equal to 1
 #' @return all simulations
@@ -278,7 +280,7 @@ gridsearch_thining_single <- function(partition,
                                       numgroups.simulated,
                                       sizes.allowed, 
                                       sizes.simulated, 
-                                      burnins, 
+                                      burnin, 
                                       max.thining, 
                                       parallel = F, 
                                       cpus = 1) {
@@ -296,13 +298,13 @@ gridsearch_thining_single <- function(partition,
       subindexes[[c]] <- start:end
     }
 
-    sfExport("partition", "theta", "nodes", "effects", "objects", "num.steps", "neighborhoods", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated", "burnins", "max.thining", "subindexes")
+    sfExport("partition", "theta", "nodes", "effects", "objects", "num.steps", "neighborhoods", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated", "burnin", "max.thining", "subindexes")
     res <- sfLapply(1:cpus, fun = function(k) {
       subres <- list()
       for(i in 1:length(subindexes[[k]])){
         index <- subindexes[[k]][i]
         subneighborhood <- neighborhoods[[index]]
-        subres[[i]] <- simulate_thining_single(partition, theta, nodes, effects, objects, num.steps, subneighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, burnins[i], max.thining)
+        subres[[i]] <- simulate_thining_single(partition, theta, nodes, effects, objects, num.steps, subneighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, burnin, max.thining)
       }
       return(subres)
     }
