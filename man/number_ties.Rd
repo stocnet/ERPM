@@ -22,6 +22,6 @@ This function computes the number of ties.
 }
 \examples{
 p <- c(1,2,2,3,3,4)
-at <- matrix(c(0,0,0,0,0,1,0,0,1,0,0,0,0,1,0,0,0,0,a,1,0,0,0,0,0),6,6, byrow = T)
+at <- matrix(c(0,0,0,0,0,1,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0),6,6, byrow = T)
 number_ties(p,at,'avg_pergroup')
 }
