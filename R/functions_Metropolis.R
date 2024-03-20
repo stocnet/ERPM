@@ -518,7 +518,7 @@ recalculate_statistics <- function(new.partitions, rand.o, nodes.rand.o, nodes, 
 step_recalculate <- function(new.partitions, rand.o, nodes.rand.o, nodes, effects, objects, e){
   
   num.nodes <- nrow(nodes)
-  num.obs <- ncol(presence.tables)
+  num.obs <- ncol(new.partitions)
   object.name <- effects$objects[e]
 
   # TIE EFFECT: keep only present nodes
