@@ -23,5 +23,5 @@ This function computes the number of ties.
 \examples{
 p <- c(1,2,2,3,3,4,4,4,5)
 at <- c(0,1,1,1,1,0,0,0,0)
-number_ties(p,at,'avg')
+number_ties(p,at,'avg_pergroup')
 }
