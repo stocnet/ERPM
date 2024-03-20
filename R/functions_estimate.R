@@ -207,7 +207,7 @@ estimate_ERPM_p3 <- function(partition,
 
 
   # --------- PHASE 3 ---------
-  results.phase3 <- run_phase3(partition, startingestimates, z.obs, nodes, effects, objects, burnin, thining, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
+  results.phase3 <- run_phase3_single(partition, startingestimates, z.obs, nodes, effects, objects, burnin, thining, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
   means <- results.phase3$means
   standard.deviations <- results.phase3$standard.deviations
   standard.errors <- results.phase3$standard.errors
@@ -414,7 +414,7 @@ estimate_multipleBERPM <- function(partitions, # observed partitions
                                   cpus = 1) { # how many cores can be used
 
   num.effects <- length(effects$names)
-  z.obs <- rowSUms( computeStatistics_multiple(partitions, presence.tables, nodes, effects, objects) )
+  z.obs <- rowSums( computeStatistics_multiple(partitions, presence.tables, nodes, effects, objects) )
 
   print("Observed statistics")
   print(z.obs)
