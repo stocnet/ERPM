@@ -20,7 +20,10 @@ Depends:
     R (>= 4.2)
 Imports: 
     numbers,
-    utils
+    utils,
+    stats,
+    igraph,
+    RColorBrewer
 Suggests: 
     knitr,
     rmarkdown,
