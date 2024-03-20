@@ -57,6 +57,10 @@ estimate_logL(
 \item{sizes.simulated}{= NULL,  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)}
 
 \item{logL_0}{= NULL, if known, the value of the log likelihood of the basic dirichlet model}
+
+\item{parallel}{= F, indicating whether the code should be run in parallel}
+
+\item{cpus}{= 1, number of cpus required for the parallelization}
 }
 \value{
 List with the log likelihood , AIC, lambda and the draws

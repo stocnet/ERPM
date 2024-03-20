@@ -15,7 +15,7 @@ calculate_denominator_Dirichlet_restricted(n, smin, smax, alpha, results)
 
 \item{alpha}{parameter value}
 
-\item{results}{}
+\item{results}{a list}
 }
 \value{
 a numeric
