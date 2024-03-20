@@ -9,6 +9,11 @@
 #'
 #'This function plot the groups of a partition
 #'
+#'
+#' @importFrom igraph graph_from_adjacency_matrix
+#' @importFrom igraph make_clusters
+#' @importFrom igraph layout.auto
+#' @importFrom RColorBrewer brewer.pal
 #' @param partition A partition (vector)
 #' @param title Character, the title of the plot (default=NULL)
 #' @param group.color A vector with the colors of the groups (default=NULL)

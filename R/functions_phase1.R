@@ -351,6 +351,7 @@ phase1 <- function(startingestimates,
 }
 
 # Calculation of the inverse of the covariance matrix and the scaling matrix
+#' @importFrom stats cov
 calculate_inverted_covariance_and_scaling <- function(startingestimates,
                                                       z.obs, 
                                                       nodes, 
