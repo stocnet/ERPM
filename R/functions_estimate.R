@@ -166,7 +166,6 @@ estimate_ERPM <- function(partition,
 #' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
 #' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
 #' @param startingestimates first guess for the model parameters
-#' @param multiplicationfactor for now, useless
 #' @param burnin integer for the number of burn-in steps before sampling
 #' @param thining integer for the number of thining steps between sampling
 #' @param length.p3 number of samples in phase 3

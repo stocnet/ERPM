@@ -29,8 +29,7 @@
 #' @export
 
 plot_partition <- function(partition, title = NULL, group.color = NULL,
-                           attribute.color = NULL, attribute.shape = NULL,
-                           palette.group = NULL, palette.attribute = NULL){
+                           attribute.color = NULL, attribute.shape = NULL){
 
   num.nodes <- length(partition)
   num.group <- table(partition)
