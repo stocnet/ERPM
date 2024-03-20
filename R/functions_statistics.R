@@ -429,7 +429,8 @@ same_pairs <- function(partition, attribute, stat ) {
 #' @export
 #' @examples
 #' p <- c(1,2,2,3,3,4)
-#' at <- matrix(c(0,0,0,0,0,1,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0),6,6, byrow = TRUE)
+#' v <- c(0,0,0,0,0,1,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0)
+#' at <- matrix(v,6,6, byrow = TRUE)
 #' number_ties(p,at,'avg_pergroup')
 
 number_ties <- function(partition, dyadic_attribute, stat) {
