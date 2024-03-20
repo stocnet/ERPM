@@ -214,18 +214,7 @@ run_phase3_multiple <- function(partitions,
 
 
 
-#' Core function for Phase 3
-#'
-#' @param estimates.phase2 XXX
-#' @param z.phase3 XXX
-#' @param z.obs XXX
-#' @param nodes XXX
-#' @param effects XXX
-#' @param length.p3 XXX
-#' @param fixed.estimates XXX
-#' @return XXX
-#' @importFrom stats sd
-#' @export
+# Core function for Phase 3
 phase3 <- function(estimates.phase2,
                    z.phase3,
                    z.obs,

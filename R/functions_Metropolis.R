@@ -319,21 +319,6 @@ draw_Metropolis_multiple <- function(theta,
 
 
 # function to draw next partition and calculate HAstings ratio (one step in the Metropolis algorithm)
-#' Draw step single
-#'
-#'
-#' @param theta model parameters
-#' @param current.partition XXX
-#' @param current.logit XXX
-#' @param current.z XXX
-#' @param nodes node set (data frame)
-#' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
-#' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
-#' @param neighborhood  way of choosing partitions: probability vector (2 actors swap, merge/division, single actor move, single pair move, 2 pairs swap, 2 groups reshuffle)
-#' @param numgroups.simulated vector containing the number of groups simulated
-#' @param sizes.simulated  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-#' @return A list
-#' @export
 draw_step_single <- function(theta,
                              current.partition,
                              current.logit,
@@ -408,25 +393,6 @@ draw_step_single <- function(theta,
 
 
 # function to draw next partition and calculate HAstings ratio (one step in the Metropolis algorithm)
-
-#' Draw step multiple
-#'
-#'
-#' @param theta model parameters
-#' @param current.partitions XXX
-#' @param current.logit XXX
-#' @param current.z.contributions XXX
-#' @param current.z XXX
-#' @param presence.tables  matrix indicating which actors were present for each observations (mandatory)
-#' @param nodes node set (data frame)
-#' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
-#' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
-#' @param neighborhood  way of choosing partitions: probability vector (2 actors swap, merge/division, single actor move, single pair move, 2 pairs swap, 2 groups reshuffle)
-#' @param numgroups.simulated vector containing the number of groups simulated
-#' @param sizes.allowed   vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
-#' @param sizes.simulated  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-#' @return A list
-#' @export
 draw_step_multiple <- function(theta,
                                current.partitions,
                                current.logit,
@@ -653,16 +619,6 @@ step_recalculate <- function(new.partitions, rand.o, nodes.rand.o, nodes, effect
 ## --- FUNCTIONS FOR THE PROPOSALS MADE AT EACH STEP ----
 
 ## GENERIC FUNCTION TO COMPUTE NEIGHBORHOOD SIZE
-
-#' compute size neighborhood
-#'
-#'
-#' @param i XXX
-#' @param partition XXX
-#' @param numgroups.simulated XXX
-#' @param sizes.simulated XXX
-#' @return A list
-#' @export
 compute_size_neighborhood <- function(i, 
                                       partition, 
                                       numgroups.simulated = NULL, 
@@ -707,17 +663,6 @@ compute_size_neighborhood <- function(i,
 }
 
 ## GENERIC FUNCTION TO COMPUTE NEIGHBORHOOD SIZE
-
-#' sample new partition
-#'
-#'
-#' @param i XXX
-#' @param current.partition XXX
-#' @param size_neighborhood XXX
-#' @param numgroups.simulated XXX
-#' @param sizes.simulated XXX
-#' @return A partition
-#' @export
 sample_new_partition <- function(i, 
                                  current.partition, 
                                  size_neighborhood, 
@@ -763,15 +708,6 @@ sample_new_partition <- function(i,
 }
 
 ## GENERIC FUNCTION TO TEST WHETHER A PARTITION IS REACHABLE WITH A GIVEN NEIGHBORHOOD
-
-#' Reachable
-#'
-#'
-#' @param i XXX
-#' @param partition1 XXX
-#' @param partition2 XXX
-#' @return A boolean
-#' @export
 reachable <- function(i,partition1,partition2){
   if(i == 1) {
     return(reachable_p1(partition1,partition2))
@@ -796,13 +732,6 @@ reachable <- function(i,partition1,partition2){
 
 
 ## NEIGHBORHOOD PI 1: only swaps of two nodes (careful, cannot be used alone)
-
-#' compute size neighborhood 1
-#'
-#'
-#' @param partition XXX
-#' @return A list
-#' @export
 compute_size_neighborhood_p1 <- function(partition){
 
    # find isolates, pairs and groups>2
@@ -838,13 +767,7 @@ compute_size_neighborhood_p1 <- function(partition){
 
  }
 
-#' sample partition neighborhood 1
-#'
-#'
-#' @param current.partition XXX
-#' @param size_neighborhood XXX
-#' @return A list
-#' @export
+# sample partition neighborhood 1
 sample_new_partition_p1 <- function(current.partition, size_neighborhood){
 
    # calculate the number of neighbor partitions
@@ -875,13 +798,7 @@ sample_new_partition_p1 <- function(current.partition, size_neighborhood){
 
  }
 
-#' reachable neighborhood 1
-#'
-#'
-#' @param partition1 XXX
-#' @param partition2 XXX
-#' @return A boolean
-#' @export
+# reachable neighborhood 1
 reachable_p1 <- function(partition1,partition2){
 
   # they are not neighbors if they have a different number of groups
@@ -925,13 +842,6 @@ reachable_p1 <- function(partition1,partition2){
 
 
 ## NEIGHBORHOOD PI 2: only merges and divisions of 2 groups
-
-#' compute size neighborhood 2
-#'
-#'
-#' @param partition XXX
-#' @return A list
-#' @export
 compute_size_neighborhood_p2 <- function(partition){
 
   # calculate the number of neighbor partitions
@@ -953,13 +863,7 @@ compute_size_neighborhood_p2 <- function(partition){
               total = num.merges + num.divisions))
 }
 
-#' sample partition neighborhood 2
-#'
-#'
-#' @param current.partition XXX
-#' @param size_neighborhood XXX
-#' @return A list
-#' @export
+# sample partition neighborhood 2
 sample_new_partition_p2 <- function(current.partition, size_neighborhood){
 
   # calculate the number of neighbor partitions
@@ -1011,13 +915,7 @@ sample_new_partition_p2 <- function(current.partition, size_neighborhood){
 
 }
 
-#' reachable neighborhood 2
-#'
-#'
-#' @param partition1 XXX
-#' @param partition2 XXX
-#' @return A boolean
-#' @export
+# reachable neighborhood 2
 reachable_p2 <- function(partition1,partition2){
 
   # they are not neighbors if one does not have one more group
@@ -1075,13 +973,6 @@ reachable_p2 <- function(partition1,partition2){
 
 
 ## NEIGHBORHOOD PI 3: only swaps of one node
-
-#' compute size neighborhood 3
-#'
-#'
-#' @param partition XXX
-#' @return A list
-#' @export
 compute_size_neighborhood_p3 <- function(partition){
 
   # find isolates, pairs and groups>2
@@ -1120,13 +1011,7 @@ compute_size_neighborhood_p3 <- function(partition){
 }
 
 
-#' sample partition neighborhood 3
-#'
-#'
-#' @param current.partition XXX
-#' @param size_neighborhood XXX
-#' @return A list
-#' @export
+# sample partition neighborhood 3
 sample_new_partition_p3 <- function(current.partition, size_neighborhood){
 
   # calculate the number of neighbor partitions
@@ -1207,13 +1092,7 @@ sample_new_partition_p3 <- function(current.partition, size_neighborhood){
 
 }
 
-#' reachable neighborhood 3
-#'
-#'
-#' @param partition1 XXX
-#' @param partition2 XXX
-#' @return A boolean
-#' @export
+# reachable neighborhood 3
 reachable_p3 <- function(partition1,partition2){
 
   # they are not neighbors if one doesn't have the same number of groups or one more
@@ -1248,47 +1127,19 @@ reachable_p3 <- function(partition1,partition2){
 
 ## NEIGHBORHOOD PI 1 RESTRICTED: only swaps of two nodes (careful, cannot be used alone)
 # WARNING!!!!: for now it only works if sizes allowed are an interval ([size_min,size_max])
-
-
-#' compute size neighborhood 1 restricted
-#'
-#'
-#' @param partition XXX
-#' @param numgroups.simulated XXX
-#' @param sizes.simulated XXX
-#' @return A list
-#' @export
 compute_size_neighborhood_p1_restricted <- function(partition, numgroups.simulated, sizes.simulated){
   # check if current partition is allowed
   if(!check_sizes(partition, sizes.simulated,numgroups.simulated)) stop("The partition we are in is not allowed.")
   return(compute_size_neighborhood_p1(partition))
 }
 
-#' sample partition neighborhood 1 restricted
-#'
-#'
-#' @param current.partition XXX
-#' @param size_neighborhood XXX
-#' @param numgroups.simulated XXX
-#' @param sizes.simulated XXX
-#' @return A list
-#' @export
+# sample partition neighborhood 1 restricted
 sample_new_partition_p1_restricted <- function(current.partition, size_neighborhood, numgroups.simulated, sizes.simulated){
   return(sample_new_partition_p1(current.partition, size_neighborhood))
 }
 
 
 ## NEIGHBORHOOD PI 2 RESTRICTED: only merges and divisions of 2 groups
-# WARNING!!!!: for now it only works if sizes allowed are an interval ([size_min,size_max])
-
-#' compute size neighborhood 2 restricted
-#'
-#'
-#' @param partition XXX
-#' @param numgroups.simulated XXX
-#' @param sizes.simulated XXX
-#' @return A list
-#' @export
 compute_size_neighborhood_p2_restricted <- function(partition, numgroups.simulated, sizes.simulated){
   
   # check if current partition is allowed
@@ -1345,15 +1196,7 @@ compute_size_neighborhood_p2_restricted <- function(partition, numgroups.simulat
 
 
 
-#' sample partition neighborhood 2 restricted
-#'
-#'
-#' @param current.partition XXX
-#' @param size_neighborhood XXX
-#' @param numgroups.simulated XXX
-#' @param sizes.simulated XXX
-#' @return A list
-#' @export
+# sample partition neighborhood 2 restricted
 sample_new_partition_p2_restricted <- function(current.partition, size_neighborhood, numgroups.simulated, sizes.simulated){
   
   # calculate the number of neighbor partitions
@@ -1434,15 +1277,6 @@ sample_new_partition_p2_restricted <- function(current.partition, size_neighborh
 
 ## NEIGHBORHOOD PI 3 RESTRICTED: only swaps one node
 # WARNING!!!!: for now it only works if sizes allowed are an interval ([size_min,size_max])
-
-#' compute size neighborhood 3 restricted
-#'
-#'
-#' @param partition XXX
-#' @param numgroups.simulated XXX
-#' @param sizes.simulated XXX
-#' @return A list
-#' @export
 compute_size_neighborhood_p3_restricted <- function(partition, numgroups.simulated, sizes.simulated){
   
   # check if current partition is allowed
@@ -1510,15 +1344,7 @@ compute_size_neighborhood_p3_restricted <- function(partition, numgroups.simulat
   
 }
 
-#' sample partition neighborhood 3 restricted
-#'
-#'
-#' @param current.partition XXX
-#' @param size_neighborhood XXX
-#' @param numgroups.simulated XXX
-#' @param sizes.simulated XXX
-#' @return A list
-#' @export
+# sample partition neighborhood 3 restricted
 sample_new_partition_p3_restricted <- function(current.partition, size_neighborhood, numgroups.simulated, sizes.simulated){
   
   # calculate the number of neighbor partitions
