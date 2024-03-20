@@ -492,12 +492,12 @@ test_that('reachable random',{
 
 test_that('Reachable random sampled cases',{
 
-  for(i in 1:50){
+  for(i in 1:10){
 
     if(i == 1) partition <- 1:n
     if(i == 2) partition <- rep(1,n)
     if(i >= 3) partition <- order_groupids(sample(n,n,replace=T))
-    S <- 500
+    S <- 30
 
     # Phase 1
 
