@@ -15,7 +15,7 @@ Description: This package can be used to simulate and estimate the
     Chabot, 2023. The model is an exponential family distribution on the
     space of partitions (sets of non-overlapping groups) and is called in
     reference to the Exponential Random Graph Models (ERGM) for networks.
-License: What license is it under?
+License: GPL (>= 3)
 Depends: 
     R (>= 4.2)
 Imports: 
