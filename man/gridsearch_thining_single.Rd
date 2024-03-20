@@ -16,7 +16,7 @@ gridsearch_thining_single(
   numgroups.simulated,
   sizes.allowed,
   sizes.simulated,
-  burnins,
+  burnin,
   max.thining,
   parallel = F,
   cpus = 1
@@ -44,6 +44,10 @@ gridsearch_thining_single(
 \item{sizes.allowed}{Vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)}
 
 \item{sizes.simulated}{Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)}
+
+\item{burnin}{length of the burn-in period}
+
+\item{max.thining}{maximal value for the thining to be tested}
 
 \item{parallel}{False, to run different neighborhoods in parallel}
 

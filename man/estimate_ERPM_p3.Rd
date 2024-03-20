@@ -49,8 +49,6 @@ estimate_ERPM_p3(
 \item{sizes.allowed}{vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)}
 
 \item{sizes.simulated}{vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)}
-
-\item{multiplicationfactor}{for now, useless}
 }
 \value{
 A list with the outputs of the phase 3 of the algorithm

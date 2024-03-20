@@ -9,9 +9,7 @@ plot_partition(
   title = NULL,
   group.color = NULL,
   attribute.color = NULL,
-  attribute.shape = NULL,
-  palette.group = NULL,
-  palette.attribute = NULL
+  attribute.shape = NULL
 )
 }
 \arguments{

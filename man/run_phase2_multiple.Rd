@@ -81,6 +81,10 @@ run_phase2_multiple(
 \item{sizes.simulated}{vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)}
 
 \item{double.averaging}{boolean to indicate whether we follow the double-averaging procedure (often leads to better convergence)}
+
+\item{parallel}{boolean to indicate whether the code should be run in parallel}
+
+\item{cpus}{number of cpus if parallel = T}
 }
 \value{
 a list
