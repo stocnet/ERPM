@@ -340,7 +340,7 @@ number_categories <- function(partition, attribute, stat, category){
 #' @examples
 #' p <- c(1,2,2,3,3,4,4,4,5)
 #' at <- c(3,5,23,2,1,0,3,9,2)
-#' density(p,at,'avg')
+#' range_attribute(p,at,'avg_pergroup')
 
 range_attribute <- function(partition, attribute, stat ){
 
@@ -375,7 +375,7 @@ range_attribute <- function(partition, attribute, stat ){
 #' @examples
 #' p <- c(1,2,2,3,3,4,4,4,5)
 #' at <- c(0,1,1,1,1,0,0,0,0)
-#' same_pairs(p,at,'avg')
+#' same_pairs(p,at,'avg_pergroup')
 
 
 same_pairs <- function(partition, attribute, stat ) {
@@ -431,7 +431,7 @@ same_pairs <- function(partition, attribute, stat ) {
 #' @examples
 #' p <- c(1,2,2,3,3,4,4,4,5)
 #' at <- c(0,1,1,1,1,0,0,0,0)
-#' number_ties(p,at,'avg')
+#' number_ties(p,at,'avg_pergroup')
 
 number_ties <- function(partition, dyadic_attribute, stat) {
   dist<- as.matrix(dist(partition, diag = T, upper = T))
@@ -480,7 +480,7 @@ number_ties <- function(partition, dyadic_attribute, stat) {
 #' @examples
 #' p <- c(1,2,2,3,3,4,4,4,5)
 #' at <- c(3,5,23,2,1,0,3,9,2)
-#' similar_pairs(p,at,1,'avg')
+#' similar_pairs(p,at,1,'avg_pergroup')
 
 similar_pairs <- function(partition, attribute, stat,  threshold) {
 
@@ -551,7 +551,7 @@ similar_pairs <- function(partition, attribute, stat,  threshold) {
 #' @examples
 #' p <- c(1,2,2,3,3,4,4,4,5)
 #' at <- c(0,1,1,1,1,0,0,0,0)
-#'CUP(p,fun=function(x){same_pairs(x,at,'avg')})
+#'CUP(p,fun=function(x){same_pairs(x,at,'avg_pergroup')})
 
 
 CUP <- function(observation, fun, permutations=NULL, num.permutations=1000) {
@@ -563,11 +563,11 @@ CUP <- function(observation, fun, permutations=NULL, num.permutations=1000) {
   }
 
   stat_obs <- fun(observation)
-  nb_partions <- length(partition_sample)
+  nb_partions <- length(permutations)
 
   stat_sample <- 0:nb_partions
   for(i in 1:nb_partions) {
-    stat_sample[i] <- fun(partition_sample[[i]])
+    stat_sample[i] <- fun(permutations[[i]])
   }
 
   minnum <- quantile(stat_sample, probs = 0.05)
