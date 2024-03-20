@@ -262,7 +262,7 @@ draw_Metropolis_multiple <- function(theta,
     }
 
     cpt_burnin <- cpt_burnin + 1
-    if(cpt > burnin) cpt_thining <- cpt_thining + 1
+    if(cpt_burnin > burnin) cpt_thining <- cpt_thining + 1
 
     if(cpt_burnin %% 10000 == 0) print(cpt_burnin)
 
@@ -516,7 +516,9 @@ recalculate_statistics <- function(new.partitions, rand.o, nodes.rand.o, nodes, 
 
 
 step_recalculate <- function(new.partitions, rand.o, nodes.rand.o, nodes, effects, objects, e){
-
+  
+  num.nodes <- nrow(nodes)
+  num.obs <- ncol(presence.tables)
   object.name <- effects$objects[e]
 
   # TIE EFFECT: keep only present nodes

@@ -196,34 +196,6 @@ computeStatistics <- function (partition, nodes, effects, objects){
       statistics[e] <- sum(sizes^2) / num.groups
     }
     
-    # --------- DEGREE2 -----------
-    if(effect.name == "degree2") {
-      sum <- 0
-      for(a in 1:length(partition)){
-        sum <- sum + sizes[partitions[a]]^2 
-      }
-      statistics[e] <- sum
-    }
-    
-    # --------- AV_DEGREE -----------
-    if(effect.name == "av_degree") {
-      sum <- 0
-      for(a in 1:length(partition)){
-        sum <- sum + sizes[partitions[a]] 
-      }
-      statistics[e] <- sum/num.nodes
-    }
-    
-    # --------- AV_DEGREE2 -----------
-    if(effect.name == "av_degree2") {
-      sum <- 0
-      for(a in 1:length(partition)){
-        sum <- sum + sizes[partitions[a]]^2 
-      }
-      statistics[e] <- sum/num.nodes
-    }
-    
-    
     # --------- PRODUCT SIZES -----------
     if(effect.name == "product_sizes") {
       product <- 1
@@ -464,7 +436,7 @@ computeStatistics <- function (partition, nodes, effects, objects){
     if(effect.name == "diff_ind_norm") {
       if(length(groups) > 0){
         for(a in 1:num.nodes){
-          g <- partitions[a]
+          g <- partition[a]
           others <- which(partition == g & 1:num.nodes != a)
           if(length(others) > 0) {
             diffs <- abs(nodes[a,object.name] - nodes[others,object.name])
@@ -989,7 +961,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
       for(o in 1:num.obs){
         if(length(groups[[o]]) > 0) {
           d <- unlist(lapply(1:nums.groups[o],
-                             function(x){return(length(unique(nodes[which(partition==x),att])))}))
+                             function(x){return(length(unique(nodes[which(partitions[,o]==x),att])))}))
           statistics[e,o] <- sum(d)
         }
       }
