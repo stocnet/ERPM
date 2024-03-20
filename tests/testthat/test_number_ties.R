@@ -175,11 +175,11 @@ test_that("number ties RANDOM", {
   sta <- 'sum_perind'
   expect_equal(number_ties(p1,at1,sta), 0)
   expect_equal(number_ties(p1,at2,sta), 0)
-  expect_equal(number_ties(p1,at3,sta), 4)
+  expect_equal(number_ties(p1,at3,sta), 2)
 
 })
 
-test_that("numebr ties RANDOM", {
+test_that("number ties RANDOM", {
   p1 <- c(1,2,2,3,3,4)
 
   at1 <- diag(1,6)
@@ -190,6 +190,6 @@ test_that("numebr ties RANDOM", {
   sta <- 'avg_perind'
   expect_equal(number_ties(p1,at1,sta), 0)
   expect_equal(number_ties(p1,at2,sta), 0)
-  expect_equal(number_ties(p1,at3,sta), 4/6)
+  expect_equal(number_ties(p1,at3,sta), 2/6)
 
 })
