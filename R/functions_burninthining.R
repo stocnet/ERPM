@@ -742,6 +742,7 @@ gridsearch_burninthining_single <- function(partition,
 #' @param parallel False, to run different neighborhoods in parallel
 #' @param cpus Equal to 1
 #' @return list
+#' @importFrom snowfall sfExport sfLapply
 #' @export
 gridsearch_burninthining_multiple <- function(partitions, 
                                               presence.tables, 
