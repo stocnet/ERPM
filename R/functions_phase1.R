@@ -30,6 +30,7 @@
 #' @param cpus number of cpus if parallel = T
 #' @return a list
 #' @importFrom stats cor
+#' @importFrom snowfall sfExport sfLapply
 #' @export
 run_phase1_single <- function(partition,
                        startingestimates,
@@ -148,6 +149,7 @@ run_phase1_single <- function(partition,
 #' @param cpus number of cpus if parallel = T
 #' @return a list
 #' @importFrom stats cor
+#' @importFrom snowfall sfExport sfLapply
 #' @export
 run_phase1_multiple <- function(partitions,
                               startingestimates,

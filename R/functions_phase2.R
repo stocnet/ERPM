@@ -34,6 +34,7 @@
 #' @param parallel boolean to indicate whether the code should be run in parallel
 #' @param cpus number of cpus if parallel = T
 #' @return a list
+#' @importFrom snowfall sfExport sfLapply
 #' @export
 run_phase2_single <- function(partition,
                        estimates.phase1,
@@ -303,6 +304,7 @@ run_phase2_single <- function(partition,
 #' @param parallel boolean to indicate whether the code should be run in parallel
 #' @param cpus number of cpus if parallel = T
 #' @return a list
+#' @importFrom snowfall sfExport sfLapply
 #' @export
 run_phase2_multiple <- function(partitions,
                               estimates.phase1,
