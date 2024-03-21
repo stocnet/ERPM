@@ -8,9 +8,8 @@ Authors@R: c(
            comment = c(ORCID = "0000-0002-0741-7760")),
     person("Alexandra", "Amani", role = "aut")
   )
-Description: This package can be used to simulate and estimate the
-    Exponential Random Partition Model presented in the paper Hoffman,
-    Block, and Snijders, 2023. It can also be used to estimate
+Description: Simulates and estimates the Exponential Random Partition Model presented 
+    in the paper Hoffman, Block, and Snijders, 2023. It can also be used to estimate
     longitudinal partitions, following the model proposed in Hoffman and
     Chabot, 2023. The model is an exponential family distribution on the
     space of partitions (sets of non-overlapping groups) and is called in
@@ -23,7 +22,8 @@ Imports:
     utils,
     stats,
     igraph,
-    RColorBrewer
+    RColorBrewer,
+    snowfall
 Suggests: 
     knitr,
     rmarkdown,
