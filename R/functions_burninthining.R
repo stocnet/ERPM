@@ -319,7 +319,7 @@ gridsearch_thining_single <- function(partition,
     # just go through all neighborhoods one by one
     allsimulations <- list()
     for(i in 1:length(neighborhoods)){
-      allsimulations[[i]] <- simulate_thining_single(partition, theta, nodes, effects, objects, num.steps, neighborhoods[[i]], numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, burnins[i], max.thining)
+      allsimulations[[i]] <- simulate_thining_single(partition, theta, nodes, effects, objects, num.steps, neighborhoods[[i]], numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, burnin[i], max.thining)
     }
 
   }
