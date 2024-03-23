@@ -40,6 +40,20 @@ In that case, or if you are unsure please create an issue here or directly send 
 
 We are currently (Mar 2024) on version 0.1.0 on github. 
 
+# Installation
+
+You can install ERPM either from GitHub or from CRAN.
+
+``` r
+# from GitHub:
+# install.packages("remotes")
+remotes::install_github("stocnet/ERPM")
+```
+
+``` r
+# from CRAN:
+install.packages("ERPM")
+```
 
 # Cross-sectional example
 
