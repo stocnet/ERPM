@@ -17,7 +17,7 @@ gridsearch_burninthining_single(
   sizes.allowed,
   sizes.simulated,
   max.thining,
-  parallel = F,
+  parallel = FALSE,
   cpus = 1
 )
 }

@@ -18,7 +18,7 @@ draw_Metropolis_single(
   numgroups.simulated = NULL,
   sizes.allowed = NULL,
   sizes.simulated = NULL,
-  return.all.partitions = F
+  return.all.partitions = FALSE
 )
 }
 \arguments{
@@ -48,7 +48,7 @@ draw_Metropolis_single(
 
 \item{sizes.simulated}{= NULL, vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)}
 
-\item{return.all.partitions}{= F option to return the sampled partitions on top of their statistics (for GOF)}
+\item{return.all.partitions}{= FALSE option to return the sampled partitions on top of their statistics (for GOF)}
 }
 \value{
 A list

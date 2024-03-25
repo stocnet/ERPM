@@ -23,7 +23,7 @@ run_phase1_single(
   numgroups.simulated,
   sizes.allowed,
   sizes.simulated,
-  parallel = T,
+  parallel = TRUE,
   cpus = 1
 )
 }
@@ -66,7 +66,7 @@ run_phase1_single(
 
 \item{parallel}{boolean to indicate whether the code should be run in parallel}
 
-\item{cpus}{number of cpus if parallel = T}
+\item{cpus}{number of cpus if parallel = TRUE}
 }
 \value{
 a list
