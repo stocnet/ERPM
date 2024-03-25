@@ -16,7 +16,7 @@ gridsearch_burnin_single(
   numgroups.simulated,
   sizes.allowed,
   sizes.simulated,
-  parallel = F,
+  parallel = FALSE,
   cpus = 1
 )
 }

@@ -29,11 +29,11 @@ estimate_multipleERPM(
   numgroups.simulated = NULL,
   sizes.allowed = NULL,
   sizes.simulated = NULL,
-  double.averaging = F,
+  double.averaging = FALSE,
   inv.zcov = NULL,
   inv.scaling = NULL,
-  parallel = F,
-  parallel2 = F,
+  parallel = FALSE,
+  parallel2 = FALSE,
   cpus = 1
 )
 }

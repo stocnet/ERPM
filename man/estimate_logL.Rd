@@ -21,7 +21,7 @@ estimate_logL(
   sizes.allowed = NULL,
   sizes.simulated = NULL,
   logL_0 = NULL,
-  parallel = F,
+  parallel = FALSE,
   cpus = 1
 )
 }
@@ -58,7 +58,7 @@ estimate_logL(
 
 \item{logL_0}{= NULL, if known, the value of the log likelihood of the basic dirichlet model}
 
-\item{parallel}{= F, indicating whether the code should be run in parallel}
+\item{parallel}{= FALSE, indicating whether the code should be run in parallel}
 
 \item{cpus}{= 1, number of cpus required for the parallelization}
 }

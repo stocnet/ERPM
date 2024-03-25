@@ -21,7 +21,7 @@ run_phase3_single(
   sizes.allowed,
   sizes.simulated,
   fixed.estimates,
-  parallel = F,
+  parallel = FALSE,
   cpus = 1
 )
 }
@@ -60,7 +60,7 @@ run_phase3_single(
 
 \item{parallel}{boolean to indicate whether the code should be run in parallel}
 
-\item{cpus}{number of cpus if parallel = T}
+\item{cpus}{number of cpus if parallel = TRUE}
 }
 \value{
 a list
