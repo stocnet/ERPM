@@ -12,11 +12,13 @@ gridsearch_thining_single(
   objects,
   num.steps,
   neighborhoods,
+  numgroups.allowed,
+  numgroups.simulated,
   sizes.allowed,
   sizes.simulated,
-  burnins,
+  burnin,
   max.thining,
-  parallel = F,
+  parallel = FALSE,
   cpus = 1
 )
 }
@@ -35,9 +37,17 @@ gridsearch_thining_single(
 
 \item{neighborhoods}{List of probability vectors (proba actors swap, proba merge/division, proba single actor move)}
 
+\item{numgroups.allowed}{vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)}
+
+\item{numgroups.simulated}{vector containing the number of groups simulated}
+
 \item{sizes.allowed}{Vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)}
 
 \item{sizes.simulated}{Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)}
+
+\item{burnin}{length of the burn-in period}
+
+\item{max.thining}{maximal value for the thining to be tested}
 
 \item{parallel}{False, to run different neighborhoods in parallel}
 
@@ -47,5 +57,6 @@ gridsearch_thining_single(
 all simulations
 }
 \description{
-Grid - search thining single
+Function that can be used to find a good length for the thining of the Markov chain for a given model and differents sets of transitions in the chain (the neighborhoods).
+For each neighborhood, it draws a chain and calculates the autocorrelation of statistics for different thinings.
 }

@@ -2,16 +2,16 @@
 % Please edit documentation in R/functions_utility.R
 \name{find_all_partitions}
 \alias{find_all_partitions}
-\title{Function to enumerate all partitions for a given n}
+\title{Function to enumerate all possible partitions for a given n}
 \usage{
 find_all_partitions(n)
 }
 \arguments{
-\item{n}{XXX}
+\item{n}{number of nodes}
 }
 \value{
-XXX
+matrix where each line corresponds to a possible partition
 }
 \description{
-Function to enumerate all partitions for a given n
+Function to enumerate all possible partitions for a given n
 }

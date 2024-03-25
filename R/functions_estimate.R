@@ -67,11 +67,11 @@ estimate_ERPM <- function(partition,
                           numgroups.simulated = NULL,
                           sizes.allowed = NULL,
                           sizes.simulated = NULL,
-                          double.averaging = F,
+                          double.averaging = FALSE,
                           inv.zcov = NULL,
                           inv.scaling = NULL,
-                          parallel = F, 
-                          parallel2 = F, 
+                          parallel = FALSE, 
+                          parallel2 = FALSE, 
                           cpus = 1) { 
 
   # calculate observed statistics
@@ -166,7 +166,6 @@ estimate_ERPM <- function(partition,
 #' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
 #' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
 #' @param startingestimates first guess for the model parameters
-#' @param multiplicationfactor for now, useless
 #' @param burnin integer for the number of burn-in steps before sampling
 #' @param thining integer for the number of thining steps between sampling
 #' @param length.p3 number of samples in phase 3
@@ -207,7 +206,7 @@ estimate_ERPM_p3 <- function(partition,
 
 
   # --------- PHASE 3 ---------
-  results.phase3 <- run_phase3(partition, startingestimates, z.obs, nodes, effects, objects, burnin, thining, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
+  results.phase3 <- run_phase3_single(partition, startingestimates, z.obs, nodes, effects, objects, burnin, thining, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
   means <- results.phase3$means
   standard.deviations <- results.phase3$standard.deviations
   standard.errors <- results.phase3$standard.errors
@@ -292,11 +291,11 @@ estimate_multipleERPM <- function(partitions,
                                   numgroups.simulated = NULL,
                                   sizes.allowed = NULL, 
                                   sizes.simulated = NULL, 
-                                  double.averaging = F, 
+                                  double.averaging = FALSE, 
                                   inv.zcov = NULL, 
                                   inv.scaling = NULL, 
-                                  parallel = F, 
-                                  parallel2 = F, 
+                                  parallel = FALSE, 
+                                  parallel2 = FALSE, 
                                   cpus = 1) { 
 
   # calculate observed statistics
@@ -410,11 +409,11 @@ estimate_multipleBERPM <- function(partitions, # observed partitions
                                   sizes.allowed = NULL, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
                                   sizes.simulated = NULL, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 
-                                  parallel = F, # whether the chains are parallelized (possibly within chains too)
+                                  parallel = FALSE, # whether the chains are parallelized (possibly within chains too)
                                   cpus = 1) { # how many cores can be used
 
   num.effects <- length(effects$names)
-  z.obs <- rowSUms( computeStatistics_multiple(partitions, presence.tables, nodes, effects, objects) )
+  z.obs <- rowSums( computeStatistics_multiple(partitions, presence.tables, nodes, effects, objects) )
 
   print("Observed statistics")
   print(z.obs)

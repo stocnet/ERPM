@@ -26,5 +26,5 @@ a category.
 \examples{
 p <- c(1,2,2,3,3,4,4,4,5)
 at <- c(1,0,0,0,1,1,0,0,1)
-number_categories(p,attr1,'avg','all')
+number_categories(p,at,'avg','all')
 }

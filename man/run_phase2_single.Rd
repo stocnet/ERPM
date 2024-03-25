@@ -23,54 +23,68 @@ run_phase2_single(
   multiplication.iter,
   neighborhood,
   fixed.estimates,
+  numgroups.allowed,
+  numgroups.simulated,
   sizes.allowed,
   sizes.simulated,
-  double.averaging
+  double.averaging,
+  parallel = FALSE,
+  cpus = 1
 )
 }
 \arguments{
-\item{estimates.phase1}{XXX}
+\item{partition}{observed partition}
 
-\item{inv.zcov}{XXX}
+\item{estimates.phase1}{vector containing parameter values after phase 1}
 
-\item{inv.scaling}{XXX}
+\item{inv.zcov}{inverted covariance matrix}
 
-\item{z.obs}{XXX}
+\item{inv.scaling}{scaling matrix}
 
-\item{nodes}{XXX}
+\item{z.obs}{observed statistics}
 
-\item{effects}{XXX}
+\item{nodes}{node set (data frame)}
 
-\item{objects}{XXX}
+\item{effects}{effects/sufficient statistics (list with a vector "names", and a vector "objects")}
 
-\item{burnin}{XXX}
+\item{objects}{objects used for statistics calculation (list with a vector "name", and a vector "object")}
 
-\item{thining}{XXX}
+\item{burnin}{integer for the number of burn-in steps before sampling}
 
-\item{num.steps}{XXX}
+\item{thining}{integer for the number of thining steps between sampling}
 
-\item{gainfactors}{XXX}
+\item{num.steps}{number of sub-phases in phase 2}
 
-\item{r.truncation.p2}{XXX}
+\item{gainfactors}{vector of gain factors}
 
-\item{min.iter}{XXX}
+\item{r.truncation.p2}{truncation factor}
 
-\item{max.iter}{XXX}
+\item{min.iter}{minimum numbers of steps in each subphase}
 
-\item{multiplication.iter}{XXX}
+\item{max.iter}{maximum numbers of steps in each subphase}
 
-\item{neighborhood}{XXX}
+\item{multiplication.iter}{used to calculate min.iter and max.iter if not specified}
 
-\item{fixed.estimates}{XXX}
+\item{neighborhood}{vector for the probability of choosing a particular transition in the chain}
 
-\item{sizes.allowed}{XXX}
+\item{fixed.estimates}{if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated}
 
-\item{sizes.simulated}{XXX}
+\item{numgroups.allowed}{vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)}
 
-\item{double.averaging}{XXX}
+\item{numgroups.simulated}{vector containing the number of groups simulated}
+
+\item{sizes.allowed}{vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)}
+
+\item{sizes.simulated}{vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)}
+
+\item{double.averaging}{boolean to indicate whether we follow the double-averaging procedure (often leads to better convergence)}
+
+\item{parallel}{boolean to indicate whether the code should be run in parallel}
+
+\item{cpus}{number of cpus if parallel = TRUE}
 }
 \value{
-XXX
+a list
 }
 \description{
 Phase 2 wrapper for single observation

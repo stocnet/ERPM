@@ -1,22 +1,40 @@
-Package: erpm
 Type: Package
-Title: What the Package Does (Title Case)
+Package: ERPM
+Title: Exponential Random Partition Models
 Version: 0.1.0
-Author: Who wrote it
-Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
-License: What license is it under?
-Encoding: UTF-8
-LazyData: true
-RoxygenNote: 7.1.2
+Date: 2024-03-13
+Authors@R: c(
+    person("Marion", "Hoffman", , "marion.hoffman.31@gmail.com", role = c("cre", "aut", "cph"),
+           comment = c(ORCID = "0000-0002-0741-7760")),
+    person("Alexandra", "Amani", role = "aut"),
+    person("Nico", "Keiser", role = "aut")
+  )
+Description: Simulates and estimates the Exponential Random Partition Model presented 
+    in the paper Hoffman, Block, and Snijders (2023) <doi:10.1177/00811750221145166>. 
+    It can also be used to estimate longitudinal partitions, following the model 
+    proposed in Hoffman and Chabot (2023) <doi:10.1016/j.socnet.2023.04.002>. 
+    The model is an exponential family distribution on the space of partitions 
+    (sets of non-overlapping groups) and is called in reference to the Exponential 
+    Random Graph Models (ERGM) for networks.
+License: GPL (>= 3)
+Depends: 
+    R (>= 4.2)
+Imports: 
+    numbers,
+    utils,
+    stats,
+    igraph,
+    RColorBrewer,
+    snowfall
 Suggests: 
+    knitr,
+    rmarkdown,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
-Depends: 
-    numbers
-Imports: 
-    utils
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.1
 Collate: 
     'erpm-package.R'
     'functions_utility.R'
@@ -33,3 +51,5 @@ Collate:
     'functions_phase3.R'
     'functions_statistics.R'
     'functions_visualisation.R'
+URL: https://github.com/marion-hoffman/ERPM
+BugReports: https://github.com/marion-hoffman/ERPM/issues

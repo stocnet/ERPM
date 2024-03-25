@@ -2,18 +2,20 @@
 % Please edit documentation in R/functions_exactcalculations.R
 \name{plot_averagesizes}
 \alias{plot_averagesizes}
-\title{Plot the average size distribution}
+\title{Plot average sizes}
 \usage{
 plot_averagesizes(nmin, nmax, ninc)
 }
 \arguments{
-\item{nmin}{A partition (vector)}
+\item{nmin}{minimum number of nodes}
 
-\item{nmax}{XXX}
+\item{nmax}{maximum number of nodes}
+
+\item{ninc}{increment between the different number of nodes}
 }
 \value{
-XXX
+a vector
 }
 \description{
-Plot the average size distribution
+Function to plot the average size of a random partition depending on the number of nodes
 }

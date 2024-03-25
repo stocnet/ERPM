@@ -2,24 +2,26 @@
 % Please edit documentation in R/functions_exactcalculations.R
 \name{calculate_proba_Dirichlet_restricted}
 \alias{calculate_proba_Dirichlet_restricted}
-\title{Estimation basic model with size constraint}
+\title{Calculate Dirichlet probability}
 \usage{
 calculate_proba_Dirichlet_restricted(alpha, stat, n, smin, smax)
 }
 \arguments{
-\item{alpha}{XXX}
+\item{alpha}{parameter value}
 
-\item{stat}{XXX}
+\item{stat}{observed stat (number of groups)}
 
-\item{n}{XXX}
+\item{n}{number of nodes}
 
-\item{smin}{XXX}
+\item{smin}{minimum size for a group}
 
-\item{smax}{XXX}
+\item{smax}{maximum size for a group}
 }
 \value{
-XXX
+a numeric
 }
 \description{
-Estimation basic model with size constraint
+Calculate the probability of observing a partition with a given number of groups
+for a model with a single statistic for the number of groups and a given parameter value.
+The set of possible partitions can be restricted to partitions with groups of a certain size.
 }

@@ -23,6 +23,7 @@
 #' @param sizes.allowed Vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @return A list with list the draws, the moving.means and the moving means smoothed
+#' @importFrom stats loess
 #' @export
 simulate_burnin_single <- function(partition, 
                                    theta, 
@@ -41,7 +42,7 @@ simulate_burnin_single <- function(partition,
   print("Neighborhood: ")
   print(neighborhood)
 
-  chain <- draw_Metropolis_single(theta, partition, nodes, effects, objects, 1, 1, num.steps, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = F)
+  chain <- draw_Metropolis_single(theta, partition, nodes, effects, objects, 1, 1, num.steps, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = FALSE)
 
   # now we check the evolution of the mean for choosing the burnin
   allmeans <- matrix(0,nrow(chain$draws),num.effects)
@@ -97,7 +98,7 @@ gridsearch_burnin_single <- function(partition,
                                      numgroups.simulated,
                                      sizes.allowed, 
                                      sizes.simulated, 
-                                     parallel = F, 
+                                     parallel = FALSE, 
                                      cpus = 1) {
 
   # parallel procedure
@@ -165,6 +166,7 @@ gridsearch_burnin_single <- function(partition,
 #' @param burnin number of simulated steps for the burn-in
 #' @param max.thining maximal number of simulated steps in the thining
 #' @return A list
+#' @importFrom stats cor loess
 #' @export
 # SINGLE PARTITION PROCEDURE
 simulate_thining_single <- function(partition, 
@@ -183,10 +185,10 @@ simulate_thining_single <- function(partition,
 {
   num.effects <- length(effects$names)
 
-  chain <- draw_Metropolis_single(theta, partition, nodes, effects, objects, burnin, 1, num.steps, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = F)
+  chain <- draw_Metropolis_single(theta, partition, nodes, effects, objects, burnin, 1, num.steps, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = FALSE)
 
   # first look at autocorrelations find ok thining (either max thining reached or autocor < 0.4)
-  ok <- F
+  ok <- FALSE
   current.draws <- chain$draws
   current.last <- chain$last.partition
   current.thining <- 1
@@ -210,16 +212,16 @@ simulate_thining_single <- function(partition,
 
     allautocors <- rbind(allautocors,autocors)
 
-    #if(max(autocors,na.rm=T) < 0.4) {
+    #if(max(autocors,na.rm = TRUE) < 0.4) {
     if(current.thining >= max.thining ) {
 
       # we can stop
-      ok <- T
+      ok <- TRUE
 
     } else{
 
       # we continue the chain
-      new.chain <- draw_Metropolis_single(theta, current.last, nodes, effects, objects, 1, 1, num.steps, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = F)
+      new.chain <- draw_Metropolis_single(theta, current.last, nodes, effects, objects, 1, 1, num.steps, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = FALSE)
       current.draws <- rbind(current.draws,new.chain$draws)
       current.last <- new.chain$last.partition
 
@@ -261,6 +263,8 @@ simulate_thining_single <- function(partition,
 #' @param numgroups.simulated vector containing the number of groups simulated
 #' @param sizes.allowed Vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+#' @param burnin length of the burn-in period
+#' @param max.thining maximal value for the thining to be tested
 #' @param parallel False, to run different neighborhoods in parallel
 #' @param cpus Equal to 1
 #' @return all simulations
@@ -276,9 +280,9 @@ gridsearch_thining_single <- function(partition,
                                       numgroups.simulated,
                                       sizes.allowed, 
                                       sizes.simulated, 
-                                      burnins, 
+                                      burnin, 
                                       max.thining, 
-                                      parallel = F, 
+                                      parallel = FALSE, 
                                       cpus = 1) {
 
   # parallel procedure
@@ -294,13 +298,13 @@ gridsearch_thining_single <- function(partition,
       subindexes[[c]] <- start:end
     }
 
-    sfExport("partition", "theta", "nodes", "effects", "objects", "num.steps", "neighborhoods", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated", "burnins", "max.thining", "subindexes")
+    sfExport("partition", "theta", "nodes", "effects", "objects", "num.steps", "neighborhoods", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated", "burnin", "max.thining", "subindexes")
     res <- sfLapply(1:cpus, fun = function(k) {
       subres <- list()
       for(i in 1:length(subindexes[[k]])){
         index <- subindexes[[k]][i]
         subneighborhood <- neighborhoods[[index]]
-        subres[[i]] <- simulate_thining_single(partition, theta, nodes, effects, objects, num.steps, subneighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, burnins[i], max.thining)
+        subres[[i]] <- simulate_thining_single(partition, theta, nodes, effects, objects, num.steps, subneighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, burnin, max.thining)
       }
       return(subres)
     }
@@ -315,7 +319,7 @@ gridsearch_thining_single <- function(partition,
     # just go through all neighborhoods one by one
     allsimulations <- list()
     for(i in 1:length(neighborhoods)){
-      allsimulations[[i]] <- simulate_thining_single(partition, theta, nodes, effects, objects, num.steps, neighborhoods[[i]], numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, burnins[i], max.thining)
+      allsimulations[[i]] <- simulate_thining_single(partition, theta, nodes, effects, objects, num.steps, neighborhoods[[i]], numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, burnin, max.thining)
     }
 
   }
@@ -337,8 +341,8 @@ gridsearch_thining_single <- function(partition,
     allmaxautocors <- apply(allsimulations[[i]]$autocorrelations.smoothed, 1, FUN=max)
     finalmaxautocor <- c(finalmaxautocor, allmaxautocors[max.thining])
 
-    reach0.4 <- c(reach0.4, sum(allmaxautocors <= 0.4, na.rm=T))
-    reach0.5 <- c(reach0.5, sum(allmaxautocors <= 0.5, na.rm=T))
+    reach0.4 <- c(reach0.4, sum(allmaxautocors <= 0.4, na.rm = TRUE))
+    reach0.5 <- c(reach0.5, sum(allmaxautocors <= 0.5, na.rm = TRUE))
 
     if(length(which(allmaxautocors <= 0.4)) > 0) {
       firstthining0.4 <- c(firstthining0.4, min(which(allmaxautocors <= 0.4)))
@@ -388,6 +392,7 @@ gridsearch_thining_single <- function(partition,
 #' @param sizes.simulated Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param max.thining XXX
 #' @return A list
+#' @importFrom stats loess
 #' @export
 simulate_burninthining_single <- function(partition, 
                                           theta,
@@ -404,10 +409,10 @@ simulate_burninthining_single <- function(partition,
 {
   num.effects <- length(effects$names)
 
-  chain <- draw_Metropolis_single(theta, partition, nodes, effects, objects, 1, 1, num.steps, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = F)
+  chain <- draw_Metropolis_single(theta, partition, nodes, effects, objects, 1, 1, num.steps, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = FALSE)
 
   # first look at autocorrelations find ok thining (either max thining reached or autocor < 0.4)
-  ok <- F
+  ok <- FALSE
   current.draws <- chain$draws
   current.last <- chain$last.partition
   current.thining <- 1
@@ -431,16 +436,16 @@ simulate_burninthining_single <- function(partition,
 
     allautocors <- rbind(allautocors,autocors)
 
-    #if(max(autocors,na.rm=T) < 0.4) {
+    #if(max(autocors,na.rm = TRUE) < 0.4) {
     if(current.thining >= max.thining ) {
 
       # we can stop
-      ok <- T
+      ok <- TRUE
 
     } else{
 
       # we continue the chain
-      new.chain <- draw_Metropolis_single(theta, current.last, nodes, effects, objects, 1, 1, num.steps, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = F)
+      new.chain <- draw_Metropolis_single(theta, current.last, nodes, effects, objects, 1, 1, num.steps, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = FALSE)
       current.draws <- rbind(current.draws,new.chain$draws)
       current.last <- new.chain$last.partition
 
@@ -487,7 +492,7 @@ simulate_burninthining_single <- function(partition,
 #'
 #' @param partitions Observed partitions
 #' @param theta Initial model parameters
-#' @param presence.tables # to indicate which nodes were present when
+#' @param presence.tables to indicate which nodes were present when
 #' @param nodes Node set (data frame)
 #' @param effects Effects/sufficient statistics (list with a vector "names", and a vector "objects")
 #' @param objects Objects used for statistics calculation (list with a vector "name", and a vector "object")
@@ -499,6 +504,7 @@ simulate_burninthining_single <- function(partition,
 #' @param sizes.simulated Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param max.thining XXX
 #' @return A list
+#' @importFrom stats cor loess
 #' @export
 simulate_burninthining_multiple <- function(partitions, 
                                             presence.tables,
@@ -516,10 +522,10 @@ simulate_burninthining_multiple <- function(partitions,
 {
   num.effects <- length(effects$names)
 
-  chain <- draw_Metropolis_multiple(theta, partitions, presence.tables, nodes, effects, objects, 1, 1, num.steps, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = F)
+  chain <- draw_Metropolis_multiple(theta, partitions, presence.tables, nodes, effects, objects, 1, 1, num.steps, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = FALSE)
 
   # first look at autocorrelations find ok thining (either max thining reached or autocor < 0.4)
-  ok <- F
+  ok <- FALSE
   current.draws <- chain$draws
   current.last <- chain$last.partitions
   current.thining <- 1
@@ -543,16 +549,16 @@ simulate_burninthining_multiple <- function(partitions,
 
     allautocors <- rbind(allautocors,autocors)
 
-    #if(max(autocors,na.rm=T) < 0.4) {
+    #if(max(autocors,na.rm = TRUE) < 0.4) {
     if(current.thining >= max.thining ) {
 
       # we can stop
-      ok <- T
+      ok <- TRUE
 
     } else{
 
       # we continue the chain
-      new.chain <- draw_Metropolis_multiple(theta, current.last, presence.tables, nodes, effects, objects, 1, 1, num.steps, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = F)
+      new.chain <- draw_Metropolis_multiple(theta, current.last, presence.tables, nodes, effects, objects, 1, 1, num.steps, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = FALSE)
       current.draws <- rbind(current.draws,new.chain$draws)
       current.last <- new.chain$last.partitions
 
@@ -624,7 +630,7 @@ gridsearch_burninthining_single <- function(partition,
                                             sizes.allowed, 
                                             sizes.simulated, 
                                             max.thining, 
-                                            parallel = F, 
+                                            parallel = FALSE, 
                                             cpus = 1) {
 
   # parallel procedure
@@ -683,8 +689,8 @@ gridsearch_burninthining_single <- function(partition,
     allmaxautocors <- apply(allsimulations[[i]]$autocorrelations.smoothed, 1, FUN=max)
     finalmaxautocor <- c(finalmaxautocor, allmaxautocors[max.thining])
 
-    reach0.4 <- c(reach0.4, sum(allmaxautocors <= 0.4, na.rm=T))
-    reach0.5 <- c(reach0.5, sum(allmaxautocors <= 0.5, na.rm=T))
+    reach0.4 <- c(reach0.4, sum(allmaxautocors <= 0.4, na.rm = TRUE))
+    reach0.5 <- c(reach0.5, sum(allmaxautocors <= 0.5, na.rm = TRUE))
 
     if(length(which(allmaxautocors <= 0.4)) > 0) {
       firstthining0.4 <- c(firstthining0.4, min(which(allmaxautocors <= 0.4)))
@@ -736,6 +742,7 @@ gridsearch_burninthining_single <- function(partition,
 #' @param parallel False, to run different neighborhoods in parallel
 #' @param cpus Equal to 1
 #' @return list
+#' @importFrom snowfall sfExport sfLapply
 #' @export
 gridsearch_burninthining_multiple <- function(partitions, 
                                               presence.tables, 
@@ -750,7 +757,7 @@ gridsearch_burninthining_multiple <- function(partitions,
                                               sizes.allowed, 
                                               sizes.simulated,
                                               max.thining, 
-                                              parallel = F, 
+                                              parallel = FALSE, 
                                               cpus = 1) {
 
   # parallel procedure
@@ -810,8 +817,8 @@ gridsearch_burninthining_multiple <- function(partitions,
     allmaxautocors <- apply(allsimulations[[i]]$autocorrelations.smoothed, 1, FUN=max)
     finalmaxautocor <- c(finalmaxautocor, allmaxautocors[max.thining])
 
-    reach0.4 <- c(reach0.4, sum(allmaxautocors <= 0.4, na.rm=T))
-    reach0.5 <- c(reach0.5, sum(allmaxautocors <= 0.5, na.rm=T))
+    reach0.4 <- c(reach0.4, sum(allmaxautocors <= 0.4, na.rm = TRUE))
+    reach0.5 <- c(reach0.5, sum(allmaxautocors <= 0.5, na.rm = TRUE))
 
     if(length(which(allmaxautocors <= 0.4)) > 0) {
       firstthining0.4 <- c(firstthining0.4, min(which(allmaxautocors <= 0.4)))

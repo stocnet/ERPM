@@ -16,7 +16,7 @@ computeStatistics_multiple(
 \arguments{
 \item{partitions}{Observed partitions}
 
-\item{presence.tables, }{# to indicate which nodes were present when}
+\item{presence.tables}{to indicate which nodes were present when}
 
 \item{nodes}{Node set (data frame)}
 
@@ -30,5 +30,5 @@ computeStatistics_multiple(
 A list
 }
 \description{
-Compute Statistics multiple
+Function that computes the statistic vector for given (multiple) partitions and a given model
 }

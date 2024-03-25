@@ -8,14 +8,14 @@ of sizes between smin and smax}
 Bell_constraints(n, smin, smax)
 }
 \arguments{
-\item{n}{XXX}
+\item{n}{number of nodes}
 
-\item{smin}{XXX}
+\item{smin}{minimum group size possible in the partition}
 
-\item{smax}{XXX}
+\item{smax}{minimum group size possible in the partition}
 }
 \value{
-XXX
+a numeric
 }
 \description{
 Function to calculate the number of partitions with groups

@@ -27,8 +27,10 @@
 #' @param sizes.allowed vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param parallel boolean to indicate whether the code should be run in parallel
-#' @param cpus number of cpus if parallel = T
+#' @param cpus number of cpus if parallel = TRUE
 #' @return a list
+#' @importFrom stats cor
+#' @importFrom snowfall sfExport sfLapply
 #' @export
 run_phase1_single <- function(partition,
                        startingestimates,
@@ -48,7 +50,7 @@ run_phase1_single <- function(partition,
                        numgroups.simulated,
                        sizes.allowed,
                        sizes.simulated,
-                       parallel = T,
+                       parallel = TRUE,
                        cpus = 1) {
   
   num.nodes <- nrow(nodes)
@@ -144,8 +146,10 @@ run_phase1_single <- function(partition,
 #' @param sizes.allowed vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param parallel boolean to indicate whether the code should be run in parallel
-#' @param cpus number of cpus if parallel = T
+#' @param cpus number of cpus if parallel = TRUE
 #' @return a list
+#' @importFrom stats cor
+#' @importFrom snowfall sfExport sfLapply
 #' @export
 run_phase1_multiple <- function(partitions,
                               startingestimates,
@@ -166,7 +170,7 @@ run_phase1_multiple <- function(partitions,
                               numgroups.simulated,
                               sizes.allowed,
                               sizes.simulated,
-                              parallel = F,
+                              parallel = FALSE,
                               cpus = 1) {
   
   num.nodes <- nrow(nodes)
@@ -348,20 +352,8 @@ phase1 <- function(startingestimates,
   
 }
 
-#' Calculation of the inverse of the covariance matrix and the scaling matrix
-#'
-#'
-#' @param startingestimates XXX
-#' @param z.obs XXX
-#' @param nodes node set (data frame)
-#' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
-#' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
-#' @param a.scaling XXX
-#' @param length.phase XXX
-#' @param z.phase XXX
-#' @param fixed.estimates XXX
-#' @return XXX
-#' @export
+# Calculation of the inverse of the covariance matrix and the scaling matrix
+#' @importFrom stats cov
 calculate_inverted_covariance_and_scaling <- function(startingestimates,
                                                       z.obs, 
                                                       nodes, 

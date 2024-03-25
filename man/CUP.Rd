@@ -4,13 +4,7 @@
 \alias{CUP}
 \title{CUP}
 \usage{
-CUP(
-  observation,
-  fun,
-  test.direction,
-  permutations = NULL,
-  num.permutations = 1000
-)
+CUP(observation, fun, permutations = NULL, num.permutations = 1000)
 }
 \arguments{
 \item{observation}{A vector giving the observed partition}
@@ -29,8 +23,8 @@ the mean value of the statistic among permuted partitions,
 the standard deviation of the statistic among permuted partitions,
 the proportion of permutation below the observed statistic,
 the proportion of permutation above the observed statistic,
-the lower boundary of the 95% CI,
-the upper boundary of the 95% CI
+the lower boundary of the 95\% CI,
+the upper boundary of the 95\% CI
 }
 \description{
 This function tests a partition statistic against a "conditional uniform partition null hypothesi:
@@ -43,5 +37,5 @@ This test is similar to Conditional Uniform Graph tests in networks (we translat
 \examples{
 p <- c(1,2,2,3,3,4,4,4,5)
 at <- c(0,1,1,1,1,0,0,0,0)
-CUP(p,fun=function(x){compute_number_same_pairs(x,at,'avg')})
+CUP(p,fun=function(x){same_pairs(x,at,'avg_pergroup')})
 }
