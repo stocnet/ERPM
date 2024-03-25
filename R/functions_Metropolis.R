@@ -26,7 +26,7 @@
 #' @param numgroups.simulated = NULL, # vector containing the number of groups simulated
 #' @param sizes.allowed = NULL,  vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated = NULL, vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-#' @param return.all.partitions = F option to return the sampled partitions on top of their statistics (for GOF)
+#' @param return.all.partitions = FALSE option to return the sampled partitions on top of their statistics (for GOF)
 #' @return A list
 #' @importFrom stats runif
 #' @export
@@ -44,7 +44,7 @@ draw_Metropolis_single <- function(theta,
                                    numgroups.simulated = NULL,
                                    sizes.allowed = NULL, 
                                    sizes.simulated = NULL,
-                                   return.all.partitions = F) 
+                                   return.all.partitions = FALSE) 
 {
 
   num.nodes <- nrow(nodes)
@@ -56,9 +56,9 @@ draw_Metropolis_single <- function(theta,
   }
   
   # check whether there are constraints
-  constraints <- F
+  constraints <- FALSE
   if(!is.null(numgroups.allowed) || !is.null(sizes.allowed)) {
-    constraints <- T
+    constraints <- TRUE
     if(is.null(numgroups.allowed)) numgroups.allowed <- 1:nrow(nodes)
     if(is.null(numgroups.simulated)) numgroups.simulated <- numgroups.allowed
     if(is.null(sizes.allowed)) sizes.allowed <- 1:nrow(nodes)
@@ -114,7 +114,7 @@ draw_Metropolis_single <- function(theta,
     # store the results if we are out of burnin
     if(cpt_burnin >= burnin && cpt_thining == thining) {
       
-      store <- T
+      store <- TRUE
       if(constraints) store <- check_sizes(current.partition,sizes.allowed,numgroups.allowed)
       
       if(store) {
@@ -172,7 +172,7 @@ draw_Metropolis_single <- function(theta,
 #' @param numgroups.simulated = NULL, # vector containing the number of groups simulated
 #' @param sizes.allowed = NULL,  vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated = NULL, vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-#' @param return.all.partitions = F, option to return the sampled partitions on top of their statistics (for GOF)
+#' @param return.all.partitions = FALSE, option to return the sampled partitions on top of their statistics (for GOF)
 #' @return A list
 #' @importFrom stats runif
 #' @export
@@ -190,7 +190,7 @@ draw_Metropolis_multiple <- function(theta,
                                      numgroups.simulated,
                                      sizes.allowed,
                                      sizes.simulated,
-                                     return.all.partitions = F) 
+                                     return.all.partitions = FALSE) 
 {
 
   num.nodes <- nrow(nodes)
@@ -203,9 +203,9 @@ draw_Metropolis_multiple <- function(theta,
   }
 
   # check whether there are constraints
-  constraints <- F
+  constraints <- FALSE
   if(!is.null(numgroups.allowed) || !is.null(sizes.allowed)) {
-    constraints <- T
+    constraints <- TRUE
     if(is.null(numgroups.allowed)) numgroups.allowed <- 1:nrow(nodes)
     if(is.null(numgroups.simulated)) numgroups.simulated <- numgroups.allowed
     if(is.null(sizes.allowed)) sizes.allowed <- 1:nrow(nodes)
@@ -269,7 +269,7 @@ draw_Metropolis_multiple <- function(theta,
     # store the results if we are out of burnin
     if(cpt_burnin >= burnin && cpt_thining == thining) {
       
-      store <- T
+      store <- TRUE
       if(constraints) { # check all partitions one by one
         for(o in 1:num.obs) store <- store && check_sizes(current.partitions[as.logical(presence.tables[,o]),o],sizes.allowed,numgroups.allowed)
       }
@@ -457,7 +457,7 @@ draw_step_multiple <- function(theta,
 
 
   # compute new statistics only if it changed
-  if(all(current.partitions == new.partitions, na.rm=T)) {
+  if(all(current.partitions == new.partitions, na.rm = TRUE)) {
     new.z.contributions <- current.z.contributions
     new.z <- current.z
   } else {
@@ -627,9 +627,9 @@ compute_size_neighborhood <- function(i,
                                       sizes.simulated = NULL){#,partition2 = NULL, # for neighborhood 7, now deprecated){
   
   # check whether there are constraints
-  constraints <- F
+  constraints <- FALSE
   if(!is.null(numgroups.simulated) || !is.null(sizes.simulated)) {
-    constraints <- T
+    constraints <- TRUE
   }
   
   if(i == 1) {
@@ -672,9 +672,9 @@ sample_new_partition <- function(i,
                                  sizes.simulated = NULL){#,current.partition2 = NULL, # for neighborhood 7, now deprecated){
   
   # check whether there are constraints
-  constraints <- F
+  constraints <- FALSE
   if(!is.null(numgroups.simulated) || !is.null(sizes.simulated)) {
-    constraints <- T
+    constraints <- TRUE
   }
   
   if(i == 1) {
@@ -750,10 +750,10 @@ compute_size_neighborhood_p1 <- function(partition){
        g_i <- partition[i]
        g_j <- partition[j]
 
-       allowed <- T
-       if(g_i == g_j) allowed <- F # two members of the same group cannot swap, it wouldn't change anything
+       allowed <- TRUE
+       if(g_i == g_j) allowed <- FALSE # two members of the same group cannot swap, it wouldn't change anything
        if(g_i %in% isolates && g_j %in% isolates){
-         allowed <- F # two isolates cannot swap, it wouldn't change anything
+         allowed <- FALSE # two isolates cannot swap, it wouldn't change anything
        }
 
        if(allowed) nums.swaps[i,j] <- 1
@@ -804,10 +804,10 @@ sample_new_partition_p1 <- function(current.partition, size_neighborhood){
 reachable_p1 <- function(partition1,partition2){
 
   # they are not neighbors if they have a different number of groups
-  if(max(partition1) != max(partition2)) return(F)
+  if(max(partition1) != max(partition2)) return(FALSE)
 
   num.nodes <- length(partition1)
-  check <- F
+  check <- FALSE
   i <- 1
   j <- i+1
 
@@ -887,7 +887,7 @@ sample_new_partition_p2 <- function(current.partition, size_neighborhood){
   if(pick.1 <= num.merges) {
 
     # pick 2 groups to merge
-    old_gs <- sample(num.groups,2,replace = F)
+    old_gs <- sample(num.groups,2,replace = FALSE)
     # reassign one of the groups and remove useless ids
     new.partition[which(new.partition == old_gs[2])] <- old_gs[1]
     new.partition <- order_groupids(new.partition)
@@ -902,10 +902,10 @@ sample_new_partition_p2 <- function(current.partition, size_neighborhood){
     old_g <- which(starts < pick.2 & ends >= pick.2)
 
     # reassign one of the groups and remove useless ids
-    new.groups <- sample(c(old_g,num.groups+1),length(which(new.partition==old_g)),replace=T)
+    new.groups <- sample(c(old_g,num.groups+1),length(which(new.partition==old_g)),replace = TRUE)
     found <- (length(unique(new.groups)) > 1)
     while(!found){
-      new.groups <- sample(c(old_g,num.groups+1),length(which(new.partition==old_g)),replace=T)
+      new.groups <- sample(c(old_g,num.groups+1),length(which(new.partition==old_g)),replace = TRUE)
       found <- (length(unique(new.groups)) > 1)
     }
 
@@ -921,12 +921,12 @@ sample_new_partition_p2 <- function(current.partition, size_neighborhood){
 reachable_p2 <- function(partition1,partition2){
 
   # they are not neighbors if one does not have one more group
-  if(abs(max(partition1) - max(partition2))!=1) return(F)
+  if(abs(max(partition1) - max(partition2))!=1) return(FALSE)
 
   num.nodes <- length(partition1)
   num.groups1 <- max(partition1)
   num.groups2 <- max(partition2)
-  check <- F
+  check <- FALSE
   g1 <- 1
   g2 <- g1+1
 
@@ -1098,10 +1098,10 @@ sample_new_partition_p3 <- function(current.partition, size_neighborhood){
 reachable_p3 <- function(partition1,partition2){
 
   # they are not neighbors if one doesn't have the same number of groups or one more
-  if(abs(max(partition1) - max(partition2))>1) return(F)
+  if(abs(max(partition1) - max(partition2))>1) return(FALSE)
 
   num.nodes <- length(partition1)
-  check <- F
+  check <- FALSE
   i <- 1
 
   # try remove all nodes
@@ -1260,10 +1260,10 @@ sample_new_partition_p2_restricted <- function(current.partition, size_neighborh
     new_g2 <- num.groups + 1
     
     # reassign one of the groups and remove useless ids
-    new.groups <- sample(c(old_g1,num.groups+1),length(which(new.partition==old_g1)),replace=T)
+    new.groups <- sample(c(old_g1,num.groups+1),length(which(new.partition==old_g1)),replace = TRUE)
     found <- (length(unique(new.groups)) > 1) && min(table(new.groups)) >= smin
     while(!found){
-      new.groups <- sample(c(old_g1,num.groups+1),length(which(new.partition==old_g1)),replace=T)
+      new.groups <- sample(c(old_g1,num.groups+1),length(which(new.partition==old_g1)),replace = TRUE)
       found <- (length(unique(new.groups)) > 1) && min(table(new.groups)) >= smin
     }
     new.partition[which(new.partition == old_g1)] <- new.groups
@@ -1540,10 +1540,10 @@ sample_new_partition_p3_restricted <- function(current.partition, size_neighborh
 # reachable_p4 <- function(partition1,partition2){
 # 
 #   # they are not neighbors if one doesn't have the same number of groups or one more
-#   if(abs(max(partition1) - max(partition2))>1) return(F)
+#   if(abs(max(partition1) - max(partition2))>1) return(FALSE)
 # 
 #   num.nodes <- length(partition1)
-#   check <- F
+#   check <- FALSE
 #   i <- 1
 #   j <- i+1
 # 
@@ -1656,13 +1656,13 @@ sample_new_partition_p3_restricted <- function(current.partition, size_neighborh
 # 
 #   # decide which actors to swap
 #   if(num.swaps > 0){
-#     found <- F
+#     found <- FALSE
 #     while(!found){
 #       pick.1 <- sample(paired.actors,1)
 #       pick.2 <- sample(paired.actors,1)
 #       if(groups.paired.actors[which(paired.actors == pick.1)] != groups.paired.actors[which(paired.actors == pick.2)] &&
 #          !(pairs.paired.actors[which(paired.actors == pick.1)] && pairs.paired.actors[which(paired.actors == pick.2)])) {
-#         found <- T
+#         found <- TRUE
 #       }
 #     }
 # 
@@ -1686,10 +1686,10 @@ sample_new_partition_p3_restricted <- function(current.partition, size_neighborh
 # reachable_p5 <- function(partition1,partition2){
 # 
 #   # they are not neighbors if they have a different number of groups
-#   if(max(partition1) != max(partition2)) return(F)
+#   if(max(partition1) != max(partition2)) return(FALSE)
 # 
 #   num.nodes <- length(partition1)
-#   check <- F
+#   check <- FALSE
 #   i <- 1
 #   j <- i+1
 #   k <- 1
@@ -1805,13 +1805,13 @@ sample_new_partition_p3_restricted <- function(current.partition, size_neighborh
 #         end <- end + nums.swaps[g1,g2]
 # 
 #         if(start < pick && pick <= end){
-#           found <- F
+#           found <- FALSE
 #           while(!found){
 #             tosample <- c(which(current.partition==g1),which(current.partition==g2))
 #             new.g1 <- sample(tosample,sum(current.partition==g1))
 #             new.g2 <- tosample[-which(tosample %in% new.g1)]
 #             if( !(setequal(new.g1,current.partition[g1]) && setequal(new.g2,current.partition[g2])) &&
-#                 !(setequal(new.g1,current.partition[g2]) && setequal(new.g2,current.partition[g1])) ) found <- T
+#                 !(setequal(new.g1,current.partition[g2]) && setequal(new.g2,current.partition[g1])) ) found <- TRUE
 #           }
 #           new.partition[new.g1] <- g1
 #           new.partition[new.g2] <- g2
@@ -1831,12 +1831,12 @@ sample_new_partition_p3_restricted <- function(current.partition, size_neighborh
 # reachable_p6 <- function(partition1,partition2){
 # 
 #   # they are not neighbors if they have a different number of groups
-#   if(max(partition1) != max(partition2)) return(F)
+#   if(max(partition1) != max(partition2)) return(FALSE)
 # 
 #   num.nodes <- length(partition1)
 #   num.groups1 <- max(partition1)
 #   num.groups2 <- max(partition2)
-#   check <- F
+#   check <- FALSE
 #   g1 <- 1
 #   g2 <- g1+1
 # 
@@ -1883,7 +1883,7 @@ sample_new_partition_p3_restricted <- function(current.partition, size_neighborh
 #   present <- !is.na(partition)
 #   present2 <- !is.na(partition2)
 # 
-#   num.groups <- max(partition, na.rm = T)
+#   num.groups <- max(partition, na.rm = TRUE)
 #   sizes <- table(partition)
 #   isolates <- as.vector(which(sizes == 1))
 #   pairs <- as.vector(which(sizes == 2))
@@ -1931,7 +1931,7 @@ sample_new_partition_p3_restricted <- function(current.partition, size_neighborh
 # sample_new_partition_p7 <- function(current.partition, current.partition2, size_neighborhood){
 # 
 #   num.nodes <- length(current.partition)
-#   num.groups <- max(current.partition,na.rm=T)
+#   num.groups <- max(current.partition,na.rm = TRUE)
 #   adjacency <- size_neighborhood$adjacency
 #   pairs <- size_neighborhood$pairs
 #   nums.swaps <- size_neighborhood$nums.swaps
@@ -2146,7 +2146,7 @@ sample_new_partition_p3_restricted <- function(current.partition, size_neighborh
 #   present <- !is.na(partition)
 #   present2 <- !is.na(partition2)
 # 
-#   num.groups <- max(partition,na.rm=T)
+#   num.groups <- max(partition,na.rm = TRUE)
 #   sizes <- table(partition)
 #   isolates <- as.vector(which(sizes == 1))
 #   pairs <- as.vector(which(sizes == 2))
@@ -2203,7 +2203,7 @@ sample_new_partition_p3_restricted <- function(current.partition, size_neighborh
 #   smin <- min(sizes.simulated)
 # 
 #   num.nodes <- length(current.partition)
-#   num.groups <- max(current.partition,na.rm=T)
+#   num.groups <- max(current.partition,na.rm = TRUE)
 #   abovemin_groups <- size_neighborhood$abovemin_groups
 #   belowmax_groups <- size_neighborhood$belowmax_groups
 #   adjacency <- size_neighborhood$adjacency
@@ -2300,7 +2300,7 @@ sample_new_partition_p3_restricted <- function(current.partition, size_neighborh
 #
 #   # fill in the first with the second, and create isolates for people not present in the second
 #   new.partition1[present1] <- current.partition2[present1]
-#   max1 <- max(new.partition1, na.rm=T)
+#   max1 <- max(new.partition1, na.rm = TRUE)
 #   singletons1 <- which(is.na(new.partition1))
 #   if(length(singletons1) > 0) { # assign randomly the ones who are not present in the other one
 #     for(s in singletons1){
@@ -2314,7 +2314,7 @@ sample_new_partition_p3_restricted <- function(current.partition, size_neighborh
 #
 #   # same the other way around
 #   new.partition2[present2] <- current.partition1[present2]
-#   max2 <- max(new.partition2, na.rm=T)
+#   max2 <- max(new.partition2, na.rm = TRUE)
 #   singletons2 <- which(is.na(new.partition2))
 #   if(length(singletons2) > 0) { # assign randomly the ones who are not present in the other one
 #     for(s in singletons2){
@@ -2392,7 +2392,7 @@ sample_new_partition_p3_restricted <- function(current.partition, size_neighborh
 #   # copy group
 #   if(pick ==0) {
 #     # reproduce the group
-#     new.partition[members] <- max(new.partition,na.rm=T) + 1
+#     new.partition[members] <- max(new.partition,na.rm = TRUE) + 1
 #     #reorder
 #     new.partition[present1] <- order_groupids(new.partition[present1])
 #   }
@@ -2415,7 +2415,7 @@ sample_new_partition_p3_restricted <- function(current.partition, size_neighborh
 # #  members <- which(current.partition2 == g && present1)
 # #
 # #  # reproduce the group
-# #  new.partition[members] <- max(new.partition,na.rm=T) + 1
+# #  new.partition[members] <- max(new.partition,na.rm = TRUE) + 1
 # #
 # #  #reorder
 # #  new.partition[present1] <- order_groupids(new.partition[present1])
@@ -2447,7 +2447,7 @@ sample_new_partition_p3_restricted <- function(current.partition, size_neighborh
 #     members <- which(1:num.nodes %in% members & present1)
 #
 #     # if the group is not present, we will create it
-#     if(length(unique(partition1[members])) == 1 && sum(partition1[-members] == (partition1[members])[1], na.rm=T) == 0) {
+#     if(length(unique(partition1[members])) == 1 && sum(partition1[-members] == (partition1[members])[1], na.rm = TRUE) == 0) {
 #
 #       nums.reorganizations.pergroup[[g]] <- NULL
 #       nums.reorganizations[g] <- 1
@@ -2521,9 +2521,9 @@ sample_new_partition_p3_restricted <- function(current.partition, size_neighborh
 #   members <- which(1:num.nodes %in% members & present1)
 #
 #   # if the group is not present, we will create it
-#   if(length(unique(current.partition1[members])) == 1 && sum(current.partition1[-members] == (current.partition1[members])[1], na.rm=T) == 0) {
+#   if(length(unique(current.partition1[members])) == 1 && sum(current.partition1[-members] == (current.partition1[members])[1], na.rm = TRUE) == 0) {
 #
-#     new.partition[members] <- max(new.partition,na.rm=T) + 1
+#     new.partition[members] <- max(new.partition,na.rm = TRUE) + 1
 #     new.partition[present1] <- order_groupids(new.partition[present1])
 #
 #     # if the group is present, we will reshuffle
@@ -2551,12 +2551,12 @@ sample_new_partition_p3_restricted <- function(current.partition, size_neighborh
 #         topick <- gleft[sizes <= (smax-s) & !gtaken]
 #         newg <- sample(c(0,topick),1)
 #         if(newg == 0){
-#           new.partition[ns] <- max(new.partition,na.rm=T) + 1
+#           new.partition[ns] <- max(new.partition,na.rm = TRUE) + 1
 #         } else {
 #           new.partition[ns] <- newg
-#           gtaken[gleft == newg] <- T
+#           gtaken[gleft == newg] <- TRUE
 #         }
-#         ntaken[members == ns] <- T
+#         ntaken[members == ns] <- TRUE
 #       }
 #     }
 #     newnodes <- sample(1:nmembers,nmembers)

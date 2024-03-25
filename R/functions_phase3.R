@@ -24,7 +24,7 @@
 #' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param fixed.estimates if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
 #' @param parallel boolean to indicate whether the code should be run in parallel
-#' @param cpus number of cpus if parallel = T
+#' @param cpus number of cpus if parallel = TRUE
 #' @return a list
 #' @importFrom stats cor
 #' @importFrom snowfall sfExport sfLapply
@@ -45,7 +45,7 @@ run_phase3_single <- function(partition,
                        sizes.allowed,
                        sizes.simulated,
                        fixed.estimates,
-                       parallel = F,
+                       parallel = FALSE,
                        cpus = 1) {
   
   num.nodes <- nrow(nodes)
@@ -126,7 +126,7 @@ run_phase3_single <- function(partition,
 #' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param fixed.estimates if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
 #' @param parallel boolean to indicate whether the code should be run in parallel
-#' @param cpus number of cpus if parallel = T
+#' @param cpus number of cpus if parallel = TRUE
 #' @return a list
 #' @importFrom stats cor
 #' @importFrom snowfall sfExport sfLapply
@@ -148,7 +148,7 @@ run_phase3_multiple <- function(partitions,
                               sizes.allowed,
                               sizes.simulated,
                               fixed.estimates,
-                              parallel = F,
+                              parallel = FALSE,
                               cpus = 1) {
   
   num.nodes <- nrow(nodes)
@@ -164,7 +164,7 @@ run_phase3_multiple <- function(partitions,
     sfExport("startingestimates", "first.partitions", "presence.tables", "nodes", "effects", "objects", "burnin", "thining", "length.p3", "cpus", "neighborhood", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated")
     res <- sfLapply(1:cpus, fun = function(k) {
       set.seed(k)
-      subres <- draw_Metropolis_multiple(estimates.phase2, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, ceiling(length.p3/cpus), neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = T)
+      subres <- draw_Metropolis_multiple(estimates.phase2, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, ceiling(length.p3/cpus), neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = TRUE)
       return(subres)
     }
     )
@@ -179,7 +179,7 @@ run_phase3_multiple <- function(partitions,
   
   }else{
     
-    results.phase3 <- draw_Metropolis_multiple(estimates.phase2, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = T)
+    results.phase3 <- draw_Metropolis_multiple(estimates.phase2, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = TRUE)
   
   }
   z.phase3 <- results.phase3$draws

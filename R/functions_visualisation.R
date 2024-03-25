@@ -72,7 +72,7 @@ plot_partition <- function(partition, title = NULL, group.color = NULL,
     adjacency <- affiliation %*% t(affiliation)
     diag(adjacency) <- 0
     graph <- graph_from_adjacency_matrix(adjacency)
-    clusters <- make_clusters(graph, membership = partition, modularity = F)
+    clusters <- make_clusters(graph, membership = partition, modularity = FALSE)
     layout <- layout.auto(graph)
 
     # Plot

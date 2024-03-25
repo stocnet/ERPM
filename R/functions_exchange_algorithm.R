@@ -149,7 +149,7 @@ exchangealgorithm_multiple <- function(partitions,
   # go through the chain and sample
   cpt <- 0
   cpt_thining <- 0
-  end.walk <- F
+  end.walk <- FALSE
   
   while(!end.walk){
     
@@ -170,7 +170,7 @@ exchangealgorithm_multiple <- function(partitions,
                                          numgroups.simulated,
                                          sizes.allowed, 
                                          sizes.simulated,
-                                         return.all.partitions = F) 
+                                         return.all.partitions = FALSE) 
     augmented.partitions <- partition.draw$last.partitions
     z.augmented <- rowSums(computeStatistics_multiple(augmented.partitions, presence.tables, nodes, effects, objects))
     
