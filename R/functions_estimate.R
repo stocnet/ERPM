@@ -67,11 +67,11 @@ estimate_ERPM <- function(partition,
                           numgroups.simulated = NULL,
                           sizes.allowed = NULL,
                           sizes.simulated = NULL,
-                          double.averaging = F,
+                          double.averaging = FALSE,
                           inv.zcov = NULL,
                           inv.scaling = NULL,
-                          parallel = F, 
-                          parallel2 = F, 
+                          parallel = FALSE, 
+                          parallel2 = FALSE, 
                           cpus = 1) { 
 
   # calculate observed statistics
@@ -291,11 +291,11 @@ estimate_multipleERPM <- function(partitions,
                                   numgroups.simulated = NULL,
                                   sizes.allowed = NULL, 
                                   sizes.simulated = NULL, 
-                                  double.averaging = F, 
+                                  double.averaging = FALSE, 
                                   inv.zcov = NULL, 
                                   inv.scaling = NULL, 
-                                  parallel = F, 
-                                  parallel2 = F, 
+                                  parallel = FALSE, 
+                                  parallel2 = FALSE, 
                                   cpus = 1) { 
 
   # calculate observed statistics
@@ -409,7 +409,7 @@ estimate_multipleBERPM <- function(partitions, # observed partitions
                                   sizes.allowed = NULL, # vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
                                   sizes.simulated = NULL, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 
-                                  parallel = F, # whether the chains are parallelized (possibly within chains too)
+                                  parallel = FALSE, # whether the chains are parallelized (possibly within chains too)
                                   cpus = 1) { # how many cores can be used
 
   num.effects <- length(effects$names)

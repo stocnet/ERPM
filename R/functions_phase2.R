@@ -32,7 +32,7 @@
 #' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param double.averaging boolean to indicate whether we follow the double-averaging procedure (often leads to better convergence)
 #' @param parallel boolean to indicate whether the code should be run in parallel
-#' @param cpus number of cpus if parallel = T
+#' @param cpus number of cpus if parallel = TRUE
 #' @return a list
 #' @importFrom snowfall sfExport sfLapply
 #' @export
@@ -59,7 +59,7 @@ run_phase2_single <- function(partition,
                        sizes.allowed,
                        sizes.simulated,
                        double.averaging,
-                       parallel = F,
+                       parallel = FALSE,
                        cpus = 1) {
 
   num.effects <- length(effects$names)
@@ -302,7 +302,7 @@ run_phase2_single <- function(partition,
 #' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param double.averaging boolean to indicate whether we follow the double-averaging procedure (often leads to better convergence)
 #' @param parallel boolean to indicate whether the code should be run in parallel
-#' @param cpus number of cpus if parallel = T
+#' @param cpus number of cpus if parallel = TRUE
 #' @return a list
 #' @importFrom snowfall sfExport sfLapply
 #' @export
@@ -330,7 +330,7 @@ run_phase2_multiple <- function(partitions,
                               sizes.allowed,
                               sizes.simulated,
                               double.averaging,
-                              parallel = F,
+                              parallel = FALSE,
                               cpus = 1) {
 
   num.effects <- length(effects$names)
