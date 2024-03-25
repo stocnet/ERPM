@@ -2,12 +2,11 @@
 % Please edit documentation in R/erpm-package.R
 \docType{package}
 \name{erpm-package}
-\alias{erpm-package}
 \alias{erpm}
-\title{\code{erpm} package}
+\alias{erpm-package}
+\title{erpm: Exponential Random Partition Models}
 \description{
-The erpm package is an R package that allows to fit an exponential partition model
-to cross-sectional or longitudinal partition data.
+Simulates and estimates the Exponential Random Partition Model presented in the paper Hoffman, Block, and Snijders (2023) \url{https://doi.org/10.1177/00811750221145166}. It can also be used to estimate longitudinal partitions, following the model proposed in Hoffman and Chabot (2023) \url{https://doi.org/10.1016/j.socnet.2023.04.002}. The model is an exponential family distribution on the space of partitions (sets of non-overlapping groups) and is called in reference to the Exponential Random Graph Models (ERGM) for networks.
 }
 \author{
 \strong{Maintainer}: Marion Hoffman \email{marion.hoffman.31@gmail.com} (\href{https://orcid.org/0000-0002-0741-7760}{ORCID}) [copyright holder]
@@ -18,3 +17,4 @@ Authors:
 }
 
 }
+\keyword{internal}
