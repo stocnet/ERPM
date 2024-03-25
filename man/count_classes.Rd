@@ -3,17 +3,19 @@
 \name{count_classes}
 \alias{count_classes}
 \title{Function to count the number of partitions with a certain
-group size structure, for all possible group size structure}
+group size structure, for all possible group size structure.
+Function to use after calling the "find_all_partitions" function.}
 \usage{
 count_classes(allpartitions)
 }
 \arguments{
-\item{allpartitions}{XXX}
+\item{allpartitions}{matrix containing all possible partitions for a nodeset}
 }
 \value{
-XXX
+integer(number of partitions with different group structures)
 }
 \description{
 Function to count the number of partitions with a certain
-group size structure, for all possible group size structure
+group size structure, for all possible group size structure.
+Function to use after calling the "find_all_partitions" function.
 }
