@@ -19,5 +19,5 @@ computeStatistics(partition, nodes, effects, objects)
 the statistics
 }
 \description{
-Compute Statistics
+Function that computes the statistic vector for a given partition and a given model
 }

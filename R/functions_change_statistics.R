@@ -16,6 +16,7 @@
 #' @param effects list with a vector "names", and a vector "objects", Effects/sufficient statistics
 #' @param objects list with a vector "name", and a vector "object", Objects used for statistics calculation
 #' @return the statistics
+#' @importFrom stats dist rnorm qt pnorm
 #' @export
 computeStatistics <- function (partition, nodes, effects, objects){
   
@@ -194,34 +195,6 @@ computeStatistics <- function (partition, nodes, effects, objects){
     if(effect.name == "sizes_squared_norm") {
       statistics[e] <- sum(sizes^2) / num.groups
     }
-    
-    # --------- DEGREE2 -----------
-    if(effect.name == "degree2") {
-      sum <- 0
-      for(a in 1:length(partition)){
-        sum <- sum + sizes[partitions[a]]^2 
-      }
-      statistics[e] <- sum
-    }
-    
-    # --------- AV_DEGREE -----------
-    if(effect.name == "av_degree") {
-      sum <- 0
-      for(a in 1:length(partition)){
-        sum <- sum + sizes[partitions[a]] 
-      }
-      statistics[e] <- sum/num.nodes
-    }
-    
-    # --------- AV_DEGREE2 -----------
-    if(effect.name == "av_degree2") {
-      sum <- 0
-      for(a in 1:length(partition)){
-        sum <- sum + sizes[partitions[a]]^2 
-      }
-      statistics[e] <- sum/num.nodes
-    }
-    
     
     # --------- PRODUCT SIZES -----------
     if(effect.name == "product_sizes") {
@@ -463,7 +436,7 @@ computeStatistics <- function (partition, nodes, effects, objects){
     if(effect.name == "diff_ind_norm") {
       if(length(groups) > 0){
         for(a in 1:num.nodes){
-          g <- partitions[a]
+          g <- partition[a]
           others <- which(partition == g & 1:num.nodes != a)
           if(length(others) > 0) {
             diffs <- abs(nodes[a,object.name] - nodes[others,object.name])
@@ -571,12 +544,13 @@ computeStatistics <- function (partition, nodes, effects, objects){
 #' Function that computes the statistic vector for given (multiple) partitions and a given model
 #'
 #' @param partitions Observed partitions
-#' @param presence.tables, # to indicate which nodes were present when
+#' @param presence.tables to indicate which nodes were present when
 #' @param nodes Node set (data frame)
 #' @param effects Effects/sufficient statistics (list with a vector "names", and a vector "objects")
 #' @param objects Objects used for statistics calculation (list with a vector "name", and a vector "object")
 #' @param single.obs equal NULL by default
 #' @return A list
+#' @importFrom stats dist
 #' @export
 computeStatistics_multiple <- function(partitions, presence.tables, nodes, effects, objects, single.obs = NULL){
 
@@ -987,7 +961,7 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
       for(o in 1:num.obs){
         if(length(groups[[o]]) > 0) {
           d <- unlist(lapply(1:nums.groups[o],
-                             function(x){return(length(unique(nodes[which(partition==x),att])))}))
+                             function(x){return(length(unique(nodes[which(partitions[,o]==x),att])))}))
           statistics[e,o] <- sum(d)
         }
       }

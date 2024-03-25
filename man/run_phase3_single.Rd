@@ -16,48 +16,54 @@ run_phase3_single(
   a.scaling,
   length.p3,
   neighborhood,
+  numgroups.allowed,
+  numgroups.simulated,
   sizes.allowed,
   sizes.simulated,
   fixed.estimates,
-  parallel = F,
+  parallel = FALSE,
   cpus = 1
 )
 }
 \arguments{
-\item{partition}{XXX}
+\item{partition}{observed partition}
 
-\item{estimates.phase2}{XXX}
+\item{estimates.phase2}{vector containing parameter values after phase 2}
 
-\item{z.obs}{XXX}
+\item{z.obs}{observed statistics}
 
-\item{nodes}{XXX}
+\item{nodes}{node set (data frame)}
 
-\item{effects}{XXX}
+\item{effects}{effects/sufficient statistics (list with a vector "names", and a vector "objects")}
 
-\item{objects}{XXX}
+\item{objects}{objects used for statistics calculation (list with a vector "name", and a vector "object")}
 
-\item{burnin}{XXX}
+\item{burnin}{integer for the number of burn-in steps before sampling}
 
-\item{thining}{XXX}
+\item{thining}{integer for the number of thining steps between sampling}
 
-\item{a.scaling}{XXX}
+\item{a.scaling}{multiplicative factor for out-of-diagonal elements of the covariance matrix}
 
-\item{length.p3}{XXX}
+\item{length.p3}{number of sampled partitions in phase 3}
 
-\item{neighborhood}{XXX}
+\item{neighborhood}{vector for the probability of choosing a particular transition in the chain}
 
-\item{sizes.allowed}{XXX}
+\item{numgroups.allowed}{vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)}
 
-\item{sizes.simulated}{XXX}
+\item{numgroups.simulated}{vector containing the number of groups simulated}
 
-\item{fixed.estimates}{XXX}
+\item{sizes.allowed}{vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)}
 
-\item{parallel}{XXX}
+\item{sizes.simulated}{vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)}
 
-\item{cpus}{XXX}
+\item{fixed.estimates}{if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated}
+
+\item{parallel}{boolean to indicate whether the code should be run in parallel}
+
+\item{cpus}{number of cpus if parallel = TRUE}
 }
 \value{
-XXX
+a list
 }
 \description{
 Phase 3 wrapper for single observation

@@ -9,10 +9,10 @@ number_ties(partition, dyadic_attribute, stat)
 \arguments{
 \item{partition}{A partition (vector)}
 
+\item{dyadic_attribute}{A matrix containing the values of the attribute}
+
 \item{stat}{The statistic to compute : 'avg_pergroup' for the average per group , 'sum_pergroup' for the sum, 'sum_perind' and 'avg_perind' for the number of ties per individuals
 each individual has in its group.}
-
-\item{attribute}{A vector containing the values of the attribute}
 }
 \value{
 The statisic chosen in stat
@@ -21,7 +21,8 @@ The statisic chosen in stat
 This function computes the number of ties.
 }
 \examples{
-p <- c(1,2,2,3,3,4,4,4,5)
-at <- c(0,1,1,1,1,0,0,0,0)
-number_ties(p,at,'avg')
+p <- c(1,2,2,3,3,4)
+v <- c(0,0,0,0,0,1,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0)
+at <- matrix(v,6,6, byrow = TRUE)
+number_ties(p,at,'avg_pergroup')
 }

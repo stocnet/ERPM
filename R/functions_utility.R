@@ -70,10 +70,10 @@ Stirling <- function(n,k){
 ## Functions to enumerate partitions #########
 
 
-#' Function to enumerate all partitions for a given n
+#' Function to enumerate all possible partitions for a given n
 #' 
-#' @param n XXX
-#' @return XXX
+#' @param n number of nodes
+#' @return matrix where each line corresponds to a possible partition
 #' @export
 find_all_partitions <- function(n){
   
@@ -118,10 +118,11 @@ find_all_partitions <- function(n){
 
 
 #' Function to count the number of partitions with a certain
-#' group size structure, for all possible group size structure
+#' group size structure, for all possible group size structure.
+#' Function to use after calling the "find_all_partitions" function.
 #' 
-#' @param allpartitions XXX
-#' @return XXX
+#' @param allpartitions matrix containing all possible partitions for a nodeset
+#' @return integer(number of partitions with different group structures)
 #' @export
 count_classes <- function(allpartitions){
   
@@ -178,7 +179,7 @@ count_classes <- function(allpartitions){
 
 #' Function to replace the ids of the group without forgetting an id
 #' and put in the first appearance order
-#' for example: [2 1 1 4 2] becomes [1 2 2 3 1]
+#' for example: `[2 1 1 4 2]` becomes `[1 2 2 3 1]`
 #' 
 #' @param partition observed partition
 #' @return a vector (partition)

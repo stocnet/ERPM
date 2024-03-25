@@ -4,18 +4,18 @@
 \alias{order_groupids}
 \title{Function to replace the ids of the group without forgetting an id
 and put in the first appearance order
-for example: [2 1 1 4 2] becomes [1 2 2 3 1]}
+for example: \verb{[2 1 1 4 2]} becomes \verb{[1 2 2 3 1]}}
 \usage{
 order_groupids(partition)
 }
 \arguments{
-\item{partition}{XXX}
+\item{partition}{observed partition}
 }
 \value{
-XXX
+a vector (partition)
 }
 \description{
 Function to replace the ids of the group without forgetting an id
 and put in the first appearance order
-for example: [2 1 1 4 2] becomes [1 2 2 3 1]
+for example: \verb{[2 1 1 4 2]} becomes \verb{[1 2 2 3 1]}
 }

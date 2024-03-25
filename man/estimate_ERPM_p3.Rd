@@ -15,6 +15,8 @@ estimate_ERPM_p3(
   length.p3 = 1000,
   neighborhood = c(0.7, 0.3, 0),
   fixed.estimates = NULL,
+  numgroups.allowed = NULL,
+  numgroups.simulated = NULL,
   sizes.allowed = NULL,
   sizes.simulated = NULL
 )
@@ -30,25 +32,28 @@ estimate_ERPM_p3(
 
 \item{startingestimates}{first guess for the model parameters}
 
-\item{burnin}{= 30  integer for the number of burn-in steps before sampling}
+\item{burnin}{integer for the number of burn-in steps before sampling}
 
-\item{thining}{= 10,  integer for the number of thining steps between sampling}
+\item{thining}{integer for the number of thining steps between sampling}
 
-\item{length.p3}{= 1000, number of samples in phase 3}
+\item{length.p3}{number of samples in phase 3}
 
-\item{neighborhood}{= c(0.7,0.3,0),  way of choosing partitions: probability vector (actors swap, merge/division, single actor move)}
+\item{neighborhood}{way of choosing partitions: probability vector (actors swap, merge/division, single actor move)}
 
-\item{fixed.estimates}{= NULL, if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated}
+\item{fixed.estimates}{if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated}
 
-\item{sizes.allowed}{= NULL,  vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)}
+\item{numgroups.allowed}{vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)}
 
-\item{sizes.simulated}{= NULL,  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)}
+\item{numgroups.simulated}{vector containing the number of groups simulated}
 
-\item{multiplicationfactor}{= 30,  for now, useless}
+\item{sizes.allowed}{vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)}
+
+\item{sizes.simulated}{vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)}
 }
 \value{
-A estimates phase 3
+A list with the outputs of the phase 3 of the algorithm
 }
 \description{
-Estimate ERPM phase 3
+Function to run only the phase 3 of the estimation algorithm, for a given model, a given observed partition, and estimates (from phase 2).
+All options of the algorithm can be specified here.
 }

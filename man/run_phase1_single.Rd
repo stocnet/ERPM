@@ -19,18 +19,20 @@ run_phase1_single(
   length.p1,
   neighborhood,
   fixed.estimates,
+  numgroups.allowed,
+  numgroups.simulated,
   sizes.allowed,
   sizes.simulated,
-  parallel = T,
+  parallel = TRUE,
   cpus = 1
 )
 }
 \arguments{
 \item{partition}{observed partition}
 
-\item{startingestimates}{XXX}
+\item{startingestimates}{vector containing initial parameter values}
 
-\item{z.obs}{XXX}
+\item{z.obs}{observed statistics}
 
 \item{nodes}{node set (data frame)}
 
@@ -42,28 +44,32 @@ run_phase1_single(
 
 \item{thining}{integer for the number of thining steps between sampling}
 
-\item{gainfactor}{XXX}
+\item{gainfactor}{gain factor (useless now)}
 
-\item{a.scaling}{XXX}
+\item{a.scaling}{scaling factor}
 
-\item{r.truncation.p1}{XXX}
+\item{r.truncation.p1}{truncation factor (for stability)}
 
-\item{length.p1}{XXX}
+\item{length.p1}{number of samples for phase 1}
 
-\item{neighborhood}{= c(0.7,0.3,0) way of choosing partitions}
+\item{neighborhood}{vector for the probability of choosing a particular transition in the chain}
 
-\item{fixed.estimates}{XXX}
+\item{fixed.estimates}{if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated}
 
-\item{sizes.allowed}{= NULL,   vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)}
+\item{numgroups.allowed}{vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)}
 
-\item{sizes.simulated}{= NULL,  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)}
+\item{numgroups.simulated}{vector containing the number of groups simulated}
 
-\item{parallel}{XXX}
+\item{sizes.allowed}{vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)}
 
-\item{cpus}{= 1}
+\item{sizes.simulated}{vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)}
+
+\item{parallel}{boolean to indicate whether the code should be run in parallel}
+
+\item{cpus}{number of cpus if parallel = TRUE}
 }
 \value{
-XXX
+a list
 }
 \description{
 Phase 1 wrapper for single observation

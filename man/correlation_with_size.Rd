@@ -23,6 +23,5 @@ This function computes the correlation between an attribute and the size of the 
 \examples{
 p <- c(1,2,2,3,3,4,4,4,5)
 at <- c(3,5,23,2,1,0,3,9,2)
-at2 <- c(3,5,20,2,1,0,0,9,0)
-correlation_with_size(p,at,F)
+correlation_with_size(p,at,categorical=FALSE)
 }

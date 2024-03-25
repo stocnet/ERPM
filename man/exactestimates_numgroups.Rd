@@ -7,15 +7,18 @@
 exactestimates_numgroups(num.nodes, pmin, pmax, pinc)
 }
 \arguments{
-\item{num.nodes}{XXX}
+\item{num.nodes}{number of nodes}
 
-\item{pmin}{XXX}
+\item{pmin}{lowest parameter value}
 
-\item{pmax}{XXX}
+\item{pmax}{highest parameter value}
+
+\item{pinc}{increment between different parameter values}
 }
 \value{
-XXX
+a list
 }
 \description{
-Exact estimates number of groups
+This function finds the best estimate for a model only including the statistics of number of groups.
+It does a grid search for a vector of potential parameters, for all numbers of groups.
 }

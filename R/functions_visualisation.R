@@ -9,12 +9,18 @@
 #'
 #'This function plot the groups of a partition
 #'
+#'
+#' @importFrom igraph graph_from_adjacency_matrix
+#' @importFrom igraph make_clusters
+#' @importFrom igraph layout.auto
+#' @importFrom RColorBrewer brewer.pal
 #' @param partition A partition (vector)
 #' @param title Character, the title of the plot (default=NULL)
 #' @param group.color A vector with the colors of the groups (default=NULL)
 #' @param attribute.color A vector, attribute to represent with colors (default=NULL)
 #' @param attribute.shape A vector, attribute to represent with shapes (default=NULL)
 #' @return A plot of the partition
+#' @importFrom grDevices rgb
 #' @examples
 #' p <- c(1,1,1,2,2,2,2,3,3,3,4,4,4,4,4,4)
 #' attr1 <- c(1,0,0,1,0,0,1,0,1,0,1,1,1,1,1,2)
@@ -23,8 +29,7 @@
 #' @export
 
 plot_partition <- function(partition, title = NULL, group.color = NULL,
-                           attribute.color = NULL, attribute.shape = NULL,
-                           palette.group = NULL, palette.attribute = NULL){
+                           attribute.color = NULL, attribute.shape = NULL){
 
   num.nodes <- length(partition)
   num.group <- table(partition)
@@ -67,7 +72,7 @@ plot_partition <- function(partition, title = NULL, group.color = NULL,
     adjacency <- affiliation %*% t(affiliation)
     diag(adjacency) <- 0
     graph <- graph_from_adjacency_matrix(adjacency)
-    clusters <- make_clusters(graph, membership = partition, modularity = F)
+    clusters <- make_clusters(graph, membership = partition, modularity = FALSE)
     layout <- layout.auto(graph)
 
     # Plot

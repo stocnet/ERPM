@@ -12,6 +12,8 @@ simulate_thining_single(
   objects,
   num.steps,
   neighborhood,
+  numgroups.allowed,
+  numgroups.simulated,
   sizes.allowed,
   sizes.simulated,
   burnin,
@@ -33,17 +35,22 @@ simulate_thining_single(
 
 \item{neighborhood}{Way of choosing partitions: probability vector (proba actors swap, proba merge/division, proba single actor move)}
 
+\item{numgroups.allowed}{vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)}
+
+\item{numgroups.simulated}{vector containing the number of groups simulated}
+
 \item{sizes.allowed}{Vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)}
 
 \item{sizes.simulated}{Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)}
 
-\item{burnin}{XXX}
+\item{burnin}{number of simulated steps for the burn-in}
 
-\item{max.thining}{XXX}
+\item{max.thining}{maximal number of simulated steps in the thining}
 }
 \value{
 A list
 }
 \description{
-Simulate thining single
+Function that can be used to find a good length for the thining of the Markov chain for a given model and a set of transitions in the chain (the neighborhood).
+It draws a chain and calculates the autocorrelation of statistics for different thinings.
 }

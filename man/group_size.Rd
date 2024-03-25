@@ -21,6 +21,6 @@ deviation of the size of groups in a partition.
 }
 \examples{
 p <- c(1,2,2,3,3,4,4,4,5)
-correlation_with_size(p,'avg')
-correlation_with_size(p,'sd')
+group_size(p,'avg')
+group_size(p,'sd')
 }

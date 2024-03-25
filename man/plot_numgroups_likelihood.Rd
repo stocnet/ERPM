@@ -7,19 +7,20 @@
 plot_numgroups_likelihood(m.obs, num.nodes, pmin, pmax, pinc)
 }
 \arguments{
-\item{m.obs}{A partition (vector)}
+\item{m.obs}{observed number of groups}
 
-\item{num.nodes}{XXX}
+\item{num.nodes}{number of nodes}
 
-\item{pmin}{Node set (data frame)}
+\item{pmin}{lowest parameter value}
 
-\item{pmax}{Effects/sufficient statistics (list with a vector "names", and a vector "objects")}
+\item{pmax}{highest parameter value}
 
-\item{pinc}{Objects used for statistics calculation (list with a vector "name", and a vector "object")}
+\item{pinc}{increment between different parameter values}
 }
 \value{
-XXX
+a vector
 }
 \description{
-Plot likelihood of number groups
+Function to plot the log-likelihood of the model with a single statistic (number of groups)
+depending on the parameter value for this statistic
 }

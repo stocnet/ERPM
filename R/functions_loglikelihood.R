@@ -25,7 +25,10 @@
 #' @param sizes.allowed = NULL,   vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated = NULL,  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param logL_0 = NULL, if known, the value of the log likelihood of the basic dirichlet model
+#' @param parallel = FALSE, indicating whether the code should be run in parallel
+#' @param cpus = 1, number of cpus required for the parallelization
 #' @return List with the log likelihood , AIC, lambda and the draws
+#' @importFrom snowfall sfExport sfLapply
 #' @export
 estimate_logL <- function(partition, 
                           nodes, 
@@ -43,7 +46,7 @@ estimate_logL <- function(partition,
                           sizes.allowed = NULL, 
                           sizes.simulated = NULL,
                           logL_0 = NULL, 
-                          parallel = F, 
+                          parallel = FALSE, 
                           cpus = 1)
 {
 
@@ -57,7 +60,7 @@ estimate_logL <- function(partition,
   if(is.null(sizes.simulated)) {sizes.simulated <- 1:num.nodes}
 
   # find a good starting point
-  first.partition <- find_startingpoint_single(nodes,sizes.allowed)
+  first.partition <- partition
 
   # value of estimated denominators ratio
   lambda <- 0

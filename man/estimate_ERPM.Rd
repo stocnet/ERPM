@@ -10,11 +10,10 @@ estimate_ERPM(
   objects,
   effects,
   startingestimates,
-  multiplicationfactor = 30,
   gainfactor = 0.1,
-  a.scaling = 0.2,
-  r.truncation.p1 = 2,
-  r.truncation.p2 = 5,
+  a.scaling = 0.8,
+  r.truncation.p1 = -1,
+  r.truncation.p2 = -1,
   burnin = 30,
   thining = 10,
   length.p1 = 100,
@@ -25,13 +24,15 @@ estimate_ERPM(
   length.p3 = 1000,
   neighborhood = c(0.7, 0.3, 0),
   fixed.estimates = NULL,
+  numgroups.allowed = NULL,
+  numgroups.simulated = NULL,
   sizes.allowed = NULL,
   sizes.simulated = NULL,
-  double.averaging = F,
+  double.averaging = FALSE,
   inv.zcov = NULL,
   inv.scaling = NULL,
-  parallel = F,
-  parallel2 = F,
+  parallel = FALSE,
+  parallel2 = FALSE,
   cpus = 1
 )
 }
@@ -46,55 +47,58 @@ estimate_ERPM(
 
 \item{startingestimates}{first guess for the model parameters}
 
-\item{multiplicationfactor}{= 30,  for now, useless}
+\item{gainfactor}{numeric used to decrease the size of steps made in the Newton optimization}
 
-\item{gainfactor}{= 0.1, numeric used to decrease the size of steps made in the Newton optimization}
+\item{a.scaling}{numeric used to reduce the influence of non-diagonal elements in the scaling matrix (for stability)}
 
-\item{a.scaling}{= 0.2,  numeric used to reduce the influence of non-diagonal elements in the scaling matrix (for stability)}
+\item{r.truncation.p1}{numeric used to limit extreme values in the covariance matrix (for stability)}
 
-\item{r.truncation.p1}{= 2 numeric used to limit extreme values in the covariance matrix (for stability)}
+\item{r.truncation.p2}{numeric used to limit extreme values in the covariance matrix (for stability)}
 
-\item{r.truncation.p2}{= 5,  numeric used to limit extreme values in the covariance matrix (for stability)}
+\item{burnin}{integer for the number of burn-in steps before sampling}
 
-\item{burnin}{= 30  integer for the number of burn-in steps before sampling}
+\item{thining}{integer for the number of thining steps between sampling}
 
-\item{thining}{= 10,  integer for the number of thining steps between sampling}
+\item{length.p1}{number of samples in phase 1}
 
-\item{length.p1}{= 100,  number of samples in phase 1}
+\item{min.iter.p2}{minimum number of sub-steps in phase 2}
 
-\item{min.iter.p2}{= NULL,  minimum number of sub-steps in phase 2}
+\item{max.iter.p2}{maximum number of sub-steps in phase 2}
 
-\item{max.iter.p2}{= NULL,  maximum number of sub-steps in phase 2}
+\item{multiplication.iter.p2}{value for the lengths of sub-steps in phase 2 (multiplied by  2.52^k)}
 
-\item{multiplication.iter.p2}{= 100, value for the lengths of sub-steps in phase 2 (multiplied by  2.52^k)}
+\item{num.steps.p2}{number of optimisation steps in phase 2}
 
-\item{num.steps.p2}{= 6,  number of optimisation steps in phase 2}
+\item{length.p3}{number of samples in phase 3}
 
-\item{length.p3}{= 1000, number of samples in phase 3}
+\item{neighborhood}{way of choosing partitions: probability vector (actors swap, merge/division, single actor move)}
 
-\item{neighborhood}{= c(0.7,0.3,0),  way of choosing partitions: probability vector (actors swap, merge/division, single actor move)}
+\item{fixed.estimates}{if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated}
 
-\item{fixed.estimates}{= NULL, if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated}
+\item{numgroups.allowed}{vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)}
 
-\item{sizes.allowed}{= NULL,  vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)}
+\item{numgroups.simulated}{vector containing the number of groups simulated}
 
-\item{sizes.simulated}{= NULL,  vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)}
+\item{sizes.allowed}{vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)}
 
-\item{double.averaging}{= F,  option to average the statistics sampled in each sub-step of phase 2}
+\item{sizes.simulated}{vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)}
 
-\item{inv.zcov}{= NULL,  initial value of the inverted covariance matrix (if a phase 3 was run before) to bypass the phase 1}
+\item{double.averaging}{option to average the statistics sampled in each sub-step of phase 2}
 
-\item{inv.scaling}{= NULL,  initial value of the inverted scaling matrix (if a phase 3 was run before) to bypass the phase 1}
+\item{inv.zcov}{initial value of the inverted covariance matrix (if a phase 3 was run before) to bypass the phase 1}
 
-\item{parallel}{= F,  whether the phase 1 and 3 should be parallelized}
+\item{inv.scaling}{initial value of the inverted scaling matrix (if a phase 3 was run before) to bypass the phase 1}
 
-\item{parallel2}{= F,  whether there should be several phases 2 run in parallel}
+\item{parallel}{whether the phase 1 and 3 should be parallelized}
 
-\item{cpus}{= 1 ,how many cores can be used}
+\item{parallel2}{whether there should be several phases 2 run in parallel}
+
+\item{cpus}{how many cores can be used}
 }
 \value{
-A list estimates 3 phases
+A list with the outputs of the three different phases of the algorithm
 }
 \description{
-Estimate ERPM
+Function to estimate a given model for a given observed partition.
+All options of the algorithm can be specified here.
 }
