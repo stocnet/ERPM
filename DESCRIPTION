@@ -51,5 +51,5 @@ Collate:
     'functions_phase3.R'
     'functions_statistics.R'
     'functions_visualisation.R'
-URL: https://github.com/marion-hoffman/ERPM
-BugReports: https://github.com/marion-hoffman/ERPM/issues
+URL: https://github.com/stocnet/ERPM
+BugReports: https://github.com/stocnet/ERPM/issues

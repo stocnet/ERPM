@@ -11,8 +11,8 @@ Simulates and estimates the Exponential Random Partition Model presented in the 
 \seealso{
 Useful links:
 \itemize{
-  \item \url{https://github.com/marion-hoffman/ERPM}
-  \item Report bugs at \url{https://github.com/marion-hoffman/ERPM/issues}
+  \item \url{https://github.com/stocnet/ERPM}
+  \item Report bugs at \url{https://github.com/stocnet/ERPM/issues}
 }
 
 }
