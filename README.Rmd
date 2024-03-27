@@ -60,7 +60,7 @@ install.packages("ERPM")
 In this section, we outline a simple example with synthetic data.
 
 ```{r}
-library(erpm)
+library(ERPM)
 ```
 
 ## The Data
