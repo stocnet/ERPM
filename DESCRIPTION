@@ -2,7 +2,7 @@ Type: Package
 Package: ERPM
 Title: Exponential Random Partition Models
 Version: 0.2.0
-Date: 2024-03-13
+Date: 2024-03-27
 Authors@R: c(
     person("Marion", "Hoffman", , "marion.hoffman.31@gmail.com", role = c("cre", "aut", "cph"),
            comment = c(ORCID = "0000-0002-0741-7760")),
@@ -51,5 +51,5 @@ Collate:
     'functions_phase3.R'
     'functions_statistics.R'
     'functions_visualisation.R'
-URL: https://github.com/marion-hoffman/ERPM
-BugReports: https://github.com/marion-hoffman/ERPM/issues
+URL: https://github.com/stocnet/ERPM
+BugReports: https://github.com/stocnet/ERPM/issues
