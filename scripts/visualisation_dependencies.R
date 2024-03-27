@@ -9,11 +9,11 @@
 # Pour pouvoir voir les liens entres fonctions.
 
 devtools::install_github("datastorm-open/DependenciesGraphs")
-library('erpm')
+library('ERPM')
 
 require(DependenciesGraphs)
 
-dep <- envirDependencies('package:erpm')
+dep <- envirDependencies('package:ERPM')
 plot(dep)
 
 # Verfif help doc

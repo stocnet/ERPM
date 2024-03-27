@@ -1,4 +1,4 @@
 library(testthat)
-library(erpm)
+library(ERPM)
 
-test_check("erpm")
+test_check("ERPM")
