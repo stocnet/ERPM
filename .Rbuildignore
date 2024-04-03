@@ -6,3 +6,6 @@
 ^docs$
 ^pkgdown$
 ^CRAN-SUBMISSION$
+^documentation$
+^scripts$
+^README\.Rmd$
