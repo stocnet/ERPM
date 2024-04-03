@@ -23,7 +23,7 @@ ERPM is the software implementation of the statistical model outlined in:
 
 Hoffman, M., Block, P., & Snijders, T. A. (2023). Modeling partitions of individuals. Sociological Methodology, 53(1), 1-41.
 
-[Link to the study in Sociological Methodology](https://journals.sagepub.com/doi/full/10.1177/00811750221145166?casa_token=Tytya_Og5sIAAAAA%3Atod8D6uVR3Fhc66fNapyJtV3J2Lw5u0DfZo3YJKFfnOOFSNHF6r6IvcK74s-4M0yVSoZI2hKm2ZvKJ4).
+[Link to the study in Sociological Methodology](https://doi.org/10.1177/00811750221145166).
 
 The model allows for the analysis of emergent group compositions in partitions, i.e., sets of non-overlapping groups. For a given partition of individuals (or nodes, to follow the language of network analysis), we can use this model to understand group formation processes that led to the observation of this partition, based on individual attributes, relations between individuals, and size-related factors. It can be seen as an extension of Exponential Random Graph Models (ERGMs) to the case of partition objects. With this package, one can either simulate this model or estimate its parameters for a given dataset.
 
