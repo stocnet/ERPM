@@ -572,7 +572,7 @@ compute_parameters_simpleaveraging <- function(z.i,
     }
 
     # new theta
-    theta.i <- theta.i - gainfactor * r * inv.scaling %*% t(z.i - z.obs)
+    theta.i <- theta.i - gainfactor * r * inv.scaling %*% (z.i - z.obs)
 
     return(theta.i)
 }
