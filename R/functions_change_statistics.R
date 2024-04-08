@@ -809,6 +809,20 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
         }
       }
     }
+    
+    # --------- ALTER_VAR -----------
+    if(effect.name == "alter_var") {
+      for(ob in 1:length(objects)){
+        if(objects[[ob]][[1]] == object.name){
+          atts <- objects[[ob]][[2]]
+        }
+      }
+      for(o in 1:num.obs){
+        for(a in which(presence.tables[,o]==1)){
+          statistics[e,o] <- statistics[e,o] + atts[a,o]*length(which(partitions[,o] == partitions[a,o]))
+        }
+      }
+    }
 
     # --------- HOMOPHILY:SAME -----------
     if(effect.name == "same") {
@@ -862,6 +876,22 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
       for(o in 1:num.obs){
         if(length(groups[[o]]) > 0){
           d <- as.matrix(dist(as.numeric(nodes[as.logical(presence.tables[,o]),att])))
+          statistics[e,o] <- sum(1/2 * adjacencies[[o]] * d)
+        }
+      }
+    }
+    
+    # --------- HOMOPHILY:DIFF_VAR -----------
+    if(effect.name == "diff_var") {
+      for(ob in 1:length(objects)){
+        if(objects[[ob]][[1]] == object.name){
+          atts <- objects[[ob]][[2]]
+        }
+      }
+      for(o in 1:num.obs){
+        if(length(groups[[o]]) > 0) {
+          att.nodes <- atts[as.logical(presence.tables[,o]),o]
+          d <- as.matrix(dist(as.numeric(att.nodes)))
           statistics[e,o] <- sum(1/2 * adjacencies[[o]] * d)
         }
       }
@@ -1016,5 +1046,125 @@ computeStatistics_multiple <- function(partitions, presence.tables, nodes, effec
 
   return(statistics)
 
+}
+
+
+
+computeChangeStatistics <- function(current.z,
+                                    current.partition, 
+                                    current.group, 
+                                    moving.actor, 
+                                    new.group, 
+                                    nodes, 
+                                    effects, 
+                                    objects) {
+  
+  num.groups <- max(current.partition)
+  num.nodes <- nrow(nodes)
+  num.effects <- length(effects[[1]])
+  diffs <- rep(0,num.effects)
+  
+  old.members <- which(current.partition == current.group)
+  old.members <- old.members[old.members != moving.actor]
+  new.members <- which(current.partition == new.group)
+  
+  for(e in 1:num.effects) {
+    
+    effect.name <- effects$names[e]
+    object.name <- effects$objects[e]
+    object2.name <- effects$objects2[e]
+    
+    # --------- ISOLATES -----------
+    if(effect.name == "isolates") {
+      diffs[e] <- 1*(length(old.members) == 1) - 1*(length(new.members) == 1)
+    }
+    
+    # --------- SIZES SQUARED -----------
+    if(effect.name == "sizes_squared") {
+      diffs[e] <- length(old.members)^2 - (length(old.members)+1)^2 +
+        (length(new.members)+1)^2 - length(new.members)^2 
+    }
+    
+    # --------- TIE -----------
+    if(effect.name == "tie") {
+      for(o in 1:length(objects)){
+        if(objects[[o]][[1]] == object.name){
+          net <- objects[[o]][[2]]
+        }
+      }
+      diffs[e] <- sum(net[moving.actor,new.members]) -
+        sum(net[moving.actor,old.members])
+    }
+    
+    # --------- ALTER -----------
+    if(effect.name == "alter") {
+      a <- nodes[moving.actor,object.name]
+      diffs[e] <- sum(nodes[new.members,object.name])*1 - sum(nodes[old.members,object.name])*1 +
+        a*(length(new.members)- length(old.members))
+    }
+    
+    # --------- HOMOPHILY:SAME -----------
+    if(effect.name == "same") {
+      a <- nodes[moving.actor,object.name]
+      diffs[e] <- sum(nodes[new.members,object.name] == a) -
+          sum(nodes[old.members,object.name] == a)
+    }
+    
+    # --------- HOMOPHILY:DIFF -----------
+    if(effect.name == "diff") {
+      a <- nodes[moving.actor,object.name]
+      diffs[e] <- sum(abs(nodes[new.members,object.name] - a)) -
+        sum(abs(nodes[old.members,object.name] - a))
+    }
+    
+    # --------- HOMOPHILY:RANGE -----------
+    if(effect.name == "range") {
+      a <- nodes[moving.actor,object.name]
+      diffs[e] <- (max(c(a,nodes[new.members,object.name])) - min(c(a,nodes[new.members,object.name]))) -
+        (max(nodes[new.members,object.name]) - min(nodes[new.members,object.name])) -
+        (max(c(a,nodes[old.members,object.name])) - min(c(a,nodes[old.members,object.name]))) +
+        (max(nodes[new.members,object.name]) - min(nodes[new.members,object.name]))
+    }
+    
+    # --------- HOMOPHILY:PROPORTION -----------
+    if(effect.name == "proportion") {
+      attribute <- as.numeric(factor(nodes[,object.name]))
+      minatt <- min(attribute)
+      maxatt <- max(attribute)
+        
+      nmax_1 <- sum(attribute[c(new.members,moving.actor)] == maxatt)
+      nmin_1 <- sum(attribute[c(new.members,moving.actor)] == minatt)
+      nmax_2 <- sum(attribute[new.members] == maxatt)
+      nmin_2 <- sum(attribute[new.members] == minatt)
+      nmax_3 <- sum(attribute[c(old.members,moving.actor)] == maxatt)
+      nmin_3 <- sum(attribute[c(old.members,moving.actor)] == minatt)
+      nmax_4 <- sum(attribute[old.members] == maxatt)
+      nmin_4 <- sum(attribute[old.members] == minatt)
+      diffs[e] <- (max(nmax_1,nmin_1) - min(nmax_1,nmin_1)) / (length(new.members)+1) -
+        (max(nmax_2,nmin_2) - min(nmax_2,nmin_2)) / (length(new.members)) -
+        (max(nmax_3,nmin_3) - min(nmax_3,nmin_3)) / (length(old.members)+1) +
+        (max(nmax_4,nmin_4) - min(nmax_4,nmin_4)) / (length(old.members))
+      
+    }
+    
+    # --------- HOMOPHILY:NUM GROUPS SAME -----------
+    if(effect.name == "num_groups_same") {
+      attribute <- as.numeric(factor(nodes[,object.name]))
+      diffs[e] <- 1*(length(unique(attribute[c(new.members,moving.actor)])) == 1) -
+        1*(length(unique(attribute[new.members])) == 1) -
+        1*(length(unique(attribute[c(old.members,moving.actor)])) == 1) +
+        1*(length(unique(attribute[old.members])) == 1) 
+    }
+    
+    # ---------GROUP: NUMBER_ATTRIBUTES -----------
+    if(effect.name == "number_attributes") {
+      diffs[e] <- length(unique(nodes[c(new.members,moving.actor),object.name])) -
+        length(unique(nodes[new.members,object.name])) -
+        length(unique(nodes[c(old.members,moving.actor),object.name])) +
+        length(unique(nodes[old.members,object.name]))
+    }
+  }
+  
+  return(diffs)
 }
 

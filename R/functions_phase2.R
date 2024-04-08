@@ -30,6 +30,7 @@
 #' @param numgroups.simulated vector containing the number of groups simulated
 #' @param sizes.allowed vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+#' @param fixed.number.groups boolean indicating whether the number of groups is constant
 #' @param double.averaging boolean to indicate whether we follow the double-averaging procedure (often leads to better convergence)
 #' @param parallel boolean to indicate whether the code should be run in parallel
 #' @param cpus number of cpus if parallel = TRUE
@@ -58,6 +59,7 @@ run_phase2_single <- function(partition,
                        numgroups.simulated,
                        sizes.allowed,
                        sizes.simulated,
+                       fixed.number.groups = FALSE,
                        double.averaging,
                        parallel = FALSE,
                        cpus = 1) {
@@ -117,10 +119,10 @@ run_phase2_single <- function(partition,
         # draw one element from the chain
         if(parallel){
           
-          sfExport("cpus", "theta.i", "partition.i", "nodes", "effects", "objects", "burnin", "neighborhood", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated")
+          sfExport("cpus", "theta.i", "partition.i", "nodes", "effects", "objects", "burnin", "neighborhood", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated", "fixed.number.groups")
           res <- sfLapply(1:cpus, fun = function(k) {
             set.seed(k)
-            subres <- draw_Metropolis_single(theta.i, partition.i, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
+            subres <- draw_Metropolis_single(theta.i, partition.i, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, fixed.number.groups)
             return(subres)
           }
           )
@@ -131,7 +133,7 @@ run_phase2_single <- function(partition,
           
         } else {
           
-          results.i <- draw_Metropolis_single(theta.i, partition.i, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
+          results.i <- draw_Metropolis_single(theta.i, partition.i, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, fixed.number.groups)
           z.i <- results.i$draws
           partition.i <- results.i$last.partition
           
@@ -212,9 +214,9 @@ run_phase2_single <- function(partition,
         fulltheta.i <- estimates.phase1
         fulltheta.i[unfixed.indexes] <- theta.i
         if(i == 1){
-          results.i <- draw_Metropolis_single(fulltheta.i, partition.i, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
+          results.i <- draw_Metropolis_single(fulltheta.i, partition.i, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, fixed.number.groups)
         } else {
-          results.i <- draw_Metropolis_single(fulltheta.i, partition.i, nodes, effects, objects, thining, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
+          results.i <- draw_Metropolis_single(fulltheta.i, partition.i, nodes, effects, objects, thining, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, fixed.number.groups)
         }
         z.i <- results.i$draws[unfixed.indexes]
         partition.i <- results.i$last.partition
@@ -300,6 +302,7 @@ run_phase2_single <- function(partition,
 #' @param numgroups.simulated vector containing the number of groups simulated
 #' @param sizes.allowed vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+#' @param fixed.number.groups boolean indicating whether the number of groups is constant
 #' @param double.averaging boolean to indicate whether we follow the double-averaging procedure (often leads to better convergence)
 #' @param parallel boolean to indicate whether the code should be run in parallel
 #' @param cpus number of cpus if parallel = TRUE
@@ -329,6 +332,7 @@ run_phase2_multiple <- function(partitions,
                               numgroups.simulated,
                               sizes.allowed,
                               sizes.simulated,
+                              fixed.number.groups = FALSE,
                               double.averaging,
                               parallel = FALSE,
                               cpus = 1) {
@@ -392,10 +396,10 @@ run_phase2_multiple <- function(partitions,
         # draw one element from the chain
         if(parallel){
           
-          sfExport("cpus", "theta.i", "partitions.i", "presence.tables", "nodes", "effects", "objects", "burnin", "neighborhood", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated")
+          sfExport("cpus", "theta.i", "partitions.i", "presence.tables", "nodes", "effects", "objects", "burnin", "neighborhood", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated", "fixed.number.groups")
           res <- sfLapply(1:cpus, fun = function(k) {
             set.seed(k)
-            subres <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
+            subres <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, fixed.number.groups)
             return(subres)
           }
           )
@@ -406,7 +410,7 @@ run_phase2_multiple <- function(partitions,
           
         } else {
           
-          results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
+          results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, fixed.number.groups)
           z.i <- results.i$draws
           partitions.i <- results.i$last.partitions
           
@@ -488,9 +492,9 @@ run_phase2_multiple <- function(partitions,
         fulltheta.i <- estimates.phase1
         fulltheta.i[unfixed.indexes] <- theta.i
         if(i == 1){
-          results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
+          results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, fixed.number.groups)
         } else {
-          results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, thining, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
+          results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, thining, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, fixed.number.groups)
         }
         z.i <- results.i$draws[unfixed.indexes]
         partitions.i <- results.i$last.partitions
@@ -572,7 +576,7 @@ compute_parameters_simpleaveraging <- function(z.i,
     }
 
     # new theta
-    theta.i <- theta.i - gainfactor * r * inv.scaling %*% t(z.i - z.obs)
+    theta.i <- theta.i - gainfactor * r * inv.scaling %*% (z.i - z.obs)
 
     return(theta.i)
 }

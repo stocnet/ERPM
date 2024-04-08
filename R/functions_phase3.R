@@ -22,6 +22,7 @@
 #' @param numgroups.simulated vector containing the number of groups simulated
 #' @param sizes.allowed vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+#' @param fixed.number.groups boolean indicating whether the number of groups is constant
 #' @param fixed.estimates if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
 #' @param parallel boolean to indicate whether the code should be run in parallel
 #' @param cpus number of cpus if parallel = TRUE
@@ -44,6 +45,7 @@ run_phase3_single <- function(partition,
                        numgroups.simulated,
                        sizes.allowed,
                        sizes.simulated,
+                       fixed.number.groups = FALSE,
                        fixed.estimates,
                        parallel = FALSE,
                        cpus = 1) {
@@ -58,10 +60,10 @@ run_phase3_single <- function(partition,
   # simulate a large sample with the estimates found in phase 2 
   if(parallel){
     
-    sfExport("startingestimates", "first.partition", "nodes", "effects", "objects", "burnin", "thining", "length.p3", "cpus", "neighborhood", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated")
+    sfExport("startingestimates", "first.partition", "nodes", "effects", "objects", "burnin", "thining", "length.p3", "cpus", "neighborhood", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated", "fixed.number.groups")
     res <- sfLapply(1:cpus, fun = function(k) {
       set.seed(k)
-      subres <- draw_Metropolis_single(estimates.phase2, first.partition, nodes, effects, objects, burnin, thining, ceiling(length.p3/cpus), neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
+      subres <- draw_Metropolis_single(estimates.phase2, first.partition, nodes, effects, objects, burnin, thining, ceiling(length.p3/cpus), neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, fixed.number.groups)
       return(subres)
     }
     )
@@ -72,7 +74,7 @@ run_phase3_single <- function(partition,
     
   }else{
     
-    results.phase3 <- draw_Metropolis_single(estimates.phase2, first.partition, nodes, effects, objects, burnin, thining, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
+    results.phase3 <- draw_Metropolis_single(estimates.phase2, first.partition, nodes, effects, objects, burnin, thining, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, fixed.number.groups)
   }
   z.phase3 <- results.phase3$draws
   
@@ -124,6 +126,7 @@ run_phase3_single <- function(partition,
 #' @param numgroups.simulated vector containing the number of groups simulated
 #' @param sizes.allowed vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+#' @param fixed.number.groups boolean indicating whether the number of groups is constant
 #' @param fixed.estimates if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
 #' @param parallel boolean to indicate whether the code should be run in parallel
 #' @param cpus number of cpus if parallel = TRUE
@@ -147,6 +150,7 @@ run_phase3_multiple <- function(partitions,
                               numgroups.simulated,
                               sizes.allowed,
                               sizes.simulated,
+                              fixed.number.groups = FALSE,
                               fixed.estimates,
                               parallel = FALSE,
                               cpus = 1) {
@@ -161,10 +165,10 @@ run_phase3_multiple <- function(partitions,
   # simulate a large sample with the estimates found in phase 2 
   if(parallel){
     
-    sfExport("startingestimates", "first.partitions", "presence.tables", "nodes", "effects", "objects", "burnin", "thining", "length.p3", "cpus", "neighborhood", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated")
+    sfExport("startingestimates", "first.partitions", "presence.tables", "nodes", "effects", "objects", "burnin", "thining", "length.p3", "cpus", "neighborhood", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated", "fixed.number.groups")
     res <- sfLapply(1:cpus, fun = function(k) {
       set.seed(k)
-      subres <- draw_Metropolis_multiple(estimates.phase2, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, ceiling(length.p3/cpus), neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = TRUE)
+      subres <- draw_Metropolis_multiple(estimates.phase2, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, ceiling(length.p3/cpus), neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, fixed.number.groups, return.all.partitions = TRUE)
       return(subres)
     }
     )
@@ -179,7 +183,7 @@ run_phase3_multiple <- function(partitions,
   
   }else{
     
-    results.phase3 <- draw_Metropolis_multiple(estimates.phase2, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = TRUE)
+    results.phase3 <- draw_Metropolis_multiple(estimates.phase2, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, fixed.number.groups, return.all.partitions = TRUE)
   
   }
   z.phase3 <- results.phase3$draws

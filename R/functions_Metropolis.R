@@ -26,6 +26,7 @@
 #' @param numgroups.simulated = NULL, # vector containing the number of groups simulated
 #' @param sizes.allowed = NULL,  vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated = NULL, vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+#' @param fixed.number.groups boolean indicating whether the number of groups is constant
 #' @param return.all.partitions = FALSE option to return the sampled partitions on top of their statistics (for GOF)
 #' @return A list
 #' @importFrom stats runif
@@ -44,6 +45,7 @@ draw_Metropolis_single <- function(theta,
                                    numgroups.simulated = NULL,
                                    sizes.allowed = NULL, 
                                    sizes.simulated = NULL,
+                                   fixed.number.groups = FALSE,
                                    return.all.partitions = FALSE) 
 {
 
@@ -85,16 +87,26 @@ draw_Metropolis_single <- function(theta,
 
   while(!end.walk){
 
-    new.step <- draw_step_single(theta,
-                                 current.partition,
-                                 current.logit,
-                                 current.z,
-                                 nodes,
-                                 effects,
-                                 objects,
-                                 neighborhood,
-                                 numgroups.simulated,
-                                 sizes.simulated)
+    if(!fixed.number.groups) {
+      new.step <- draw_step_single(theta,
+                                   current.partition,
+                                   current.logit,
+                                   current.z,
+                                   nodes,
+                                   effects,
+                                   objects,
+                                   neighborhood,
+                                   numgroups.simulated,
+                                   sizes.simulated) 
+    } else {
+      new.step <- draw_step_single_fixed(theta,
+                                         current.partition,
+                                         current.logit,
+                                         current.z,
+                                         nodes,
+                                         effects,
+                                         objects)
+    }
 
     proba.change <- min(1,new.step$hastings.ratio)
     change.made <- (runif(1,0,1) <= proba.change)
@@ -172,6 +184,7 @@ draw_Metropolis_single <- function(theta,
 #' @param numgroups.simulated = NULL, # vector containing the number of groups simulated
 #' @param sizes.allowed = NULL,  vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated = NULL, vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+#' @param fixed.number.groups boolean indicating whether the number of groups is constant
 #' @param return.all.partitions = FALSE, option to return the sampled partitions on top of their statistics (for GOF)
 #' @return A list
 #' @importFrom stats runif
@@ -190,6 +203,7 @@ draw_Metropolis_multiple <- function(theta,
                                      numgroups.simulated,
                                      sizes.allowed,
                                      sizes.simulated,
+                                     fixed.number.groups = FALSE,
                                      return.all.partitions = FALSE) 
 {
 
@@ -234,18 +248,30 @@ draw_Metropolis_multiple <- function(theta,
 
   while(!end.walk){
 
-    new.step <- draw_step_multiple(theta,
-                                   current.partitions,
-                                   current.logit,
-                                   current.z.contributions,
-                                   current.z,
-                                   presence.tables,
-                                   nodes,
-                                   effects,
-                                   objects,
-                                   neighborhood,
-                                   numgroups.simulated,
-                                   sizes.simulated)
+    if(!fixed.number.groups){
+      new.step <- draw_step_multiple(theta,
+                                     current.partitions,
+                                     current.logit,
+                                     current.z.contributions,
+                                     current.z,
+                                     presence.tables,
+                                     nodes,
+                                     effects,
+                                     objects,
+                                     neighborhood,
+                                     numgroups.simulated,
+                                     sizes.simulated)
+    } else {
+      new.step <- draw_step_multiple_fixed(theta,
+                                     current.partitions,
+                                     current.logit,
+                                     current.z.contributions,
+                                     current.z,
+                                     presence.tables,
+                                     nodes,
+                                     effects,
+                                     objects)
+    }
 
     proba.change <- min(1,new.step$hastings.ratio)
     change.made <- (runif(1,0,1) <= proba.change)
@@ -390,6 +416,49 @@ draw_step_single <- function(theta,
 }
 
 
+# function to draw next partition and calculate Hastings ratio (one step in the Metropolis algorithm)
+# fixed number of groups procedure
+draw_step_single_fixed <- function(theta,
+                             current.partition,
+                             current.logit,
+                             current.z,
+                             nodes,
+                             effects,
+                             objects){
+  
+  # number of options are: number of non-isolated actors x (number of groups - 1)
+  sizes <- unlist(lapply(1:9, FUN = function(x){table(current.partition)[current.partition[x]]}))
+  non.isolates <- which(sizes > 1)
+  current.size <- length(non.isolates) * (max(current.partition) - 1)
+  
+  # Sample actor and randomly move it
+  moving.actor <- sample(non.isolates,1)
+  current.group <- current.partition[moving.actor]
+  other.groups <- 1:max(current.partition)
+  other.groups <- other.groups[-which(other.groups == current.group)]
+  new.group <- sample(other.groups,1)
+  new.partition <- current.partition
+  new.partition[moving.actor] <- new.group
+  
+  # new number of options
+  new.size <- current.size + 1*(sum(current.partition == current.group) == 2) - 1*(sum(current.partition == new.group) == 1)
+  
+  # compute new statistics only if it changed
+  diff <- computeChangeStatistics(current.z, current.partition, current.group, moving.actor, new.group, nodes, effects, objects)
+  new.z <- current.z + diff
+  
+  new.logit <- theta * new.z
+  
+  # calculate acceptance ratio if needed
+  neighborhoods.ratio <- current.size / new.size
+  hastings.ratio <- (exp(sum(new.logit) - sum(current.logit))) * neighborhoods.ratio
+  
+  return(list("hastings.ratio" = hastings.ratio,
+              "new.partition" = new.partition,
+              "new.z" = new.z,
+              "new.logit" = new.logit))
+}
+
 
 
 # function to draw next partition and calculate HAstings ratio (one step in the Metropolis algorithm)
@@ -494,6 +563,63 @@ draw_step_multiple <- function(theta,
 }
 
 
+# function to draw next partition and calculate HAstings ratio (one step in the Metropolis algorithm)
+# fixed number groups procedure
+draw_step_multiple_fixed <- function(theta,
+                               current.partitions,
+                               current.logit,
+                               current.z.contributions,
+                               current.z,
+                               presence.tables,
+                               nodes,
+                               effects,
+                               objects){
+  
+  num.obs <- ncol(presence.tables)
+  new.partitions <- current.partitions
+  
+  rand.o <- sample(1:num.obs,1)
+  nodes.rand.o <- as.logical(presence.tables[,rand.o])
+  current.partition <- current.partitions[nodes.rand.o,rand.o]
+  
+  # number of options are: number of non-isolated actors x (number of groups - 1)
+  sizes <- unlist(lapply(1:9, FUN = function(x){table(current.partition)[current.partition[x]]}))
+  non.isolates <- which(sizes > 1)
+  current.size <- length(non.isolates) * (max(current.partition) - 1)
+  
+  # Sample actor and randomly move it
+  moving.actor <- sample(non.isolates,1)
+  current.group <- current.partition[moving.actor]
+  other.groups <- 1:max(current.partition)
+  other.groups <- other.groups[-which(other.groups == current.group)]
+  new.group <- sample(other.groups,1)
+  new.partition <- current.partition
+  new.partition[moving.actor] <- new.group
+  
+  # new number of options
+  new.size <- current.size + 1*(sum(current.partition == current.group) == 2) - 1*(sum(current.partition == new.group) == 1)
+  
+  # adapt to multiple case
+  new.partitions[nodes.rand.o,rand.o] <- new.partition
+  recalculated.stats <- recalculate_statistics_fixed(current.partitions, new.partitions, rand.o, nodes.rand.o, moving.actor, current.group, new.group, nodes, effects, objects, current.z.contributions)
+  new.z.contributions <- recalculated.stats$new.z.contributions
+  new.z <- recalculated.stats$new.z
+  
+  new.logit <- theta * new.z
+  
+  # calculate acceptance ratio if needed
+  neighborhoods.ratio <- current.size / new.size
+  hastings.ratio <- (exp(sum(new.logit) - sum(current.logit))) * neighborhoods.ratio
+
+  return(list("hastings.ratio" = hastings.ratio,
+              "new.partitions" = new.partitions,
+              "new.z.contributions" = new.z.contributions,
+              "new.z" = new.z,
+              "new.logit" = new.logit,
+              "move" = 0))
+}
+
+
 
 # Recalculate statistics for a changed partition in multiple estimation
 recalculate_statistics <- function(new.partitions, rand.o, nodes.rand.o, nodes, effects, objects, current.z.contributions) {
@@ -512,6 +638,27 @@ recalculate_statistics <- function(new.partitions, rand.o, nodes.rand.o, nodes, 
   return(list(new.z.contributions = new.z.contributions,
               new.z = new.z))
 
+}
+
+
+# Recalculate statistics for a changed partition in multiple estimation
+# fixed number of groups procedure
+recalculate_statistics_fixed <- function(current.partitions, new.partitions, rand.o, nodes.rand.o, moving.actor, current.group, new.group, nodes, effects, objects, current.z.contributions) {
+  
+  # store new statistics
+  new.z.contributions <- current.z.contributions
+  
+  # calculate separately each effect
+  for(e in 1:length(effects$names)) {
+    
+    new.z.contributions[e,rand.o] <- step_recalculate_fixed(current.partitions, new.partitions, rand.o, nodes.rand.o, current.z.contributions[e,rand.o], moving.actor, current.group, new.group, nodes, effects, objects, e)
+  }
+  
+  new.z <- rowSums(new.z.contributions)
+  
+  return(list(new.z.contributions = new.z.contributions,
+              new.z = new.z))
+  
 }
 
 
@@ -548,6 +695,34 @@ step_recalculate <- function(new.partitions, rand.o, nodes.rand.o, nodes, effect
     nodes.temp$var.temp <- atts[nodes.rand.o,rand.o]
     new.z.contribution <- as.numeric(computeStatistics(new.partitions[nodes.rand.o,rand.o], nodes.temp, effects.temp, objects.temp))
 
+    #  DIFF_VAR EFFECT: adapt the varying covariate
+  } else if(effects$names[e] == "diff_var"){
+    
+    effects.temp <- list(names="diff",objects="var.temp")
+    for(ob in 1:length(objects)){
+      if(objects[[ob]][[1]] == object.name){
+        atts <- objects[[ob]][[2]]
+      }
+    }
+    objects.temp <- list()
+    nodes.temp <- nodes[nodes.rand.o,]
+    nodes.temp$var.temp <- atts[nodes.rand.o,rand.o]
+    new.z.contribution <- as.numeric(computeStatistics(new.partitions[nodes.rand.o,rand.o], nodes.temp, effects.temp, objects.temp))
+    
+    #  ALTER_VAR EFFECT: adapt the varying covariate
+  } else if(effects$names[e] == "alter_var"){
+    
+    effects.temp <- list(names="alter",objects="var.temp")
+    for(ob in 1:length(objects)){
+      if(objects[[ob]][[1]] == object.name){
+        atts <- objects[[ob]][[2]]
+      }
+    }
+    objects.temp <- list()
+    nodes.temp <- nodes[nodes.rand.o,]
+    nodes.temp$var.temp <- atts[nodes.rand.o,rand.o]
+    new.z.contribution <- as.numeric(computeStatistics(new.partitions[nodes.rand.o,rand.o], nodes.temp, effects.temp, objects.temp))
+    
     #  TIE_VAR EFFECT: adapt the varying network
   } else if(effects$names[e] == "tie_var"){
 
@@ -616,6 +791,142 @@ step_recalculate <- function(new.partitions, rand.o, nodes.rand.o, nodes, effect
 
 }
 
+
+
+step_recalculate_fixed <- function(current.partitions, new.partitions, rand.o, nodes.rand.o, current.z.contribution, moving.actor, current.group, new.group, nodes, effects, objects, e){
+  
+  num.nodes <- nrow(nodes)
+  num.obs <- ncol(new.partitions)
+  object.name <- effects$objects[e]
+  
+  # TIE EFFECT: keep only present nodes
+  if(effects$names[e] == "tie"){
+    
+    effects.temp <- list(names="tie",objects="net.temp")
+    for(ob in 1:length(objects)){
+      if(objects[[ob]][[1]] == object.name){
+        net <- objects[[ob]][[2]]
+        objects.temp <- list(list(name="net.temp",object=net[nodes.rand.o,nodes.rand.o]))
+      }
+    }
+    nodes.temp <- nodes[nodes.rand.o,]
+    diff <- computeChangeStatistics(rowSums(current.z.contributions), current.partitions[nodes.rand.o,rand.o], current.group, moving.actor, new.group, nodes.temp, effects.temp, objects.temp)
+    new.z.contribution <- current.z.contribution + diff
+    
+    #  SAME_VAR EFFECT: adapt the varying covariate
+  } else if(effects$names[e] == "same_var"){
+    
+    effects.temp <- list(names="same",objects="var.temp")
+    for(ob in 1:length(objects)){
+      if(objects[[ob]][[1]] == object.name){
+        atts <- objects[[ob]][[2]]
+      }
+    }
+    objects.temp <- list()
+    nodes.temp <- nodes[nodes.rand.o,]
+    nodes.temp$var.temp <- atts[nodes.rand.o,rand.o]
+    diff <- computeChangeStatistics(rowSums(current.z.contributions), current.partitions[nodes.rand.o,rand.o], current.group, moving.actor, new.group, nodes.temp, effects.temp, objects.temp)
+    new.z.contribution <- current.z.contribution + diff
+    
+    #  DIFF_VAR EFFECT: adapt the varying covariate
+  } else if(effects$names[e] == "diff_var"){
+    
+    effects.temp <- list(names="diff",objects="var.temp")
+    for(ob in 1:length(objects)){
+      if(objects[[ob]][[1]] == object.name){
+        atts <- objects[[ob]][[2]]
+      }
+    }
+    objects.temp <- list()
+    nodes.temp <- nodes[nodes.rand.o,]
+    nodes.temp$var.temp <- atts[nodes.rand.o,rand.o]
+    diff <- computeChangeStatistics(rowSums(current.z.contributions), current.partitions[nodes.rand.o,rand.o], current.group, moving.actor, new.group, nodes.temp, effects.temp, objects.temp)
+    new.z.contribution <- current.z.contribution + diff
+  
+    #  ALTER_VAR EFFECT: adapt the varying covariate
+  } else if(effects$names[e] == "alter_var"){
+    
+    effects.temp <- list(names="alter",objects="var.temp")
+    for(ob in 1:length(objects)){
+      if(objects[[ob]][[1]] == object.name){
+        atts <- objects[[ob]][[2]]
+      }
+    }
+    objects.temp <- list()
+    nodes.temp <- nodes[nodes.rand.o,]
+    nodes.temp$var.temp <- atts[nodes.rand.o,rand.o]
+    diff <- computeChangeStatistics(rowSums(current.z.contributions), current.partitions[nodes.rand.o,rand.o], current.group, moving.actor, new.group, nodes.temp, effects.temp, objects.temp)
+    new.z.contribution <- current.z.contribution + diff
+    
+    #  TIE_VAR EFFECT: adapt the varying network
+  } else if(effects$names[e] == "tie_var"){
+    
+    effects.temp <- list(names="tie",objects="net.temp")
+    for(ob in 1:length(objects)){
+      if(objects[[ob]][[1]] == object.name){
+        nets <- objects[[ob]][[2]]
+        net <- nets[[rand.o]]
+        objects.temp <- list(list(name="net.temp",object=net[nodes.rand.o,nodes.rand.o]))
+      }
+    }
+    nodes.temp <- nodes[nodes.rand.o,]
+    diff <- computeChangeStatistics(rowSums(current.z.contributions), current.partitions[nodes.rand.o,rand.o], current.group, moving.actor, new.group, nodes.temp, effects.temp, objects.temp)
+    new.z.contribution <- current.z.contribution + diff
+    
+    #  TIE_VAR_X_DIFF EFFECT: adapt the varying network
+  } else if(effects$names[e] == "tie_var_X_diff"){
+    
+    effects.temp <- list(names="tie_X_diff",objects="net.temp",objects2=effects$objects2[e])
+    for(ob in 1:length(objects)){
+      if(objects[[ob]][[1]] == object.name){
+        nets <- objects[[ob]][[2]]
+        net <- nets[[rand.o]]
+        objects.temp <- list(list(name="net.temp",object=net[nodes.rand.o,nodes.rand.o]))
+      }
+    }
+    nodes.temp <- nodes[nodes.rand.o,]
+    diff <- computeChangeStatistics(rowSums(current.z.contributions), current.partitions[nodes.rand.o,rand.o], current.group, moving.actor, new.group, nodes.temp, effects.temp, objects.temp)
+    new.z.contribution <- current.z.contribution + diff
+    
+    # INERTIA_1 EFFECT: need to recalculate the partition before and after
+  } else if(effects$names[e] == "inertia_1"){
+    
+    aff.temp <- as.matrix(table(data.frame(actor = 1:num.nodes, group= new.partitions[,rand.o])))
+    adj.temp <- aff.temp %*% t(aff.temp)
+    diag(adj.temp) <- 0
+    
+    if(rand.o > 1) { # removed  && length(groups[[rand.o]]) > 0
+      aff.temp2 <- as.matrix(table(data.frame(actor = 1:num.nodes, group= new.partitions[,rand.o-1])))
+      adj.temp2 <- aff.temp2 %*% t(aff.temp2)
+      diag(adj.temp2) <- 0
+      adj12 <- adj.temp * adj.temp2
+      new.z.contribution <- sum(1/2 * adj12)
+    } else {
+      new.z.contribution <- 0
+    }
+    
+    if(rand.o < num.obs) { # removed  && length(groups[[rand.o]]) > 0
+      aff.temp2 <- as.matrix(table(data.frame(actor = 1:num.nodes, group= new.partitions[,rand.o+1])))
+      adj.temp2 <- aff.temp2 %*% t(aff.temp2)
+      diag(adj.temp2) <- 0
+      adj12 <- adj.temp * adj.temp2
+      new.z.contribution <- sum(1/2 * adj12)
+    }
+    
+    # ANY OTHER EFFECT: the effect also exists in the single partition version
+  } else {
+    
+    effects.temp <- list(names=effects$names[e],objects=effects$objects[e])
+    objects.temp <- objects
+    nodes.temp <- nodes[nodes.rand.o,]
+    diff <- computeChangeStatistics(rowSums(current.z.contributions), current.partitions[nodes.rand.o,rand.o], current.group, moving.actor, new.group, nodes.temp, effects.temp, objects.temp)
+    new.z.contribution <- current.z.contribution + diff
+    
+  }
+  
+  return(new.z.contribution)
+  
+}
     
 
 ## --- FUNCTIONS FOR THE PROPOSALS MADE AT EACH STEP ----

@@ -36,6 +36,7 @@
 #' @param numgroups.simulated vector containing the number of groups simulated
 #' @param sizes.allowed vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+#' @param fixed.number.groups boolean indicating whether the number of groups is constant
 #' @param double.averaging option to average the statistics sampled in each sub-step of phase 2
 #' @param inv.zcov initial value of the inverted covariance matrix (if a phase 3 was run before) to bypass the phase 1
 #' @param inv.scaling initial value of the inverted scaling matrix (if a phase 3 was run before) to bypass the phase 1
@@ -67,6 +68,7 @@ estimate_ERPM <- function(partition,
                           numgroups.simulated = NULL,
                           sizes.allowed = NULL,
                           sizes.simulated = NULL,
+                          fixed.number.groups = FALSE, 
                           double.averaging = FALSE,
                           inv.zcov = NULL,
                           inv.scaling = NULL,
@@ -107,7 +109,7 @@ estimate_ERPM <- function(partition,
     estimates.phase1 <- startingestimates
     autocorrelations.phase1 <- NULL
   } else {
-    results.phase1 <- run_phase1_single(partition, startingestimates, z.obs, nodes, effects, objects, burnin, thining, gainfactor, a.scaling, r.truncation.p1, length.p1, neighborhood, fixed.estimates, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, parallel, cpus)
+    results.phase1 <- run_phase1_single(partition, startingestimates, z.obs, nodes, effects, objects, burnin, thining, gainfactor, a.scaling, r.truncation.p1, length.p1, neighborhood, fixed.estimates, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, fixed.number.groups, parallel, cpus)
     estimates.phase1 <- results.phase1$estimates
     inv.zcov <- results.phase1$inv.zcov
     inv.scaling <- results.phase1$inv.scaling
@@ -115,11 +117,11 @@ estimate_ERPM <- function(partition,
   }
 
   # --------- PHASE 2 ---------
-  results.phase2 <- run_phase2_single(partition, estimates.phase1, inv.zcov,inv.scaling, z.obs, nodes, effects, objects, burnin, thining, num.steps.p2, gainfactors, r.truncation.p2, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, numgroups.allowed, numgroups.simulated,sizes.allowed, sizes.simulated, double.averaging, parallel2, cpus)
+  results.phase2 <- run_phase2_single(partition, estimates.phase1, inv.zcov,inv.scaling, z.obs, nodes, effects, objects, burnin, thining, num.steps.p2, gainfactors, r.truncation.p2, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, numgroups.allowed, numgroups.simulated,sizes.allowed, sizes.simulated, fixed.number.groups, double.averaging, parallel2, cpus)
   estimates.phase2 <- results.phase2$final.estimates
 
   # --------- PHASE 3 ---------
-  results.phase3 <- run_phase3_single(partition, estimates.phase2, z.obs, nodes, effects, objects, burnin, thining, a.scaling, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, fixed.estimates, parallel, cpus)
+  results.phase3 <- run_phase3_single(partition, estimates.phase2, z.obs, nodes, effects, objects, burnin, thining, a.scaling, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, fixed.number.groups, fixed.estimates, parallel, cpus)
   means <- results.phase3$means
   standard.deviations <- results.phase3$standard.deviations
   standard.errors <- results.phase3$standard.errors
@@ -175,6 +177,9 @@ estimate_ERPM <- function(partition,
 #' @param numgroups.simulated vector containing the number of groups simulated
 #' @param sizes.allowed vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+#' @param fixed.number.groups boolean indicating whether the number of groups is constant
+#' @param parallel whether the phase 1 and 3 should be parallelized
+#' @param cpus how many cores can be used
 #' @return A list with the outputs of the phase 3 of the algorithm
 #' @export
 estimate_ERPM_p3 <- function(partition,
@@ -190,7 +195,9 @@ estimate_ERPM_p3 <- function(partition,
                           numgroups.allowed = NULL,
                           numgroups.simulated = NULL,
                           sizes.allowed = NULL,
-                          sizes.simulated = NULL) {
+                          sizes.simulated = NULL,
+                          parallel = FALSE, 
+                          cpus = 1) {
 
   z.obs <- computeStatistics(partition, nodes, effects, objects)
 
@@ -206,7 +213,7 @@ estimate_ERPM_p3 <- function(partition,
 
 
   # --------- PHASE 3 ---------
-  results.phase3 <- run_phase3_single(partition, startingestimates, z.obs, nodes, effects, objects, burnin, thining, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
+  results.phase3 <- run_phase3_single(partition, estimates.phase2, z.obs, nodes, effects, objects, burnin, thining, a.scaling, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, fixed.number.groups, fixed.estimates, parallel, cpus)
   means <- results.phase3$means
   standard.deviations <- results.phase3$standard.deviations
   standard.errors <- results.phase3$standard.errors
@@ -259,6 +266,7 @@ estimate_ERPM_p3 <- function(partition,
 #' @param numgroups.simulated vector containing the number of groups simulated
 #' @param sizes.allowed vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+#' @param fixed.number.groups boolean indicating whether the number of groups is constant
 #' @param double.averaging option to average the statistics sampled in each sub-step of phase 2
 #' @param inv.zcov initial value of the inverted covariance matrix (if a phase 3 was run before) to bypass the phase 1
 #' @param inv.scaling initial value of the inverted scaling matrix (if a phase 3 was run before) to bypass the phase 1
@@ -291,6 +299,7 @@ estimate_multipleERPM <- function(partitions,
                                   numgroups.simulated = NULL,
                                   sizes.allowed = NULL, 
                                   sizes.simulated = NULL, 
+                                  fixed.number.groups = FALSE,
                                   double.averaging = FALSE, 
                                   inv.zcov = NULL, 
                                   inv.scaling = NULL, 
@@ -331,7 +340,7 @@ estimate_multipleERPM <- function(partitions,
     estimates.phase1 <- startingestimates
     autocorrelations.phase1 <- NULL
   } else {
-    results.phase1 <- run_phase1_multiple(partitions, startingestimates, z.obs, presence.tables, nodes, effects, objects, burnin, thining, gainfactor, a.scaling, r.truncation.p1, length.p1, neighborhood, fixed.estimates, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, parallel, cpus)
+    results.phase1 <- run_phase1_multiple(partitions, startingestimates, z.obs, presence.tables, nodes, effects, objects, burnin, thining, gainfactor, a.scaling, r.truncation.p1, length.p1, neighborhood, fixed.estimates, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, fixed.number.groups, parallel, cpus)
     estimates.phase1 <- results.phase1$estimates
     inv.zcov <- results.phase1$inv.zcov
     inv.scaling <- results.phase1$inv.scaling
@@ -339,12 +348,12 @@ estimate_multipleERPM <- function(partitions,
   }
 
   # --------- PHASE 2 ---------
-  results.phase2 <- run_phase2_multiple(partitions, estimates.phase1, inv.zcov,inv.scaling, z.obs, presence.tables, nodes, effects, objects, burnin, thining, num.steps.p2, gainfactors, r.truncation.p2, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, double.averaging, parallel2, cpus)
+  results.phase2 <- run_phase2_multiple(partitions, estimates.phase1, inv.zcov,inv.scaling, z.obs, presence.tables, nodes, effects, objects, burnin, thining, num.steps.p2, gainfactors, r.truncation.p2, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, fixed.number.groups, double.averaging, parallel2, cpus)
   estimates.phase2 <- results.phase2$final.estimates
 
 
   # --------- PHASE 3 ---------
-  results.phase3 <- run_phase3_multiple(partitions, estimates.phase2, z.obs, presence.tables, nodes, effects, objects, burnin, thining, a.scaling, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, fixed.estimates, parallel, cpus)
+  results.phase3 <- run_phase3_multiple(partitions, estimates.phase2, z.obs, presence.tables, nodes, effects, objects, burnin, thining, a.scaling, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, fixed.number.groups, fixed.estimates, parallel, cpus)
   draws <- results.phase3$draws
   means <- results.phase3$means
   standard.deviations <- results.phase3$standard.deviations
