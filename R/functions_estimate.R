@@ -93,14 +93,14 @@ estimate_ERPM <- function(partition,
     }
   }
 
-  print("Observed statistics")
-  print(z.obs)
+  message("Observed statistics\n")
+  message(z.obs, "\n")
 
-  print("Burn-in")
-  print(burnin)
+  message("Burn-in\n")
+  message(burnin, "\n")
 
-  print("Thining")
-  print(thining)
+  message("Thining\n")
+  message(thining, "\n")
 
   # --------- PHASE 1 ---------
   if(!is.null(inv.zcov)) {
@@ -127,13 +127,12 @@ estimate_ERPM <- function(partition,
   autocorrelations.phase3 <- results.phase3$autocorrelations
 
 
-  # ------ PRINT RESULTS ------
+  # ------ EXTRACT RESULTS ------
   results <- data.frame(effect = effects$names,
                         object = effects$objects,
                         est = as.vector(estimates.phase2),
                         std.err = standard.errors,
                         conv = convergence.ratios)
-  print_results(results)
 
   # ------ KEEP IMPORTANT OBJECTS ------
   objects.phase1 <- list(autocorrelations = autocorrelations.phase1)
@@ -143,10 +142,14 @@ estimate_ERPM <- function(partition,
                          inv.scaling = inv.scaling,
                          autocorrelations = autocorrelations.phase3)
 
-  return(list(results = results,
-              objects.phase1 = objects.phase1,
-              objects.phase2 = objects.phase2,
-              objects.phase3 = objects.phase3))
+  results.list <- (list(results = results,
+                        objects.phase1 = objects.phase1,
+                        objects.phase2 = objects.phase2,
+                        objects.phase3 = objects.phase3))
+  
+  class(results.list) <- "results.list.erpm"
+  
+  return(results.list)
 }
 
 
@@ -213,14 +216,15 @@ estimate_ERPM_p3 <- function(partition,
   convergence.ratios <- results.phase3$convergence.ratios
 
 
-  # ------ PRINT RESULTS ------
+  # ------ EXTRACT RESULTS ------
   results <- data.frame(effect = effects$names,
                         object = effects$objects,
                         est = as.vector(startingestimates),
                         std.err = standard.errors,
                         conv = convergence.ratios)
-  print_results(results)
 
+  class(results) <- "results.erpm"
+  
   return(results)
 }
 
@@ -317,15 +321,15 @@ estimate_multipleERPM <- function(partitions,
     }
   }
 
-  print("Observed statistics")
-  print(z.obs)
-
-  print("Burn-in")
-  print(burnin)
-
-  print("Thining")
-  print(thining)
-
+  message("Observed statistics\n")
+  message(z.obs, "\n")
+  
+  message("Burn-in\n")
+  message(burnin, "\n")
+  
+  message("Thining\n")
+  message(thining, "\n")
+  
   # --------- PHASE 1 ---------
   if(!is.null(inv.zcov)) {
     estimates.phase1 <- startingestimates
@@ -352,13 +356,12 @@ estimate_multipleERPM <- function(partitions,
   convergence.ratios <- results.phase3$convergence.ratios
   autocorrelations.phase3 <- results.phase3$autocorrelations
 
-  # ------ PRINT RESULTS ------
+  # ------ EXTRACT RESULTS ------
   results <- data.frame(effect = effects$names,
                         object = effects$objects,
                         est = as.vector(estimates.phase2),
                         std.err = standard.errors,
                         conv = convergence.ratios)
-  print_results(results)
 
   # ------ KEEP IMPORTANT OBJECTS ------
   objects.phase1 <- list(autocorrelations = autocorrelations.phase1)
@@ -371,10 +374,14 @@ estimate_multipleERPM <- function(partitions,
                          inv.scaling = inv.scaling,
                          autocorrelations = autocorrelations.phase3)
 
-  return(list(results = results,
-              objects.phase1 = objects.phase1,
-              objects.phase2 = objects.phase2,
-              objects.phase3 = objects.phase3))
+  results.list <- (list(results = results,
+                        objects.phase1 = objects.phase1,
+                        objects.phase2 = objects.phase2,
+                        objects.phase3 = objects.phase3))
+  
+  class(results.list) <- "results.list.erpm"
+  
+  return(results.list)
 }
 
 
@@ -415,15 +422,15 @@ estimate_multipleBERPM <- function(partitions, # observed partitions
   num.effects <- length(effects$names)
   z.obs <- rowSums( computeStatistics_multiple(partitions, presence.tables, nodes, effects, objects) )
 
-  print("Observed statistics")
-  print(z.obs)
-
-  print("Burn-in")
-  print(burnin.1)
-
-  print("Thining")
-  print(thining.1)
-
+  message("Observed statistics\n")
+  message(z.obs, "\n")
+  
+  message("Burn-in\n")
+  message(burnin, "\n")
+  
+  message("Thining\n")
+  message(thining, "\n")
+  
   # if the starts of the chains are not given
   if(is.null(start.chains)){
     start.chains <- list()
@@ -462,14 +469,17 @@ estimate_multipleBERPM <- function(partitions, # observed partitions
                                                       parallel,
                                                       cpus)
 
-  # ------ PRINT RESULTS ------
+  # ------ EXTRACT RESULTS ------
   results <- data.frame(effect = effects$names,
                         object = effects$objects,
                         post.mean = results_exchange$post.mean,
                         post.sd = results_exchange$post.sd)
-  print_results_bayesian(results)
 
-  return(list(results = results,
-              all.chains = results_exchange$all.chains))
+  results.bayesian <- (list(results = results,
+                            all.chains = results_exchange$all.chains))
+  
+  class(results.bayesian) <- "results.bayesian.erpm"
+  
+  return(results.bayesian)
 }
 
