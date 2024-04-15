@@ -255,16 +255,16 @@ run_phase2_single <- function(partition,
       estimates[unfixed.indexes] <- mean.theta
       lengths.subphases[step] <- i-1
 
-      message(cat("Step",step))
-      message(cat("Length of the step",(i-1),"(minimal value:",min.iter[step],"and maximal value:",max.iter[step],")"))
-      message(cat("Current estimate",estimates, "\n"))
+      print(cat("Step",step))
+      print(cat("Length of the step",(i-1),"(minimal value:",min.iter[step],"and maximal value:",max.iter[step],")"))
+      print(cat("Current estimate",estimates))
 
     }
 
-    message(cat("Difference to estimated statistics after phase 2, step",step))
-    message(colMeans(allz) - z.obs)
-    message(cat("Estimates after phase 2, step",step))
-    message(estimates, "\n")
+    print(cat("Difference to estimated statistics after phase 2, step",step))
+    print(colMeans(allz) - z.obs)
+    print(cat("Estimates after phase 2, step",step))
+    print(estimates)
   }
 
   return(list(all.estimates = all.estimates,
@@ -386,7 +386,7 @@ run_phase2_multiple <- function(partitions,
       # SUB STEP: until generated statistics cross the observed ones
       while(!stop.iterations) {
 
-        message(theta.i)
+        print(theta.i)
         all.estimates <- rbind(all.estimates,matrix(theta.i,nrow=1))
 
         # draw one element from the chain
@@ -533,12 +533,12 @@ run_phase2_multiple <- function(partitions,
 
     }
 
-    message(cat("Length of the step",step))
-    message(cat((i-1),"(minimal value:",min.iter[step],"and maximal value:",max.iter[step],")"), "\n")
-    message(cat("Estimated statistics after phase 2, step",step))
-    message(colMeans(allz) - z.obs, "\n")
-    message(cat("Estimates after phase 2, step",step))
-    message(estimates, "\n")
+    print(cat("Length of the step",step))
+    print(cat((i-1),"(minimal value:",min.iter[step],"and maximal value:",max.iter[step],")"))
+    print(cat("Estimated statistics after phase 2, step",step))
+    print(colMeans(allz) - z.obs)
+    print(cat("Estimates after phase 2, step",step))
+    print(estimates)
   }
 
   return(list(all.estimates = all.estimates,
