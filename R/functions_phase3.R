@@ -81,15 +81,15 @@ run_phase3_single <- function(partition,
   for(e in 1:num.effects){
     autocors[e] <- cor(results.phase3$draws[1:(length.p3-1),e],results.phase3$draws[2:length.p3,e])
   }
-  message("Autocorrelations in phase 3:")
-  message(autocors, "\n")
+  print("Autocorrelations in phase 3:")
+  print(autocors)
 
   
   # hack for size constraints
   if(!is.null(sizes.allowed)){
     length.p3 <- nrow(z.phase3)
-    message("new length of phase 3")
-    message(length.p3, "\n")
+    print("new length of phase 3")
+    print(length.p3)
   }
   
   # calculations of phase 3: mean, sd, se, conv ratios
@@ -189,14 +189,14 @@ run_phase3_multiple <- function(partitions,
   for(e in 1:num.effects){
     autocors[e] <- cor(results.phase3$draws[1:(length.p3-1),e],results.phase3$draws[2:length.p3,e])
   }
-  message("Autocorrelations in phase 3:")
-  message(autocors, "\n")
+  print("Autocorrelations in phase 3:")
+  print(autocors)
   
   # hack for size constraints
   if(!is.null(sizes.allowed)){
     length.p3 <- nrow(z.phase3)
-    message("new length of phase 3")
-    message(length.p3, "\n")
+    print("new length of phase 3")
+    print(length.p3)
   }
   
   # calculations of phase 3: mean, sd, se, conv ratios
@@ -263,10 +263,10 @@ phase3 <- function(estimates.phase2,
   # convergence ratios
   finalconvratios <- (finalmean - z.obs) / finalsd
   
-  message("Estimated statistics after phase 3")
-  message(finalmean, "\n")
-  message("Estimates after phase 3")
-  message(estimates.phase2, "\n")
+  print("Estimated statistics after phase 3")
+  print(finalmean)
+  print("Estimates after phase 3")
+  print(estimates.phase2)
   
   return(list("finalmean" = finalmean,
               "finalsd" = finalsd,
