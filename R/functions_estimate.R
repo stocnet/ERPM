@@ -93,13 +93,13 @@ estimate_ERPM <- function(partition,
     }
   }
 
-  message("Observed statistics\n")
+  message("Observed statistics")
   message(z.obs, "\n")
 
-  message("Burn-in\n")
+  message("Burn-in")
   message(burnin, "\n")
 
-  message("Thining\n")
+  message("Thining")
   message(thining, "\n")
 
   # --------- PHASE 1 ---------
@@ -321,13 +321,13 @@ estimate_multipleERPM <- function(partitions,
     }
   }
 
-  message("Observed statistics\n")
+  message("Observed statistics")
   message(z.obs, "\n")
   
-  message("Burn-in\n")
+  message("Burn-in")
   message(burnin, "\n")
   
-  message("Thining\n")
+  message("Thining")
   message(thining, "\n")
   
   # --------- PHASE 1 ---------
@@ -422,13 +422,13 @@ estimate_multipleBERPM <- function(partitions, # observed partitions
   num.effects <- length(effects$names)
   z.obs <- rowSums( computeStatistics_multiple(partitions, presence.tables, nodes, effects, objects) )
 
-  message("Observed statistics\n")
+  message("Observed statistics")
   message(z.obs, "\n")
   
-  message("Burn-in\n")
+  message("Burn-in")
   message(burnin, "\n")
   
-  message("Thining\n")
+  message("Thining")
   message(thining, "\n")
   
   # if the starts of the chains are not given
