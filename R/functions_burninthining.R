@@ -39,8 +39,8 @@ simulate_burnin_single <- function(partition,
 {
   num.effects <- length(effects$names)
 
-  print("Neighborhood: ")
-  print(neighborhood)
+  message("Neighborhood: ")
+  message(neighborhood, "\n")
 
   chain <- draw_Metropolis_single(theta, partition, nodes, effects, objects, 1, 1, num.steps, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = FALSE)
 
@@ -204,10 +204,10 @@ simulate_thining_single <- function(partition,
       autocors[e] <- cor(draws[1:(num.steps-1),e],draws[2:num.steps,e])
     }
     if(current.thining %% 50 == 0){
-      print("thining")
-      print(current.thining)
-      print("autocorrelations")
-      print(autocors)
+      message("thining")
+      message(current.thining, "\n")
+      message("autocorrelations")
+      message(autocors, "\n")
     }
 
     allautocors <- rbind(allautocors,autocors)
@@ -428,10 +428,10 @@ simulate_burninthining_single <- function(partition,
       autocors[e] <- cor(draws[1:(num.steps-1),e],draws[2:num.steps,e])
     }
     if(current.thining %% 50 == 0){
-      print("thining")
-      print(current.thining)
-      print("autocorrelations")
-      print(autocors)
+      message("thining")
+      message(current.thining, "\n")
+      message("autocorrelations")
+      message(autocors, "\n")
     }
 
     allautocors <- rbind(allautocors,autocors)
@@ -541,10 +541,10 @@ simulate_burninthining_multiple <- function(partitions,
       autocors[e] <- cor(draws[1:(num.steps-1),e],draws[2:num.steps,e])
     }
     if(current.thining %% 50 == 0){
-      print("thining")
-      print(current.thining)
-      print("autocorrelations")
-      print(autocors)
+      message("thining")
+      message(current.thining, "\n")
+      message("autocorrelations")
+      message(autocors, "\n")
     }
 
     allautocors <- rbind(allautocors,autocors)
@@ -794,7 +794,7 @@ gridsearch_burninthining_multiple <- function(partitions,
     # just go through all neighborhoods one by one
     allsimulations <- list()
     for(i in 1:length(neighborhoods)){
-      print(neighborhoods[[i]])
+      message(neighborhoods[[i]])
       allsimulations[[i]] <- simulate_burninthining_multiple(partitions, presence.tables, theta, nodes, effects, objects, num.steps, neighborhoods[[i]], numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, max.thining)
     }
 

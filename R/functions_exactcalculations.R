@@ -25,7 +25,7 @@ exactestimates_numgroups <- function(num.nodes, pmin, pmax, pinc) {
 
   for(m in 1:length(allm)) {
     m.obs <- allm[m]
-    print(m.obs)
+    message(m.obs)
 
     allparameters <- seq(pmin,pmax,pinc)
     alllogLs <- rep(0,length(allparameters))
@@ -34,8 +34,8 @@ exactestimates_numgroups <- function(num.nodes, pmin, pmax, pinc) {
       alpha <- allparameters[i]
       numerator <- exp(alpha*m.obs)
       denominator <- compute_numgroups_denominator(num.nodes, alpha)
-      #print(paste("numerator",numerator))
-      #print(paste("denominator",denominator))
+      #message(paste("numerator",numerator))
+      #message(paste("denominator",denominator))
       alllogLs[i] <- log(numerator) - log(denominator)
     }
 
@@ -68,8 +68,8 @@ plot_numgroups_likelihood <- function(m.obs, num.nodes, pmin, pmax, pinc) {
     alpha <- allparameters[i]
     numerator <- exp(alpha*m.obs)
     denominator <- compute_numgroups_denominator(num.nodes, alpha)
-    #print(paste("numerator",numerator))
-    #print(paste("denominator",denominator))
+    #message(paste("numerator",numerator))
+    #message(paste("denominator",denominator))
     alllogLs[i] <- numerator / denominator
   }
 
@@ -130,8 +130,8 @@ plot_averagesizes <- function(nmin, nmax, ninc) {
   for(i in 1:length(allns)) {
     n <- allns[i]
     size <- compute_averagesize(n)
-    print(paste("n",n))
-    print(paste("average size",size))
+    message(paste("n",n))
+    message(paste("average size",size))
     allsizes[i] <- size
   }
 

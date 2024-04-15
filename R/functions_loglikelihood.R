@@ -50,7 +50,7 @@ estimate_logL <- function(partition,
                           cpus = 1)
 {
 
-  if(parallel && cpus != M) print("Please set the number of cpus equal to the number of steps in the path-sampling algorithm.")
+  if(parallel && cpus != M) warning("Please set the number of cpus equal to the number of steps in the path-sampling algorithm.")
 
   num.nodes <- nrow(nodes)
   num.effects <- length(effects$names)
@@ -87,7 +87,7 @@ estimate_logL <- function(partition,
     }
   }else{
     for(m in 1:M){
-      print(paste("step",m))
+      message(paste("step",m))
       theta_m <- m/M * theta + (1-m)/M * theta_0
       draws_m <- draw_Metropolis_single(theta_m, first.partition, nodes, effects, objects, burnin, thining, num.steps,neighborhoods, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
       all_draws[[m]] <- draws_m

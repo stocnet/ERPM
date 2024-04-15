@@ -264,7 +264,7 @@ draw_Metropolis_multiple <- function(theta,
     cpt_burnin <- cpt_burnin + 1
     if(cpt_burnin > burnin) cpt_thining <- cpt_thining + 1
 
-    if(cpt_burnin %% 10000 == 0) print(cpt_burnin)
+    if(cpt_burnin %% 10000 == 0) message(cpt_burnin)
 
     # store the results if we are out of burnin
     if(cpt_burnin >= burnin && cpt_thining == thining) {
@@ -1979,7 +1979,7 @@ sample_new_partition_p3_restricted <- function(current.partition, size_neighborh
 # 
 #   # check if current partition is allowed
 #   if(!check_sizes(partition, sizes.simulated)) {
-#     print(partition)
+#     message(partition)
 #     #stop("The partition we are in is not allowed.")
 #   }
 # 
