@@ -13,7 +13,9 @@
 #' @return a data frame
 #' @importFrom stats qnorm
 #' @export
-print_results <- function(result){
+print.results.list.erpm <- function(result){
+  
+  result <- result$results
   
   num.effects <- length(result$effect)
   
@@ -31,7 +33,40 @@ print_results <- function(result){
   print( data.frame(effect, object, est, std.err, sig, t, conv) )
 }
 
-print_results_bayesian <- function(result){
+
+#' Print results of estimation of phase 3
+#'
+#'
+#' @param result output of the estimate function
+#' @return a data frame
+#' @importFrom stats qnorm
+#' @export
+print.results.p3.erpm <- function(result){
+  
+  num.effects <- length(result$effect)
+  
+  effect <- result$effect
+  object <- result$object
+  est <- result$est
+  std.err <- result$std.err
+  conv <- result$conv
+  t <- est / std.err
+  sig <- rep("", num.effects)
+  sig[abs(t) > qnorm(1 - 0.05/2)] <- "*"
+  sig[abs(t) > qnorm(1 - 0.01/2)] <- "**"
+  sig[abs(t) > qnorm(1 - 0.001/2)] <- "***"
+  
+  print( data.frame(effect, object, est, std.err, sig, t, conv) )
+}
+
+
+#' Print results of bayesian estimation (beta version)
+#' @export
+print.results.bayesian.erpm <- function(result){
+  
+  if(inherits(result, "results.bayesian.erpm")) {
+    result <- result$results
+  }
   
   num.effects <- length(result$effect)
   
@@ -43,6 +78,6 @@ print_results_bayesian <- function(result){
   cred.max <- post.mean + 1.95996*post.sd
   
   print( data.frame(effect, object, post.mean, post.sd, cred.min, cred.max) )
-
+  
   
 }

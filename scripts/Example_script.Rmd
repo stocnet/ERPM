@@ -207,7 +207,9 @@ estimation <- estimate_ERPM(partition,
                           multiplication.iter.p2 = 20,  # multiplication factor for the number of iteration in phase 2 subphases 
                           num.steps.p2 = 4, # number of phase 2 subphases
                           length.p3 = 1000) # number of samples in phase 3
-estimation$results
+
+# get results table
+estimation
 ```
 
 We get some intermediary objects calculated in the different phases
@@ -240,7 +242,9 @@ estimation <- estimate_ERPM(partition,
                           length.p3 = 2000,
                           inv.zcov = startingcovariance,
                           inv.scaling = startingscaling)
-estimation$results
+
+# get results table
+estimation
 ```
 
 Convergence improved!

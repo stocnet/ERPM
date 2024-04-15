@@ -223,7 +223,7 @@ estimate_ERPM_p3 <- function(partition,
                         std.err = standard.errors,
                         conv = convergence.ratios)
 
-  class(results) <- "results.erpm"
+  class(results) <- "results.p3.erpm"
   
   return(results)
 }
