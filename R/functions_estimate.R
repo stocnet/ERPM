@@ -426,10 +426,10 @@ estimate_multipleBERPM <- function(partitions, # observed partitions
   message(z.obs, "\n")
   
   message("Burn-in")
-  message(burnin, "\n")
+  message(burnin.1, "\n")
   
   message("Thining")
-  message(thining, "\n")
+  message(thining.1, "\n")
   
   # if the starts of the chains are not given
   if(is.null(start.chains)){
