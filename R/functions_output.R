@@ -9,13 +9,15 @@
 #' Print estimation results
 #'
 #'
-#' @param result output of the estimate function
+#' @param x output of the estimate function
+#' @param ... For internal use only.
+#'
 #' @return a data frame
 #' @importFrom stats qnorm
 #' @export
-print.results.list.erpm <- function(result){
+print.results.list.erpm <- function(x, ...){
   
-  result <- result$results
+  result <- x$results
   
   num.effects <- length(result$effect)
   
@@ -37,11 +39,15 @@ print.results.list.erpm <- function(result){
 #' Print results of estimation of phase 3
 #'
 #'
-#' @param result output of the estimate function
+#' @param x output of the estimate function
+#' @param ... For internal use only.
+#'
 #' @return a data frame
 #' @importFrom stats qnorm
 #' @export
-print.results.p3.erpm <- function(result){
+print.results.p3.erpm <- function(x, ...){
+  
+  result <- x
   
   num.effects <- length(result$effect)
   
@@ -61,12 +67,15 @@ print.results.p3.erpm <- function(result){
 
 
 #' Print results of bayesian estimation (beta version)
+#'
+#' @param x output of the bayesian estimate function
+#' @param ... For internal use only.
+#'
+#' @return a data frame
 #' @export
-print.results.bayesian.erpm <- function(result){
+print.results.bayesian.erpm <- function(x, ...){
   
-  if(inherits(result, "results.bayesian.erpm")) {
-    result <- result$results
-  }
+  result <- x$results
   
   num.effects <- length(result$effect)
   

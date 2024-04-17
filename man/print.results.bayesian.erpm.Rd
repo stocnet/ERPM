@@ -4,7 +4,15 @@
 \alias{print.results.bayesian.erpm}
 \title{Print results of bayesian estimation (beta version)}
 \usage{
-\method{print}{results.bayesian.erpm}(result)
+\method{print}{results.bayesian.erpm}(x, ...)
+}
+\arguments{
+\item{x}{output of the bayesian estimate function}
+
+\item{...}{For internal use only.}
+}
+\value{
+a data frame
 }
 \description{
 Print results of bayesian estimation (beta version)

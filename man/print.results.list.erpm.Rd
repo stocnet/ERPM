@@ -4,10 +4,12 @@
 \alias{print.results.list.erpm}
 \title{Print estimation results}
 \usage{
-\method{print}{results.list.erpm}(result)
+\method{print}{results.list.erpm}(x, ...)
 }
 \arguments{
-\item{result}{output of the estimate function}
+\item{x}{output of the estimate function}
+
+\item{...}{For internal use only.}
 }
 \value{
 a data frame

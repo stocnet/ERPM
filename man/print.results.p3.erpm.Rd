@@ -4,10 +4,12 @@
 \alias{print.results.p3.erpm}
 \title{Print results of estimation of phase 3}
 \usage{
-\method{print}{results.p3.erpm}(result)
+\method{print}{results.p3.erpm}(x, ...)
 }
 \arguments{
-\item{result}{output of the estimate function}
+\item{x}{output of the estimate function}
+
+\item{...}{For internal use only.}
 }
 \value{
 a data frame
