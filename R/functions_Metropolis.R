@@ -173,6 +173,7 @@ draw_Metropolis_single <- function(theta,
 #' @param sizes.allowed = NULL,  vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated = NULL, vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param return.all.partitions = FALSE, option to return the sampled partitions on top of their statistics (for GOF)
+#' @param verbose logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.
 #' @return A list
 #' @importFrom stats runif
 #' @export
@@ -190,7 +191,8 @@ draw_Metropolis_multiple <- function(theta,
                                      numgroups.simulated,
                                      sizes.allowed,
                                      sizes.simulated,
-                                     return.all.partitions = FALSE) 
+                                     return.all.partitions = FALSE,
+                                     verbose = FALSE) 
 {
 
   num.nodes <- nrow(nodes)
@@ -264,8 +266,8 @@ draw_Metropolis_multiple <- function(theta,
     cpt_burnin <- cpt_burnin + 1
     if(cpt_burnin > burnin) cpt_thining <- cpt_thining + 1
 
-    if(cpt_burnin %% 10000 == 0) print(cpt_burnin)
-
+    if(cpt_burnin %% 10000 == 0 && verbose) cat(cpt_burnin, "\n")
+    
     # store the results if we are out of burnin
     if(cpt_burnin >= burnin && cpt_thining == thining) {
       

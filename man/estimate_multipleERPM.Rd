@@ -34,7 +34,8 @@ estimate_multipleERPM(
   inv.scaling = NULL,
   parallel = FALSE,
   parallel2 = FALSE,
-  cpus = 1
+  cpus = 1,
+  verbose = FALSE
 )
 }
 \arguments{
@@ -97,6 +98,8 @@ estimate_multipleERPM(
 \item{parallel2}{whether there should be several phases 2 run in parallel}
 
 \item{cpus}{how many cores can be used}
+
+\item{verbose}{logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.}
 }
 \value{
 A list with the outputs of the three different phases of the algorithm

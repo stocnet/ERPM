@@ -22,7 +22,8 @@ estimate_logL(
   sizes.simulated = NULL,
   logL_0 = NULL,
   parallel = FALSE,
-  cpus = 1
+  cpus = 1,
+  verbose = FALSE
 )
 }
 \arguments{
@@ -61,6 +62,8 @@ estimate_logL(
 \item{parallel}{= FALSE, indicating whether the code should be run in parallel}
 
 \item{cpus}{= 1, number of cpus required for the parallelization}
+
+\item{verbose}{= FALSE, to print the current step the algorithm is in}
 }
 \value{
 List with the log likelihood , AIC, lambda and the draws

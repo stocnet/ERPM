@@ -25,6 +25,7 @@
 #' @param fixed.estimates if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
 #' @param parallel boolean to indicate whether the code should be run in parallel
 #' @param cpus number of cpus if parallel = TRUE
+#' @param verbose logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.
 #' @return a list
 #' @importFrom stats cor
 #' @importFrom snowfall sfExport sfLapply
@@ -46,7 +47,8 @@ run_phase3_single <- function(partition,
                        sizes.simulated,
                        fixed.estimates,
                        parallel = FALSE,
-                       cpus = 1) {
+                       cpus = 1,
+                       verbose = FALSE) {
   
   num.nodes <- nrow(nodes)
   num.effects <- length(effects$names)
@@ -80,19 +82,23 @@ run_phase3_single <- function(partition,
   for(e in 1:num.effects){
     autocors[e] <- cor(results.phase3$draws[1:(length.p3-1),e],results.phase3$draws[2:length.p3,e])
   }
-  print("Autocorrelations in phase 3:")
-  print(autocors)
+  if (verbose) {
+    cat("Autocorrelations in phase 3:\n")
+    cat(autocors, "\n\n")
+  }
 
   
   # hack for size constraints
   if(!is.null(sizes.allowed)){
     length.p3 <- nrow(z.phase3)
-    print("new length of phase 3")
-    print(length.p3)
+    if (verbose) {
+      cat("new length of phase 3\n")
+      cat(length.p3, "\n\n")
+    }
   }
   
   # calculations of phase 3: mean, sd, se, conv ratios
-  res.phase3 <- phase3(estimates.phase2, z.phase3, z.obs, nodes, effects, length.p3, fixed.estimates)
+  res.phase3 <- phase3(estimates.phase2, z.phase3, z.obs, nodes, effects, length.p3, fixed.estimates, verbose)
   
   return(list("means" = res.phase3$finalmean, 
               "standard.deviations" = res.phase3$finalsd, 
@@ -126,6 +132,7 @@ run_phase3_single <- function(partition,
 #' @param fixed.estimates if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
 #' @param parallel boolean to indicate whether the code should be run in parallel
 #' @param cpus number of cpus if parallel = TRUE
+#' @param verbose logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.
 #' @return a list
 #' @importFrom stats cor
 #' @importFrom snowfall sfExport sfLapply
@@ -148,7 +155,8 @@ run_phase3_multiple <- function(partitions,
                               sizes.simulated,
                               fixed.estimates,
                               parallel = FALSE,
-                              cpus = 1) {
+                              cpus = 1,
+                              verbose = FALSE) {
   
   num.nodes <- nrow(nodes)
   num.effects <- length(effects$names)
@@ -187,18 +195,22 @@ run_phase3_multiple <- function(partitions,
   for(e in 1:num.effects){
     autocors[e] <- cor(results.phase3$draws[1:(length.p3-1),e],results.phase3$draws[2:length.p3,e])
   }
-  print("Autocorrelations in phase 3:")
-  print(autocors)
+  if (verbose) {
+    cat("Autocorrelations in phase 3:\n")
+    cat(autocors, "\n\n")
+  }
   
   # hack for size constraints
   if(!is.null(sizes.allowed)){
     length.p3 <- nrow(z.phase3)
-    print("new length of phase 3")
-    print(length.p3)
+    if (verbose) {
+      cat("new length of phase 3\n")
+      cat(length.p3, "\n\n")
+    }
   }
   
   # calculations of phase 3: mean, sd, se, conv ratios
-  res.phase3 <- phase3(estimates.phase2, z.phase3, z.obs, nodes, effects, length.p3, fixed.estimates)
+  res.phase3 <- phase3(estimates.phase2, z.phase3, z.obs, nodes, effects, length.p3, fixed.estimates, verbose)
   
   return(list("draws" = z.phase3, 
               "means" = res.phase3$finalmean, 
@@ -221,7 +233,8 @@ phase3 <- function(estimates.phase2,
                    nodes,
                    effects,
                    length.p3,
-                   fixed.estimates){
+                   fixed.estimates,
+                   verbose = FALSE){
   
   num.nodes <- nrow(nodes)
   num.effects <- length(effects$names)
@@ -261,10 +274,12 @@ phase3 <- function(estimates.phase2,
   # convergence ratios
   finalconvratios <- (finalmean - z.obs) / finalsd
   
-  print("Estimated statistics after phase 3")
-  print(finalmean)
-  print("Estimates after phase 3")
-  print(estimates.phase2)
+  if (verbose) {
+    cat("Estimated statistics after phase 3\n")
+    cat(finalmean, "\n\n")
+    cat("Estimates after phase 3\n")
+    cat(estimates.phase2, "\n\n")
+  }
   
   return(list("finalmean" = finalmean,
               "finalsd" = finalsd,

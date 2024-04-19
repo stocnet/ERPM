@@ -1,4 +1,4 @@
-######################################################################
+#' ######################################################################
 ## Simulation and estimation of Exponential Random Partition Models ##
 ## Main function of the estimation algorithm                        ##
 ## Author: Marion Hoffman                                           ##
@@ -42,6 +42,7 @@
 #' @param parallel whether the phase 1 and 3 should be parallelized
 #' @param parallel2 whether there should be several phases 2 run in parallel
 #' @param cpus how many cores can be used
+#' @param verbose logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.
 #' @return A list with the outputs of the three different phases of the algorithm
 #' @export
 estimate_ERPM <- function(partition, 
@@ -72,7 +73,8 @@ estimate_ERPM <- function(partition,
                           inv.scaling = NULL,
                           parallel = FALSE, 
                           parallel2 = FALSE, 
-                          cpus = 1) { 
+                          cpus = 1,
+                          verbose = FALSE) { 
 
   # calculate observed statistics
   z.obs <- computeStatistics(partition, nodes, effects, objects)
@@ -93,21 +95,23 @@ estimate_ERPM <- function(partition,
     }
   }
 
-  message("Observed statistics")
-  message(z.obs, "\n")
-
-  message("Burn-in")
-  message(burnin, "\n")
-
-  message("Thining")
-  message(thining, "\n")
-
+  if (verbose) {
+    cat("Observed statistics\n")
+    cat(z.obs, "\n\n")
+    
+    cat("Burn-in\n")
+    cat(burnin, "\n\n")
+    
+    cat("Thining\n")
+    cat(thining, "\n\n")
+  }
+  
   # --------- PHASE 1 ---------
   if(!is.null(inv.zcov)) {
     estimates.phase1 <- startingestimates
     autocorrelations.phase1 <- NULL
   } else {
-    results.phase1 <- run_phase1_single(partition, startingestimates, z.obs, nodes, effects, objects, burnin, thining, gainfactor, a.scaling, r.truncation.p1, length.p1, neighborhood, fixed.estimates, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, parallel, cpus)
+    results.phase1 <- run_phase1_single(partition, startingestimates, z.obs, nodes, effects, objects, burnin, thining, gainfactor, a.scaling, r.truncation.p1, length.p1, neighborhood, fixed.estimates, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, parallel, cpus, verbose)
     estimates.phase1 <- results.phase1$estimates
     inv.zcov <- results.phase1$inv.zcov
     inv.scaling <- results.phase1$inv.scaling
@@ -115,11 +119,11 @@ estimate_ERPM <- function(partition,
   }
 
   # --------- PHASE 2 ---------
-  results.phase2 <- run_phase2_single(partition, estimates.phase1, inv.zcov,inv.scaling, z.obs, nodes, effects, objects, burnin, thining, num.steps.p2, gainfactors, r.truncation.p2, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, numgroups.allowed, numgroups.simulated,sizes.allowed, sizes.simulated, double.averaging, parallel2, cpus)
+  results.phase2 <- run_phase2_single(partition, estimates.phase1, inv.zcov,inv.scaling, z.obs, nodes, effects, objects, burnin, thining, num.steps.p2, gainfactors, r.truncation.p2, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, numgroups.allowed, numgroups.simulated,sizes.allowed, sizes.simulated, double.averaging, parallel2, cpus, verbose)
   estimates.phase2 <- results.phase2$final.estimates
 
   # --------- PHASE 3 ---------
-  results.phase3 <- run_phase3_single(partition, estimates.phase2, z.obs, nodes, effects, objects, burnin, thining, a.scaling, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, fixed.estimates, parallel, cpus)
+  results.phase3 <- run_phase3_single(partition, estimates.phase2, z.obs, nodes, effects, objects, burnin, thining, a.scaling, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, fixed.estimates, parallel, cpus, verbose)
   means <- results.phase3$means
   standard.deviations <- results.phase3$standard.deviations
   standard.errors <- results.phase3$standard.errors
@@ -156,78 +160,77 @@ estimate_ERPM <- function(partition,
 
 
 
-# JUST PHASE 3 - FOR NOW DEPRECATED
+# # JUST PHASE 3 - FOR NOW DEPRECATED
+# 
+# #' Estimate ERPM phase 3
+# #'
+# #' Function to run only the phase 3 of the estimation algorithm, for a given model, a given observed partition, and estimates (from phase 2).
+# #' All options of the algorithm can be specified here.
+# #'
+# #' @param partition observed partition
+# #' @param nodes nodeset (data frame)
+# #' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
+# #' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
+# #' @param startingestimates first guess for the model parameters
+# #' @param burnin integer for the number of burn-in steps before sampling
+# #' @param thining integer for the number of thining steps between sampling
+# #' @param length.p3 number of samples in phase 3
+# #' @param neighborhood way of choosing partitions: probability vector (actors swap, merge/division, single actor move)
+# #' @param fixed.estimates if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
+# #' @param numgroups.allowed vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
+# #' @param numgroups.simulated vector containing the number of groups simulated
+# #' @param sizes.allowed vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
+# #' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+# #' @return A list with the outputs of the phase 3 of the algorithm
+# #' @export
+# estimate_ERPM_p3 <- function(partition,
+#                           nodes,
+#                           objects,
+#                           effects,
+#                           startingestimates,
+#                           burnin = 30,
+#                           thining = 10,
+#                           length.p3 = 1000,
+#                           neighborhood = c(0.7,0.3,0),
+#                           fixed.estimates = NULL,
+#                           numgroups.allowed = NULL,
+#                           numgroups.simulated = NULL,
+#                           sizes.allowed = NULL,
+#                           sizes.simulated = NULL) {
+#                           
+#   z.obs <- computeStatistics(partition, nodes, effects, objects)
+#   
+#   # replace the starting estimates with a fixed value
+#   num.effects <- length(effects$names)
+#   if(!is.null(fixed.estimates)) {
+#     for(e in 1:num.effects){
+#       if(!is.null(fixed.estimates[[e]])){
+#         startingestimates[e] <- fixed.estimates[[e]]
+#       }
+#     }
+#   }
+#   
+#   
+#   # --------- PHASE 3 ---------
+#   results.phase3 <- run_phase3_single(partition, startingestimates, z.obs, nodes, effects, objects, burnin, thining, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
+#   means <- results.phase3$means
+#   standard.deviations <- results.phase3$standard.deviations
+#   standard.errors <- results.phase3$standard.errors
+#   convergence.ratios <- results.phase3$convergence.ratios
+#   
+#   
+#   # ------ EXTRACT RESULTS ------
+#   results <- data.frame(effect = effects$names,
+#                         object = effects$objects,
+#                         est = as.vector(startingestimates),
+#                         std.err = standard.errors,
+#                         conv = convergence.ratios)
+#                         
+#   class(results) <- "results.p3.erpm"
+#   
+#   return(results)
+# }
 
-#' 
-#' #' Estimate ERPM phase 3
-#' #'
-#' #' Function to run only the phase 3 of the estimation algorithm, for a given model, a given observed partition, and estimates (from phase 2).
-#' #' All options of the algorithm can be specified here.
-#' #'
-#' #' @param partition observed partition
-#' #' @param nodes nodeset (data frame)
-#' #' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
-#' #' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
-#' #' @param startingestimates first guess for the model parameters
-#' #' @param burnin integer for the number of burn-in steps before sampling
-#' #' @param thining integer for the number of thining steps between sampling
-#' #' @param length.p3 number of samples in phase 3
-#' #' @param neighborhood way of choosing partitions: probability vector (actors swap, merge/division, single actor move)
-#' #' @param fixed.estimates if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
-#' #' @param numgroups.allowed vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
-#' #' @param numgroups.simulated vector containing the number of groups simulated
-#' #' @param sizes.allowed vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
-#' #' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-#' #' @return A list with the outputs of the phase 3 of the algorithm
-#' #' @export
-#' estimate_ERPM_p3 <- function(partition,
-#'                           nodes,
-#'                           objects,
-#'                           effects,
-#'                           startingestimates,
-#'                           burnin = 30,
-#'                           thining = 10,
-#'                           length.p3 = 1000,
-#'                           neighborhood = c(0.7,0.3,0),
-#'                           fixed.estimates = NULL,
-#'                           numgroups.allowed = NULL,
-#'                           numgroups.simulated = NULL,
-#'                           sizes.allowed = NULL,
-#'                           sizes.simulated = NULL) {
-#' 
-#'   z.obs <- computeStatistics(partition, nodes, effects, objects)
-#' 
-#'   # replace the starting estimates with a fixed value
-#'   num.effects <- length(effects$names)
-#'   if(!is.null(fixed.estimates)) {
-#'     for(e in 1:num.effects){
-#'       if(!is.null(fixed.estimates[[e]])){
-#'         startingestimates[e] <- fixed.estimates[[e]]
-#'       }
-#'     }
-#'   }
-#' 
-#' 
-#'   # --------- PHASE 3 ---------
-#'   results.phase3 <- run_phase3_single(partition, startingestimates, z.obs, nodes, effects, objects, burnin, thining, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
-#'   means <- results.phase3$means
-#'   standard.deviations <- results.phase3$standard.deviations
-#'   standard.errors <- results.phase3$standard.errors
-#'   convergence.ratios <- results.phase3$convergence.ratios
-#' 
-#' 
-#'   # ------ EXTRACT RESULTS ------
-#'   results <- data.frame(effect = effects$names,
-#'                         object = effects$objects,
-#'                         est = as.vector(startingestimates),
-#'                         std.err = standard.errors,
-#'                         conv = convergence.ratios)
-#' 
-#'   class(results) <- "results.p3.erpm"
-#'   
-#'   return(results)
-#' }
-#' 
 
 
 
@@ -269,6 +272,7 @@ estimate_ERPM <- function(partition,
 #' @param parallel whether the phase 1 and 3 should be parallelized
 #' @param parallel2 whether there should be several phases 2 run in parallel
 #' @param cpus how many cores can be used
+#' @param verbose logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.
 #' @return A list with the outputs of the three different phases of the algorithm
 #' @export
 estimate_multipleERPM <- function(partitions, 
@@ -300,7 +304,8 @@ estimate_multipleERPM <- function(partitions,
                                   inv.scaling = NULL, 
                                   parallel = FALSE, 
                                   parallel2 = FALSE, 
-                                  cpus = 1) { 
+                                  cpus = 1,
+                                  verbose = FALSE) { 
 
   # calculate observed statistics
   z.obs <- rowSums( computeStatistics_multiple(partitions, presence.tables, nodes, effects, objects) )
@@ -321,21 +326,23 @@ estimate_multipleERPM <- function(partitions,
     }
   }
 
-  message("Observed statistics")
-  message(z.obs, "\n")
-  
-  message("Burn-in")
-  message(burnin, "\n")
-  
-  message("Thining")
-  message(thining, "\n")
+  if (verbose) {
+    cat("Observed statistics\n")
+    cat(z.obs, "\n\n")
+    
+    cat("Burn-in\n")
+    cat(burnin, "\n\n")
+    
+    cat("Thining\n")
+    cat(thining, "\n\n")
+  }
   
   # --------- PHASE 1 ---------
   if(!is.null(inv.zcov)) {
     estimates.phase1 <- startingestimates
     autocorrelations.phase1 <- NULL
   } else {
-    results.phase1 <- run_phase1_multiple(partitions, startingestimates, z.obs, presence.tables, nodes, effects, objects, burnin, thining, gainfactor, a.scaling, r.truncation.p1, length.p1, neighborhood, fixed.estimates, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, parallel, cpus)
+    results.phase1 <- run_phase1_multiple(partitions, startingestimates, z.obs, presence.tables, nodes, effects, objects, burnin, thining, gainfactor, a.scaling, r.truncation.p1, length.p1, neighborhood, fixed.estimates, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, parallel, cpus, verbose)
     estimates.phase1 <- results.phase1$estimates
     inv.zcov <- results.phase1$inv.zcov
     inv.scaling <- results.phase1$inv.scaling
@@ -343,12 +350,12 @@ estimate_multipleERPM <- function(partitions,
   }
 
   # --------- PHASE 2 ---------
-  results.phase2 <- run_phase2_multiple(partitions, estimates.phase1, inv.zcov,inv.scaling, z.obs, presence.tables, nodes, effects, objects, burnin, thining, num.steps.p2, gainfactors, r.truncation.p2, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, double.averaging, parallel2, cpus)
+  results.phase2 <- run_phase2_multiple(partitions, estimates.phase1, inv.zcov,inv.scaling, z.obs, presence.tables, nodes, effects, objects, burnin, thining, num.steps.p2, gainfactors, r.truncation.p2, min.iter.p2, max.iter.p2, multiplication.iter.p2, neighborhood, fixed.estimates, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, double.averaging, parallel2, cpus, verbose)
   estimates.phase2 <- results.phase2$final.estimates
 
 
   # --------- PHASE 3 ---------
-  results.phase3 <- run_phase3_multiple(partitions, estimates.phase2, z.obs, presence.tables, nodes, effects, objects, burnin, thining, a.scaling, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, fixed.estimates, parallel, cpus)
+  results.phase3 <- run_phase3_multiple(partitions, estimates.phase2, z.obs, presence.tables, nodes, effects, objects, burnin, thining, a.scaling, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, fixed.estimates, parallel, cpus, verbose)
   draws <- results.phase3$draws
   means <- results.phase3$means
   standard.deviations <- results.phase3$standard.deviations
@@ -417,19 +424,22 @@ estimate_multipleBERPM <- function(partitions, # observed partitions
                                   sizes.simulated = NULL, # vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 
                                   parallel = FALSE, # whether the chains are parallelized (possibly within chains too)
-                                  cpus = 1) { # how many cores can be used
+                                  cpus = 1, # how many cores can be used
+                                  verbose = FALSE) {
 
   num.effects <- length(effects$names)
   z.obs <- rowSums( computeStatistics_multiple(partitions, presence.tables, nodes, effects, objects) )
 
-  message("Observed statistics")
-  message(z.obs, "\n")
-  
-  message("Burn-in")
-  message(burnin.1, "\n")
-  
-  message("Thining")
-  message(thining.1, "\n")
+  if (verbose) {
+    cat("Observed statistics\n")
+    cat(z.obs, "\n\n")
+    
+    cat("Burn-in\n")
+    cat(burnin.1, "\n\n")
+    
+    cat("Thining\n")
+    cat(thining.1, "\n\n")
+  }
   
   # if the starts of the chains are not given
   if(is.null(start.chains)){

@@ -24,7 +24,8 @@ run_phase1_single(
   sizes.allowed,
   sizes.simulated,
   parallel = TRUE,
-  cpus = 1
+  cpus = 1,
+  verbose = FALSE
 )
 }
 \arguments{
@@ -62,11 +63,13 @@ run_phase1_single(
 
 \item{sizes.allowed}{vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)}
 
-\item{sizes.simulated}{vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)}
+\item{sizes.simulated}{vector of group sizes allowed in the Markov chain but not necessarily sampled (now, it only works for vectors like size_min:size_max)}
 
 \item{parallel}{boolean to indicate whether the code should be run in parallel}
 
 \item{cpus}{number of cpus if parallel = TRUE}
+
+\item{verbose}{logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.}
 }
 \value{
 a list

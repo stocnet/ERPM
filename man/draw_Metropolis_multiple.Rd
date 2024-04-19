@@ -19,7 +19,8 @@ draw_Metropolis_multiple(
   numgroups.simulated,
   sizes.allowed,
   sizes.simulated,
-  return.all.partitions = FALSE
+  return.all.partitions = FALSE,
+  verbose = FALSE
 )
 }
 \arguments{
@@ -52,6 +53,8 @@ draw_Metropolis_multiple(
 \item{sizes.simulated}{= NULL, vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)}
 
 \item{return.all.partitions}{= FALSE, option to return the sampled partitions on top of their statistics (for GOF)}
+
+\item{verbose}{logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.}
 }
 \value{
 A list
