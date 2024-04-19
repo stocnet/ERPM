@@ -119,7 +119,6 @@ run_phase2_single <- function(partition,
           
           sfExport("cpus", "theta.i", "partition.i", "nodes", "effects", "objects", "burnin", "neighborhood", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated")
           res <- sfLapply(1:cpus, fun = function(k) {
-            set.seed(k)
             subres <- draw_Metropolis_single(theta.i, partition.i, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
             return(subres)
           }
@@ -394,7 +393,6 @@ run_phase2_multiple <- function(partitions,
           
           sfExport("cpus", "theta.i", "partitions.i", "presence.tables", "nodes", "effects", "objects", "burnin", "neighborhood", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated")
           res <- sfLapply(1:cpus, fun = function(k) {
-            set.seed(k)
             subres <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
             return(subres)
           }

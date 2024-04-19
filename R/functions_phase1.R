@@ -65,7 +65,6 @@ run_phase1_single <- function(partition,
     
     sfExport("startingestimates", "first.partition", "nodes", "effects", "objects", "burnin", "thining", "length.p1", "cpus", "neighborhood", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated")
     res <- sfLapply(1:cpus, fun = function(k) {
-      set.seed(k)
       subres <- draw_Metropolis_single(startingestimates, first.partition, nodes, effects, objects, burnin, thining, ceiling(length.p1/cpus), neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
       return(subres)
     }
@@ -186,7 +185,6 @@ run_phase1_multiple <- function(partitions,
     
     sfExport("startingestimates", "first.partitions", "presence.tables", "nodes", "effects", "objects", "burnin", "thining", "length.p1", "cpus", "neighborhood", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated")
     res <- sfLapply(1:cpus, fun = function(k) {
-      set.seed(k)
       subres <- draw_Metropolis_multiple(startingestimates, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, ceiling(length.p1/cpus), neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
       return(subres)
     }
@@ -248,18 +246,18 @@ run_phase1_multiple <- function(partitions,
 #' Core function for Phase 1
 #'
 #'
-#' @param startingestimates XXX
-#' @param inv.zcov XXX
-#' @param inv.scaling XXX
-#' @param z.phase1 XXX
-#' @param z.obs XXX
+#' @param startingestimates vector containing initial parameter values
+#' @param inv.zcov inverted covariance matrix
+#' @param inv.scaling scaling matrix
+#' @param z.phase1 statistics retrieved from phase 1
+#' @param z.obs observed statistics
 #' @param nodes node set (data frame)
 #' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
 #' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
-#' @param r.truncation.p1 XXX
-#' @param length.p1 XXX
-#' @param fixed.estimates XXX
-#' @return XXX
+#' @param r.truncation.p1 numeric used to limit extreme values in the covariance matrix (for stability)
+#' @param length.p1 number of samples in phase 1
+#' @param fixed.estimates if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
+#' @return estimated parameters after phase 1
 #' @export
 phase1 <- function(startingestimates,
                    inv.zcov,
