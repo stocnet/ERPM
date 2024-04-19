@@ -46,7 +46,6 @@ draw_exchangealgorithm_multiple <- function(partitions,
     
     sfExport("partitions", "z.obs","presence.tables","nodes", "objects","effects", "mean.priors","sd.priors", "start.chains","burnin.1","thining.1","length.chains","burnin.2", "neighborhood.partition","neighborhood.augmentation","numgroups.allowed", "numgroups.simulated","sizes.allowed","sizes.simulated","chains_per_cpu")
     all.chains <- sfLapply(1:cpus, fun = function(k) {
-      set.seed(k)
       c <- chains_per_cpu[k]
       chain <- exchangealgorithm_multiple(partitions, 
                                           z.obs,
@@ -75,7 +74,6 @@ draw_exchangealgorithm_multiple <- function(partitions,
    
     all.chains <- list()
     for(c in 1:num.chains){
-      set.seed(c)
       all.chains[[c]] <- exchangealgorithm_multiple(partitions, 
                                                     z.obs,
                                                     presence.tables, 
