@@ -404,7 +404,6 @@ draw_step_multiple <- function(theta,
                                objects,
                                neighborhood,
                                numgroups.simulated,
-                               sizes.allowed,
                                sizes.simulated){
 
   num.nodes <- nrow(nodes)
