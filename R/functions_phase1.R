@@ -25,9 +25,10 @@
 #' @param numgroups.allowed vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
 #' @param numgroups.simulated vector containing the number of groups simulated
 #' @param sizes.allowed vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
-#' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+#' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessarily sampled (now, it only works for vectors like size_min:size_max)
 #' @param parallel boolean to indicate whether the code should be run in parallel
 #' @param cpus number of cpus if parallel = TRUE
+#' @param verbose logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.
 #' @return a list
 #' @importFrom stats cor
 #' @importFrom snowfall sfExport sfLapply
@@ -51,7 +52,8 @@ run_phase1_single <- function(partition,
                        sizes.allowed,
                        sizes.simulated,
                        parallel = TRUE,
-                       cpus = 1) {
+                       cpus = 1,
+                       verbose = FALSE) {
   
   num.nodes <- nrow(nodes)
   num.effects <- length(effects$names)
@@ -85,8 +87,10 @@ run_phase1_single <- function(partition,
   for(e in 1:num.effects){
     autocors[e] <- cor(results.phase1$draws[1:(length.p1-1),e],results.phase1$draws[2:length.p1,e])
   }
-  print("Autocorrelations in phase 1:")
-  print(autocors)
+  if (verbose){
+    cat("Autocorrelations in phase 1:\n")
+    cat(autocors, "\n\n")
+  }
   
   # calculate the covariance and scaling matrices
   inverted_matrices <- calculate_inverted_covariance_and_scaling(startingestimates, 
@@ -143,9 +147,10 @@ run_phase1_single <- function(partition,
 #' @param numgroups.allowed vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
 #' @param numgroups.simulated vector containing the number of groups simulated
 #' @param sizes.allowed vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
-#' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+#' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessarily sampled (now, it only works for vectors like size_min:size_max)
 #' @param parallel boolean to indicate whether the code should be run in parallel
 #' @param cpus number of cpus if parallel = TRUE
+#' @param verbose logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.
 #' @return a list
 #' @importFrom stats cor
 #' @importFrom snowfall sfExport sfLapply
@@ -170,7 +175,8 @@ run_phase1_multiple <- function(partitions,
                               sizes.allowed,
                               sizes.simulated,
                               parallel = FALSE,
-                              cpus = 1) {
+                              cpus = 1,
+                              verbose = FALSE) {
   
   num.nodes <- nrow(nodes)
   num.effects <- length(effects$names)
@@ -206,8 +212,10 @@ run_phase1_multiple <- function(partitions,
   for(e in 1:num.effects){
     autocors[e] <- cor(results.phase1$draws[1:(length.p1-1),e],results.phase1$draws[2:length.p1,e])
   }
-  print("Autocorrelations in phase 1:")
-  print(autocors)
+  if (verbose) {
+    cat("Autocorrelations in phase 1:\n")
+    cat(autocors, "\n\n")
+  }
   
   # calculate the covariance and scaling matrices
   inverted_matrices <- calculate_inverted_covariance_and_scaling(startingestimates,
@@ -257,6 +265,7 @@ run_phase1_multiple <- function(partitions,
 #' @param r.truncation.p1 numeric used to limit extreme values in the covariance matrix (for stability)
 #' @param length.p1 number of samples in phase 1
 #' @param fixed.estimates if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
+#' @param verbose logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.
 #' @return estimated parameters after phase 1
 #' @export
 phase1 <- function(startingestimates,
@@ -269,7 +278,8 @@ phase1 <- function(startingestimates,
                    objects, 
                    r.truncation.p1,
                    length.p1, 
-                   fixed.estimates) {
+                   fixed.estimates,
+                   verbose = FALSE) {
   
   num.nodes <- nrow(nodes)
   num.effects <- length(effects$names)
@@ -337,14 +347,16 @@ phase1 <- function(startingestimates,
     estimates.phase1[unfixed.indexes] <- estimates.phase1[unfixed.indexes] - r*inv.scaling%*%(z.mean - z.obs[unfixed.indexes])
     
   }
-  print("Covariance matrix")
-  print(solve(inv.zcov))
-  print("Invert scaling matrix")
-  print(inv.scaling)
-  print("Estimated statistics after phase 1")
-  print(z.mean)
-  print("Estimates after phase 1")
-  print(estimates.phase1)
+  if (verbose) {
+    cat("Covariance matrix\n")
+    cat(solve(inv.zcov), "\n\n")
+    cat("Invert scaling matrix\n")
+    cat(inv.scaling, "\n\n")
+    cat("Estimated statistics after phase 1\n")
+    cat(z.mean, "\n\n")
+    cat("Estimates after phase 1\n")
+    cat(estimates.phase1, "\n\n")
+  }
   
   return(estimates.phase1)
   

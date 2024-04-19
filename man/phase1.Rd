@@ -15,19 +15,20 @@ phase1(
   objects,
   r.truncation.p1,
   length.p1,
-  fixed.estimates
+  fixed.estimates,
+  verbose = FALSE
 )
 }
 \arguments{
-\item{startingestimates}{XXX}
+\item{startingestimates}{vector containing initial parameter values}
 
-\item{inv.zcov}{XXX}
+\item{inv.zcov}{inverted covariance matrix}
 
-\item{inv.scaling}{XXX}
+\item{inv.scaling}{scaling matrix}
 
-\item{z.phase1}{XXX}
+\item{z.phase1}{statistics retrieved from phase 1}
 
-\item{z.obs}{XXX}
+\item{z.obs}{observed statistics}
 
 \item{nodes}{node set (data frame)}
 
@@ -35,14 +36,16 @@ phase1(
 
 \item{objects}{objects used for statistics calculation (list with a vector "name", and a vector "object")}
 
-\item{r.truncation.p1}{XXX}
+\item{r.truncation.p1}{numeric used to limit extreme values in the covariance matrix (for stability)}
 
-\item{length.p1}{XXX}
+\item{length.p1}{number of samples in phase 1}
 
-\item{fixed.estimates}{XXX}
+\item{fixed.estimates}{if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated}
+
+\item{verbose}{logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.}
 }
 \value{
-XXX
+estimated parameters after phase 1
 }
 \description{
 Core function for Phase 1

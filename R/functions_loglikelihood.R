@@ -49,7 +49,7 @@ estimate_logL <- function(partition,
                           logL_0 = NULL, 
                           parallel = FALSE, 
                           cpus = 1,
-                          verbose = F)
+                          verbose = FALSE)
 {
 
   if(parallel && cpus != M) warning("Please set the number of cpus equal to the number of steps in the path-sampling algorithm.")
@@ -89,7 +89,7 @@ estimate_logL <- function(partition,
     }
   }else{
     for(m in 1:M){
-      if(verbose) print(paste("step",m))
+      if(verbose) cat(paste("step",m), "\n")
       theta_m <- m/M * theta + (1-m)/M * theta_0
       draws_m <- draw_Metropolis_single(theta_m, first.partition, nodes, effects, objects, burnin, thining, num.steps,neighborhoods, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
       all_draws[[m]] <- draws_m

@@ -33,6 +33,7 @@
 #' @param double.averaging boolean to indicate whether we follow the double-averaging procedure (often leads to better convergence)
 #' @param parallel boolean to indicate whether the code should be run in parallel
 #' @param cpus number of cpus if parallel = TRUE
+#' @param verbose logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.
 #' @return a list
 #' @importFrom snowfall sfExport sfLapply
 #' @export
@@ -60,7 +61,8 @@ run_phase2_single <- function(partition,
                        sizes.simulated,
                        double.averaging,
                        parallel = FALSE,
-                       cpus = 1) {
+                       cpus = 1,
+                       verbose = FALSE) {
 
   num.effects <- length(effects$names)
   num.nodes <- nrow(nodes)
@@ -254,16 +256,19 @@ run_phase2_single <- function(partition,
       estimates[unfixed.indexes] <- mean.theta
       lengths.subphases[step] <- i-1
 
-      print(cat("Step",step))
-      print(cat("Length of the step",(i-1),"(minimal value:",min.iter[step],"and maximal value:",max.iter[step],")"))
-      print(cat("Current estimate",estimates))
-
+      if (verbose) {
+        cat(cat("Step",step), "\n")
+        cat(cat("Length of the step",(i-1),"(minimal value:",min.iter[step],"and maximal value:",max.iter[step],")"), "\n")
+        cat(cat("Current estimate",estimates), "\n\n")
+      }
     }
 
-    print(cat("Difference to estimated statistics after phase 2, step",step))
-    print(colMeans(allz) - z.obs)
-    print(cat("Estimates after phase 2, step",step))
-    print(estimates)
+    if (verbose) {
+      cat(cat("Difference to estimated statistics after phase 2, step",step), "\n")
+      cat(colMeans(allz) - z.obs, "\n\n")
+      cat(cat("Estimates after phase 2, step",step), "\n")
+      cat(estimates, "\n\n")
+    }
   }
 
   return(list(all.estimates = all.estimates,
@@ -302,6 +307,7 @@ run_phase2_single <- function(partition,
 #' @param double.averaging boolean to indicate whether we follow the double-averaging procedure (often leads to better convergence)
 #' @param parallel boolean to indicate whether the code should be run in parallel
 #' @param cpus number of cpus if parallel = TRUE
+#' @param verbose logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.
 #' @return a list
 #' @importFrom snowfall sfExport sfLapply
 #' @export
@@ -330,7 +336,8 @@ run_phase2_multiple <- function(partitions,
                               sizes.simulated,
                               double.averaging,
                               parallel = FALSE,
-                              cpus = 1) {
+                              cpus = 1,
+                              verbose = FALSE) {
 
   num.effects <- length(effects$names)
   num.nodes <- nrow(nodes)
@@ -385,7 +392,6 @@ run_phase2_multiple <- function(partitions,
       # SUB STEP: until generated statistics cross the observed ones
       while(!stop.iterations) {
 
-        print(theta.i)
         all.estimates <- rbind(all.estimates,matrix(theta.i,nrow=1))
 
         # draw one element from the chain
@@ -531,12 +537,14 @@ run_phase2_multiple <- function(partitions,
 
     }
 
-    print(cat("Length of the step",step))
-    print(cat((i-1),"(minimal value:",min.iter[step],"and maximal value:",max.iter[step],")"))
-    print(cat("Estimated statistics after phase 2, step",step))
-    print(colMeans(allz) - z.obs)
-    print(cat("Estimates after phase 2, step",step))
-    print(estimates)
+    if (verbose) {
+      cat(cat("Length of step",step), "\n")
+      cat(cat((i-1),"(minimal value:",min.iter[step],"and maximal value:",max.iter[step],")"), "\n\n")
+      cat(cat("Estimated statistics after phase 2, step",step), "\n")
+      cat(colMeans(allz) - z.obs, "\n\n")
+      cat(cat("Estimates after phase 2, step",step), "\n")
+      cat(estimates, "\n\n")
+    }
   }
 
   return(list(all.estimates = all.estimates,

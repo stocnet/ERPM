@@ -23,7 +23,8 @@ run_phase3_multiple(
   sizes.simulated,
   fixed.estimates,
   parallel = FALSE,
-  cpus = 1
+  cpus = 1,
+  verbose = FALSE
 )
 }
 \arguments{
@@ -64,6 +65,8 @@ run_phase3_multiple(
 \item{parallel}{boolean to indicate whether the code should be run in parallel}
 
 \item{cpus}{number of cpus if parallel = TRUE}
+
+\item{verbose}{logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.}
 }
 \value{
 a list
