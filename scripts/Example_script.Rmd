@@ -12,9 +12,13 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+In this example script, we use the Exponential Random Partition Model to simulate cross-sectional partitions and estimate the model for one observation (here, synthetic data). More information can be found in the manual of this package present on the github repository stocnet/erpm or by looking up the documentation of specific functions. 
+
+This script can be used as a starting point for anyone wishing to use the model on cross-sectional observations of partitions, like teams, interaction groups, political parties, animal herds, ... 
+
 ## 0. Load dependencies
 
-The following packages and scripts are required to fully run this example script. The details of the main functions can be found in the code itself, where comments help finding out what functions do and what arguments are for.
+The following packages and scripts are required to fully run this example script. 
 
 ```{r loads, message=FALSE, warning=FALSE, results='hide'}
 library(ERPM)
@@ -153,11 +157,11 @@ sample <- draw_Metropolis_single(theta = parameters,
 
 ### 2.3 Trace plots
 
-We can check the mixing of the chain with autocorrelations (here it's not good enough yet):
+We can check the mixing of the chain with autocorrelations (they should be below 0.4). For example, for the first statistic:
 
 ```{r}
 s <- 1
-cor(sample$draws[1:(nsteps-1),s], sample$draws[2:nsteps,s]) # should be below 0.4!
+cor(sample$draws[1:(nsteps-1),s], sample$draws[2:nsteps,s])
 ```
 
 
