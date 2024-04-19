@@ -156,78 +156,78 @@ estimate_ERPM <- function(partition,
 
 
 
-# JUST PHASE 3
+# JUST PHASE 3 - FOR NOW DEPRECATED
 
-
-#' Estimate ERPM phase 3
-#'
-#' Function to run only the phase 3 of the estimation algorithm, for a given model, a given observed partition, and estimates (from phase 2).
-#' All options of the algorithm can be specified here.
-#'
-#' @param partition observed partition
-#' @param nodes nodeset (data frame)
-#' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
-#' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
-#' @param startingestimates first guess for the model parameters
-#' @param burnin integer for the number of burn-in steps before sampling
-#' @param thining integer for the number of thining steps between sampling
-#' @param length.p3 number of samples in phase 3
-#' @param neighborhood way of choosing partitions: probability vector (actors swap, merge/division, single actor move)
-#' @param fixed.estimates if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
-#' @param numgroups.allowed vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
-#' @param numgroups.simulated vector containing the number of groups simulated
-#' @param sizes.allowed vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
-#' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-#' @return A list with the outputs of the phase 3 of the algorithm
-#' @export
-estimate_ERPM_p3 <- function(partition,
-                          nodes,
-                          objects,
-                          effects,
-                          startingestimates,
-                          burnin = 30,
-                          thining = 10,
-                          length.p3 = 1000,
-                          neighborhood = c(0.7,0.3,0),
-                          fixed.estimates = NULL,
-                          numgroups.allowed = NULL,
-                          numgroups.simulated = NULL,
-                          sizes.allowed = NULL,
-                          sizes.simulated = NULL) {
-
-  z.obs <- computeStatistics(partition, nodes, effects, objects)
-
-  # replace the starting estimates with a fixed value
-  num.effects <- length(effects$names)
-  if(!is.null(fixed.estimates)) {
-    for(e in 1:num.effects){
-      if(!is.null(fixed.estimates[[e]])){
-        startingestimates[e] <- fixed.estimates[[e]]
-      }
-    }
-  }
-
-
-  # --------- PHASE 3 ---------
-  results.phase3 <- run_phase3_single(partition, startingestimates, z.obs, nodes, effects, objects, burnin, thining, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
-  means <- results.phase3$means
-  standard.deviations <- results.phase3$standard.deviations
-  standard.errors <- results.phase3$standard.errors
-  convergence.ratios <- results.phase3$convergence.ratios
-
-
-  # ------ EXTRACT RESULTS ------
-  results <- data.frame(effect = effects$names,
-                        object = effects$objects,
-                        est = as.vector(startingestimates),
-                        std.err = standard.errors,
-                        conv = convergence.ratios)
-
-  class(results) <- "results.p3.erpm"
-  
-  return(results)
-}
-
+#' 
+#' #' Estimate ERPM phase 3
+#' #'
+#' #' Function to run only the phase 3 of the estimation algorithm, for a given model, a given observed partition, and estimates (from phase 2).
+#' #' All options of the algorithm can be specified here.
+#' #'
+#' #' @param partition observed partition
+#' #' @param nodes nodeset (data frame)
+#' #' @param objects objects used for statistics calculation (list with a vector "name", and a vector "object")
+#' #' @param effects effects/sufficient statistics (list with a vector "names", and a vector "objects")
+#' #' @param startingestimates first guess for the model parameters
+#' #' @param burnin integer for the number of burn-in steps before sampling
+#' #' @param thining integer for the number of thining steps between sampling
+#' #' @param length.p3 number of samples in phase 3
+#' #' @param neighborhood way of choosing partitions: probability vector (actors swap, merge/division, single actor move)
+#' #' @param fixed.estimates if some parameters are fixed, list with as many elements as effects, these elements equal a fixed value if needed, or NULL if they should be estimated
+#' #' @param numgroups.allowed vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)
+#' #' @param numgroups.simulated vector containing the number of groups simulated
+#' #' @param sizes.allowed vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
+#' #' @param sizes.simulated vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
+#' #' @return A list with the outputs of the phase 3 of the algorithm
+#' #' @export
+#' estimate_ERPM_p3 <- function(partition,
+#'                           nodes,
+#'                           objects,
+#'                           effects,
+#'                           startingestimates,
+#'                           burnin = 30,
+#'                           thining = 10,
+#'                           length.p3 = 1000,
+#'                           neighborhood = c(0.7,0.3,0),
+#'                           fixed.estimates = NULL,
+#'                           numgroups.allowed = NULL,
+#'                           numgroups.simulated = NULL,
+#'                           sizes.allowed = NULL,
+#'                           sizes.simulated = NULL) {
+#' 
+#'   z.obs <- computeStatistics(partition, nodes, effects, objects)
+#' 
+#'   # replace the starting estimates with a fixed value
+#'   num.effects <- length(effects$names)
+#'   if(!is.null(fixed.estimates)) {
+#'     for(e in 1:num.effects){
+#'       if(!is.null(fixed.estimates[[e]])){
+#'         startingestimates[e] <- fixed.estimates[[e]]
+#'       }
+#'     }
+#'   }
+#' 
+#' 
+#'   # --------- PHASE 3 ---------
+#'   results.phase3 <- run_phase3_single(partition, startingestimates, z.obs, nodes, effects, objects, burnin, thining, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
+#'   means <- results.phase3$means
+#'   standard.deviations <- results.phase3$standard.deviations
+#'   standard.errors <- results.phase3$standard.errors
+#'   convergence.ratios <- results.phase3$convergence.ratios
+#' 
+#' 
+#'   # ------ EXTRACT RESULTS ------
+#'   results <- data.frame(effect = effects$names,
+#'                         object = effects$objects,
+#'                         est = as.vector(startingestimates),
+#'                         std.err = standard.errors,
+#'                         conv = convergence.ratios)
+#' 
+#'   class(results) <- "results.p3.erpm"
+#'   
+#'   return(results)
+#' }
+#' 
 
 
 
