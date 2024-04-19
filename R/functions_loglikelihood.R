@@ -27,6 +27,7 @@
 #' @param logL_0 = NULL, if known, the value of the log likelihood of the basic dirichlet model
 #' @param parallel = FALSE, indicating whether the code should be run in parallel
 #' @param cpus = 1, number of cpus required for the parallelization
+#' @param verbose = FALSE, to print the current step the algorithm is in
 #' @return List with the log likelihood , AIC, lambda and the draws
 #' @importFrom snowfall sfExport sfLapply
 #' @export
@@ -47,7 +48,8 @@ estimate_logL <- function(partition,
                           sizes.simulated = NULL,
                           logL_0 = NULL, 
                           parallel = FALSE, 
-                          cpus = 1)
+                          cpus = 1,
+                          verbose = F)
 {
 
   if(parallel && cpus != M) warning("Please set the number of cpus equal to the number of steps in the path-sampling algorithm.")
@@ -87,7 +89,7 @@ estimate_logL <- function(partition,
     }
   }else{
     for(m in 1:M){
-      print(paste("step",m))
+      if(verbose) print(paste("step",m))
       theta_m <- m/M * theta + (1-m)/M * theta_0
       draws_m <- draw_Metropolis_single(theta_m, first.partition, nodes, effects, objects, burnin, thining, num.steps,neighborhoods, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
       all_draws[[m]] <- draws_m
