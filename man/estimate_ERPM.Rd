@@ -127,7 +127,6 @@ objects[[1]] <- list(name = "friendship", object = friendship)
 # define observed partition
 partition <- c(1,1,2,2,2,3)
 
-\donttest{
 # estimate
 startingestimates <- c(-2,0,0,0)
 estimation <- estimate_ERPM(partition, 
@@ -144,6 +143,5 @@ estimation <- estimate_ERPM(partition,
 
 # get results table
 estimation
-}
 
 }

@@ -82,7 +82,6 @@ curve(likelihood_function, from=-2, to=0)
 parameter_base <- optimize(likelihood_function, interval=c(-2, 0), maximum=TRUE)
 parameters_basemodel <- c(parameter_base$maximum,0,0,0)
 
-\donttest{
 estimate logL and AIC
 logL_AIC <- estimate_logL(partition,
                           nodes,
@@ -96,6 +95,5 @@ logL_AIC <- estimate_logL(partition,
                           thining = 20)
 logL_AIC$logL
 logL_AIC$AIC
-}
 
 }

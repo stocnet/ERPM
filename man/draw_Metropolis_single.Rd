@@ -96,7 +96,6 @@ sample <- draw_Metropolis_single(theta = parameters,
                                  return.all.partitions = TRUE)
 
 
-\donttest{
 # or: simulate an estimated model
 partition <- c(1,1,2,2,2,3) # the partition already defined for the (previous) estimation
 nsimulations <- 1000
@@ -112,6 +111,5 @@ simulations <- draw_Metropolis_single(theta = estimation$results$est,
                                       sizes.allowed = 1:n,
                                       sizes.simulated = 1:n,
                                       return.all.partitions = TRUE)
-}
 
 }
