@@ -17,7 +17,8 @@ simulate_thining_single(
   sizes.allowed,
   sizes.simulated,
   burnin,
-  max.thining
+  max.thining,
+  verbose = FALSE
 )
 }
 \arguments{
@@ -46,6 +47,8 @@ simulate_thining_single(
 \item{burnin}{number of simulated steps for the burn-in}
 
 \item{max.thining}{maximal number of simulated steps in the thining}
+
+\item{verbose}{logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.}
 }
 \value{
 A list

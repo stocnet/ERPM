@@ -15,7 +15,8 @@ simulate_burnin_single(
   numgroups.allowed,
   numgroups.simulated,
   sizes.allowed,
-  sizes.simulated
+  sizes.simulated,
+  verbose = FALSE
 )
 }
 \arguments{
@@ -40,6 +41,8 @@ simulate_burnin_single(
 \item{sizes.allowed}{Vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)}
 
 \item{sizes.simulated}{Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)}
+
+\item{verbose}{logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.}
 }
 \value{
 A list with list the draws, the moving.means and the moving means smoothed

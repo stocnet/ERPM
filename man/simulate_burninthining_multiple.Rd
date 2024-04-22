@@ -17,7 +17,8 @@ simulate_burninthining_multiple(
   numgroups.simulated,
   sizes.allowed,
   sizes.simulated,
-  max.thining
+  max.thining,
+  verbose = FALSE
 )
 }
 \arguments{
@@ -45,7 +46,9 @@ simulate_burninthining_multiple(
 
 \item{sizes.simulated}{Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)}
 
-\item{max.thining}{XXX}
+\item{max.thining}{maximal number of simulated steps in the thining}
+
+\item{verbose}{logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.}
 }
 \value{
 A list
