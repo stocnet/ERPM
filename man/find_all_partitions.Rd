@@ -15,3 +15,8 @@ matrix where each line corresponds to a possible partition
 \description{
 Function to enumerate all possible partitions for a given n
 }
+\examples{
+n <- 6
+all_partitions <- find_all_partitions(n)
+
+}
