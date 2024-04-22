@@ -71,3 +71,31 @@ List with the log likelihood , AIC, lambda and the draws
 \description{
 Function to estimate the log likelihood of a model for an observed partition
 }
+\examples{
+# estimate the log-likelihood and AIC of an estimated model (useful to compare two models for example)
+
+# first: estimate the ML estimates of a simple model with only one parameter for number of groups (this parameter should be in the model!)
+n <- 6
+partition <- c(1,1,2,2,2,3)
+likelihood_function <- function(x){ exp(x*max(partition)) / compute_numgroups_denominator(n,x)}
+curve(likelihood_function, from=-2, to=0)
+parameter_base <- optimize(likelihood_function, interval=c(-2, 0), maximum=TRUE)
+parameters_basemodel <- c(parameter_base$maximum,0,0,0)
+
+\donttest{
+estimate logL and AIC
+logL_AIC <- estimate_logL(partition,
+                          nodes,
+                          effects, 
+                          objects,
+                          theta = estimation$results$est,
+                          theta_0 = parameters_basemodel,
+                          M = 3,
+                          num.steps = 200,
+                          burnin = 100,
+                          thining = 20)
+logL_AIC$logL
+logL_AIC$AIC
+}
+
+}
