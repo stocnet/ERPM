@@ -16,6 +16,12 @@
 #' @param smax minimum group size possible in the partition
 #' @return a numeric
 #' @export
+#' @examples
+#' n <- 6
+#' size_min <- 2
+#' size_max <- 4
+#' Bell_constraints(n,size_min,size_max)
+#' 
 Bell_constraints <- function(n,smin,smax){
 
   bell <- 0
@@ -35,6 +41,13 @@ Bell_constraints <- function(n,smin,smax){
 #' @param smax maximum group size possible in the partition
 #' @return a numeric
 #' @export
+#' @examples
+#' n <- 6
+#' k <- 2
+#' size_min <- 2
+#' size_max <- 4
+#' Stirling2_constraints(n,k,size_min,size_max)
+#' 
 Stirling2_constraints <- function(n,k,smin,smax){
 
   # base cases
@@ -75,6 +88,10 @@ Stirling <- function(n,k){
 #' @param n number of nodes
 #' @return matrix where each line corresponds to a possible partition
 #' @export
+#' @examples
+#' n <- 6
+#' all_partitions <- find_all_partitions(n)
+#' 
 find_all_partitions <- function(n){
   
   if(n == 0) {
@@ -124,6 +141,13 @@ find_all_partitions <- function(n){
 #' @param allpartitions matrix containing all possible partitions for a nodeset
 #' @return integer(number of partitions with different group structures)
 #' @export
+#' @examples
+#' #find partitions first
+#' n <- 6
+#' all_partitions <- find_all_partitions(n)
+#' # count classes
+#' counts_partition_classes <- count_classes(all_partitions)
+#' 
 count_classes <- function(allpartitions){
   
   np <- dim(allpartitions)[1]

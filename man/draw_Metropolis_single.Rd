@@ -56,3 +56,43 @@ A list
 \description{
 Function to sample the model with a Markov chain (single partition procedure).
 }
+\examples{
+#define an arbitrary set of n = 6 nodes with attributes, and an arbitrary covariate matrix
+n <- 6 
+nodes <- data.frame(label = c("A","B","C","D","E","F"),
+                    gender = c(1,1,2,1,2,2),
+                    age = c(20,22,25,30,30,31)) 
+friendship <- matrix(c(0, 1, 1, 1, 0, 0,
+                       1, 0, 0, 0, 1, 0,
+                       1, 0, 0, 0, 1, 0,
+                       1, 0, 0, 0, 0, 0,
+                       0, 1, 1, 0, 0, 1,
+                       0, 0, 0, 0, 1, 0), 6, 6, TRUE)
+
+# choose the effects to be included (see manual for all effect names)
+effects <- list(names = c("num_groups","same","diff","tie"),
+objects = c("partition","gender","age","friendship"))
+objects <- list()
+objects[[1]] <- list(name = "friendship", object = friendship)
+
+# set parameter values for each of these effects
+parameters <- c(-0.2, 0.2, -0.1, 0.5)
+
+# generate simulated sample, by setting the desired additional parameters for the Metropolis sampler and choosing a starting point for the chain (first.partition)
+nsteps <- 100
+sample <- draw_Metropolis_single(theta = parameters, 
+                                 first.partition = c(1,1,2,2,3,3), 
+                                 nodes = nodes, 
+                                 effects = effects, 
+                                 objects = objects, 
+                                 burnin = 100, 
+                                 thining = 10, 
+                                 num.steps = nsteps, 
+                                 neighborhood = c(0,1,0), 
+                                 numgroups.allowed = 1:n,
+                                 numgroups.simulated = 1:n,
+                                 sizes.allowed = 1:n,
+                                 sizes.simulated = 1:n,
+                                 return.all.partitions = TRUE)
+
+}

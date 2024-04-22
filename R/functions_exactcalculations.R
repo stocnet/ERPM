@@ -153,6 +153,10 @@ plot_averagesizes <- function(nmin, nmax, ninc) {
 #' @importFrom numbers bell
 #' @importFrom utils combn
 #' @export 
+#' @examples
+#' n <- 6
+#' compute_averagesize(n)
+#' 
 compute_averagesize <- function( num.nodes){
 
   # if no nodes, by convention we return 1
