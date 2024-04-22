@@ -101,7 +101,7 @@ sample <- draw_Metropolis_multiple(theta = parameters,
                           numgroups.simulated = 1:n,
                           sizes.allowed = 1:n,
                           sizes.simulated = 1:n,
-                          return.all.partitions = T)
+                          return.all.partitions = TRUE)
 ```
 
 ### 2.3 Trace plots
