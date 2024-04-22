@@ -257,16 +257,16 @@ run_phase2_single <- function(partition,
       lengths.subphases[step] <- i-1
 
       if (verbose) {
-        cat(cat("Step",step), "\n")
-        cat(cat("Length of the step",(i-1),"(minimal value:",min.iter[step],"and maximal value:",max.iter[step],")"), "\n")
-        cat(cat("Current estimate",estimates), "\n\n")
+        cat("Step",step, "\n")
+        cat("Length of the step",(i-1),"(minimal value:",min.iter[step],"and maximal value:",max.iter[step],")", "\n")
+        cat("Current estimate",estimates, "\n\n")
       }
     }
 
     if (verbose) {
-      cat(cat("Difference to estimated statistics after phase 2, step",step), "\n")
+      cat("Difference to estimated statistics after phase 2, step",step, "\n")
       cat(colMeans(allz) - z.obs, "\n\n")
-      cat(cat("Estimates after phase 2, step",step), "\n")
+      cat("Estimates after phase 2, step",step, "\n")
       cat(estimates, "\n\n")
     }
   }
@@ -538,11 +538,11 @@ run_phase2_multiple <- function(partitions,
     }
 
     if (verbose) {
-      cat(cat("Length of step",step), "\n")
-      cat(cat((i-1),"(minimal value:",min.iter[step],"and maximal value:",max.iter[step],")"), "\n\n")
-      cat(cat("Estimated statistics after phase 2, step",step), "\n")
+      cat("Length of step",step, "\n")
+      cat((i-1),"(minimal value:",min.iter[step],"and maximal value:",max.iter[step],")", "\n\n")
+      cat("Estimated statistics after phase 2, step",step, "\n")
       cat(colMeans(allz) - z.obs, "\n\n")
-      cat(cat("Estimates after phase 2, step",step), "\n")
+      cat("Estimates after phase 2, step",step, "\n")
       cat(estimates, "\n\n")
     }
   }
