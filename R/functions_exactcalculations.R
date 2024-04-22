@@ -16,16 +16,17 @@
 #' @param pmin lowest parameter value
 #' @param pmax highest parameter value
 #' @param pinc increment between different parameter values
+#' @param verbose logical: should intermediate results be printed or not? Defaults to FALSE.
 #' @return a list
 #' @export
-exactestimates_numgroups <- function(num.nodes, pmin, pmax, pinc) {
+exactestimates_numgroups <- function(num.nodes, pmin, pmax, pinc, verbose = FALSE) {
 
   allm <- 2:(num.nodes-1)
   allestimates <- rep(0,num.nodes-2)
 
   for(m in 1:length(allm)) {
     m.obs <- allm[m]
-    print(m.obs)
+    if (verbose) cat(m.obs, "\n")
 
     allparameters <- seq(pmin,pmax,pinc)
     alllogLs <- rep(0,length(allparameters))
@@ -34,8 +35,10 @@ exactestimates_numgroups <- function(num.nodes, pmin, pmax, pinc) {
       alpha <- allparameters[i]
       numerator <- exp(alpha*m.obs)
       denominator <- compute_numgroups_denominator(num.nodes, alpha)
-      #print(paste("numerator",numerator))
-      #print(paste("denominator",denominator))
+      # if (verbose) {
+      #   cat(paste("numerator",numerator), "\n")
+      #   cat(paste("denominator",denominator), "\n\n")
+      # }
       alllogLs[i] <- log(numerator) - log(denominator)
     }
 
