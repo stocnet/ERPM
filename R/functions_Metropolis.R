@@ -31,7 +31,7 @@
 #' @importFrom stats runif
 #' @export
 #' @examples
-#' #define an arbitrary set of n = 6 nodes with attributes, and an arbitrary covariate matrix
+#' # define an arbitrary set of n = 6 nodes with attributes, and an arbitrary covariate matrix
 #' n <- 6 
 #' nodes <- data.frame(label = c("A","B","C","D","E","F"),
 #'                     gender = c(1,1,2,1,2,2),
@@ -69,6 +69,25 @@
 #'                                  sizes.simulated = 1:n,
 #'                                  return.all.partitions = TRUE)
 #' 
+#' 
+#' \donttest{
+#' # or: simulate an estimated model
+#' partition <- c(1,1,2,2,2,3) # the partition already defined for the (previous) estimation
+#' nsimulations <- 1000
+#' simulations <- draw_Metropolis_single(theta = estimation$results$est, 
+#'                                       first.partition = partition, 
+#'                                       nodes = nodes, 
+#'                                       effects = effects, 
+#'                                       objects = objects, 
+#'                                       burnin = 100, 
+#'                                       thining = 20, 
+#'                                       num.steps = nsimulations, 
+#'                                       neighborhood = c(0,1,0), 
+#'                                       sizes.allowed = 1:n,
+#'                                       sizes.simulated = 1:n,
+#'                                       return.all.partitions = TRUE)
+#' }
+#' 
 draw_Metropolis_single <- function(theta, 
                                    first.partition, 
                                    nodes, 
@@ -82,8 +101,7 @@ draw_Metropolis_single <- function(theta,
                                    numgroups.simulated = NULL,
                                    sizes.allowed = NULL, 
                                    sizes.simulated = NULL,
-                                   return.all.partitions = FALSE) 
-{
+                                   return.all.partitions = FALSE) {
 
   num.nodes <- nrow(nodes)
   num.effects <- length(effects$names)

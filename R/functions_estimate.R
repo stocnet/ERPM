@@ -1,4 +1,4 @@
-#' ######################################################################
+######################################################################
 ## Simulation and estimation of Exponential Random Partition Models ##
 ## Main function of the estimation algorithm                        ##
 ## Author: Marion Hoffman                                           ##
@@ -45,6 +45,47 @@
 #' @param verbose logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.
 #' @return A list with the outputs of the three different phases of the algorithm
 #' @export
+#' @examples
+#' # define an arbitrary set of n = 6 nodes with attributes, and an arbitrary covariate matrix
+#' n <- 6 
+#' nodes <- data.frame(label = c("A","B","C","D","E","F"),
+#'                     gender = c(1,1,2,1,2,2),
+#'                     age = c(20,22,25,30,30,31)) 
+#' friendship <- matrix(c(0, 1, 1, 1, 0, 0,
+#'                        1, 0, 0, 0, 1, 0,
+#'                        1, 0, 0, 0, 1, 0,
+#'                        1, 0, 0, 0, 0, 0,
+#'                        0, 1, 1, 0, 0, 1,
+#'                        0, 0, 0, 0, 1, 0), 6, 6, TRUE)
+#'
+#' # choose the effects to be included (see manual for all effect names)
+#' effects <- list(names = c("num_groups","same","diff","tie"),
+#' objects = c("partition","gender","age","friendship"))
+#' objects <- list()
+#' objects[[1]] <- list(name = "friendship", object = friendship)
+#' 
+#' # define observed partition
+#' partition <- c(1,1,2,2,2,3)
+#' 
+#' \donttest{
+#' # estimate
+#' startingestimates <- c(-2,0,0,0)
+#' estimation <- estimate_ERPM(partition, 
+#'                             nodes, 
+#'                             objects, 
+#'                             effects, 
+#'                             startingestimates = startingestimates, 
+#'                             burnin = 100, 
+#'                             thining = 20,
+#'                             length.p1 = 500, # number of samples in phase 1
+#'                             multiplication.iter.p2 = 20,  # multiplication factor for the number of iteration in phase 2 subphases 
+#'                             num.steps.p2 = 4, # number of phase 2 subphases
+#'                             length.p3 = 1000) # number of samples in phase 3
+#' 
+#' # get results table
+#' estimation
+#' }
+#' 
 estimate_ERPM <- function(partition, 
                           nodes, 
                           objects, 
