@@ -33,6 +33,7 @@
 #' @param double.averaging boolean to indicate whether we follow the double-averaging procedure (often leads to better convergence)
 #' @param parallel boolean to indicate whether the code should be run in parallel
 #' @param cpus number of cpus if parallel = TRUE
+#' @param verbose logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.
 #' @return a list
 #' @importFrom snowfall sfExport sfLapply
 #' @export
@@ -60,7 +61,8 @@ run_phase2_single <- function(partition,
                        sizes.simulated,
                        double.averaging,
                        parallel = FALSE,
-                       cpus = 1) {
+                       cpus = 1,
+                       verbose = FALSE) {
 
   num.effects <- length(effects$names)
   num.nodes <- nrow(nodes)
@@ -119,7 +121,6 @@ run_phase2_single <- function(partition,
           
           sfExport("cpus", "theta.i", "partition.i", "nodes", "effects", "objects", "burnin", "neighborhood", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated")
           res <- sfLapply(1:cpus, fun = function(k) {
-            set.seed(k)
             subres <- draw_Metropolis_single(theta.i, partition.i, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
             return(subres)
           }
@@ -255,16 +256,19 @@ run_phase2_single <- function(partition,
       estimates[unfixed.indexes] <- mean.theta
       lengths.subphases[step] <- i-1
 
-      print(cat("Step",step))
-      print(cat("Length of the step",(i-1),"(minimal value:",min.iter[step],"and maximal value:",max.iter[step],")"))
-      print(cat("Current estimate",estimates))
-
+      if (verbose) {
+        cat("Step",step, "\n")
+        cat("Length of the step",(i-1),"(minimal value:",min.iter[step],"and maximal value:",max.iter[step],")", "\n")
+        cat("Current estimate",estimates, "\n\n")
+      }
     }
 
-    print(cat("Difference to estimated statistics after phase 2, step",step))
-    print(colMeans(allz) - z.obs)
-    print(cat("Estimates after phase 2, step",step))
-    print(estimates)
+    if (verbose) {
+      cat("Difference to estimated statistics after phase 2, step",step, "\n")
+      cat(colMeans(allz) - z.obs, "\n\n")
+      cat("Estimates after phase 2, step",step, "\n")
+      cat(estimates, "\n\n")
+    }
   }
 
   return(list(all.estimates = all.estimates,
@@ -303,6 +307,7 @@ run_phase2_single <- function(partition,
 #' @param double.averaging boolean to indicate whether we follow the double-averaging procedure (often leads to better convergence)
 #' @param parallel boolean to indicate whether the code should be run in parallel
 #' @param cpus number of cpus if parallel = TRUE
+#' @param verbose logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.
 #' @return a list
 #' @importFrom snowfall sfExport sfLapply
 #' @export
@@ -331,7 +336,8 @@ run_phase2_multiple <- function(partitions,
                               sizes.simulated,
                               double.averaging,
                               parallel = FALSE,
-                              cpus = 1) {
+                              cpus = 1,
+                              verbose = FALSE) {
 
   num.effects <- length(effects$names)
   num.nodes <- nrow(nodes)
@@ -386,7 +392,6 @@ run_phase2_multiple <- function(partitions,
       # SUB STEP: until generated statistics cross the observed ones
       while(!stop.iterations) {
 
-        print(theta.i)
         all.estimates <- rbind(all.estimates,matrix(theta.i,nrow=1))
 
         # draw one element from the chain
@@ -394,7 +399,6 @@ run_phase2_multiple <- function(partitions,
           
           sfExport("cpus", "theta.i", "partitions.i", "presence.tables", "nodes", "effects", "objects", "burnin", "neighborhood", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated")
           res <- sfLapply(1:cpus, fun = function(k) {
-            set.seed(k)
             subres <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
             return(subres)
           }
@@ -533,12 +537,14 @@ run_phase2_multiple <- function(partitions,
 
     }
 
-    print(cat("Length of the step",step))
-    print(cat((i-1),"(minimal value:",min.iter[step],"and maximal value:",max.iter[step],")"))
-    print(cat("Estimated statistics after phase 2, step",step))
-    print(colMeans(allz) - z.obs)
-    print(cat("Estimates after phase 2, step",step))
-    print(estimates)
+    if (verbose) {
+      cat("Length of step",step, "\n")
+      cat((i-1),"(minimal value:",min.iter[step],"and maximal value:",max.iter[step],")", "\n\n")
+      cat("Estimated statistics after phase 2, step",step, "\n")
+      cat(colMeans(allz) - z.obs, "\n\n")
+      cat("Estimates after phase 2, step",step, "\n")
+      cat(estimates, "\n\n")
+    }
   }
 
   return(list(all.estimates = all.estimates,
@@ -572,7 +578,9 @@ compute_parameters_simpleaveraging <- function(z.i,
     }
 
     # new theta
-    theta.i <- theta.i - gainfactor * r * inv.scaling %*% (z.i - z.obs)
+    diff <- (z.i - z.obs)
+    if(dim(t(t(diff)))[1] == 1) diff <- t(diff) # to make sure it is a vector of the right dim
+    theta.i <- theta.i - gainfactor * r * inv.scaling %*% diff
 
     return(theta.i)
 }
@@ -610,7 +618,9 @@ compute_parameters_doubleaveraging <- function(z.i,
   if(mean.cpt > 1) mean.mean.theta <- (mean.cpt-1) / mean.cpt * mean.mean.theta + theta.i / mean.cpt
   
   # theta.i (theta_N+1) = [average theta until N] - a_N * N * r * D^-1 * ([average stats until N] - obs stats)  
-  theta.i <- mean.mean.theta - gainfactor * mean.cpt * r * inv.scaling %*% (mean.mean.z - z.obs)
+  diff <- (mean.mean.z - z.obs)
+  if(dim(t(t(diff)))[1] == 1) diff <- t(diff) # to make sure it is a vector of the right dim
+  theta.i <- mean.mean.theta - gainfactor * mean.cpt * r * inv.scaling %*% diff
 
   mean.cpt <- mean.cpt + 1
 

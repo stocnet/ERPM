@@ -51,5 +51,6 @@ Collate:
     'functions_phase3.R'
     'functions_statistics.R'
     'functions_visualisation.R'
+    'outcomeObjects.R'
 URL: https://github.com/stocnet/ERPM
 BugReports: https://github.com/stocnet/ERPM/issues

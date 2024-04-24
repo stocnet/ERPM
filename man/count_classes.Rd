@@ -19,3 +19,11 @@ Function to count the number of partitions with a certain
 group size structure, for all possible group size structure.
 Function to use after calling the "find_all_partitions" function.
 }
+\examples{
+#find partitions first
+n <- 6
+all_partitions <- find_all_partitions(n)
+# count classes
+counts_partition_classes <- count_classes(all_partitions)
+
+}

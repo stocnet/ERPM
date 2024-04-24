@@ -39,9 +39,9 @@ simulate_burnin_single <- function(partition,
 {
   num.effects <- length(effects$names)
 
-  print("Neighborhood: ")
-  print(neighborhood)
-
+  # print("Neighborhood: ")
+  # print(neighborhood)
+  
   chain <- draw_Metropolis_single(theta, partition, nodes, effects, objects, 1, 1, num.steps, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = FALSE)
 
   # now we check the evolution of the mean for choosing the burnin
@@ -165,6 +165,7 @@ gridsearch_burnin_single <- function(partition,
 #' @param sizes.simulated Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param burnin number of simulated steps for the burn-in
 #' @param max.thining maximal number of simulated steps in the thining
+#' @param verbose logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.
 #' @return A list
 #' @importFrom stats cor loess
 #' @export
@@ -181,7 +182,8 @@ simulate_thining_single <- function(partition,
                                     sizes.allowed, 
                                     sizes.simulated, 
                                     burnin,
-                                    max.thining)
+                                    max.thining,
+                                    verbose = FALSE)
 {
   num.effects <- length(effects$names)
 
@@ -204,10 +206,12 @@ simulate_thining_single <- function(partition,
       autocors[e] <- cor(draws[1:(num.steps-1),e],draws[2:num.steps,e])
     }
     if(current.thining %% 50 == 0){
-      print("thining")
-      print(current.thining)
-      print("autocorrelations")
-      print(autocors)
+      if (verbose) {
+        cat("thining\n")
+        cat(current.thining, "\n\n")
+        cat("autocorrelations\n")
+        cat(autocors, "\n\n")
+      }
     }
 
     allautocors <- rbind(allautocors,autocors)
@@ -390,7 +394,8 @@ gridsearch_thining_single <- function(partition,
 #' @param numgroups.simulated vector containing the number of groups simulated
 #' @param sizes.allowed Vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-#' @param max.thining XXX
+#' @param max.thining maximal number of simulated steps in the thining
+#' @param verbose logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.
 #' @return A list
 #' @importFrom stats loess
 #' @export
@@ -405,7 +410,8 @@ simulate_burninthining_single <- function(partition,
                                           numgroups.simulated,
                                           sizes.allowed, 
                                           sizes.simulated, 
-                                          max.thining)
+                                          max.thining,
+                                          verbose = FALSE)
 {
   num.effects <- length(effects$names)
 
@@ -428,10 +434,12 @@ simulate_burninthining_single <- function(partition,
       autocors[e] <- cor(draws[1:(num.steps-1),e],draws[2:num.steps,e])
     }
     if(current.thining %% 50 == 0){
-      print("thining")
-      print(current.thining)
-      print("autocorrelations")
-      print(autocors)
+      if (verbose) {
+        cat("thining\n")
+        cat(current.thining, "\n\n")
+        cat("autocorrelations\n")
+        cat(autocors, "\n\n")
+      }
     }
 
     allautocors <- rbind(allautocors,autocors)
@@ -502,7 +510,8 @@ simulate_burninthining_single <- function(partition,
 #' @param numgroups.simulated vector containing the number of groups simulated
 #' @param sizes.allowed Vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-#' @param max.thining XXX
+#' @param max.thining maximal number of simulated steps in the thining
+#' @param verbose logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.
 #' @return A list
 #' @importFrom stats cor loess
 #' @export
@@ -518,7 +527,8 @@ simulate_burninthining_multiple <- function(partitions,
                                             numgroups.simulated, 
                                             sizes.allowed,
                                             sizes.simulated,
-                                            max.thining)
+                                            max.thining,
+                                            verbose = FALSE)
 {
   num.effects <- length(effects$names)
 
@@ -541,10 +551,12 @@ simulate_burninthining_multiple <- function(partitions,
       autocors[e] <- cor(draws[1:(num.steps-1),e],draws[2:num.steps,e])
     }
     if(current.thining %% 50 == 0){
-      print("thining")
-      print(current.thining)
-      print("autocorrelations")
-      print(autocors)
+      if (verbose) {
+        cat("thining\n")
+        cat(current.thining, "\n\n")
+        cat("autocorrelations\n")
+        cat(autocors, "\n\n")
+      }
     }
 
     allautocors <- rbind(allautocors,autocors)
@@ -794,7 +806,7 @@ gridsearch_burninthining_multiple <- function(partitions,
     # just go through all neighborhoods one by one
     allsimulations <- list()
     for(i in 1:length(neighborhoods)){
-      print(neighborhoods[[i]])
+      # print(neighborhoods[[i]])
       allsimulations[[i]] <- simulate_burninthining_multiple(partitions, presence.tables, theta, nodes, effects, objects, num.steps, neighborhoods[[i]], numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, max.thining)
     }
 

@@ -25,7 +25,6 @@ exactestimates_numgroups <- function(num.nodes, pmin, pmax, pinc) {
 
   for(m in 1:length(allm)) {
     m.obs <- allm[m]
-    print(m.obs)
 
     allparameters <- seq(pmin,pmax,pinc)
     alllogLs <- rep(0,length(allparameters))
@@ -34,8 +33,6 @@ exactestimates_numgroups <- function(num.nodes, pmin, pmax, pinc) {
       alpha <- allparameters[i]
       numerator <- exp(alpha*m.obs)
       denominator <- compute_numgroups_denominator(num.nodes, alpha)
-      #print(paste("numerator",numerator))
-      #print(paste("denominator",denominator))
       alllogLs[i] <- log(numerator) - log(denominator)
     }
 
@@ -68,8 +65,6 @@ plot_numgroups_likelihood <- function(m.obs, num.nodes, pmin, pmax, pinc) {
     alpha <- allparameters[i]
     numerator <- exp(alpha*m.obs)
     denominator <- compute_numgroups_denominator(num.nodes, alpha)
-    #print(paste("numerator",numerator))
-    #print(paste("denominator",denominator))
     alllogLs[i] <- numerator / denominator
   }
 
@@ -130,8 +125,6 @@ plot_averagesizes <- function(nmin, nmax, ninc) {
   for(i in 1:length(allns)) {
     n <- allns[i]
     size <- compute_averagesize(n)
-    print(paste("n",n))
-    print(paste("average size",size))
     allsizes[i] <- size
   }
 
@@ -150,6 +143,10 @@ plot_averagesizes <- function(nmin, nmax, ninc) {
 #' @importFrom numbers bell
 #' @importFrom utils combn
 #' @export 
+#' @examples
+#' n <- 6
+#' compute_averagesize(n)
+#' 
 compute_averagesize <- function( num.nodes){
 
   # if no nodes, by convention we return 1
