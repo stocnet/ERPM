@@ -127,11 +127,11 @@ presence.tables <- matrix(c(1, 1, 1, 1, 1, 1,
                             1, 0, 1, 1, 1, 1), 6, 3)
 
 # choose effects to be included in the estimated model
-effects <- list(names = c("num_groups","same","diff","tie","inertia_1"),
+effects_multiple <- list(names = c("num_groups","same","diff","tie","inertia_1"),
                 objects = c("partitions","gender","age","friendship","partitions"),
                 objects2 = c("","","","",""))
-objects <- list()
-objects[[1]] <- list(name = "friendship", object = friendship)
+objects_multiple <- list()
+objects_multiple[[1]] <- list(name = "friendship", object = friendship)
 
 # define the observation
 partitions <- matrix(c(1, 1, 2, 2, 2, 3,
@@ -144,8 +144,8 @@ startingestimates <- c(-2,0,0,0,0)
 estimation <- estimate_multipleERPM(partitions,
                                     presence.tables,          
                                     nodes, 
-                                    objects, 
-                                    effects, 
+                                    objects_multiple, 
+                                    effects_multiple, 
                                     startingestimates = startingestimates, 
                                     burnin = 100, 
                                     thining = 50,
