@@ -95,6 +95,7 @@ first.partitions <- matrix(c(1, 1, 2, 2, 2, 3,
                              NA, 1, 1, 2, 2, 2,
                              1, NA, 2, 3, 3, 1), 6, 3) 
 
+\donttest{
 # generate the simulated sample
 nsteps <- 50
 sample <- draw_Metropolis_multiple(theta = parameters, 
@@ -112,5 +113,6 @@ sample <- draw_Metropolis_multiple(theta = parameters,
                                    sizes.allowed = 1:n,
                                    sizes.simulated = 1:n,
                                    return.all.partitions = TRUE)
+}
 
 }
