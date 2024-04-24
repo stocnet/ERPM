@@ -61,11 +61,11 @@ presence.tables <- matrix(c(1, 1, 1, 1, 1, 1,
 First, we need to choose the effects we want to include (see manual for all effect names). For example we set five (which is of course not reasonable for 6 nodes). The first is for the number of  groups, the second is related to gender similarity, the third to age similarity, the fourth to the presence of friendships, and the fifth is related to inertia (do individuals tend to stay in the same group from one partition to the next):
 
 ```{r}
-effects <- list(names = c("num_groups","same","diff","tie","inertia_1"),
+effects_multiple <- list(names = c("num_groups","same","diff","tie","inertia_1"),
                    objects = c("partitions","gender","age","friendship","partitions"),
                    objects2 = c("","","","",""))
-objects <- list()
-objects[[1]] <- list(name = "friendship", object = friendship)
+objects_multiple <- list()
+objects_multiple[[1]] <- list(name = "friendship", object = friendship)
 ```
 
 and we can set parameter values for each of these effects.
@@ -91,8 +91,8 @@ sample <- draw_Metropolis_multiple(theta = parameters,
                           first.partitions = first.partitions,
                           nodes = nodes, 
                           presence.tables = presence.tables,
-                          effects = effects, 
-                          objects = objects, 
+                          effects = effects_multiple, 
+                          objects = objects_multiple, 
                           burnin = 100, 
                           thining = 100, 
                           num.steps = nsteps, 
@@ -133,11 +133,11 @@ We can use the estimate function for longitudinal partitions in a very similar w
 
 ```{r}
 startingestimates <- c(-2,0,0,0,0)
-estimation <- estimate_multipleERPM(partitions,
+estimation_multiple <- estimate_multipleERPM(partitions,
                           presence.tables,          
                           nodes, 
-                          objects, 
-                          effects, 
+                          objects_multiple, 
+                          effects_multiple, 
                           startingestimates = startingestimates, 
                           burnin = 100, 
                           thining = 50,
@@ -148,7 +148,7 @@ estimation <- estimate_multipleERPM(partitions,
                           length.p3 = 1000) 
 
 # get results table
-estimation
+estimation_multiple
 ```
 
 Again, the convergence should be as small as possible, below 0.1 for example, so it might be good to rerun the algorithm using the new estimated parameters. Similar procedures as in the estimation of ERGM or SAOM models can be used.
