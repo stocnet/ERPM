@@ -137,87 +137,12 @@ estimation <- estimate_ERPM(partition,
                           multiplication.iter.p2 = 20,  # multiplication factor for the number of iteration in phase 2 subphases 
                           num.steps.p2 = 4, # number of phase 2 subphases
                           length.p3 = 1000) # number of samples in phase 3
-#> [1] "Observed statistics"
-#> [1]  3  2 12  2
-#> [1] "Burn-in"
-#> [1] 100
-#> [1] "Thining"
-#> [1] 20
-#> [1] "Autocorrelations in phase 1:"
-#> [1] 0.11580435 0.07567835 0.13095529 0.10673909
-#> [1] "Covariance matrix"
-#>            [,1]       [,2]      [,3]       [,4]
-#> [1,]  0.4893146 -0.3568016 -2.100393 -0.4514068
-#> [2,] -0.3568016  0.9933908  2.641619  0.6344008
-#> [3,] -2.1003928  2.6416192 41.244313  2.1706293
-#> [4,] -0.4514068  0.6344008  2.170629  0.8254068
-#> [1] "Invert scaling matrix"
-#>            [,1]        [,2]         [,3]         [,4]
-#> [1,] 3.26174503  0.18897837  0.074621129  1.153866020
-#> [2,] 0.18897837  1.54410755 -0.038320247 -0.786131520
-#> [3,] 0.07462113 -0.03832025  0.029495348 -0.005843019
-#> [4,] 1.15386602 -0.78613152 -0.005843019  2.212018064
-#> [1] "Estimated statistics after phase 1"
-#> [1]  3.108  1.686 10.224  1.838
-#> [1] "Estimates after phase 1"
-#>            [,1]
-#> [1,] -1.4734758
-#> [2,]  0.4690300
-#> [3,] -0.1686545
-#> [4,]  0.1765069
-#> Difference to estimated statistics after phase 2, step 1NULL
-#> [1]  0.04166667 -0.04166667  0.58333333  0.04166667
-#> Estimates after phase 2, step 1NULL
-#>                
-#> [1,] -1.8338234
-#> [2,]  0.7115367
-#> [3,] -0.2248016
-#> [4,] -0.2998742
-#> Difference to estimated statistics after phase 2, step 2NULL
-#> [1]  0.00000000  0.01960784  0.43137255 -0.05882353
-#> Estimates after phase 2, step 2NULL
-#>                
-#> [1,] -1.9462692
-#> [2,]  0.6089256
-#> [3,] -0.2275217
-#> [4,] -0.1412861
-#> Difference to estimated statistics after phase 2, step 3NULL
-#> [1]  0.01550388 -0.02325581 -0.41860465 -0.02325581
-#> Estimates after phase 2, step 3NULL
-#>                
-#> [1,] -1.9945672
-#> [2,]  0.6111215
-#> [3,] -0.2188468
-#> [4,] -0.1050062
-#> Difference to estimated statistics after phase 2, step 4NULL
-#> [1] -0.01869159  0.04672897  0.05919003  0.03115265
-#> Estimates after phase 2, step 4NULL
-#>                 
-#> [1,] -1.84065662
-#> [2,]  0.53564516
-#> [3,] -0.20753277
-#> [4,] -0.09767082
-#> [1] "Autocorrelations in phase 3:"
-#> [1] 0.03606953 0.03474974 0.01362077 0.04370177
-#> [1] "Estimated statistics after phase 3"
-#> [1]  3.031  1.955 11.167  1.851
-#> [1] "Estimates after phase 3"
-#>                 
-#> [1,] -1.84065662
-#> [2,]  0.53564516
-#> [3,] -0.20753277
-#> [4,] -0.09767082
-#>       effect     object         est   std.err sig          t        conv
-#> 1 num_groups  partition -1.84065662 2.1976543     -0.8375551  0.04509781
-#> 2       same     gender  0.53564516 1.4070600      0.3806840 -0.03910384
-#> 3       diff        age -0.20753277 0.1715036     -1.2100785 -0.11187049
-#> 4        tie friendship -0.09767082 1.9009242     -0.0513807 -0.16260731
 estimation$results
-#>       effect     object         est   std.err        conv
-#> 1 num_groups  partition -1.84065662 2.1976543  0.04509781
-#> 2       same     gender  0.53564516 1.4070600 -0.03910384
-#> 3       diff        age -0.20753277 0.1715036 -0.11187049
-#> 4        tie friendship -0.09767082 1.9009242 -0.16260731
+#>       effect     object        est   std.err         conv
+#> 1 num_groups  partition -1.7227170 2.1461381  0.002953806
+#> 2       same     gender  0.4383805 1.3031423 -0.003575942
+#> 3       diff        age -0.1900982 0.1493854  0.057271044
+#> 4        tie friendship  0.1845696 1.8675821 -0.007750238
 ```
 
 ### Simulation
@@ -274,15 +199,12 @@ logL_AIC <- estimate_logL(partition,
                          num.steps = 200,
                          burnin = 100,
                          thining = 20)
-#> [1] "step 1"
-#> [1] "step 2"
-#> [1] "step 3"
 logL_AIC$logL
 #>           [,1]
-#> [1,] -4.380505
+#> [1,] -4.342806
 logL_AIC$AIC
 #>           [,1]
-#> [1,] 0.7610098
+#> [1,] 0.6856111
 ```
 
 # More …
