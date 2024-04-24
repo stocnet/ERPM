@@ -81,11 +81,11 @@ presence.tables <- matrix(c(1, 1, 1, 1, 1, 1,
                             1, 0, 1, 1, 1, 1), 6, 3)
 
 # choose effects to be included in the estimated model
-effects <- list(names = c("num_groups","same","diff","tie","inertia_1"),
+effects_multiple <- list(names = c("num_groups","same","diff","tie","inertia_1"),
                 objects = c("partitions","gender","age","friendship","partitions"),
                 objects2 = c("","","","",""))
-objects <- list()
-objects[[1]] <- list(name = "friendship", object = friendship)
+objects_multiple <- list()
+objects_multiple[[1]] <- list(name = "friendship", object = friendship)
 
 # set parameter values for each of these effects
 parameters <- c(-0.2,0.2,-0.1,0.5,1)
@@ -102,8 +102,8 @@ sample <- draw_Metropolis_multiple(theta = parameters,
                                    first.partitions = first.partitions,
                                    nodes = nodes, 
                                    presence.tables = presence.tables,
-                                   effects = effects, 
-                                   objects = objects, 
+                                   effects = effects_multiple, 
+                                   objects = objects_multiple, 
                                    burnin = 100, 
                                    thining = 100, 
                                    num.steps = nsteps, 
