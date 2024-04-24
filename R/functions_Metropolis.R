@@ -52,7 +52,8 @@
 #' # set parameter values for each of these effects
 #' parameters <- c(-0.2, 0.2, -0.1, 0.5)
 #' 
-#' # generate simulated sample, by setting the desired additional parameters for the Metropolis sampler and choosing a starting point for the chain (first.partition)
+#' # generate simulated sample, by setting the desired additional parameters for the 
+#' # Metropolis sampler and choosing a starting point for the chain (first.partition)
 #' nsteps <- 100
 #' sample <- draw_Metropolis_single(theta = parameters, 
 #'                                  first.partition = c(1,1,2,2,3,3), 
@@ -70,6 +71,7 @@
 #'                                  return.all.partitions = TRUE)
 #' 
 #' 
+#' \donttest{
 #' # or: simulate an estimated model
 #' partition <- c(1,1,2,2,2,3) # the partition already defined for the (previous) estimation
 #' nsimulations <- 1000
@@ -85,6 +87,7 @@
 #'                                       sizes.allowed = 1:n,
 #'                                       sizes.simulated = 1:n,
 #'                                       return.all.partitions = TRUE)
+#' }
 #' 
 draw_Metropolis_single <- function(theta, 
                                    first.partition, 
@@ -264,6 +267,7 @@ draw_Metropolis_single <- function(theta,
 #'                              NA, 1, 1, 2, 2, 2,
 #'                              1, NA, 2, 3, 3, 1), 6, 3) 
 #' 
+#' \donttest{
 #' # generate the simulated sample
 #' nsteps <- 50
 #' sample <- draw_Metropolis_multiple(theta = parameters, 
@@ -281,6 +285,7 @@ draw_Metropolis_single <- function(theta,
 #'                                    sizes.allowed = 1:n,
 #'                                    sizes.simulated = 1:n,
 #'                                    return.all.partitions = TRUE)
+#' }
 #' 
 draw_Metropolis_multiple <- function(theta, 
                                      first.partitions,
