@@ -12,18 +12,16 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+In this example script, we use the Exponential Random Partition Model to simulate cross-sectional partitions and estimate the model for one observation (here, synthetic data). More information can be found in the manual of this package present on the github repository stocnet/erpm or by looking up the documentation of specific functions. 
+
+This script can be used as a starting point for anyone wishing to use the model on cross-sectional observations of partitions, like teams, interaction groups, political parties, animal herds, ... 
+
 ## 0. Load dependencies
 
-The following packages and scripts are required to fully run this example script. The details of the main functions can be found in the code itself, where comments help finding out what functions do and what arguments are for.
+The following packages and scripts are required to fully run this example script. 
 
-<<<<<<< HEAD:scripts/Example_script.Rmd
 ```{r loads, message=FALSE, warning=FALSE, results='hide'}
 library(ERPM)
-library(ggplot2)
-library(numbers)
-library(combinat)
-library(gmp)
-library(mclust)
 
 library(numbers) # for calculations of Bell numbers
 library(gmp) # for calculations of Stirling numbers
@@ -133,7 +131,7 @@ objects[[1]] <- list(name = "friendship", object = friendship)
 and we can set parameter values for each of these effects.
 
 ```{r}
-parameters <- c(-0.2,0.2,-0.1,0.5)
+parameters <- c(-0.2, 0.2, -0.1, 0.5)
 ```
 
 
@@ -149,21 +147,21 @@ sample <- draw_Metropolis_single(theta = parameters,
                           burnin = 100, 
                           thining = 10, 
                           num.steps = nsteps, 
-                          neighborhood = c(1,0,0), 
+                          neighborhood = c(0,1,0), 
                           numgroups.allowed = 1:n,
                           numgroups.simulated = 1:n,
                           sizes.allowed = 1:n,
                           sizes.simulated = 1:n,
-                          return.all.partitions = T)
+                          return.all.partitions = TRUE)
 ```
 
 ### 2.3 Trace plots
 
-We can check the mixing of the chain with autocorrelations (here it's not good enough yet):
+We can check the mixing of the chain with autocorrelations (they should be below 0.4). For example, for the first statistic:
 
 ```{r}
 s <- 1
-cor(sample$draws[1:(nsteps-1),s], sample$draws[2:nsteps,s]) # should be below 0.4!
+cor(sample$draws[1:(nsteps-1),s], sample$draws[2:nsteps,s])
 ```
 
 
@@ -207,7 +205,9 @@ estimation <- estimate_ERPM(partition,
                           multiplication.iter.p2 = 20,  # multiplication factor for the number of iteration in phase 2 subphases 
                           num.steps.p2 = 4, # number of phase 2 subphases
                           length.p3 = 1000) # number of samples in phase 3
-estimation$results
+
+# get results table
+estimation
 ```
 
 We get some intermediary objects calculated in the different phases
@@ -240,7 +240,9 @@ estimation <- estimate_ERPM(partition,
                           length.p3 = 2000,
                           inv.zcov = startingcovariance,
                           inv.scaling = startingscaling)
-estimation$results
+
+# get results table
+estimation
 ```
 
 Convergence improved!
@@ -273,10 +275,10 @@ simulations <- draw_Metropolis_single(theta = estimation$results$est,
                           burnin = 100, 
                           thining = 20, 
                           num.steps = nsimulations, 
-                          neighborhood = c(1,1,1,0,0,0), 
+                          neighborhood = c(0,1,0), 
                           sizes.allowed = 1:n,
                           sizes.simulated = 1:n,
-                          return.all.partitions = T)
+                          return.all.partitions = TRUE)
 ```
 
 We can first check the group size distribution:
@@ -326,7 +328,7 @@ for(simu in 1:nsimulations){
 df <- data.frame(simulation = 1:nsimulations,
                  simulated_stat = allicc,
                  observed_stat = rep(icc(partition,nodes$age),nsimulations),
-                 mean_stat = rep(mean(allicc,na.rm=T),nsimulations))
+                 mean_stat = rep(mean(allicc,na.rm=TRUE),nsimulations))
 ggplot(df) + 
     geom_violin(aes(x=1,y=simulated_stat), fill = NA) +
     geom_point(aes(x=1, y=mean_stat, colour = "simulated", shape= "simulated"), stroke= 1.5) +
@@ -355,7 +357,7 @@ for(simu in 1:nsimulations){
 df <- data.frame(simulation = 1:nsimulations,
                  simulated_stat = alldensities,
                  observed_stat = rep(same_pairs(partition, nodes$gender, 'avg_pergroup'),nsimulations),
-                 mean_stat = rep(mean(alldensities,na.rm=T),nsimulations))
+                 mean_stat = rep(mean(alldensities,na.rm=TRUE),nsimulations))
 ggplot(df) + 
     geom_violin(aes(x=1,y=simulated_stat), fill = NA) +
     geom_point(aes(x=1, y=mean_stat, colour = "simulated", shape= "simulated"), stroke= 1.5) +

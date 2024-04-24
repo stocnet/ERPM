@@ -19,7 +19,8 @@ draw_Metropolis_multiple(
   numgroups.simulated,
   sizes.allowed,
   sizes.simulated,
-  return.all.partitions = FALSE
+  return.all.partitions = FALSE,
+  verbose = FALSE
 )
 }
 \arguments{
@@ -52,10 +53,66 @@ draw_Metropolis_multiple(
 \item{sizes.simulated}{= NULL, vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)}
 
 \item{return.all.partitions}{= FALSE, option to return the sampled partitions on top of their statistics (for GOF)}
+
+\item{verbose}{logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.}
 }
 \value{
 A list
 }
 \description{
 Function to sample the model with a Markov chain (single partition procedure).
+}
+\examples{
+# define an arbitrary set of n = 6 nodes with attributes, and an arbitrary covariate matrix
+n <- 6 
+nodes <- data.frame(label = c("A","B","C","D","E","F"),
+                    gender = c(1,1,2,1,2,2),
+                    age = c(20,22,25,30,30,31)) 
+friendship <- matrix(c(0, 1, 1, 1, 0, 0,
+                       1, 0, 0, 0, 1, 0,
+                       1, 0, 0, 0, 1, 0,
+                       1, 0, 0, 0, 0, 0,
+                       0, 1, 1, 0, 0, 1,
+                       0, 0, 0, 0, 1, 0), 6, 6, TRUE) 
+
+# specify whether nodes are present at different points of time
+presence.tables <- matrix(c(1, 1, 1, 1, 1, 1,
+                            0, 1, 1, 1, 1, 1,
+                            1, 0, 1, 1, 1, 1), 6, 3)
+
+# choose effects to be included in the estimated model
+effects <- list(names = c("num_groups","same","diff","tie","inertia_1"),
+                objects = c("partitions","gender","age","friendship","partitions"),
+                objects2 = c("","","","",""))
+objects <- list()
+objects[[1]] <- list(name = "friendship", object = friendship)
+
+# set parameter values for each of these effects
+parameters <- c(-0.2,0.2,-0.1,0.5,1)
+
+# set a starting point for the simulation
+first.partitions <- matrix(c(1, 1, 2, 2, 2, 3,
+                             NA, 1, 1, 2, 2, 2,
+                             1, NA, 2, 3, 3, 1), 6, 3) 
+
+\donttest{
+# generate the simulated sample
+nsteps <- 50
+sample <- draw_Metropolis_multiple(theta = parameters, 
+                                   first.partitions = first.partitions,
+                                   nodes = nodes, 
+                                   presence.tables = presence.tables,
+                                   effects = effects, 
+                                   objects = objects, 
+                                   burnin = 100, 
+                                   thining = 100, 
+                                   num.steps = nsteps, 
+                                   neighborhood = c(0,1,0), 
+                                   numgroups.allowed = 1:n,
+                                   numgroups.simulated = 1:n,
+                                   sizes.allowed = 1:n,
+                                   sizes.simulated = 1:n,
+                                   return.all.partitions = TRUE)
+}
+
 }

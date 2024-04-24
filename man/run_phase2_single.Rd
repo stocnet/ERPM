@@ -29,7 +29,8 @@ run_phase2_single(
   sizes.simulated,
   double.averaging,
   parallel = FALSE,
-  cpus = 1
+  cpus = 1,
+  verbose = FALSE
 )
 }
 \arguments{
@@ -82,6 +83,8 @@ run_phase2_single(
 \item{parallel}{boolean to indicate whether the code should be run in parallel}
 
 \item{cpus}{number of cpus if parallel = TRUE}
+
+\item{verbose}{logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.}
 }
 \value{
 a list

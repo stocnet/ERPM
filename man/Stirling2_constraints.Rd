@@ -23,3 +23,11 @@ a numeric
 Function to calculate the number of partitions with k groups
 of sizes between smin and smax
 }
+\examples{
+n <- 6
+k <- 2
+size_min <- 2
+size_max <- 4
+Stirling2_constraints(n,k,size_min,size_max)
+
+}

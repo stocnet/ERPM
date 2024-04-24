@@ -30,7 +30,65 @@
 #' @return A list
 #' @importFrom stats runif
 #' @export
-
+#' @examples
+#' # define an arbitrary set of n = 6 nodes with attributes, and an arbitrary covariate matrix
+#' n <- 6 
+#' nodes <- data.frame(label = c("A","B","C","D","E","F"),
+#'                     gender = c(1,1,2,1,2,2),
+#'                     age = c(20,22,25,30,30,31)) 
+#' friendship <- matrix(c(0, 1, 1, 1, 0, 0,
+#'                        1, 0, 0, 0, 1, 0,
+#'                        1, 0, 0, 0, 1, 0,
+#'                        1, 0, 0, 0, 0, 0,
+#'                        0, 1, 1, 0, 0, 1,
+#'                        0, 0, 0, 0, 1, 0), 6, 6, TRUE)
+#'
+#' # choose the effects to be included (see manual for all effect names)
+#' effects <- list(names = c("num_groups","same","diff","tie"),
+#' objects = c("partition","gender","age","friendship"))
+#' objects <- list()
+#' objects[[1]] <- list(name = "friendship", object = friendship)
+#' 
+#' # set parameter values for each of these effects
+#' parameters <- c(-0.2, 0.2, -0.1, 0.5)
+#' 
+#' # generate simulated sample, by setting the desired additional parameters for the 
+#' # Metropolis sampler and choosing a starting point for the chain (first.partition)
+#' nsteps <- 100
+#' sample <- draw_Metropolis_single(theta = parameters, 
+#'                                  first.partition = c(1,1,2,2,3,3), 
+#'                                  nodes = nodes, 
+#'                                  effects = effects, 
+#'                                  objects = objects, 
+#'                                  burnin = 100, 
+#'                                  thining = 10, 
+#'                                  num.steps = nsteps, 
+#'                                  neighborhood = c(0,1,0), 
+#'                                  numgroups.allowed = 1:n,
+#'                                  numgroups.simulated = 1:n,
+#'                                  sizes.allowed = 1:n,
+#'                                  sizes.simulated = 1:n,
+#'                                  return.all.partitions = TRUE)
+#' 
+#' 
+#' \donttest{
+#' # or: simulate an estimated model
+#' partition <- c(1,1,2,2,2,3) # the partition already defined for the (previous) estimation
+#' nsimulations <- 1000
+#' simulations <- draw_Metropolis_single(theta = estimation$results$est, 
+#'                                       first.partition = partition, 
+#'                                       nodes = nodes, 
+#'                                       effects = effects, 
+#'                                       objects = objects, 
+#'                                       burnin = 100, 
+#'                                       thining = 20, 
+#'                                       num.steps = nsimulations, 
+#'                                       neighborhood = c(0,1,0), 
+#'                                       sizes.allowed = 1:n,
+#'                                       sizes.simulated = 1:n,
+#'                                       return.all.partitions = TRUE)
+#' }
+#' 
 draw_Metropolis_single <- function(theta, 
                                    first.partition, 
                                    nodes, 
@@ -44,8 +102,7 @@ draw_Metropolis_single <- function(theta,
                                    numgroups.simulated = NULL,
                                    sizes.allowed = NULL, 
                                    sizes.simulated = NULL,
-                                   return.all.partitions = FALSE) 
-{
+                                   return.all.partitions = FALSE) {
 
   num.nodes <- nrow(nodes)
   num.effects <- length(effects$names)
@@ -173,9 +230,63 @@ draw_Metropolis_single <- function(theta,
 #' @param sizes.allowed = NULL,  vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated = NULL, vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
 #' @param return.all.partitions = FALSE, option to return the sampled partitions on top of their statistics (for GOF)
+#' @param verbose logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.
 #' @return A list
 #' @importFrom stats runif
 #' @export
+#' @examples
+#' # define an arbitrary set of n = 6 nodes with attributes, and an arbitrary covariate matrix
+#' n <- 6 
+#' nodes <- data.frame(label = c("A","B","C","D","E","F"),
+#'                     gender = c(1,1,2,1,2,2),
+#'                     age = c(20,22,25,30,30,31)) 
+#' friendship <- matrix(c(0, 1, 1, 1, 0, 0,
+#'                        1, 0, 0, 0, 1, 0,
+#'                        1, 0, 0, 0, 1, 0,
+#'                        1, 0, 0, 0, 0, 0,
+#'                        0, 1, 1, 0, 0, 1,
+#'                        0, 0, 0, 0, 1, 0), 6, 6, TRUE) 
+#' 
+#' # specify whether nodes are present at different points of time
+#' presence.tables <- matrix(c(1, 1, 1, 1, 1, 1,
+#'                             0, 1, 1, 1, 1, 1,
+#'                             1, 0, 1, 1, 1, 1), 6, 3)
+#' 
+#' # choose effects to be included in the estimated model
+#' effects_multiple <- list(names = c("num_groups","same","diff","tie","inertia_1"),
+#'                 objects = c("partitions","gender","age","friendship","partitions"),
+#'                 objects2 = c("","","","",""))
+#' objects_multiple <- list()
+#' objects_multiple[[1]] <- list(name = "friendship", object = friendship)
+#' 
+#' # set parameter values for each of these effects
+#' parameters <- c(-0.2,0.2,-0.1,0.5,1)
+#' 
+#' # set a starting point for the simulation
+#' first.partitions <- matrix(c(1, 1, 2, 2, 2, 3,
+#'                              NA, 1, 1, 2, 2, 2,
+#'                              1, NA, 2, 3, 3, 1), 6, 3) 
+#' 
+#' \donttest{
+#' # generate the simulated sample
+#' nsteps <- 50
+#' sample <- draw_Metropolis_multiple(theta = parameters, 
+#'                                    first.partitions = first.partitions,
+#'                                    nodes = nodes, 
+#'                                    presence.tables = presence.tables,
+#'                                    effects = effects_multiple, 
+#'                                    objects = objects_multiple, 
+#'                                    burnin = 100, 
+#'                                    thining = 100, 
+#'                                    num.steps = nsteps, 
+#'                                    neighborhood = c(0,1,0), 
+#'                                    numgroups.allowed = 1:n,
+#'                                    numgroups.simulated = 1:n,
+#'                                    sizes.allowed = 1:n,
+#'                                    sizes.simulated = 1:n,
+#'                                    return.all.partitions = TRUE)
+#' }
+#' 
 draw_Metropolis_multiple <- function(theta, 
                                      first.partitions,
                                      presence.tables, 
@@ -190,7 +301,8 @@ draw_Metropolis_multiple <- function(theta,
                                      numgroups.simulated,
                                      sizes.allowed,
                                      sizes.simulated,
-                                     return.all.partitions = FALSE) 
+                                     return.all.partitions = FALSE,
+                                     verbose = FALSE) 
 {
 
   num.nodes <- nrow(nodes)
@@ -264,8 +376,8 @@ draw_Metropolis_multiple <- function(theta,
     cpt_burnin <- cpt_burnin + 1
     if(cpt_burnin > burnin) cpt_thining <- cpt_thining + 1
 
-    if(cpt_burnin %% 10000 == 0) print(cpt_burnin)
-
+    if(cpt_burnin %% 10000 == 0 && verbose) cat(cpt_burnin, "\n")
+    
     # store the results if we are out of burnin
     if(cpt_burnin >= burnin && cpt_thining == thining) {
       
@@ -404,7 +516,6 @@ draw_step_multiple <- function(theta,
                                objects,
                                neighborhood,
                                numgroups.simulated,
-                               sizes.allowed,
                                sizes.simulated){
 
   num.nodes <- nrow(nodes)

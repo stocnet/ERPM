@@ -22,7 +22,8 @@ estimate_logL(
   sizes.simulated = NULL,
   logL_0 = NULL,
   parallel = FALSE,
-  cpus = 1
+  cpus = 1,
+  verbose = FALSE
 )
 }
 \arguments{
@@ -61,10 +62,61 @@ estimate_logL(
 \item{parallel}{= FALSE, indicating whether the code should be run in parallel}
 
 \item{cpus}{= 1, number of cpus required for the parallelization}
+
+\item{verbose}{= FALSE, to print the current step the algorithm is in}
 }
 \value{
 List with the log likelihood , AIC, lambda and the draws
 }
 \description{
 Function to estimate the log likelihood of a model for an observed partition
+}
+\examples{
+# estimate the log-likelihood and AIC of an estimated model (e.g. useful to compare two models)
+
+# define an arbitrary set of n = 6 nodes with attributes, and an arbitrary covariate matrix
+n <- 6
+nodes <- data.frame(label = c("A","B","C","D","E","F"),
+                    gender = c(1,1,2,1,2,2),
+                    age = c(20,22,25,30,30,31)) 
+friendship <- matrix(c(0, 1, 1, 1, 0, 0,
+                       1, 0, 0, 0, 1, 0,
+                       1, 0, 0, 0, 1, 0,
+                       1, 0, 0, 0, 0, 0,
+                       0, 1, 1, 0, 0, 1,
+                       0, 0, 0, 0, 1, 0), 6, 6, TRUE)
+
+# choose the effects to be included (see manual for all effect names)
+effects <- list(names = c("num_groups","same","diff","tie"),
+objects = c("partition","gender","age","friendship"))
+objects <- list()
+objects[[1]] <- list(name = "friendship", object = friendship)
+
+# define observed partition 
+partition <- c(1,1,2,2,2,3)
+# (an exemplary estimation is internally stored in order to save time)
+
+# first: estimate the ML estimates of a simple model with only one parameter 
+# for number of groups (this parameter should be in the model!)
+likelihood_function <- function(x){ exp(x*max(partition)) / compute_numgroups_denominator(n,x)}
+curve(likelihood_function, from=-2, to=0)
+parameter_base <- optimize(likelihood_function, interval=c(-2, 0), maximum=TRUE)
+parameters_basemodel <- c(parameter_base$maximum,0,0,0)
+
+\donttest{
+# estimate logL and AIC
+logL_AIC <- estimate_logL(partition,
+                          nodes,
+                          effects, 
+                          objects,
+                          theta = estimation$results$est,
+                          theta_0 = parameters_basemodel,
+                          M = 3,
+                          num.steps = 200,
+                          burnin = 100,
+                          thining = 20)
+logL_AIC$logL
+logL_AIC$AIC
+}
+
 }

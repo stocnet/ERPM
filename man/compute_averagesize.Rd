@@ -15,3 +15,8 @@ a numeric
 \description{
 Recursive function to compute the average size of a random partition for a given number of nodes
 }
+\examples{
+n <- 6
+compute_averagesize(n)
+
+}
