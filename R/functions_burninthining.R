@@ -22,7 +22,6 @@
 #' @param numgroups.simulated vector containing the number of groups simulated
 #' @param sizes.allowed Vector of group sizes allowed in sampling (now, it only works for vectors like size_min:size_max)
 #' @param sizes.simulated Vector of group sizes allowed in the Markov chain but not necessraily sampled (now, it only works for vectors like size_min:size_max)
-#' @param verbose logical: should intermediate results during the estimation be printed or not? Defaults to FALSE.
 #' @return A list with list the draws, the moving.means and the moving means smoothed
 #' @importFrom stats loess
 #' @export
@@ -36,16 +35,13 @@ simulate_burnin_single <- function(partition,
                                    numgroups.allowed, 
                                    numgroups.simulated,
                                    sizes.allowed, 
-                                   sizes.simulated,
-                                   verbose = FALSE) 
+                                   sizes.simulated) 
 {
   num.effects <- length(effects$names)
 
-  if (verbose) {
-    cat("Neighborhood: \n")
-    cat(neighborhood, "\n\n")
-  }
-
+  # print("Neighborhood: ")
+  # print(neighborhood)
+  
   chain <- draw_Metropolis_single(theta, partition, nodes, effects, objects, 1, 1, num.steps, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = FALSE)
 
   # now we check the evolution of the mean for choosing the burnin
@@ -810,7 +806,7 @@ gridsearch_burninthining_multiple <- function(partitions,
     # just go through all neighborhoods one by one
     allsimulations <- list()
     for(i in 1:length(neighborhoods)){
-      print(neighborhoods[[i]])
+      # print(neighborhoods[[i]])
       allsimulations[[i]] <- simulate_burninthining_multiple(partitions, presence.tables, theta, nodes, effects, objects, num.steps, neighborhoods[[i]], numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, max.thining)
     }
 
