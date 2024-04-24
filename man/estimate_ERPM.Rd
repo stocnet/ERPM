@@ -120,7 +120,7 @@ friendship <- matrix(c(0, 1, 1, 1, 0, 0,
 
 # choose the effects to be included (see manual for all effect names)
 effects <- list(names = c("num_groups","same","diff","tie"),
-objects = c("partition","gender","age","friendship"))
+                objects = c("partition","gender","age","friendship"))
 objects <- list()
 objects[[1]] <- list(name = "friendship", object = friendship)
 

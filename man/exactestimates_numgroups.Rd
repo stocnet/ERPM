@@ -4,7 +4,7 @@
 \alias{exactestimates_numgroups}
 \title{Exact estimates number of groups}
 \usage{
-exactestimates_numgroups(num.nodes, pmin, pmax, pinc, verbose = FALSE)
+exactestimates_numgroups(num.nodes, pmin, pmax, pinc)
 }
 \arguments{
 \item{num.nodes}{number of nodes}
@@ -14,8 +14,6 @@ exactestimates_numgroups(num.nodes, pmin, pmax, pinc, verbose = FALSE)
 \item{pmax}{highest parameter value}
 
 \item{pinc}{increment between different parameter values}
-
-\item{verbose}{logical: should intermediate results be printed or not? Defaults to FALSE.}
 }
 \value{
 a list
