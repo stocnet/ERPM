@@ -52,6 +52,7 @@
 #' # set parameter values for each of these effects
 #' parameters <- c(-0.2, 0.2, -0.1, 0.5)
 #' 
+#' \donttest{
 #' # generate simulated sample, by setting the desired additional parameters for the 
 #' # Metropolis sampler and choosing a starting point for the chain (first.partition)
 #' nsteps <- 100
@@ -71,7 +72,6 @@
 #'                                  return.all.partitions = TRUE)
 #' 
 #' 
-#' \donttest{
 #' # or: simulate an estimated model
 #' partition <- c(1,1,2,2,2,3) # the partition already defined for the (previous) estimation
 #' nsimulations <- 1000
