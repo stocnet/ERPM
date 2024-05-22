@@ -1,7 +1,7 @@
 Type: Package
 Package: ERPM
 Title: Exponential Random Partition Models
-Version: 0.2.0
+Version: 0.2.0.9000
 Date: 2024-05-03
 Authors@R: c(
     person("Marion", "Hoffman", , "marion.hoffman.31@gmail.com", role = c("cre", "aut", "cph"),
