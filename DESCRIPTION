@@ -7,7 +7,7 @@ Authors@R: c(
     person("Marion", "Hoffman", , "marion.hoffman.31@gmail.com", role = c("cre", "aut", "cph"),
            comment = c(ORCID = "0000-0002-0741-7760")),
     person("Alexandra", "Amani", role = "aut"),
-    person("Nico", "Keiser", role = "aut")
+    person("Nico", "Keiser", role = "aut", comment = c(ORCID = "0009-0007-3403-278X"))
   )
 Description: Simulates and estimates the Exponential Random Partition Model presented 
     in the paper Hoffman, Block, and Snijders (2023) <doi:10.1177/00811750221145166>. 

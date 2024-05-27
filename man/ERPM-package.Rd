@@ -22,7 +22,7 @@ Useful links:
 Authors:
 \itemize{
   \item Alexandra Amani
-  \item Nico Keiser
+  \item Nico Keiser (\href{https://orcid.org/0009-0007-3403-278X}{ORCID})
 }
 
 }
