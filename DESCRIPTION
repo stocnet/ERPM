@@ -6,8 +6,9 @@ Date: 2024-05-03
 Authors@R: c(
     person("Marion", "Hoffman", , "marion.hoffman.31@gmail.com", role = c("cre", "aut", "cph"),
            comment = c(ORCID = "0000-0002-0741-7760")),
-    person("Alexandra", "Amani", role = "aut"),
-    person("Nico", "Keiser", role = "aut")
+    person(c("Pavel", "N."), "Krivitsky", role=c("aut")),
+    person("Alexandra", "Amani", role = "ctb"),
+    person("Nico", "Keiser", role = "ctb")
   )
 Description: Simulates and estimates the Exponential Random Partition Model presented 
     in the paper Hoffman, Block, and Snijders (2023) <doi:10.1177/00811750221145166>. 
@@ -18,14 +19,19 @@ Description: Simulates and estimates the Exponential Random Partition Model pres
     Random Graph Models (ERGM) for networks.
 License: GPL (>= 3)
 Depends: 
-    R (>= 4.2)
+    R (>= 4.2),
+    ergm (>= 4.7.0),
+    network (>= 1.18.2)
 Imports: 
     numbers,
     utils,
     stats,
     igraph,
     RColorBrewer,
-    snowfall
+    snowfall,
+    ergm
+LinkingTo:
+    ergm
 Suggests: 
     knitr,
     rmarkdown,
