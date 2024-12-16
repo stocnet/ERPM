@@ -19,20 +19,19 @@ Description: Simulates and estimates the Exponential Random Partition Model pres
     Random Graph Models (ERGM) for networks.
 License: GPL (>= 3)
 Depends: 
-    R (>= 4.2),
-    ergm (>= 4.8.0),
-    network (>= 1.18.2)
+    R (>= 4.2)
 Imports: 
+    ergm (>= 4.8.0),
     numbers,
     utils,
     stats,
     igraph,
     RColorBrewer,
     snowfall,
-    ergm
 LinkingTo:
     ergm
-Suggests: 
+Suggests:
+    network,
     knitr,
     rmarkdown,
     testthat (>= 3.0.0)
@@ -41,23 +40,6 @@ Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2.9000
-Collate: 
-    'erpm-package.R'
-    'functions_utility.R'
-    'functions_Metropolis.R'
-    'functions_burninthining.R'
-    'functions_change_statistics.R'
-    'functions_estimate.R'
-    'functions_exactcalculations.R'
-    'functions_exchange_algorithm.R'
-    'functions_loglikelihood.R'
-    'functions_output.R'
-    'functions_phase1.R'
-    'functions_phase2.R'
-    'functions_phase3.R'
-    'functions_statistics.R'
-    'functions_visualisation.R'
-    'outcomeObjects.R'
 URL: https://github.com/stocnet/ERPM
 BugReports: https://github.com/stocnet/ERPM/issues
 Remotes: github::statnet/ergm@master
