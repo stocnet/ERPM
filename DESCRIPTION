@@ -28,10 +28,10 @@ Imports:
     igraph,
     RColorBrewer,
     snowfall,
+    network    
 LinkingTo:
     ergm
 Suggests:
-    network,
     knitr,
     rmarkdown,
     testthat (>= 3.0.0)
