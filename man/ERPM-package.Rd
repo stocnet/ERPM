@@ -21,8 +21,13 @@ Useful links:
 
 Authors:
 \itemize{
-  \item Alexandra Amani
-  \item Nico Keiser
+  \item Pavel N. Krivitsky \email{pavel@statnet.org} (\href{https://orcid.org/0000-0002-9101-3362}{ORCID})
+}
+
+Other contributors:
+\itemize{
+  \item Alexandra Amani [contributor]
+  \item Nico Keiser [contributor]
 }
 
 }
