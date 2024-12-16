@@ -6,7 +6,7 @@ Date: 2024-05-03
 Authors@R: c(
     person("Marion", "Hoffman", , "marion.hoffman.31@gmail.com", role = c("cre", "aut", "cph"),
            comment = c(ORCID = "0000-0002-0741-7760")),
-    person(c("Pavel", "N."), "Krivitsky", role=c("aut")),
+    person(c("Pavel", "N."), "Krivitsky", role=c("aut"), email="pavel@statnet.org", comment=c(ORCID="0000-0002-9101-3362")),
     person("Alexandra", "Amani", role = "ctb"),
     person("Nico", "Keiser", role = "ctb")
   )
@@ -20,7 +20,7 @@ Description: Simulates and estimates the Exponential Random Partition Model pres
 License: GPL (>= 3)
 Depends: 
     R (>= 4.2),
-    ergm (>= 4.7.0),
+    ergm (>= 4.8.0),
     network (>= 1.18.2)
 Imports: 
     numbers,
@@ -40,7 +40,7 @@ Config/testthat/edition: 3
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.1
+RoxygenNote: 7.3.2.9000
 Collate: 
     'erpm-package.R'
     'functions_utility.R'
@@ -60,3 +60,4 @@ Collate:
     'outcomeObjects.R'
 URL: https://github.com/stocnet/ERPM
 BugReports: https://github.com/stocnet/ERPM/issues
+Remotes: github::statnet/ergm@master
