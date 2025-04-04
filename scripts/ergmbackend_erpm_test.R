@@ -53,4 +53,4 @@ fit_long <- erpm(partition ~ ngroups +
                    ties("friendship", normalized = F), 
             options = list(nphase1 = 1000, nphase3 = 1000))
 
-# potential followups : allow interactions, change the steps in the MCMC sampler
+# potential followups : allow interactions, change the steps in the MCMC sampler, add AIC and log L in a consistent way with other glm libraries
