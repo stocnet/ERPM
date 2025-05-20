@@ -1,4 +1,4 @@
 library(testthat)
-library(ERPM)
+#library(ERPM) # optionnel si package chargé ou devtools::load_all() utilisé
 
-test_check("ERPM")
+testthat::test_dir("tests/testthat")

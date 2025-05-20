@@ -22,8 +22,8 @@ A number corresponding to the correlation coefficient
 This function computes the correlation between the two attributes for individuals in the same group.
 }
 \examples{
-p <- c(1,2,2,3,3,4,4,4,5)
-at <- c(3,5,23,2,1,0,3,9,2)
-at2 <- c(3,5,20,2,1,0,0,9,0)
-correlation_within(p,at,at2,4)
+p <- c(1, 2, 2, 3, 3, 4, 4, 4, 5)
+at <- c(3, 5, 23, 2, 1, 0, 3, 9, 2)
+at2 <- c(3, 5, 20, 2, 1, 0, 0, 9, 0)
+correlation_within(p, at, at2, 4)
 }

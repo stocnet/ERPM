@@ -28,6 +28,6 @@ n <- 6
 k <- 2
 size_min <- 2
 size_max <- 4
-Stirling2_constraints(n,k,size_min,size_max)
+Stirling2_constraints(n, k, size_min, size_max)
 
 }

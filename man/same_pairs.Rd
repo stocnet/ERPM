@@ -22,7 +22,7 @@ This function computes the total number, the average number having the same valu
 and the number of individuals a partition.
 }
 \examples{
-p <- c(1,2,2,3,3,4,4,4,5)
-at <- c(0,1,1,1,1,0,0,0,0)
-same_pairs(p,at,'avg_pergroup')
+p <- c(1, 2, 2, 3, 3, 4, 4, 4, 5)
+at <- c(0, 1, 1, 1, 1, 0, 0, 0, 0)
+same_pairs(p, at,'avg_pergroup')
 }

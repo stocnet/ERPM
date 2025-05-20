@@ -21,7 +21,7 @@ the correlation ratio if the attribute is categorical.
 This function computes the correlation between an attribute and the size of the groups.
 }
 \examples{
-p <- c(1,2,2,3,3,4,4,4,5)
-at <- c(3,5,23,2,1,0,3,9,2)
-correlation_with_size(p,at,categorical=FALSE)
+p <- c(1, 2, 2, 3, 3, 4, 4, 4, 5)
+at <- c(3, 5, 23, 2, 1, 0, 3, 9, 2)
+correlation_with_size(p, at, categorical = FALSE)
 }

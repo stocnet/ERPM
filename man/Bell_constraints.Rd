@@ -25,6 +25,6 @@ of sizes between smin and smax
 n <- 6
 size_min <- 2
 size_max <- 4
-Bell_constraints(n,size_min,size_max)
+Bell_constraints(n, size_min, size_max)
 
 }

@@ -20,7 +20,7 @@ The statisic chosen in stat
 This function computes the sum or the average range of an attribute for groups in a partition.
 }
 \examples{
-p <- c(1,2,2,3,3,4,4,4,5)
-at <- c(3,5,23,2,1,0,3,9,2)
-range_attribute(p,at,'avg_pergroup')
+p <- c(1, 2, 2, 3, 3, 4, 4, 4, 5)
+at <- c(3, 5, 23, 2, 1, 0, 3, 9, 2)
+range_attribute(p, at,'avg_pergroup')
 }

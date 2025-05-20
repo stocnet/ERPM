@@ -2,8 +2,8 @@
 #'
 #' @name outcomeObjects
 #' @description
-#' These are exemplary outcome objects for the ERPM package and can be used in 
-#' order not to run all precedent functions and thus save time. The following 
+#' These are exemplary outcome objects for the ERPM package and can be used in
+#' order not to run all precedent functions and thus save time. The following
 #' products are provided:
 
 

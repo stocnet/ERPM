@@ -20,7 +20,7 @@
 #' @template ergmConstraint-general
 #'
 #' @concept bipartite
-InitErgmConstraint.b1part<-function(nw, arglist, ...){
-  a <- check.ErgmTerm(nw, arglist, bipartite=TRUE)
+InitErgmConstraint.b1part <- function(nw, arglist, ...) {
+  a <- check.ErgmTerm(nw, arglist, bipartite = TRUE)
   list(dependence = TRUE, implies = c("b1degrees", "edges"))
 }

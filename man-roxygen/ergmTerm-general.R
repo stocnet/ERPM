@@ -7,9 +7,9 @@
 #
 #  Copyright 2003-2024 Statnet Commons
 ################################################################################
-#' <% name <- if(startsWith(name, "'")) substr(name, 2, 1000) else name %>
+#' <% name <- if (startsWith(name, "'")) substr(name, 2, 1000) else name %>
 #' @name <%= name %>-ergmTerm
 #' @rdname <%= ergm:::.term.rdname("ergmTerm", name) %>
 #' @seealso [`ergmTerm`] for index of model terms currently visible to the package.
 #'
-#' \Sexpr[results=rd,stage=render]{ergm:::.formatTermKeywords("ergmTerm", "<%= name %>", "subsection")}
+#' \Sexpr[results = rd, stage = render]{ergm:::.formatTermKeywords("ergmTerm", "<%= name %>", "subsection")}

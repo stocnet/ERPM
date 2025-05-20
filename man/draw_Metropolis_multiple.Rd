@@ -42,7 +42,7 @@ draw_Metropolis_multiple(
 
 \item{num.steps}{number of samples}
 
-\item{neighborhood}{= c(0.7,0.3,0), way of choosing partitions: probability vector (2 actors swap, merge/division, single actor move, single pair move, 2 pairs swap, 2 groups reshuffle)}
+\item{neighborhood}{= c(0.7, 0.3, 0), way of choosing partitions: probability vector (2 actors swap, merge/division, single actor move, single pair move, 2 pairs swap, 2 groups reshuffle)}
 
 \item{numgroups.allowed}{= NULL, # vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)}
 
@@ -64,16 +64,16 @@ Function to sample the model with a Markov chain (single partition procedure).
 }
 \examples{
 # define an arbitrary set of n = 6 nodes with attributes, and an arbitrary covariate matrix
-n <- 6 
-nodes <- data.frame(label = c("A","B","C","D","E","F"),
-                    gender = c(1,1,2,1,2,2),
-                    age = c(20,22,25,30,30,31)) 
+n <- 6
+nodes <- data.frame(label = c("A", "B", "C", "D", "E", "F"),
+                    gender = c(1, 1, 2, 1, 2, 2),
+                    age = c(20, 22, 25, 30, 30, 31))
 friendship <- matrix(c(0, 1, 1, 1, 0, 0,
                        1, 0, 0, 0, 1, 0,
                        1, 0, 0, 0, 1, 0,
                        1, 0, 0, 0, 0, 0,
                        0, 1, 1, 0, 0, 1,
-                       0, 0, 0, 0, 1, 0), 6, 6, TRUE) 
+                       0, 0, 0, 0, 1, 0), 6, 6, TRUE)
 
 # specify whether nodes are present at different points of time
 presence.tables <- matrix(c(1, 1, 1, 1, 1, 1,
@@ -81,33 +81,33 @@ presence.tables <- matrix(c(1, 1, 1, 1, 1, 1,
                             1, 0, 1, 1, 1, 1), 6, 3)
 
 # choose effects to be included in the estimated model
-effects_multiple <- list(names = c("num_groups","same","diff","tie","inertia_1"),
-                objects = c("partitions","gender","age","friendship","partitions"),
-                objects2 = c("","","","",""))
+effects_multiple <- list(names = c("num_groups", "same", "diff", "tie", "inertia_1"),
+                objects = c("partitions", "gender", "age", "friendship", "partitions"),
+                objects2 = c("", "", "", "", ""))
 objects_multiple <- list()
 objects_multiple[[1]] <- list(name = "friendship", object = friendship)
 
 # set parameter values for each of these effects
-parameters <- c(-0.2,0.2,-0.1,0.5,1)
+parameters <- c(-0.2, 0.2,-0.1, 0.5, 1)
 
 # set a starting point for the simulation
 first.partitions <- matrix(c(1, 1, 2, 2, 2, 3,
                              NA, 1, 1, 2, 2, 2,
-                             1, NA, 2, 3, 3, 1), 6, 3) 
+                             1, NA, 2, 3, 3, 1), 6, 3)
 
 \donttest{
 # generate the simulated sample
 nsteps <- 50
-sample <- draw_Metropolis_multiple(theta = parameters, 
+sample <- draw_Metropolis_multiple(theta = parameters,
                                    first.partitions = first.partitions,
-                                   nodes = nodes, 
+                                   nodes = nodes,
                                    presence.tables = presence.tables,
-                                   effects = effects_multiple, 
-                                   objects = objects_multiple, 
-                                   burnin = 100, 
-                                   thining = 100, 
-                                   num.steps = nsteps, 
-                                   neighborhood = c(0,1,0), 
+                                   effects = effects_multiple,
+                                   objects = objects_multiple,
+                                   burnin = 100,
+                                   thining = 100,
+                                   num.steps = nsteps,
+                                   neighborhood = c(0, 1, 0),
                                    numgroups.allowed = 1:n,
                                    numgroups.simulated = 1:n,
                                    sizes.allowed = 1:n,

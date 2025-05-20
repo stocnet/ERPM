@@ -5,7 +5,7 @@
 ######################################################################
 
 
-## ----- CORRELATION FUNCTIONS --------- 
+## ----- CORRELATION FUNCTIONS ---------
 
 
 
@@ -14,36 +14,36 @@
 #'This function computes the intra class correlation correlation
 #'of attributes for 2 randomly drawn individuals in the same group.
 #'
-#' @param partition A partition 
+#' @param partition A partition
 #' @param attribute A vector containing the values of the attribute
 #' @return A number corresponding to the ICC
 #' @examples
-#' p <- c(1,2,2,3,3,4,4,4,5)
-#' at <- c(3,5,23,2,1,0,3,9,2)
+#' p <- c(1, 2, 2, 3, 3, 4, 4, 4, 5)
+#' at <- c(3, 5, 23, 2, 1, 0, 3, 9, 2)
 #' icc(p, at)
 #' @export
 
-icc <- function(partition, attribute){
-  
+icc <- function(partition, attribute) {
+
   sum_between <- 0
   sum_within <- 0
-  number_groups <- max(partition,na.rm = FALSE)
-  
-  for (g in 1:max(partition,na.rm = FALSE)){
+  number_groups <- max(partition, na.rm = FALSE)
+
+  for (g in 1:max(partition, na.rm = FALSE)) {
     members <- which(partition == g)
-    
+
     var_b <- mean(attribute[members]) - mean(attribute)
     sum_between <- sum_between + var_b^2
-    
+
     var_w <- sum((attribute[members] - mean(attribute[members]))^2)
     sum_within <- sum_within + var_w
   }
-  
-  between <- sum_between / (number_groups-1)
-  within <- sum_within /(length(partition)-number_groups)
-  
-  coef <- between/(between+within)
-  
+
+  between <- sum_between / (number_groups - 1)
+  within <- sum_within / (length(partition) - number_groups)
+
+  coef <- between / (between + within)
+
   return(coef)
 }
 
@@ -60,13 +60,13 @@ icc <- function(partition, attribute){
 #' @return A number corresponding to the correlation coefficient
 #' @export
 #' @examples
-#' p <- c(1,2,2,3,3,4,4,4,5)
-#' at <- c(3,5,23,2,1,0,3,9,2)
-#' at2 <- c(3,5,20,2,1,0,0,9,0)
-#' correlation_within(p,at,at2,4)
+#' p <- c(1, 2, 2, 3, 3, 4, 4, 4, 5)
+#' at <- c(3, 5, 23, 2, 1, 0, 3, 9, 2)
+#' at2 <- c(3, 5, 20, 2, 1, 0, 0, 9, 0)
+#' correlation_within(p, at, at2, 4)
 
 
-correlation_within <- function(partition, attribute1, attribute2, group){
+correlation_within <- function(partition, attribute1, attribute2, group) {
 
   members <- which(partition == group)
 
@@ -76,7 +76,7 @@ correlation_within <- function(partition, attribute1, attribute2, group){
   sum2_att1 <- sum((attribute1[members] - mean(attribute1[members]))^2)
   sum2_att2 <- sum((attribute2[members] - mean(attribute2[members]))^2)
 
-  sum_att <- sum(sum_att1*sum_att2)
+  sum_att <- sum(sum_att1 * sum_att2)
   coef <- sum_att / (sqrt(sum2_att1) * sqrt(sum2_att2))
 
   return(coef)
@@ -94,10 +94,10 @@ correlation_within <- function(partition, attribute1, attribute2, group){
 #' @return A number corresponding to the correlation coefficient
 #' @export
 #' @examples
-#' p <- c(1,2,2,3,3,4,4,4,5)
-#' at <- c(3,5,23,2,1,0,3,9,2)
-#' at2 <- c(3,5,20,2,1,0,0,9,0)
-#' correlation_between(p,at,at2)
+#' p <- c(1, 2, 2, 3, 3, 4, 4, 4, 5)
+#' at <- c(3, 5, 23, 2, 1, 0, 3, 9, 2)
+#' at2 <- c(3, 5, 20, 2, 1, 0, 0, 9, 0)
+#' correlation_between(p, at, at2)
 
 
 correlation_between <- function(partition, attribute1, attribute2) {
@@ -107,14 +107,15 @@ correlation_between <- function(partition, attribute1, attribute2) {
   sum_mean <- 0
   sum1 <- 0
   sum2 <- 0
-  for (g in 1:max(partition,na.rm = FALSE)) {
+  for (g in 1:max(partition, na.rm = FALSE)) {
     members <- which(partition == g)
-    sum_mean <- sum_mean + (mean(attribute1[members])-mean1)*(mean(attribute2[members])-mean2)
-    sum1 <- sum1 + (mean(attribute1[members])-mean1)^2
-    sum2 <- sum2 + (mean(attribute2[members])-mean2)^2
+    sum_mean <- sum_mean + (mean(attribute1[members]) - mean1) * (mean(attribute2[members]) - mean2)
+    sum1 <- sum1 + (mean(attribute1[members]) - mean1)^2
+    sum2 <- sum2 + (mean(attribute2[members]) - mean2)^2
   }
-  res <- sum_mean/(sqrt(sum1)*sqrt(sum2))
+  res <- sum_mean / (sqrt(sum1 * sqrt(sum2)))
   return(res)
+
 }
 
 
@@ -131,27 +132,27 @@ correlation_between <- function(partition, attribute1, attribute2) {
 #' @importFrom stats cor lm
 #' @export
 #' @examples
-#' p <- c(1,2,2,3,3,4,4,4,5)
-#' at <- c(3,5,23,2,1,0,3,9,2)
-#' correlation_with_size(p,at,categorical=FALSE)
+#' p <- c(1, 2, 2, 3, 3, 4, 4, 4, 5)
+#' at <- c(3, 5, 23, 2, 1, 0, 3, 9, 2)
+#' correlation_with_size(p, at, categorical = FALSE)
 
 
-correlation_with_size <- function(partition, attribute, categorical){
+correlation_with_size <- function(partition, attribute, categorical) {
 
   n <- length(attribute)
-  m <- max(partition)
+  m <- max(partition) # nolint: object_usage_linter.
 
   sizes <- 0
 
-  for(i in 1:n){
+  for (i in 1:n) {
     t <- partition[i]
-    sizes[i] <- length(which(partition==t))
+    sizes[i] <- length(which(partition == t))
   }
 
-  if (categorical == FALSE){
-    c <- cor(attribute,sizes)
+  if (categorical == FALSE) {
+    c <- cor(attribute, sizes)
     return(c)
-  } else{
+  } else {
 
     model <- summary(lm(sizes ~ attribute))
     return(model$r.squared)
@@ -174,17 +175,17 @@ correlation_with_size <- function(partition, attribute, categorical){
 #' @importFrom stats sd
 #' @export
 #' @examples
-#' p <- c(1,2,2,3,3,4,4,4,5)
+#' p <- c(1, 2, 2, 3, 3, 4, 4, 4, 5)
 #' group_size(p,'avg')
 #' group_size(p,'sd')
 
-group_size <- function(partition, stat){
+group_size <- function(partition, stat) {
 
-  if (stat == 'avg'){
+  if (stat == "avg") {
     av_size <- mean(table(partition))
     return(av_size)
   }
-  if (stat == 'sd'){
+  if (stat == "sd") {
     sd_size <- sd(table(partition))
     return(sd_size)
   }
@@ -201,11 +202,11 @@ group_size <- function(partition, stat){
 #' @return A number corresponding to proportion of individuals alone.
 #' @export
 #' @examples
-#' p <- c(1,2,2,3,3,4,4,4,5)
+#' p <- c(1, 2, 2, 3, 3, 4, 4, 4, 5)
 #' proportion_isolate(p)
 
-proportion_isolate <- function(partition){
-  prop <- sum(table(partition)==1) / length(partition)
+proportion_isolate <- function(partition) {
+  prop <- sum(table(partition) == 1) / length(partition)
   return(prop)
 }
 
@@ -225,28 +226,28 @@ proportion_isolate <- function(partition){
 #' @return The statisic chosen in stat depending on the value of category. If category = 'all', returns a vector.
 #' @export
 #' @examples
-#' p <- c(1,2,2,3,3,4,4,4,5)
-#' at <- c(1,0,0,0,1,1,0,0,1)
-#' number_categories(p,at,'avg','all')
+#' p <- c(1, 2, 2, 3, 3, 4, 4, 4, 5)
+#' at <- c(1, 0, 0, 0, 1, 1, 0, 0, 1)
+#' number_categories(p, at,'avg','all')
 
 
-number_categories <- function(partition, attribute, stat, category){
+number_categories <- function(partition, attribute, stat, category) {
 
   sum_g <- 0
   x <- 0
 
-  if (category == "all"){
+  if (category == "all") {
     attribute <- as.factor(attribute)
-    for (level in levels(attribute)){
-      x[level]<-0
+    for (level in levels(attribute)) {
+      x[level] <- 0
     }
 
 
-    if (stat == 'sum'){
-      for(g in 1:max(partition, na.rm = TRUE)){
+    if (stat == "sum") {
+      for (g in 1:max(partition, na.rm = TRUE)) {
         members <- which(partition == g)
         table_g <- table(attribute[members])
-        for (level in dimnames(table_g)){
+        for (level in dimnames(table_g)) {
           x[level] <- x[level] + table_g[level]
         }
       }
@@ -254,35 +255,33 @@ number_categories <- function(partition, attribute, stat, category){
     }
 
 
-    if (stat == 'avg'){
-      for(g in 1:max(partition, na.rm = TRUE)){
+    if (stat == "avg") {
+      for (g in 1:max(partition, na.rm = TRUE)) {
         members <- which(partition == g)
         table_g <- table(attribute[members])
         prop_g <- prop.table(table_g)
-        for (level in dimnames(table_g)){
+        for (level in dimnames(table_g)) {
           x[level] <- x[level] + prop_g[level]
         }
       }
       return(x[-1])
     }
 
-  }
+  } else {
+    bin <- ifelse(attribute == category, 1, 0)
 
-  else {
-    bin <- ifelse(attribute==category, 1,0)
-
-    if (stat == 'sum'){
-      for(g in 1:max(partition, na.rm = TRUE)){
+    if (stat == "sum") {
+      for (g in 1:max(partition, na.rm = TRUE)) {
         members <- which(partition == g)
         sum_g <- sum_g + sum(bin[members] == 1)
       }
       return(sum_g)
     }
 
-    if (stat == 'avg'){
-      for(g in 1:max(partition, na.rm = TRUE)){
+    if (stat == "avg") {
+      for (g in 1:max(partition, na.rm = TRUE)) {
         members <- which(partition == g)
-        sum_g <- sum_g + (sum(bin[members] == 1)/length(members))
+        sum_g <- sum_g + (sum(bin[members] == 1) / length(members))
       }
       return(sum_g)
     }
@@ -292,37 +291,37 @@ number_categories <- function(partition, attribute, stat, category){
 }
 
 # For now, removed function, because density is the same as average number of ties per group
-# density <- function(partition, matrix, stat){
+# density <- function(partition, matrix, stat) {
 #
-#   m <- max(partition,na.rm = TRUE)
+#   m <- max(partition, na.rm = TRUE)
 #   avd <- 0
 #   std <- 0
 #
-#   for(h in 1:m){
-#     members <- which(partition==h)
+#   for (h in 1:m) {
+#     members <- which(partition == h)
 #
-#     if(length(members)>1){
+#     if (length(members) > 1) {
 #       beforeties <- 0
-#       allties <- length(members)*(length(members)-1)/2
+#       allties <- length(members)*(length(members)-1) * 0.5
 #
-#       for(i in 1:(length(members)-1)){
-#         for(j in (i+1):length(members)){
-#           beforeties <- beforeties + matrix[members[i],members[j]]
+#       for (i in 1:(length(members)-1)) {
+#         for (j in (i + 1):length(members)) {
+#           beforeties <- beforeties + matrix[members[i], members[j]]
 #         }
 #       }
 #
-#       avd <- avd + beforeties/allties
-#       std <- std + (beforeties/allties)^2
+#       avd <- avd + beforeties / allties
+#       std <- std + (beforeties / allties)^2
 #     }
 #   }
 #
-#   avd <- avd/m
-#   std <- sqrt(1/m*std - avd^2)
-#   if (stat == 'avg'){
-#    return(average=avd)
+#   avd <- avd / m
+#   std <- sqrt(1 / m * std - avd^2)
+#   if (stat == "avg") {
+#    return(average = avd)
 #   }
-#   if (stat == 'sd'){
-#     return(standard.deviation=std)
+#   if (stat == "sd") {
+#     return(standard.deviation = std)
 #   }
 # }
 
@@ -337,23 +336,23 @@ number_categories <- function(partition, attribute, stat, category){
 #' @return The statisic chosen in stat
 #' @export
 #' @examples
-#' p <- c(1,2,2,3,3,4,4,4,5)
-#' at <- c(3,5,23,2,1,0,3,9,2)
-#' range_attribute(p,at,'avg_pergroup')
+#' p <- c(1, 2, 2, 3, 3, 4, 4, 4, 5)
+#' at <- c(3, 5, 23, 2, 1, 0, 3, 9, 2)
+#' range_attribute(p, at,'avg_pergroup')
 
-range_attribute <- function(partition, attribute, stat ){
+range_attribute <- function(partition, attribute, stat) {
 
   sum <- 0
-  for(g in 1:max(partition, na.rm = TRUE)){
+  for (g in 1:max(partition, na.rm = TRUE)) {
     members <- which(partition == g)
     sum <- sum + max(attribute[members], na.rm = TRUE) - min(attribute[members], na.rm = TRUE)
   }
 
-  if (stat == 'sum_pergroup'){
-    return(sum_pergroup = sum )
+  if (stat == "sum_pergroup") {
+    return(sum_pergroup = sum)
   }
-  if (stat == 'avg_pergroup'){
-    return(avg_pergroup = sum/max(partition, na.rm = TRUE))
+  if (stat == "avg_pergroup") {
+    return(avg_pergroup = sum / max(partition, na.rm = TRUE))
   }
 }
 
@@ -372,14 +371,14 @@ range_attribute <- function(partition, attribute, stat ){
 #' @importFrom stats dist
 #' @export
 #' @examples
-#' p <- c(1,2,2,3,3,4,4,4,5)
-#' at <- c(0,1,1,1,1,0,0,0,0)
-#' same_pairs(p,at,'avg_pergroup')
+#' p <- c(1, 2, 2, 3, 3, 4, 4, 4, 5)
+#' at <- c(0, 1, 1, 1, 1, 0, 0, 0, 0)
+#' same_pairs(p, at,'avg_pergroup')
 
 
-same_pairs <- function(partition, attribute, stat ) {
+same_pairs <- function(partition, attribute, stat) {
 
-  dist<- as.matrix(dist(partition, diag = TRUE, upper = TRUE))
+  dist <- as.matrix(dist(partition, diag = TRUE, upper = TRUE))
   net_partition <- dist
   net_partition[dist == 0] <- 1
   net_partition[dist != 0] <- 0
@@ -393,22 +392,22 @@ same_pairs <- function(partition, attribute, stat ) {
   diag(distances) <- 0
 
   samepairs <- sum(distances * net_partition) / 2
-  indsamepairs <- sum( rowSums(distances * net_partition) > 0 )
+  indsamepairs <- sum(rowSums(distances * net_partition) > 0)
   avgind <- indsamepairs / length(partition)
-  avgroupsamepairs <- sum(distances * net_partition) / (2*max(partition, na.rm = TRUE))
+  avgroupsamepairs <- sum(distances * net_partition) / (2 * max(partition, na.rm = TRUE))
 
-  if (stat == 'sum_pergroup'){
+  if (stat == "sum_pergroup") {
     return(samepairs)
   }
-  if (stat == 'avg_pergroup'){
+  if (stat == "avg_pergroup") {
     return(avgroupsamepairs)
   }
 
-  if (stat == 'sum_perind'){
+  if (stat == "sum_perind") {
     return(indsamepairs)
   }
 
-  if (stat == 'avg_perind'){
+  if (stat == "avg_perind") {
     return(avgind)
   }
 
@@ -428,13 +427,13 @@ same_pairs <- function(partition, attribute, stat ) {
 #' @importFrom stats dist
 #' @export
 #' @examples
-#' p <- c(1,2,2,3,3,4)
-#' v <- c(0,0,0,0,0,1,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0)
-#' at <- matrix(v,6,6, byrow = TRUE)
-#' number_ties(p,at,'avg_pergroup')
+#' p <- c(1, 2, 2, 3, 3, 4)
+#' v <- c(0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0)
+#' at <- matrix(v, 6, 6, byrow = TRUE)
+#' number_ties(p, at,'avg_pergroup')
 
 number_ties <- function(partition, dyadic_attribute, stat) {
-  dist<- as.matrix(dist(partition, diag = TRUE, upper = TRUE))
+  dist <- as.matrix(dist(partition, diag = TRUE, upper = TRUE))
   net_partition <- dist
   net_partition[dist == 0] <- 1
   net_partition[dist != 0] <- 0
@@ -442,23 +441,23 @@ number_ties <- function(partition, dyadic_attribute, stat) {
   diag(net_partition) <- 0
 
   numties <- sum(dyadic_attribute * net_partition) / 2
-  avgroupnumties <- sum(dyadic_attribute * net_partition) / (2*max(partition, na.rm = TRUE))
-  indnumties <- sum( rowSums(dyadic_attribute * net_partition) > 0 )
-  avgind <- indnumties/length(partition)
+  avgroupnumties <- sum(dyadic_attribute * net_partition) / (2 * max(partition, na.rm = TRUE))
+  indnumties <- sum(rowSums(dyadic_attribute * net_partition) > 0)
+  avgind <- indnumties / length(partition)
 
 
-  if (stat == 'sum_pergroup'){
+  if (stat == "sum_pergroup") {
     return(numties)
   }
-  if (stat == 'avg_pergroup'){
+  if (stat == "avg_pergroup") {
     return(avgroupnumties)
   }
 
-  if (stat == 'sum_perind'){
+  if (stat == "sum_perind") {
     return(indnumties)
   }
 
-  if (stat == 'avg_perind'){
+  if (stat == "avg_perind") {
     return(avgind)
   }
 
@@ -478,13 +477,13 @@ number_ties <- function(partition, dyadic_attribute, stat) {
 #' @importFrom stats dist
 #' @export
 #' @examples
-#' p <- c(1,2,2,3,3,4,4,4,5)
-#' at <- c(3,5,23,2,1,0,3,9,2)
-#' similar_pairs(p,at,1,'avg_pergroup')
+#' p <- c(1, 2, 2, 3, 3, 4, 4, 4, 5)
+#' at <- c(3, 5, 23, 2, 1, 0, 3, 9, 2)
+#' similar_pairs(p, at, 1,'avg_pergroup')
 
 similar_pairs <- function(partition, attribute, stat,  threshold) {
 
-  dist<- as.matrix(dist(partition, diag = TRUE, upper = TRUE))
+  dist <- as.matrix(dist(partition, diag = TRUE, upper = TRUE))
   net_partition <- dist
   net_partition[dist == 0] <- 1
   net_partition[dist != 0] <- 0
@@ -498,22 +497,22 @@ similar_pairs <- function(partition, attribute, stat,  threshold) {
   diag(distances) <- 0
 
   sameties <- sum(distances * net_partition) / 2
-  avgroupsameties <- sum(distances * net_partition) / (2*max(partition, na.rm = TRUE))
-  indsameties <- sum( rowSums(distances * net_partition) > 0 )
-  avgind<- indsameties/length(partition)
+  avgroupsameties <- sum(distances * net_partition) / (2 * max(partition, na.rm = TRUE))
+  indsameties <- sum(rowSums(distances * net_partition) > 0)
+  avgind <- indsameties / length(partition)
 
-  if (stat == 'sum_pergroup'){
+  if (stat == "sum_pergroup") {
     return(sameties)
   }
-  if (stat == 'avg_pergroup'){
+  if (stat == "avg_pergroup") {
     return(avgroupsameties)
   }
 
-  if (stat == 'sum_perind'){
+  if (stat == "sum_perind") {
     return(indsameties)
   }
 
-  if (stat == 'avg_perind'){
+  if (stat == "avg_perind") {
     return(avgind)
   }
 
@@ -549,24 +548,25 @@ similar_pairs <- function(partition, attribute, stat,  threshold) {
 #' @importFrom stats quantile sd
 #' @export
 #' @examples
-#' p <- c(1,2,2,3,3,4,4,4,5)
-#' at <- c(0,1,1,1,1,0,0,0,0)
-#'CUP(p,fun=function(x){same_pairs(x,at,'avg_pergroup')})
+#' p <- c(1, 2, 2, 3, 3, 4, 4, 4, 5)
+#' at <- c(0, 1, 1, 1, 1, 0, 0, 0, 0)
+#'CUP(p, fun = function(x) {same_pairs(x, at,'avg_pergroup')})
 
 
-CUP <- function(observation, fun, permutations=NULL, num.permutations=1000) {
+CUP <- function(observation, fun, permutations = NULL, num.permutations = 1000) {
 
   if (is.null(permutations)) {
-    permutations = list()
-    for (i in 1:num.permutations)
+    permutations <- list()
+    for (i in 1:num.permutations) {
       permutations[[i]] <- order_groupids(sample(observation, replace = FALSE))
+    }
   }
 
   stat_obs <- fun(observation)
   nb_partions <- length(permutations)
 
   stat_sample <- 0:nb_partions
-  for(i in 1:nb_partions) {
+  for (i in 1:nb_partions) {
     stat_sample[i] <- fun(permutations[[i]])
   }
 
@@ -575,12 +575,12 @@ CUP <- function(observation, fun, permutations=NULL, num.permutations=1000) {
 
   p1 <- sum(stat_sample <= stat_obs) / nb_partions
   p2 <- sum(stat_sample >= stat_obs) / nb_partions
-  #if(test.direction == "lower") {
+  #if (test.direction == "lower") {
   #  p_num <- p1
-  #} else if(test.direction == "upper") {
+  #} else if (test.direction == "upper") {
   #  p_num <- p2
   #} else {
-  #  p_num <- 2*min(p1,p2)
+  #  p_num <- 2*min(p1, p2)
   #}
 
   res <- list(observed = stat_obs,

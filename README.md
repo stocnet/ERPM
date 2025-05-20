@@ -75,23 +75,23 @@ and age), and an arbitrary covariate matrix (friendship). We create the
 following dataframe.
 
 ``` r
-n <- 6 
-nodes <- data.frame(label = c("A","B","C","D","E","F"),
-                    gender = c(1,1,2,1,2,2),
-                    age = c(20,22,25,30,30,31)) 
+n <- 6
+nodes <- data.frame(label = c("A", "B", "C", "D", "E", "F"),
+                    gender = c(1, 1, 2, 1, 2, 2),
+                    age = c(20, 22, 25, 30, 30, 31))
 friendship <- matrix(c(0, 1, 1, 1, 0, 0,
                        1, 0, 0, 0, 1, 0,
                        1, 0, 0, 0, 1, 0,
                        1, 0, 0, 0, 0, 0,
                        0, 1, 1, 0, 0, 1,
-                       0, 0, 0, 0, 1, 0), 6, 6, TRUE) 
+                       0, 0, 0, 0, 1, 0), 6, 6, TRUE)
 ```
 
 We consider a partition for these 6 individuals. We define a vector with
 six elements, indicating the id of each individual’s group.
 
 ``` r
-partition <- c(1,1,2,2,2,3)
+partition <- c(1, 1, 2, 2, 2, 3)
 ```
 
 ## Model specification
@@ -106,8 +106,8 @@ tendency to form groups with individuals with high age differences 4.
 friends
 
 ``` r
-effects <- list(names = c("num_groups","same","diff","tie"),
-                objects = c("partition","gender","age","friendship"))
+effects <- list(names = c("num_groups", "same", "diff", "tie"),
+                objects = c("partition", "gender", "age", "friendship"))
 objects <- list()
 objects[[1]] <- list(name = "friendship", object = friendship)
 ```
@@ -126,15 +126,15 @@ details on the parametrization of the estimation algorithm, see the
 manual.
 
 ``` r
-estimation <- estimate_ERPM(partition, 
-                          nodes, 
-                          objects, 
-                          effects, 
-                          startingestimates = c(-1.5,0.2,-0.2,0.2), 
-                          burnin = 100, 
+estimation <- estimate_ERPM(partition,
+                          nodes,
+                          objects,
+                          effects,
+                          startingestimates = c(-1.5, 0.2,-0.2, 0.2),
+                          burnin = 100,
                           thining = 20,
                           length.p1 = 500, # number of samples in phase 1
-                          multiplication.iter.p2 = 20,  # multiplication factor for the number of iteration in phase 2 subphases 
+                          multiplication.iter.p2 = 20,  # multiplication factor for the number of iteration in phase 2 subphases
                           num.steps.p2 = 4, # number of phase 2 subphases
                           length.p3 = 1000) # number of samples in phase 3
 estimation$results
@@ -153,15 +153,15 @@ simulate theoretical models.
 
 ``` r
 nsimulations <- 1000
-simulations <- draw_Metropolis_single(theta = estimation$results$est, 
-                          first.partition = partition, 
-                          nodes = nodes, 
-                          effects = effects, 
-                          objects = objects, 
-                          burnin = 100, 
-                          thining = 20, 
-                          num.steps = nsimulations, 
-                          neighborhood = c(1,1,1), 
+simulations <- draw_Metropolis_single(theta = estimation$results$est,
+                          first.partition = partition,
+                          nodes = nodes,
+                          effects = effects,
+                          objects = objects,
+                          burnin = 100,
+                          thining = 20,
+                          num.steps = nsimulations,
+                          neighborhood = c(1, 1, 1),
                           sizes.allowed = 1:n,
                           sizes.simulated = 1:n,
                           return.all.partitions = T)
@@ -175,15 +175,15 @@ estimates of a simple model with only one parameter for number of groups
 (this parameter should be in the model!).
 
 ``` r
-likelihood_function <- function(x){ exp(x*max(partition)) / compute_numgroups_denominator(n,x)}
-curve(likelihood_function, from=-2, to=0)
+likelihood_function <- function(x) { exp(x * max(partition)) / compute_numgroups_denominator(n, x)}
+curve(likelihood_function, from = -2, to = 0)
 ```
 
-<img src="man/figures/README-unnamed-chunk-8-1.png" width="100%" />
+<img src = "man/figures/README-unnamed-chunk-8 - 1.png" width = "100%" />
 
 ``` r
-parameter_base <- optimize(likelihood_function, interval=c(-2, 0), maximum=TRUE)
-parameters_basemodel <- c(parameter_base$maximum,0,0,0)
+parameter_base <- optimize(likelihood_function, interval = c(-2, 0), maximum = TRUE)
+parameters_basemodel <- c(parameter_base$maximum, 0, 0, 0)
 ```
 
 Then we can get our estimated logL and AIC.
@@ -191,7 +191,7 @@ Then we can get our estimated logL and AIC.
 ``` r
 logL_AIC <- estimate_logL(partition,
                          nodes,
-                         effects, 
+                         effects,
                          objects,
                          theta = estimation$results$est,
                          theta_0 = parameters_basemodel,
@@ -200,11 +200,11 @@ logL_AIC <- estimate_logL(partition,
                          burnin = 100,
                          thining = 20)
 logL_AIC$logL
-#>           [,1]
-#> [1,] -4.342806
+#>           [, 1]
+#> [1, ] -4.342806
 logL_AIC$AIC
-#>           [,1]
-#> [1,] 0.6856111
+#>           [, 1]
+#> [1, ] 0.6856111
 ```
 
 # More …

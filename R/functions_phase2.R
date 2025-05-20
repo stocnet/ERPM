@@ -20,7 +20,7 @@
 #' @param thining integer for the number of thining steps between sampling
 #' @param num.steps number of sub-phases in phase 2
 #' @param gainfactors vector of gain factors
-#' @param r.truncation.p2 truncation factor 
+#' @param r.truncation.p2 truncation factor
 #' @param min.iter minimum numbers of steps in each subphase
 #' @param max.iter maximum numbers of steps in each subphase
 #' @param multiplication.iter used to calculate min.iter and max.iter if not specified
@@ -38,31 +38,31 @@
 #' @importFrom snowfall sfExport sfLapply
 #' @export
 run_phase2_single <- function(partition,
-                       estimates.phase1,
-                       inv.zcov,
-                       inv.scaling,
-                       z.obs,
-                       nodes,
-                       effects,
-                       objects,
-                       burnin,
-                       thining,
-                       num.steps,
-                       gainfactors,
-                       r.truncation.p2,
-                       min.iter,
-                       max.iter,
-                       multiplication.iter,
-                       neighborhood,
-                       fixed.estimates,
-                       numgroups.allowed,
-                       numgroups.simulated,
-                       sizes.allowed,
-                       sizes.simulated,
-                       double.averaging,
-                       parallel = FALSE,
-                       cpus = 1,
-                       verbose = FALSE) {
+                              estimates.phase1,
+                              inv.zcov,
+                              inv.scaling,
+                              z.obs,
+                              nodes,
+                              effects,
+                              objects,
+                              burnin,
+                              thining,
+                              num.steps,
+                              gainfactors,
+                              r.truncation.p2,
+                              min.iter,
+                              max.iter,
+                              multiplication.iter,
+                              neighborhood,
+                              fixed.estimates,
+                              numgroups.allowed,
+                              numgroups.simulated,
+                              sizes.allowed,
+                              sizes.simulated,
+                              double.averaging,
+                              parallel = FALSE,
+                              cpus = 1,
+                              verbose = FALSE) {
 
   num.effects <- length(effects$names)
   num.nodes <- nrow(nodes)
@@ -70,29 +70,29 @@ run_phase2_single <- function(partition,
   all.estimates <- c()
 
   # length of subphases
-  if(is.null(min.iter) && is.null(max.iter)){
-    min.iter <- rep(0,num.steps)
-    max.iter <- rep(0,num.steps)
-    for(i in 1:num.steps){
-      min.iter[i] <- multiplication.iter * (2.52)^(i-1)
-      max.iter[i] <- multiplication.iter * (2.52)^(i-1) + 200
+  if (is.null(min.iter) && is.null(max.iter)) {
+    min.iter <- rep(0, num.steps)
+    max.iter <- rep(0, num.steps)
+    for (i in 1:num.steps) {
+      min.iter[i] <- multiplication.iter * (2.52)^(i - 1)
+      max.iter[i] <- multiplication.iter * (2.52)^(i - 1) + 200
     }
   } else {
-    min.iter <- rep(min.iter,num.steps)
-    max.iter <- rep(max.iter,num.steps)
+    min.iter <- rep(min.iter, num.steps)
+    max.iter <- rep(max.iter, num.steps)
   }
-  lengths.subphases <- rep(0,num.steps)
+  lengths.subphases <- rep(0, num.steps)
 
   # MAIN STEP: iterate over all substeps of phase 2
-  for(step in 1:num.steps) {
+  for (step in 1:num.steps) {
 
     # normal procedure: no fixed estimates
-    if(is.null(fixed.estimates)) {
+    if (is.null(fixed.estimates)) {
 
       stop.iterations <- FALSE
       i <- 1
       theta.i <- estimates
-      all.estimates <- rbind(all.estimates,matrix(theta.i,nrow=1))
+      all.estimates <- rbind(all.estimates, matrix(theta.i, nrow = 1))
 
       # find a good starting point
       #partition.i <- find_startingpoint_single(nodes, numgroups.allowed, sizes.allowed)
@@ -103,22 +103,22 @@ run_phase2_single <- function(partition,
       allz <- c()
 
       # TODO: check whether this is right?
-      crossedstats <- rep(FALSE,num.effects)
+      crossedstats <- rep(FALSE, num.effects)
 
       # store the estimates collected for all networks simulated after the burn in
-      mean.theta <- rep(0,num.effects)
-      if(double.averaging) {
-        mean.mean.z <- rep(0,num.effects)
-        mean.mean.theta <- rep(0,num.effects)
+      mean.theta <- rep(0, num.effects)
+      if (double.averaging) {
+        mean.mean.z <- rep(0, num.effects)
+        mean.mean.theta <- rep(0, num.effects)
         mean.cpt <- 1
       }
 
       # SUB STEP: until generated statistics cross the observed ones
-      while(!stop.iterations) {
+      while (!stop.iterations) {
 
         # draw one element from the chain
-        if(parallel){
-          
+        if (parallel) {
+
           sfExport("cpus", "theta.i", "partition.i", "nodes", "effects", "objects", "burnin", "neighborhood", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated")
           res <- sfLapply(1:cpus, fun = function(k) {
             subres <- draw_Metropolis_single(theta.i, partition.i, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
@@ -126,16 +126,16 @@ run_phase2_single <- function(partition,
           }
           )
           all.z <- c()
-          for(k in 1:cpus) all.z <- rbind(all.z,res[[k]]$draws)
+          for (k in 1:cpus) all.z <- rbind(all.z, res[[k]]$draws)
           z.i <- colMeans(all.z)
           partition.i <- res[[1]]$last.partition
-          
+
         } else {
-          
+
           results.i <- draw_Metropolis_single(theta.i, partition.i, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
           z.i <- results.i$draws
           partition.i <- results.i$last.partition
-          
+
         }
 
 
@@ -143,7 +143,7 @@ run_phase2_single <- function(partition,
         allz <- rbind(allz, z.i)
 
         # compute new parameters
-        if(double.averaging) {
+        if (double.averaging) {
           doubleaveraging.step <- compute_parameters_doubleaveraging(z.i, z.obs, theta.i, mean.mean.z, mean.mean.theta, mean.cpt, inv.zcov, inv.scaling, gainfactors[step], r.truncation.p2)
           theta.i <- doubleaveraging.step$theta.i
           mean.mean.z <- doubleaveraging.step$mean.mean.z
@@ -159,7 +159,7 @@ run_phase2_single <- function(partition,
         mean.theta <- mean.theta + theta.i
 
         # stopping criteria
-        if( i > max.iter[step] ){
+        if (i > max.iter[step]) {
           stop.iterations <- TRUE
         } else if (i > min.iter[step]) {
           crossedstats <- crossedstats + (sign.i_1 != sign.i)
@@ -167,30 +167,30 @@ run_phase2_single <- function(partition,
         }
 
         sign.i_1 <- sign.i
-        i <- i+1
+        i <- i + 1
 
       }
 
-      mean.theta <- mean.theta / (i-1)
+      mean.theta <- mean.theta / (i - 1)
       estimates <- mean.theta
 
-    # fixed estimates procedure
+      # fixed estimates procedure
     } else {
 
       # find the indexes to remove from the estimation
       fixed.indexes <- c()
       unfixed.indexes <- c()
-      for(e in 1:num.effects){
-        if(!is.null(fixed.estimates[[e]]))
-          fixed.indexes <- c(fixed.indexes,e)
+      for (e in 1:num.effects) {
+        if (!is.null(fixed.estimates[[e]]))
+          fixed.indexes <- c(fixed.indexes, e)
         else
-          unfixed.indexes <- c(unfixed.indexes,e)
+          unfixed.indexes <- c(unfixed.indexes, e)
       }
 
       stop.iterations <- FALSE
       i <- 1
       theta.i <- estimates[unfixed.indexes]
-      all.estimates <- rbind(all.estimates,matrix(theta.i,nrow=1))
+      all.estimates <- rbind(all.estimates, matrix(theta.i, nrow = 1))
 
       # find a good starting point
       #partition.i <- find_startingpoint_single(nodes, numgroups.allowed, sizes.allowed)
@@ -201,18 +201,18 @@ run_phase2_single <- function(partition,
       allz <- c()
 
       # TODO: check whether this is right?
-      crossedstats <- rep(FALSE,length(unfixed.indexes))
+      crossedstats <- rep(FALSE, length(unfixed.indexes))
 
       # store the estimates collected for all networks simulated after the burn in
-      mean.theta <- rep(0,length(unfixed.indexes))
+      mean.theta <- rep(0, length(unfixed.indexes))
 
       # Newton-Raphson procedure until generated statistics cross the observed ones
-      while(!stop.iterations) {
+      while (!stop.iterations) {
 
         # draw chain
         fulltheta.i <- estimates.phase1
         fulltheta.i[unfixed.indexes] <- theta.i
-        if(i == 1){
+        if (i == 1) {
           results.i <- draw_Metropolis_single(fulltheta.i, partition.i, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
         } else {
           results.i <- draw_Metropolis_single(fulltheta.i, partition.i, nodes, effects, objects, thining, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
@@ -224,7 +224,7 @@ run_phase2_single <- function(partition,
         allz <- rbind(allz, z.i)
 
         # compute new parameters
-        if(double.averaging) {
+        if (double.averaging) {
           doubleaveraging.step <- compute_parameters_doubleaveraging(z.i, z.obs[unfixed.indexes], theta.i, mean.mean.z, mean.mean.theta, mean.cpt, inv.zcov, inv.scaling, gainfactors[step], r.truncation.p2)
           theta.i <- double.averaging$theta.i
           mean.mean.z <- double.averaging$mean.mean.z
@@ -240,7 +240,7 @@ run_phase2_single <- function(partition,
         mean.theta <- mean.theta + theta.i
 
         # stopping criteria
-        if( i > max.iter[step] ){
+        if (i > max.iter[step]) {
           stop.iterations <- TRUE
         } else if (i > min.iter[step]) {
           crossedstats <- crossedstats + (sign.i_1 != sign.i)
@@ -248,25 +248,25 @@ run_phase2_single <- function(partition,
         }
 
         sign.i_1 <- sign.i
-        i <- i+1
+        i <- i + 1
 
       }
 
-      mean.theta <- mean.theta / (i-1)
+      mean.theta <- mean.theta / (i - 1)
       estimates[unfixed.indexes] <- mean.theta
-      lengths.subphases[step] <- i-1
+      lengths.subphases[step] <- i - 1
 
       if (verbose) {
-        cat("Step",step, "\n")
-        cat("Length of the step",(i-1),"(minimal value:",min.iter[step],"and maximal value:",max.iter[step],")", "\n")
-        cat("Current estimate",estimates, "\n\n")
+        cat("Step", step, "\n")
+        cat("Length of the step", (i - 1), "(minimal value:", min.iter[step], "and maximal value:", max.iter[step], ")", "\n")
+        cat("Current estimate", estimates, "\n\n")
       }
     }
 
     if (verbose) {
-      cat("Difference to estimated statistics after phase 2, step",step, "\n")
+      cat("Difference to estimated statistics after phase 2, step", step, "\n")
       cat(colMeans(allz) - z.obs, "\n\n")
-      cat("Estimates after phase 2, step",step, "\n")
+      cat("Estimates after phase 2, step", step, "\n")
       cat(estimates, "\n\n")
     }
   }
@@ -294,7 +294,7 @@ run_phase2_single <- function(partition,
 #' @param thining integer for the number of thining steps between sampling
 #' @param num.steps number of sub-phases in phase 2
 #' @param gainfactors vector of gain factors
-#' @param r.truncation.p2 truncation factor 
+#' @param r.truncation.p2 truncation factor
 #' @param min.iter minimum numbers of steps in each subphase
 #' @param max.iter maximum numbers of steps in each subphase
 #' @param multiplication.iter used to calculate min.iter and max.iter if not specified
@@ -312,32 +312,32 @@ run_phase2_single <- function(partition,
 #' @importFrom snowfall sfExport sfLapply
 #' @export
 run_phase2_multiple <- function(partitions,
-                              estimates.phase1,
-                              inv.zcov,
-                              inv.scaling,
-                              z.obs,
-                              presence.tables,
-                              nodes,
-                              effects,
-                              objects,
-                              burnin,
-                              thining,
-                              num.steps,
-                              gainfactors,
-                              r.truncation.p2,
-                              min.iter,
-                              max.iter,
-                              multiplication.iter,
-                              neighborhood,
-                              fixed.estimates,
-                              numgroups.allowed,
-                              numgroups.simulated,
-                              sizes.allowed,
-                              sizes.simulated,
-                              double.averaging,
-                              parallel = FALSE,
-                              cpus = 1,
-                              verbose = FALSE) {
+                                estimates.phase1,
+                                inv.zcov,
+                                inv.scaling,
+                                z.obs,
+                                presence.tables,
+                                nodes,
+                                effects,
+                                objects,
+                                burnin,
+                                thining,
+                                num.steps,
+                                gainfactors,
+                                r.truncation.p2,
+                                min.iter,
+                                max.iter,
+                                multiplication.iter,
+                                neighborhood,
+                                fixed.estimates,
+                                numgroups.allowed,
+                                numgroups.simulated,
+                                sizes.allowed,
+                                sizes.simulated,
+                                double.averaging,
+                                parallel = FALSE,
+                                cpus = 1,
+                                verbose = FALSE) {
 
   num.effects <- length(effects$names)
   num.nodes <- nrow(nodes)
@@ -347,24 +347,24 @@ run_phase2_multiple <- function(partitions,
   all.estimates <- c()
 
   # length of subphases
-  if(is.null(min.iter) && is.null(max.iter)){
-    min.iter <- rep(0,num.steps)
-    max.iter <- rep(0,num.steps)
-    for(i in 1:num.steps){
-      min.iter[i] <- multiplication.iter * (2.52)^(i-1)
-      max.iter[i] <- multiplication.iter * (2.52)^(i-1) + 200
+  if (is.null(min.iter) && is.null(max.iter)) {
+    min.iter <- rep(0, num.steps)
+    max.iter <- rep(0, num.steps)
+    for (i in 1:num.steps) {
+      min.iter[i] <- multiplication.iter * (2.52)^(i - 1)
+      max.iter[i] <- multiplication.iter * (2.52)^(i - 1) + 200
     }
   } else {
-    min.iter <- rep(min.iter,num.steps)
-    max.iter <- rep(max.iter,num.steps)
+    min.iter <- rep(min.iter, num.steps)
+    max.iter <- rep(max.iter, num.steps)
   }
-  lengths.subphases <- rep(0,num.steps)
+  lengths.subphases <- rep(0, num.steps)
 
   # MAIN STEP: iterate over all substeps of phase 2
-  for(step in 1:num.steps) {
+  for (step in 1:num.steps) {
 
     # normal procedure: no fixed estimates
-    if(is.null(fixed.estimates)) {
+    if (is.null(fixed.estimates)) {
 
       stop.iterations <- FALSE
       i <- 1
@@ -379,24 +379,24 @@ run_phase2_multiple <- function(partitions,
       allz <- c()
 
       # TODO: check whether this is right?
-      crossedstats <- rep(FALSE,num.effects)
+      crossedstats <- rep(FALSE, num.effects)
 
       # store the estimates collected for all networks simulated after the burn in
-      mean.theta <- rep(0,num.effects)
-      if(double.averaging) {
-        mean.mean.z <- rep(0,num.effects)
-        mean.mean.theta <- rep(0,num.effects)
+      mean.theta <- rep(0, num.effects)
+      if (double.averaging) {
+        mean.mean.z <- rep(0, num.effects)
+        mean.mean.theta <- rep(0, num.effects)
         mean.cpt <- 1
       }
 
       # SUB STEP: until generated statistics cross the observed ones
-      while(!stop.iterations) {
+      while (!stop.iterations) {
 
-        all.estimates <- rbind(all.estimates,matrix(theta.i,nrow=1))
+        all.estimates <- rbind(all.estimates, matrix(theta.i, nrow = 1))
 
         # draw one element from the chain
-        if(parallel){
-          
+        if (parallel) {
+
           sfExport("cpus", "theta.i", "partitions.i", "presence.tables", "nodes", "effects", "objects", "burnin", "neighborhood", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated")
           res <- sfLapply(1:cpus, fun = function(k) {
             subres <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
@@ -404,23 +404,23 @@ run_phase2_multiple <- function(partitions,
           }
           )
           all.z <- c()
-          for(k in 1:cpus) all.z <- rbind(all.z,res[[k]]$draws)
+          for (k in 1:cpus) all.z <- rbind(all.z, res[[k]]$draws)
           z.i <- colMeans(all.z)
           partitions.i <- res[[1]]$last.partitions
-          
+
         } else {
-          
+
           results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
           z.i <- results.i$draws
           partitions.i <- results.i$last.partitions
-          
+
         }
 
         # store z
         allz <- rbind(allz, z.i)
 
         # compute new parameters
-        if(double.averaging) {
+        if (double.averaging) {
           doubleaveraging.step <- compute_parameters_doubleaveraging(z.i, z.obs, theta.i, mean.mean.z, mean.mean.theta, mean.cpt, inv.zcov, inv.scaling, gainfactors[step], r.truncation.p2)
           theta.i <- doubleaveraging.step$theta.i
           mean.mean.z <- doubleaveraging.step$mean.mean.z
@@ -436,7 +436,7 @@ run_phase2_multiple <- function(partitions,
         mean.theta <- mean.theta + theta.i
 
         # stopping criteria
-        if( i > max.iter[step] ){
+        if (i > max.iter[step]) {
           stop.iterations <- TRUE
         } else if (i > min.iter[step]) {
           crossedstats <- crossedstats + (sign.i_1 != sign.i)
@@ -444,13 +444,13 @@ run_phase2_multiple <- function(partitions,
         }
 
         sign.i_1 <- sign.i
-        i <- i+1
+        i <- i + 1
 
       }
 
-      mean.theta <- mean.theta / (i-1)
+      mean.theta <- mean.theta / (i - 1)
       estimates <- mean.theta
-      lengths.subphases[step] <- i-1
+      lengths.subphases[step] <- i - 1
 
       # fixed estimates procedure
     } else {
@@ -459,17 +459,17 @@ run_phase2_multiple <- function(partitions,
       # find the indexes to remove from the estimation
       fixed.indexes <- c()
       unfixed.indexes <- c()
-      for(e in 1:num.effects){
-        if(!is.null(fixed.estimates[[e]]))
-          fixed.indexes <- c(fixed.indexes,e)
+      for (e in 1:num.effects) {
+        if (!is.null(fixed.estimates[[e]]))
+          fixed.indexes <- c(fixed.indexes, e)
         else
-          unfixed.indexes <- c(unfixed.indexes,e)
+          unfixed.indexes <- c(unfixed.indexes, e)
       }
 
       stop.iterations <- FALSE
       i <- 1
       theta.i <- estimates[unfixed.indexes]
-      all.estimates <- rbind(all.estimates,matrix(theta.i,nrow=1))
+      all.estimates <- rbind(all.estimates, matrix(theta.i, nrow = 1))
 
       # find a good starting point
       # partitions.i <- find_startingpoint_multiple(presence.table, nodes, numgroups.allowed, sizes.allowed)
@@ -480,18 +480,18 @@ run_phase2_multiple <- function(partitions,
       allz <- c()
 
       # TODO: check whether this is right?
-      crossedstats <- rep(FALSE,length(unfixed.indexes))
+      crossedstats <- rep(FALSE, length(unfixed.indexes))
 
       # store the estimates collected for all networks simulated after the burn in
-      mean.theta <- rep(0,length(unfixed.indexes))
+      mean.theta <- rep(0, length(unfixed.indexes))
 
       # Newton-Raphson procedure until generated statistics cross the observed ones
-      while(!stop.iterations) {
+      while (!stop.iterations) {
 
         # draw chain
         fulltheta.i <- estimates.phase1
         fulltheta.i[unfixed.indexes] <- theta.i
-        if(i == 1){
+        if (i == 1) {
           results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, burnin, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
         } else {
           results.i <- draw_Metropolis_multiple(theta.i, partitions.i, presence.tables, nodes, effects, objects, thining, 1, 1, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
@@ -503,7 +503,7 @@ run_phase2_multiple <- function(partitions,
         allz <- rbind(allz, z.i)
 
         # compute new parameters
-        if(double.averaging) {
+        if (double.averaging) {
           doubleaveraging.step <- compute_parameters_doubleaveraging(z.i, z.obs[unfixed.indexes], theta.i, mean.mean.z, mean.mean.theta, mean.cpt, inv.zcov, inv.scaling, gainfactors[step], r.truncation.p2)
           theta.i <- double.averaging$theta.i
           mean.mean.z <- double.averaging$mean.mean.z
@@ -519,7 +519,7 @@ run_phase2_multiple <- function(partitions,
         mean.theta <- mean.theta + theta.i
 
         # stopping criteria
-        if( i > max.iter[step] ){
+        if (i > max.iter[step]) {
           stop.iterations <- TRUE
         } else if (i > min.iter[step]) {
           crossedstats <- crossedstats + (sign.i_1 != sign.i)
@@ -527,22 +527,22 @@ run_phase2_multiple <- function(partitions,
         }
 
         sign.i_1 <- sign.i
-        i <- i+1
+        i <- i + 1
 
       }
 
-      mean.theta <- mean.theta / (i-1)
+      mean.theta <- mean.theta / (i - 1)
       estimates[unfixed.indexes] <- mean.theta
-      lengths.subphases[step] <- i-1
+      lengths.subphases[step] <- i - 1
 
     }
 
     if (verbose) {
-      cat("Length of step",step, "\n")
-      cat((i-1),"(minimal value:",min.iter[step],"and maximal value:",max.iter[step],")", "\n\n")
-      cat("Estimated statistics after phase 2, step",step, "\n")
+      cat("Length of step", step, "\n")
+      cat((i - 1), "(minimal value:", min.iter[step], "and maximal value:", max.iter[step], ")", "\n\n")
+      cat("Estimated statistics after phase 2, step", step, "\n")
       cat(colMeans(allz) - z.obs, "\n\n")
-      cat("Estimates after phase 2, step",step, "\n")
+      cat("Estimates after phase 2, step", step, "\n")
       cat(estimates, "\n\n")
     }
   }
@@ -558,31 +558,31 @@ run_phase2_multiple <- function(partitions,
 
 # update of parameters in one step of phase 2 (normal procedure)
 compute_parameters_simpleaveraging <- function(z.i,
-                                      z.obs,
-                                      theta.i,
-                                      inv.zcov,
-                                      inv.scaling,
-                                      gainfactor,
-                                      r.truncation.p2){
+                                               z.obs,
+                                               theta.i,
+                                               inv.zcov,
+                                               inv.scaling,
+                                               gainfactor,
+                                               r.truncation.p2) {
 
-    num.effects <- length(theta.i)
+  num.effects <- length(theta.i)
 
-    # compute truncating factor
-    r <- 1
-    if(r.truncation.p2 > 0){
-      diff <- t(z.i - z.obs)
-      maxratio <-  max(sqrt((t(diff) %*% inv.zcov %*% diff / num.effects)))
-      if(maxratio > r.truncation.p2) {
-        r <- r.truncation.p2 / maxratio
-      }
+  # compute truncating factor
+  r <- 1
+  if (r.truncation.p2 > 0) {
+    diff <- t(z.i - z.obs)
+    maxratio <-  max(sqrt((t(diff) %*% inv.zcov %*% diff / num.effects)))
+    if (maxratio > r.truncation.p2) {
+      r <- r.truncation.p2 / maxratio
     }
+  }
 
-    # new theta
-    diff <- (z.i - z.obs)
-    if(dim(t(t(diff)))[1] == 1) diff <- t(diff) # to make sure it is a vector of the right dim
-    theta.i <- theta.i - gainfactor * r * inv.scaling %*% diff
+  # new theta
+  diff <- (z.i - z.obs)
+  if (dim(t(t(diff)))[1] == 1) diff <- t(diff) # to make sure it is a vector of the right dim
+  theta.i <- theta.i - gainfactor * r * inv.scaling %*% diff
 
-    return(theta.i)
+  return(theta.i)
 }
 
 
@@ -596,30 +596,30 @@ compute_parameters_doubleaveraging <- function(z.i,
                                                inv.zcov,
                                                inv.scaling,
                                                gainfactor,
-                                               r.truncation.p2){
+                                               r.truncation.p2) {
   num.effects <- length(theta.i)
 
-  # mean.cpt = N, mean.mean.z = average of stats from 1 to N 
-  if(mean.cpt == 1) mean.mean.z <- z.i
-  if(mean.cpt > 1) mean.mean.z <- (mean.cpt-1) / mean.cpt *  mean.mean.z + z.i / mean.cpt
+  # mean.cpt = N, mean.mean.z = average of stats from 1 to N
+  if (mean.cpt == 1) mean.mean.z <- z.i
+  if (mean.cpt > 1) mean.mean.z <- (mean.cpt - 1) / mean.cpt *  mean.mean.z + z.i / mean.cpt
 
   # compute truncating factor
   r <- 1
-  if(r.truncation.p2 > 0){
+  if (r.truncation.p2 > 0) {
     diff <- t(mean.mean.z - z.obs)
     maxratio <-  max(sqrt((t(diff) %*% inv.zcov %*% diff / num.effects)))
-    if(maxratio > r.truncation.p2) {
+    if (maxratio > r.truncation.p2) {
       r <- r.truncation.p2 / maxratio
     }
   }
-  
-  # mean.mean.theta = average of thetas from 1 to N 
-  if(mean.cpt == 1) mean.mean.theta <- theta.i
-  if(mean.cpt > 1) mean.mean.theta <- (mean.cpt-1) / mean.cpt * mean.mean.theta + theta.i / mean.cpt
-  
-  # theta.i (theta_N+1) = [average theta until N] - a_N * N * r * D^-1 * ([average stats until N] - obs stats)  
+
+  # mean.mean.theta = average of thetas from 1 to N
+  if (mean.cpt == 1) mean.mean.theta <- theta.i
+  if (mean.cpt > 1) mean.mean.theta <- (mean.cpt - 1) / mean.cpt * mean.mean.theta + theta.i / mean.cpt
+
+  # theta.i (theta_n + 1) = [average theta until N] - a_N * N * r * D^-1 * ([average stats until N] - obs stats)
   diff <- (mean.mean.z - z.obs)
-  if(dim(t(t(diff)))[1] == 1) diff <- t(diff) # to make sure it is a vector of the right dim
+  if (dim(t(t(diff)))[1] == 1) diff <- t(diff) # to make sure it is a vector of the right dim
   theta.i <- mean.mean.theta - gainfactor * mean.cpt * r * inv.scaling %*% diff
 
   mean.cpt <- mean.cpt + 1

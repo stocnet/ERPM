@@ -1,5 +1,5 @@
 ######################################################################
-## Simulation and estimation of Exponential Random Partition Models ## 
+## Simulation and estimation of Exponential Random Partition Models ##
 ## Functions used to run the phase 3 of the estimation algorithm    ##
 ## Author: Marion Hoffman                                           ##
 ######################################################################
@@ -31,83 +31,83 @@
 #' @importFrom snowfall sfExport sfLapply
 #' @export
 run_phase3_single <- function(partition,
-                       estimates.phase2, 
-                       z.obs, 
-                       nodes, 
-                       effects, 
-                       objects, 
-                       burnin, 
-                       thining,
-                       a.scaling,
-                       length.p3, 
-                       neighborhood,
-                       numgroups.allowed,
-                       numgroups.simulated,
-                       sizes.allowed,
-                       sizes.simulated,
-                       fixed.estimates,
-                       parallel = FALSE,
-                       cpus = 1,
-                       verbose = FALSE) {
-  
+                              estimates.phase2,
+                              z.obs,
+                              nodes,
+                              effects,
+                              objects,
+                              burnin,
+                              thining,
+                              a.scaling,
+                              length.p3,
+                              neighborhood,
+                              numgroups.allowed,
+                              numgroups.simulated,
+                              sizes.allowed,
+                              sizes.simulated,
+                              fixed.estimates,
+                              parallel = FALSE,
+                              cpus = 1,
+                              verbose = FALSE) {
+
   num.nodes <- nrow(nodes)
   num.effects <- length(effects$names)
-  
+
   # find a good starting point
-  #first.partition <- find_startingpoint_single(nodes,sizes.allowed)
+  #first.partition <- find_startingpoint_single(nodes, sizes.allowed)
   first.partition <- partition
-  
-  # simulate a large sample with the estimates found in phase 2 
-  if(parallel){
-    
+
+  # simulate a large sample with the estimates found in phase 2
+  if (parallel) {
+
     sfExport("startingestimates", "first.partition", "nodes", "effects", "objects", "burnin", "thining", "length.p3", "cpus", "neighborhood", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated")
     res <- sfLapply(1:cpus, fun = function(k) {
-      subres <- draw_Metropolis_single(estimates.phase2, first.partition, nodes, effects, objects, burnin, thining, ceiling(length.p3/cpus), neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
+      subres <- draw_Metropolis_single(estimates.phase2, first.partition, nodes, effects, objects, burnin, thining, ceiling(length.p3 / cpus), neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
       return(subres)
     }
     )
     all.z <- c()
-    for(k in 1:cpus) all.z <- rbind(all.z,res[[k]]$draws)
-    length.p3 <- cpus * ceiling(length.p3/cpus)
-    results.phase3 <- list("draws" = all.z, "last.partition" = res[[cpus]]$last.partition, "all.partitions" = NULL) 
-    
-  }else{
-    
+    for (k in 1:cpus) all.z <- rbind(all.z, res[[k]]$draws)
+    length.p3 <- cpus * ceiling(length.p3 / cpus)
+    results.phase3 <- list("draws" = all.z, "last.partition" = res[[cpus]]$last.partition, "all.partitions" = NULL)
+
+  }else {
+
     results.phase3 <- draw_Metropolis_single(estimates.phase2, first.partition, nodes, effects, objects, burnin, thining, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated)
   }
   z.phase3 <- results.phase3$draws
-  
+
   # calculate autocorrelation to check afterhand
-  autocors <- rep(0,num.effects)
-  for(e in 1:num.effects){
-    autocors[e] <- cor(results.phase3$draws[1:(length.p3-1),e],results.phase3$draws[2:length.p3,e])
+  autocors <- rep(0, num.effects)
+  for (e in 1:num.effects) {
+    autocors[e] <- cor(results.phase3$draws[1:(length.p3 - 1), e], results.phase3$draws[2:length.p3, e])
   }
   if (verbose) {
     cat("Autocorrelations in phase 3:\n")
     cat(autocors, "\n\n")
   }
 
-  
+
   # hack for size constraints
-  if(!is.null(sizes.allowed)){
+  if (!is.null(sizes.allowed)) {
     length.p3 <- nrow(z.phase3)
     if (verbose) {
       cat("new length of phase 3\n")
       cat(length.p3, "\n\n")
     }
   }
-  
+
   # calculations of phase 3: mean, sd, se, conv ratios
   res.phase3 <- phase3(estimates.phase2, z.phase3, z.obs, nodes, effects, length.p3, fixed.estimates, verbose)
-  
-  return(list("means" = res.phase3$finalmean, 
-              "standard.deviations" = res.phase3$finalsd, 
-              "standard.errors" = res.phase3$finalse, 
+
+  return(list("means" = res.phase3$finalmean,
+              "standard.deviations" = res.phase3$finalsd,
+              "standard.errors" = res.phase3$finalse,
               "convergence.ratios" = res.phase3$finalconvratios,
               "inv.zcov" = res.phase3$inv.zcov,
               "inv.scaling" = res.phase3$inv.scaling,
               "autocorrelations" = autocors))
-  
+
 }
 
 
@@ -138,90 +138,90 @@ run_phase3_single <- function(partition,
 #' @importFrom snowfall sfExport sfLapply
 #' @export
 run_phase3_multiple <- function(partitions,
-                              estimates.phase2, 
-                              z.obs, 
-                              presence.tables, 
-                              nodes, 
-                              effects, 
-                              objects, 
-                              burnin, 
-                              thining,
-                              a.scaling,
-                              length.p3, 
-                              neighborhood,
-                              numgroups.allowed,
-                              numgroups.simulated,
-                              sizes.allowed,
-                              sizes.simulated,
-                              fixed.estimates,
-                              parallel = FALSE,
-                              cpus = 1,
-                              verbose = FALSE) {
-  
+                                estimates.phase2,
+                                z.obs,
+                                presence.tables,
+                                nodes,
+                                effects,
+                                objects,
+                                burnin,
+                                thining,
+                                a.scaling,
+                                length.p3,
+                                neighborhood,
+                                numgroups.allowed,
+                                numgroups.simulated,
+                                sizes.allowed,
+                                sizes.simulated,
+                                fixed.estimates,
+                                parallel = FALSE,
+                                cpus = 1,
+                                verbose = FALSE) {
+
   num.nodes <- nrow(nodes)
   num.effects <- length(effects$names)
-  
+
   # find a good starting point
-  #first.partitions <- find_startingpoint_multiple(presence.tables,nodes,sizes.allowed)
+  #first.partitions <- find_startingpoint_multiple(presence.tables, nodes, sizes.allowed)
   first.partitions <- partitions
-  
-  # simulate a large sample with the estimates found in phase 2 
-  if(parallel){
-    
+
+  # simulate a large sample with the estimates found in phase 2
+  if (parallel) {
+
     sfExport("startingestimates", "first.partitions", "presence.tables", "nodes", "effects", "objects", "burnin", "thining", "length.p3", "cpus", "neighborhood", "numgroups.allowed", "numgroups.simulated", "sizes.allowed", "sizes.simulated")
     res <- sfLapply(1:cpus, fun = function(k) {
-      subres <- draw_Metropolis_multiple(estimates.phase2, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, ceiling(length.p3/cpus), neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = TRUE)
+      subres <- draw_Metropolis_multiple(estimates.phase2, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, ceiling(length.p3 / cpus), neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = TRUE)
       return(subres)
     }
     )
     all.z <- c()
     all.partitions <- list()
-    for(k in 1:cpus) {
-      all.z <- rbind(all.z,res[[k]]$draws)
+    for (k in 1:cpus) {
+      all.z <- rbind(all.z, res[[k]]$draws)
       all.partitions[[k]] <- res[[k]]$all.partitions
     }
-    length.p3 <- cpus * ceiling(length.p3/cpus)
-    results.phase3 <- list("draws" = all.z, "last.partitions" = res[[cpus]]$last.partitions, "all.partitions" = all.partitions) 
-  
-  }else{
-    
+    length.p3 <- cpus * ceiling(length.p3 / cpus)
+    results.phase3 <- list("draws" = all.z, "last.partitions" = res[[cpus]]$last.partitions, "all.partitions" = all.partitions)
+
+  }else {
+
     results.phase3 <- draw_Metropolis_multiple(estimates.phase2, first.partitions, presence.tables, nodes, effects, objects, burnin, thining, length.p3, neighborhood, numgroups.allowed, numgroups.simulated, sizes.allowed, sizes.simulated, return.all.partitions = TRUE)
-  
+
   }
   z.phase3 <- results.phase3$draws
-  
+
   # calculate autocorrelation to check afterhand
-  autocors <- rep(0,num.effects)
-  for(e in 1:num.effects){
-    autocors[e] <- cor(results.phase3$draws[1:(length.p3-1),e],results.phase3$draws[2:length.p3,e])
+  autocors <- rep(0, num.effects)
+  for (e in 1:num.effects) {
+    autocors[e] <- cor(results.phase3$draws[1:(length.p3 - 1), e], results.phase3$draws[2:length.p3, e])
   }
   if (verbose) {
     cat("Autocorrelations in phase 3:\n")
     cat(autocors, "\n\n")
   }
-  
+
   # hack for size constraints
-  if(!is.null(sizes.allowed)){
+  if (!is.null(sizes.allowed)) {
     length.p3 <- nrow(z.phase3)
     if (verbose) {
       cat("new length of phase 3\n")
       cat(length.p3, "\n\n")
     }
   }
-  
+
   # calculations of phase 3: mean, sd, se, conv ratios
   res.phase3 <- phase3(estimates.phase2, z.phase3, z.obs, nodes, effects, length.p3, fixed.estimates, verbose)
-  
-  return(list("draws" = z.phase3, 
-              "means" = res.phase3$finalmean, 
-              "standard.deviations" = res.phase3$finalsd, 
-              "standard.errors" = res.phase3$finalse, 
+
+  return(list("draws" = z.phase3,
+              "means" = res.phase3$finalmean,
+              "standard.deviations" = res.phase3$finalsd,
+              "standard.errors" = res.phase3$finalse,
               "convergence.ratios" = res.phase3$finalconvratios,
               "inv.zcov" = res.phase3$inv.zcov,
               "inv.scaling" = res.phase3$inv.scaling,
               "autocorrelations" = autocors,
               "all.partitions" = results.phase3$all.partitions))
-  
+
 }
 
 
@@ -234,53 +234,53 @@ phase3 <- function(estimates.phase2,
                    effects,
                    length.p3,
                    fixed.estimates,
-                   verbose = FALSE){
-  
+                   verbose = FALSE) {
+
   num.nodes <- nrow(nodes)
   num.effects <- length(effects$names)
-  
+
   # mean statistics
-  finalmean <- rep(0,num.effects)
-  for(e in 1:num.effects) {
-    finalmean[e] <- Reduce('+',z.phase3[,e]) / length.p3
+  finalmean <- rep(0, num.effects)
+  for (e in 1:num.effects) {
+    finalmean[e] <- Reduce("+", z.phase3[, e]) / length.p3
   }
-  
+
   # standard deviations
   finalsd <- rep(0, num.effects)
-  for(e in 1:num.effects) {
-    statse <- rep(0,length.p3)
-    for(i in 1:length.p3) {
-      statse[i] <- z.phase3[i,e]
+  for (e in 1:num.effects) {
+    statse <- rep(0, length.p3)
+    for (i in 1:length.p3) {
+      statse[i] <- z.phase3[i, e]
     }
     finalsd[e] <- sd(statse)
   }
-  
+
   #covariance matrix
-  inverted_matrices <- calculate_inverted_covariance_and_scaling(estimates.phase2, 
-                                                                 z.obs, 
-                                                                 nodes, 
-                                                                 effects, 
-                                                                 objects, 
+  inverted_matrices <- calculate_inverted_covariance_and_scaling(estimates.phase2,
+                                                                 z.obs,
+                                                                 nodes,
+                                                                 effects,
+                                                                 objects,
                                                                  a.scaling = 0,
-                                                                 length.phase = length.p3, 
+                                                                 length.phase = length.p3,
                                                                  z.phase = z.phase3,
                                                                  fixed.estimates)
   inv.zcov <- inverted_matrices$inv.zcov
   inv.scaling <- inverted_matrices$inv.scaling
-  
+
   #finalse <- finalsd / sqrt(length.p3)
   finalse <- sqrt(diag(inv.zcov))
-  
+
   # convergence ratios
   finalconvratios <- (finalmean - z.obs) / finalsd
-  
+
   if (verbose) {
     cat("Estimated statistics after phase 3\n")
     cat(finalmean, "\n\n")
     cat("Estimates after phase 3\n")
     cat(estimates.phase2, "\n\n")
   }
-  
+
   return(list("finalmean" = finalmean,
               "finalsd" = finalsd,
               "finalse" = finalse,
