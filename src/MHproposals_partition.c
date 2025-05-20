@@ -9,9 +9,9 @@
  */
 #include "ergm_MHproposals_degree.h"
 
-MH_P_FN(MH_B1Part){
+MH_P_FN(MH_B1Part) {
 
-  if(MHp->ntoggles == 0) { /* Initialize */
+  if (MHp->ntoggles == 0) { /* Initialize */
     MH_CondB1Degree(MHp, nwp);
     return;
   }
@@ -20,12 +20,12 @@ MH_P_FN(MH_B1Part){
 
   int dP = (IN_DEG[Mhead[1]] == 0) - (IN_DEG[Mhead[0]] == 1);
 
-  if(dP){
+  if (dP) {
     Vertex P = 0;
-    for(Vertex i = BIPARTITE + 1; i <= N_NODES; i++){
-      if(IN_DEG[i]) P++;
+    for (Vertex i = BIPARTITE + 1; i <= N_NODES; i++) {
+      if (IN_DEG[i]) P++;
     }
 
-    MHp->logratio += dP == -1 ? log(N_NODES-BIPARTITE-P+1) : -log(N_NODES-BIPARTITE-P);
+    MHp->logratio += dP == -1 ? log(N_NODES - BIPARTITE - P + 1) : -log(N_NODES - BIPARTITE - P);
   }
 }

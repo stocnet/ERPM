@@ -1,5 +1,5 @@
 ######################################################################
-## Simulation and estimation of Exponential Random Partition Models ## 
+## Simulation and estimation of Exponential Random Partition Models ##
 ## Functions to plot the estimation algorithm results               ##
 ## Author: Marion Hoffman                                           ##
 ######################################################################
@@ -15,12 +15,12 @@
 #' @return a data frame
 #' @importFrom stats qnorm
 #' @export
-print.results.list.erpm <- function(x, ...){
-  
+print.results.list.erpm <- function(x, ...) {
+
   result <- x$results
-  
+
   num.effects <- length(result$effect)
-  
+
   effect <- result$effect
   object <- result$object
   est <- result$est
@@ -28,11 +28,12 @@ print.results.list.erpm <- function(x, ...){
   conv <- result$conv
   t <- est / std.err
   sig <- rep("", num.effects)
-  sig[abs(t) > qnorm(1 - 0.05/2)] <- "*"
-  sig[abs(t) > qnorm(1 - 0.01/2)] <- "**"
-  sig[abs(t) > qnorm(1 - 0.001/2)] <- "***"
-  
-  print( data.frame(effect, object, est, std.err, sig, t, conv) )
+  sig[abs(t) > qnorm(1 - 0.05 * 0.5)] <- "*"
+  sig[abs(t) > qnorm(1 - 0.01 * 0.5)] <- "**"
+  sig[abs(t) > qnorm(1 - 0.001 * 0.5)] <- "***"
+
+  print(data.frame(effect, object, est, std.err, sig, t, conv))
+
 }
 
 
@@ -45,12 +46,12 @@ print.results.list.erpm <- function(x, ...){
 #' @return a data frame
 #' @importFrom stats qnorm
 #' @export
-print.results.p3.erpm <- function(x, ...){
-  
+print.results.p3.erpm <- function(x, ...) {
+
   result <- x
-  
+
   num.effects <- length(result$effect)
-  
+
   effect <- result$effect
   object <- result$object
   est <- result$est
@@ -58,11 +59,11 @@ print.results.p3.erpm <- function(x, ...){
   conv <- result$conv
   t <- est / std.err
   sig <- rep("", num.effects)
-  sig[abs(t) > qnorm(1 - 0.05/2)] <- "*"
-  sig[abs(t) > qnorm(1 - 0.01/2)] <- "**"
-  sig[abs(t) > qnorm(1 - 0.001/2)] <- "***"
-  
-  print( data.frame(effect, object, est, std.err, sig, t, conv) )
+  sig[abs(t) > qnorm(1 - 0.05 * 0.5)] <- "*"
+  sig[abs(t) > qnorm(1 - 0.01 * 0.5)] <- "**"
+  sig[abs(t) > qnorm(1 - 0.001 * 0.5)] <- "***"
+
+  print(data.frame(effect, object, est, std.err, sig, t, conv))
 }
 
 
@@ -73,20 +74,20 @@ print.results.p3.erpm <- function(x, ...){
 #'
 #' @return a data frame
 #' @export
-print.results.bayesian.erpm <- function(x, ...){
-  
+print.results.bayesian.erpm <- function(x, ...) {
+
   result <- x$results
-  
+
   num.effects <- length(result$effect)
-  
+
   effect <- result$effect
   object <- result$object
   post.mean <- result$post.mean
   post.sd <- result$post.sd
-  cred.min <- post.mean - 1.95996*post.sd
-  cred.max <- post.mean + 1.95996*post.sd
-  
-  print( data.frame(effect, object, post.mean, post.sd, cred.min, cred.max) )
-  
-  
+  cred.min <- post.mean - 1.95996 * post.sd
+  cred.max <- post.mean + 1.95996 * post.sd
+
+  print(data.frame(effect, object, post.mean, post.sd, cred.min, cred.max))
+
+
 }

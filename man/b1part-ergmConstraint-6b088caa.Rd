@@ -13,8 +13,8 @@ first mode of each vertex at 1, while the second mode is used to
 define a partitioning, with an appropriate combinatoric adjustment, if necessary.
 }
 \seealso{
-\code{\link[ergm:ergmConstraint]{ergmConstraint}} for index of constraints and hints currently visible to the package.
+\code{\link{ergmConstraint}} for index of constraints and hints currently visible to the package.
 
-\Sexpr[results=rd,stage=render]{ergm:::.formatTermKeywords("ergmConstraint", "b1part", "subsection")}
+\Sexpr[results = rd, stage = render]{ergm:::.formatTermKeywords("ergmConstraint", "b1part", "subsection")}
 }
 \concept{bipartite}

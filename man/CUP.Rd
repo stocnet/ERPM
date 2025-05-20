@@ -35,7 +35,7 @@ It compares a statistic computed on an observed partition and the same statistic
 This test is similar to Conditional Uniform Graph tests in networks (we translate this into Condtional Uniform Partition tests).
 }
 \examples{
-p <- c(1,2,2,3,3,4,4,4,5)
-at <- c(0,1,1,1,1,0,0,0,0)
-CUP(p,fun=function(x){same_pairs(x,at,'avg_pergroup')})
+p <- c(1, 2, 2, 3, 3, 4, 4, 4, 5)
+at <- c(0, 1, 1, 1, 1, 0, 0, 0, 0)
+CUP(p, fun = function(x) {same_pairs(x, at,'avg_pergroup')})
 }

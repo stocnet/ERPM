@@ -7,9 +7,9 @@
 #
 #  Copyright 2003-2024 Statnet Commons
 ################################################################################
-#' <% name <- if(startsWith(name, "'")) substr(name, 2, 1000) else name %>
+#' <% name <- if (startsWith(name, "'")) substr(name, 2, 1000) else name %>
 #' @name <%= name %>-ergmConstraint
 #' @rdname <%= ergm:::.term.rdname("ergmConstraint", name) %>
 #' @seealso [`ergmConstraint`] for index of constraints and hints currently visible to the package.
 #'
-#' \Sexpr[results=rd,stage=render]{ergm:::.formatTermKeywords("ergmConstraint", "<%= name %>", "subsection")}
+#' \Sexpr[results = rd, stage = render]{ergm:::.formatTermKeywords("ergmConstraint", "<%= name %>", "subsection")}

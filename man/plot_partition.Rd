@@ -15,13 +15,13 @@ plot_partition(
 \arguments{
 \item{partition}{A partition (vector)}
 
-\item{title}{Character, the title of the plot (default=NULL)}
+\item{title}{Character, the title of the plot (default = NULL)}
 
-\item{group.color}{A vector with the colors of the groups (default=NULL)}
+\item{group.color}{A vector with the colors of the groups (default = NULL)}
 
-\item{attribute.color}{A vector, attribute to represent with colors (default=NULL)}
+\item{attribute.color}{A vector, attribute to represent with colors (default = NULL)}
 
-\item{attribute.shape}{A vector, attribute to represent with shapes (default=NULL)}
+\item{attribute.shape}{A vector, attribute to represent with shapes (default = NULL)}
 }
 \value{
 A plot of the partition
@@ -30,8 +30,8 @@ A plot of the partition
 This function plot the groups of a partition
 }
 \examples{
-p <- c(1,1,1,2,2,2,2,3,3,3,4,4,4,4,4,4)
-attr1 <- c(1,0,0,1,0,0,1,0,1,0,1,1,1,1,1,2)
-attr2 <- c(1,1,1,1,0,0,3,0,1,0,1,1,1,1,1,2)
-plot_partition(p,attribute.color = attr1, attribute.shape = attr2)
+p <- c(1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4)
+attr1 <- c(1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 2)
+attr2 <- c(1, 1, 1, 1, 0, 0, 3, 0, 1, 0, 1, 1, 1, 1, 1, 2)
+plot_partition(p, attribute.color = attr1, attribute.shape = attr2)
 }

@@ -20,7 +20,7 @@
 #' @importFrom network is.bipartite
 NULL
 InitErgmProposal.B1Part <- function(arguments, nw) {
-  proposal <- list(name = "B1Part", inputs=NULL)
+  proposal <- list(name = "B1Part", inputs = NULL)
   if (!is.bipartite(nw)) # Really, this should never trigger, since the InitErgmConstraint function should check.
     ergm_Init_stop("The B1Part proposal function does not work with a non-bipartite network.")
 

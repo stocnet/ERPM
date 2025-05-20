@@ -2,26 +2,26 @@
 title: Simulation and estimation of partition models - Example
   script with random data
 author: "Marion Hoffman"
-date: "28/09/2020"
+date: "28/09 * 0.5020"
 output:
   pdf_document: default
   html_document: default
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-In this example script, we use the Exponential Random Partition Model to simulate cross-sectional partitions and estimate the model for one observation (here, synthetic data). More information can be found in the manual of this package present on the github repository stocnet/erpm or by looking up the documentation of specific functions. 
+In this example script, we use the Exponential Random Partition Model to simulate cross-sectional partitions and estimate the model for one observation (here, synthetic data). More information can be found in the manual of this package present on the github repository stocnet/erpm or by looking up the documentation of specific functions.
 
-This script can be used as a starting point for anyone wishing to use the model on cross-sectional observations of partitions, like teams, interaction groups, political parties, animal herds, ... 
+This script can be used as a starting point for anyone wishing to use the model on cross-sectional observations of partitions, like teams, interaction groups, political parties, animal herds, ...
 
 ## 0. Load dependencies
 
-The following packages and scripts are required to fully run this example script. 
+The following packages and scripts are required to fully run this example script.
 
-```{r loads, message=FALSE, warning=FALSE, results='hide'}
-library(ERPM)
+```{r loads, message = FALSE, warning = FALSE, results='hide'}
+#library(ERPM) # nolint
 
 library(numbers) # for calculations of Bell numbers
 library(gmp) # for calculations of Stirling numbers
@@ -46,7 +46,7 @@ or the number of partitions with k = 2 groups for example,
 
 ```{r}
 k <- 2
-Stirling2(n,k)
+Stirling2(n, k)
 ```
 
 or the number of partitions with groups of size comprised bewteen two values size_min and size_max,
@@ -54,13 +54,13 @@ or the number of partitions with groups of size comprised bewteen two values siz
 ```{r}
 size_min <- 2
 size_max <- 4
-Bell_constraints(n,size_min,size_max)
+Bell_constraints(n, size_min, size_max)
 ```
 
 or the number of partitions with k = 2 groups and groups of size comprised bewteen two values size_min and size_max.
 
 ```{r}
-Stirling2_constraints(n,k,size_min,size_max)
+Stirling2_constraints(n, k, size_min, size_max)
 ```
 
 
@@ -76,7 +76,7 @@ compute_averagesize(n)
 
 For a low number of nodes (below 10 for example), one could enumerate all possible partitions,
 
-```{r echo=TRUE}
+```{r echo = TRUE}
 all_partitions <- find_all_partitions(n)
 ```
 
@@ -90,10 +90,10 @@ counts_partition_classes <- count_classes(all_partitions)
 
 One can use the Rand distance to evaluate the distance between two partitions, for example:
 
-```{r include=TRUE, echo=FALSE}
-p1 <- all_partitions[1,]
-p2 <- all_partitions[2,]
-rand_12 <- adjustedRandIndex(p1,p2)
+```{r include = TRUE, echo = FALSE}
+p1 <- all_partitions[1, ]
+p2 <- all_partitions[2, ]
+rand_12 <- adjustedRandIndex(p1, p2)
 ```
 
 
@@ -105,16 +105,16 @@ rand_12 <- adjustedRandIndex(p1,p2)
 Here we define an arbitrary set of n = 6 nodes with attributes, and an arbitrary covariate matrix.
 
 ```{r}
-n <- 6 
-nodes <- data.frame(label = c("A","B","C","D","E","F"),
-                    gender = c(1,1,2,1,2,2),
-                    age = c(20,22,25,30,30,31)) 
+n <- 6
+nodes <- data.frame(label = c("A", "B", "C", "D", "E", "F"),
+                    gender = c(1, 1, 2, 1, 2, 2),
+                    age = c(20, 22, 25, 30, 30, 31))
 friendship <- matrix(c(0, 1, 1, 1, 0, 0,
                        1, 0, 0, 0, 1, 0,
                        1, 0, 0, 0, 1, 0,
                        1, 0, 0, 0, 0, 0,
                        0, 1, 1, 0, 0, 1,
-                       0, 0, 0, 0, 1, 0), 6, 6, TRUE) 
+                       0, 0, 0, 0, 1, 0), 6, 6, TRUE)
 ```
 
 ### 2.2 Define a model and simulate
@@ -122,8 +122,8 @@ friendship <- matrix(c(0, 1, 1, 1, 0, 0,
 First, we need to choose the effects we want to include (see manual for all effect names). For example we set four (which is of course not reasonable for 6 nodes):
 
 ```{r}
-effects <- list(names = c("num_groups","same","diff","tie"),
-                   objects = c("partition","gender","age","friendship"))
+effects <- list(names = c("num_groups", "same", "diff", "tie"),
+                objects = c("partition", "gender", "age", "friendship"))
 objects <- list()
 objects[[1]] <- list(name = "friendship", object = friendship)
 ```
@@ -139,20 +139,20 @@ Now we can generate our simulated sample, by setting the desired additional para
 
 ```{r}
 nsteps <- 100
-sample <- draw_Metropolis_single(theta = parameters, 
-                          first.partition = c(1,1,2,2,3,3), 
-                          nodes = nodes, 
-                          effects = effects, 
-                          objects = objects, 
-                          burnin = 100, 
-                          thining = 10, 
-                          num.steps = nsteps, 
-                          neighborhood = c(0,1,0), 
-                          numgroups.allowed = 1:n,
-                          numgroups.simulated = 1:n,
-                          sizes.allowed = 1:n,
-                          sizes.simulated = 1:n,
-                          return.all.partitions = TRUE)
+sample <- draw_Metropolis_single(theta = parameters,
+                                 first.partition = c(1, 1, 2, 2, 3, 3),
+                                 nodes = nodes,
+                                 effects = effects,
+                                 objects = objects,
+                                 burnin = 100,
+                                 thining = 10,
+                                 num.steps = nsteps,
+                                 neighborhood = c(0, 1, 0),
+                                 numgroups.allowed = 1:n,
+                                 numgroups.simulated = 1:n,
+                                 sizes.allowed = 1:n,
+                                 sizes.simulated = 1:n,
+                                 return.all.partitions = TRUE)
 ```
 
 ### 2.3 Trace plots
@@ -161,7 +161,7 @@ We can check the mixing of the chain with autocorrelations (they should be below
 
 ```{r}
 s <- 1
-cor(sample$draws[1:(nsteps-1),s], sample$draws[2:nsteps,s])
+cor(sample$draws[1:(nsteps - 1), s], sample$draws[2:nsteps, s])
 ```
 
 
@@ -170,8 +170,8 @@ and with the trace plots;
 ```{r}
 s <- 1
 ggplot(data = data.frame(step = 1:nsteps,
-                         stat = sample$draws[,s])) +
-  geom_line(aes(x=step,y=stat)) 
+                         stat = sample$draws[, s])) +
+  geom_line(aes(x = step, y = stat))
 ```
 
 
@@ -180,7 +180,7 @@ ggplot(data = data.frame(step = 1:nsteps,
 ### 3.1 Define the observation
 
 ```{r}
-partition <- c(1,1,2,2,2,3)
+partition <- c(1, 1, 2, 2, 2, 3)
 ```
 
 ### 3.2 Estimate
@@ -193,18 +193,18 @@ For phase 3, we need a lot of samples to have correct estimates of the final dis
 The multiplication factor and gain factor were chosen as in the ERGM book, but they can be adjusted by looking at the evolution of parameters in phase 2.
 
 ```{r}
-startingestimates <- c(-2,0,0,0)
-estimation <- estimate_ERPM(partition, 
-                          nodes, 
-                          objects, 
-                          effects, 
-                          startingestimates = startingestimates, 
-                          burnin = 100, 
-                          thining = 20,
-                          length.p1 = 500, # number of samples in phase 1
-                          multiplication.iter.p2 = 20,  # multiplication factor for the number of iteration in phase 2 subphases 
-                          num.steps.p2 = 4, # number of phase 2 subphases
-                          length.p3 = 1000) # number of samples in phase 3
+startingestimates <- c(-2, 0, 0, 0)
+estimation <- estimate_ERPM(partition,
+                            nodes,
+                            objects,
+                            effects,
+                            startingestimates = startingestimates,
+                            burnin = 100,
+                            thining = 20,
+                            length.p1 = 500, # number of samples in phase 1
+                            multiplication.iter.p2 = 20,  # mult. fact. for number of iter in p2 subp  # nolint
+                            num.steps.p2 = 4, # number of phase 2 subphases
+                            length.p3 = 1000) # number of samples in phase 3
 
 # get results table
 estimation
@@ -226,20 +226,20 @@ The convergence should be as small as possible, below 0.1 for example. We can re
 startingestimates <- estimation$results$est
 startingcovariance <- objects.phase3$inv.zcov
 startingscaling <- objects.phase3$inv.scaling
-estimation <- estimate_ERPM(partition, 
-                          nodes, 
-                          objects, 
-                          effects, 
-                          startingestimates = startingestimates, 
-                          gainfactor = 0.05, 
-                          burnin = 500, 
-                          thining = 20,
-                          length.p1 = 100, 
-                          multiplication.iter.p2 = 50, 
-                          num.steps.p2 = 3, 
-                          length.p3 = 2000,
-                          inv.zcov = startingcovariance,
-                          inv.scaling = startingscaling)
+estimation <- estimate_ERPM(partition,
+                            nodes,
+                            objects,
+                            effects,
+                            startingestimates = startingestimates,
+                            gainfactor = 0.05,
+                            burnin = 500,
+                            thining = 20,
+                            length.p1 = 100,
+                            multiplication.iter.p2 = 50,
+                            num.steps.p2 = 3,
+                            length.p3 = 2000,
+                            inv.zcov = startingcovariance,
+                            inv.scaling = startingscaling)
 
 # get results table
 estimation
@@ -247,7 +247,7 @@ estimation
 
 Convergence improved!
 
-### 3.3 Estimate plots 
+### 3.3 Estimate plots
 
 To assess convergence problems, we can have a look at how estimates evolve during phase 2.
 
@@ -255,8 +255,9 @@ To assess convergence problems, we can have a look at how estimates evolve durin
 ```{r}
 ggplot(data = data.frame(step = 1:nrow(objects.phase2$estimates),
                          stat = array(objects.phase2$estimates),
-                         parameter = as.character(rep(seq(1,ncol(objects.phase2$estimates)), each=nrow(objects.phase2$estimates))))) +
-  geom_line(aes(x=step,y=stat,colour=parameter)) 
+                         parameter = as.character(rep(seq(1, ncol(objects.phase2$estimates)),
+                                                      each = nrow(objects.phase2$estimates))))) +
+  geom_line(aes(x = step, y = stat, colour = parameter))
 ```
 
 
@@ -267,111 +268,124 @@ We can check how the model reproduces statistics of the observed data. First we 
 
 ```{r}
 nsimulations <- 1000
-simulations <- draw_Metropolis_single(theta = estimation$results$est, 
-                          first.partition = partition, 
-                          nodes = nodes, 
-                          effects = effects, 
-                          objects = objects, 
-                          burnin = 100, 
-                          thining = 20, 
-                          num.steps = nsimulations, 
-                          neighborhood = c(0,1,0), 
-                          sizes.allowed = 1:n,
-                          sizes.simulated = 1:n,
-                          return.all.partitions = TRUE)
+simulations <- draw_Metropolis_single(theta = estimation$results$est,
+                                      first.partition = partition,
+                                      nodes = nodes,
+                                      effects = effects,
+                                      objects = objects,
+                                      burnin = 100,
+                                      thining = 20,
+                                      num.steps = nsimulations,
+                                      neighborhood = c(0, 1, 0),
+                                      sizes.allowed = 1:n,
+                                      sizes.simulated = 1:n,
+                                      return.all.partitions = TRUE)
 ```
 
 We can first check the group size distribution:
 
 ```{r}
-observedsizes <- rep(0,n)
-for(size in 1:n){
-  observedsizes[size] <- length(which(table(partition)==size))
+observedsizes <- rep(0, n)
+for (size in 1:n) {
+  observedsizes[size] <- length(which(table(partition) == size))
 }
 
-allsizes <- matrix(0,nrow=nsimulations,ncol=n)
-meansizes <- matrix(0,n)
-for(size in 1:n){
-  for(simu in 1:nsimulations){
-    allsizes[simu,size] <- length(which(table(simulations$all.partitions[simu,])==size))
+allsizes <- matrix(0, nrow = nsimulations, ncol = n)
+meansizes <- matrix(0, n)
+for (size in 1:n) {
+  for (simu in 1:nsimulations) {
+    allsizes[simu, size] <- length(which(table(simulations$all.partitions[simu, ]) == size))
   }
-  meansizes[size] <- mean(allsizes[,size])
+  meansizes[size] <- mean(allsizes[, size])
 }
 
 df <- data.frame(simulation = 1:nsimulations,
                  simulated_stat = array(allsizes),
-                 size = as.character(rep(seq(1,n),each=nsimulations)),
-                 observed_stat = rep(observedsizes,each=nsimulations),
-                 mean_stat = rep(meansizes,each=nsimulations))
-ggplot(df, aes(factor(size), simulated_stat)) + 
-    geom_violin() +
-    geom_point(aes(x=factor(size),y=mean_stat, colour = "simulated", shape= "simulated")) +
-    geom_point(aes(x=factor(size),y=observed_stat, colour = "observed", shape= "observed"), stroke= 1.5) +
-    labs(x = "Group size",
-         y = "Group count",
-         color="Legend",
-         shape="Legend") +
-    scale_color_manual(values = c(simulated="black",observed="red"), labels=c("observed value","simulated average"))+
-    scale_shape_manual(values = c(simulated=19,observed=5), labels=c("observed value","simulated average")) +
-    theme(legend.position = "right")
+                 size = as.character(rep(seq(1, n), each = nsimulations)),
+                 observed_stat = rep(observedsizes, each = nsimulations),
+                 mean_stat = rep(meansizes, each = nsimulations))
+
+ggplot(df, aes(factor(size), simulated_stat)) + geom_violin() +
+  geom_point(aes(x = factor(size), y = mean_stat,
+                 colour = "simulated", shape = "simulated")) +
+  geom_point(aes(x = factor(size), y = observed_stat,
+                 colour = "observed", shape = "observed"), stroke = 1.5) +
+  labs(x = "Group size",
+       y = "Group count",
+       color = "Legend",
+       shape = "Legend") +
+  scale_color_manual(values = c(simulated = "black", observed = "red"),
+                     labels = c("observed value", "simulated average")) +
+  scale_shape_manual(values = c(simulated = 19, observed = 5),
+                     labels = c("observed value", "simulated average")) +
+  theme(legend.position = "right")
 
 ```
 
 For continuous variables, we can check the intra-class correlation of the variable (linked to the statistic used in the model, but not equal):
 
 ```{r}
-allicc <- rep(0,nsimulations)
-for(simu in 1:nsimulations){
-  allicc[simu] <- icc(simulations$all.partitions[simu,],nodes$age)
+allicc <- rep(0, nsimulations)
+for (simu in 1:nsimulations) {
+  allicc[simu] <- icc(simulations$all.partitions[simu, ], nodes$age)
 }
 
 df <- data.frame(simulation = 1:nsimulations,
                  simulated_stat = allicc,
-                 observed_stat = rep(icc(partition,nodes$age),nsimulations),
-                 mean_stat = rep(mean(allicc,na.rm=TRUE),nsimulations))
-ggplot(df) + 
-    geom_violin(aes(x=1,y=simulated_stat), fill = NA) +
-    geom_point(aes(x=1, y=mean_stat, colour = "simulated", shape= "simulated"), stroke= 1.5) +
-    geom_point(aes(x=1, y=observed_stat, colour = "observed", shape= "observed"), stroke= 1.5) +
-    labs(x = "",
-         y = "Intraclass correlation coefficient (intragroup)",
-         color="",
-         shape="",
-         linetype="") +
-    scale_color_manual(values = c(observed="red", simulated="black"), labels=c("Observed value","Simulated average"))+
-    scale_shape_manual(values = c(observed=5, simulated=16), labels=c("Observed value","Simulated average")) +
-    theme(legend.position = "right",
-          legend.key.height = unit(0.4,"in"),
-          text = element_text(size=10))
+                 observed_stat = rep(icc(partition, nodes$age), nsimulations),
+                 mean_stat = rep(mean(allicc, na.rm = TRUE), nsimulations))
+ggplot(df) + geom_violin(aes(x = 1, y = simulated_stat), fill = NA) +
+  geom_point(aes(x = 1, y = mean_stat,
+                 colour = "simulated", shape = "simulated"), stroke = 1.5) +
+  geom_point(aes(x = 1, y = observed_stat,
+                 colour = "observed", shape = "observed"), stroke = 1.5) +
+  labs(x = "",
+       y = "Intraclass correlation coefficient (intragroup)",
+       color = "",
+       shape = "",
+       linetype = "") +
+  scale_color_manual(values = c(observed = "red", simulated = "black"),
+                     labels = c("Observed value", "Simulated average")) +
+  scale_shape_manual(values = c(observed = 5, simulated = 16),
+                     labels = c("Observed value", "Simulated average")) +
+  theme(legend.position = "right",
+        legend.key.height = unit(0.4, "in"),
+        text = element_text(size = 10))
 
 ```
 
 We can also check the density of pairs with same gender in the groups (linked to the statistic used in the model, but not equal):
 
 ```{r}
-alldensities <- rep(0,nsimulations)
-for(simu in 1:nsimulations){
-  alldensities[simu] <- same_pairs(simulations$all.partitions[simu,], nodes$gender, 'avg_pergroup')
+alldensities <- rep(0, nsimulations)
+for (simu in 1:nsimulations) {
+  alldensities[simu] <- same_pairs(simulations$all.partitions[simu, ],
+                                   nodes$gender, "avg_pergroup")
 }
 
 df <- data.frame(simulation = 1:nsimulations,
                  simulated_stat = alldensities,
-                 observed_stat = rep(same_pairs(partition, nodes$gender, 'avg_pergroup'),nsimulations),
-                 mean_stat = rep(mean(alldensities,na.rm=TRUE),nsimulations))
-ggplot(df) + 
-    geom_violin(aes(x=1,y=simulated_stat), fill = NA) +
-    geom_point(aes(x=1, y=mean_stat, colour = "simulated", shape= "simulated"), stroke= 1.5) +
-    geom_point(aes(x=1, y=observed_stat, colour = "observed", shape= "observed"), stroke= 1.5) +
-    labs(x = "",
-         y = "Intraclass correlation coefficient (intragroup)",
-         color="",
-         shape="",
-         linetype="") +
-    scale_color_manual(values = c(observed="red", simulated="black"), labels=c("Observed value","Simulated average"))+
-    scale_shape_manual(values = c(observed=5, simulated=16), labels=c("Observed value","Simulated average")) +
-    theme(legend.position = "right",
-          legend.key.height = unit(0.4,"in"),
-          text = element_text(size=10))
+                 observed_stat = rep(same_pairs(partition, nodes$gender,
+                                                "avg_pergroup"), nsimulations),
+                 mean_stat = rep(mean(alldensities, na.rm = TRUE),
+                                 nsimulations))
+ggplot(df) + geom_violin(aes(x = 1, y = simulated_stat), fill = NA) +
+  geom_point(aes(x = 1, y = mean_stat,
+                 colour = "simulated", shape = "simulated"), stroke = 1.5) +
+  geom_point(aes(x = 1, y = observed_stat,
+                 colour = "observed", shape = "observed"), stroke = 1.5) +
+  labs(x = "",
+       y = "Intraclass correlation coefficient (intragroup)",
+       color = "",
+       shape = "",
+       linetype = "") +
+  scale_color_manual(values = c(observed = "red", simulated = "black"),
+                     labels = c("Observed value", "Simulated average")) +
+  scale_shape_manual(values = c(observed = 5, simulated = 16),
+                     labels = c("Observed value", "Simulated average")) +
+  theme(legend.position = "right",
+        legend.key.height = unit(0.4, "in"),
+        text = element_text(size = 10))
 
 ```
 
@@ -382,10 +396,13 @@ And it is also good to check other statistics even less linked to the model, for
 Finally, we can estimate the log-likelihood and AIC of the model (useful to compare two models for example). First we need to estimate the ML estimates of a simple model with only one parameter for number of groups (this parameter should be in the model!).
 
 ```{r}
-likelihood_function <- function(x){ exp(x*max(partition)) / compute_numgroups_denominator(n,x)}
-curve(likelihood_function, from=-2, to=0)
-parameter_base <- optimize(likelihood_function, interval=c(-2, 0), maximum=TRUE)
-parameters_basemodel <- c(parameter_base$maximum,0,0,0)
+likelihood_function <- function(x) {
+  exp(x * max(partition)) / compute_numgroups_denominator(n, x)
+}
+curve(likelihood_function, from = -2, to = 0)
+parameter_base <- optimize(likelihood_function,
+                           interval = c(-2, 0), maximum = TRUE)
+parameters_basemodel <- c(parameter_base$maximum, 0, 0, 0)
 ```
 
 
@@ -393,15 +410,15 @@ Then we can get our estimated logL and AIC.
 
 ```{r}
 logL_AIC <- estimate_logL(partition,
-                         nodes,
-                         effects, 
-                         objects,
-                         theta = estimation$results$est,
-                         theta_0 = parameters_basemodel,
-                         M = 3,
-                         num.steps = 200,
-                         burnin = 100,
-                         thining = 20)
+                          nodes,
+                          effects,
+                          objects,
+                          theta = estimation$results$est,
+                          theta_0 = parameters_basemodel,
+                          M = 3,
+                          num.steps = 200,
+                          burnin = 100,
+                          thining = 20)
 logL_AIC$logL
 logL_AIC$AIC
 ```
@@ -410,11 +427,13 @@ To check that there were enough steps in the algorithm (M), we can plot the stat
 
 ```{r}
 stat <- 3
-ggplot(data =  data.frame(stat = c(logL_AIC$draws[[1]]$draws[,stat], logL_AIC$draws[[2]]$draws[,stat], logL_AIC$draws[[3]]$draws[,stat]),
-             draw = c(rep("1",100), rep("2",100), rep("3",100)))) +
-    geom_density(aes(x=stat, fill=draw),alpha=0.2) +
-    scale_fill_brewer(palette = "Spectral") +
-    theme_minimal()
+ggplot(data = data.frame(stat = c(logL_AIC$draws[[1]]$draws[, stat],
+                                  logL_AIC$draws[[2]]$draws[, stat],
+                                  logL_AIC$draws[[3]]$draws[, Òstat]),
+                         draw = c(rep("1", 100), rep("2", 100),
+                                  rep("3", 100)))) +
+  geom_density(aes(x = stat, fill = draw), alpha = 0.2) +
+  scale_fill_brewer(palette = "Spectral") + theme_minimal()
 ```
 
 

@@ -21,8 +21,8 @@ The statisic chosen in stat
 This function computes the number of ties.
 }
 \examples{
-p <- c(1,2,2,3,3,4)
-v <- c(0,0,0,0,0,1,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0)
-at <- matrix(v,6,6, byrow = TRUE)
-number_ties(p,at,'avg_pergroup')
+p <- c(1, 2, 2, 3, 3, 4)
+v <- c(0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0)
+at <- matrix(v, 6, 6, byrow = TRUE)
+number_ties(p, at,'avg_pergroup')
 }

@@ -9,12 +9,12 @@
 }
 \description{
 This term adds one network statistic to the model,
-equalling \eqn{\sum_{i=b+1}^n \mathbb{I}(d_i>0) \log(d_i - 1)!}.
+equalling \eqn{\sum_{i = b + 1}^n \mathbb{I}(d_i > 0) \log(d_i - 1)!}.
 }
 \seealso{
-\code{\link[ergm:ergmTerm]{ergmTerm}} for index of model terms currently visible to the package.
+\code{\link{ergmTerm}} for index of model terms currently visible to the package.
 
-\Sexpr[results=rd,stage=render]{ergm:::.formatTermKeywords("ergmTerm", "b2degm1lfactorial", "subsection")}
+\Sexpr[results = rd, stage = render]{ergm:::.formatTermKeywords("ergmTerm", "b2degm1lfactorial", "subsection")}
 }
 \concept{bipartite}
 \concept{undirected}

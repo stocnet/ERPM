@@ -16,6 +16,6 @@ A number corresponding to proportion of individuals alone.
 This function computes the proportion of individuals not joining others.
 }
 \examples{
-p <- c(1,2,2,3,3,4,4,4,5)
+p <- c(1, 2, 2, 3, 3, 4, 4, 4, 5)
 proportion_isolate(p)
 }

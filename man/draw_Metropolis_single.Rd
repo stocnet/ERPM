@@ -38,7 +38,7 @@ draw_Metropolis_single(
 
 \item{num.steps}{number of samples}
 
-\item{neighborhood}{= c(0.7,0.3,0), way of choosing partitions: probability vector (2 actors swap, merge/division, single actor move, single pair move, 2 pairs swap, 2 groups reshuffle)}
+\item{neighborhood}{= c(0.7, 0.3, 0), way of choosing partitions: probability vector (2 actors swap, merge/division, single actor move, single pair move, 2 pairs swap, 2 groups reshuffle)}
 
 \item{numgroups.allowed}{= NULL, # vector containing the number of groups allowed in the partition (now, it only works with vectors like num_min:num_max)}
 
@@ -58,10 +58,10 @@ Function to sample the model with a Markov chain (single partition procedure).
 }
 \examples{
 # define an arbitrary set of n = 6 nodes with attributes, and an arbitrary covariate matrix
-n <- 6 
-nodes <- data.frame(label = c("A","B","C","D","E","F"),
-                    gender = c(1,1,2,1,2,2),
-                    age = c(20,22,25,30,30,31)) 
+n <- 6
+nodes <- data.frame(label = c("A", "B", "C", "D", "E", "F"),
+                    gender = c(1, 1, 2, 1, 2, 2),
+                    age = c(20, 22, 25, 30, 30, 31))
 friendship <- matrix(c(0, 1, 1, 1, 0, 0,
                        1, 0, 0, 0, 1, 0,
                        1, 0, 0, 0, 1, 0,
@@ -70,8 +70,8 @@ friendship <- matrix(c(0, 1, 1, 1, 0, 0,
                        0, 0, 0, 0, 1, 0), 6, 6, TRUE)
 
 # choose the effects to be included (see manual for all effect names)
-effects <- list(names = c("num_groups","same","diff","tie"),
-objects = c("partition","gender","age","friendship"))
+effects <- list(names = c("num_groups", "same", "diff", "tie"),
+objects = c("partition", "gender", "age", "friendship"))
 objects <- list()
 objects[[1]] <- list(name = "friendship", object = friendship)
 
@@ -79,18 +79,18 @@ objects[[1]] <- list(name = "friendship", object = friendship)
 parameters <- c(-0.2, 0.2, -0.1, 0.5)
 
 \donttest{
-# generate simulated sample, by setting the desired additional parameters for the 
+# generate simulated sample, by setting the desired additional parameters for the
 # Metropolis sampler and choosing a starting point for the chain (first.partition)
 nsteps <- 100
-sample <- draw_Metropolis_single(theta = parameters, 
-                                 first.partition = c(1,1,2,2,3,3), 
-                                 nodes = nodes, 
-                                 effects = effects, 
-                                 objects = objects, 
-                                 burnin = 100, 
-                                 thining = 10, 
-                                 num.steps = nsteps, 
-                                 neighborhood = c(0,1,0), 
+sample <- draw_Metropolis_single(theta = parameters,
+                                 first.partition = c(1, 1, 2, 2, 3, 3),
+                                 nodes = nodes,
+                                 effects = effects,
+                                 objects = objects,
+                                 burnin = 100,
+                                 thining = 10,
+                                 num.steps = nsteps,
+                                 neighborhood = c(0, 1, 0),
                                  numgroups.allowed = 1:n,
                                  numgroups.simulated = 1:n,
                                  sizes.allowed = 1:n,
@@ -99,17 +99,17 @@ sample <- draw_Metropolis_single(theta = parameters,
 
 
 # or: simulate an estimated model
-partition <- c(1,1,2,2,2,3) # the partition already defined for the (previous) estimation
+partition <- c(1, 1, 2, 2, 2, 3) # the partition already defined for the (previous) estimation
 nsimulations <- 1000
-simulations <- draw_Metropolis_single(theta = estimation$results$est, 
-                                      first.partition = partition, 
-                                      nodes = nodes, 
-                                      effects = effects, 
-                                      objects = objects, 
-                                      burnin = 100, 
-                                      thining = 20, 
-                                      num.steps = nsimulations, 
-                                      neighborhood = c(0,1,0), 
+simulations <- draw_Metropolis_single(theta = estimation$results$est,
+                                      first.partition = partition,
+                                      nodes = nodes,
+                                      effects = effects,
+                                      objects = objects,
+                                      burnin = 100,
+                                      thining = 20,
+                                      num.steps = nsimulations,
+                                      neighborhood = c(0, 1, 0),
                                       sizes.allowed = 1:n,
                                       sizes.simulated = 1:n,
                                       return.all.partitions = TRUE)
