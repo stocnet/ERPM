@@ -1,0 +1,243 @@
+This is the markdown R file to test all adapted function for ERPM with the ergm package.
+
+Load the local ergm package. Use the one depending from where you start your R session
+```{r,eval=FALSE}
+dev_mode(TRUE)
+devtools::load_all()
+```
+
+TO LOAD IF YOU HAVE VERSION BEFORE 
+```{r}
+devtools::load_all("/home/raphy/GIT/ergm/")
+```
+
+Load necessary libraries to run ergm and to prepare the network data structure.
+```{r,eval=FALSE}
+#library(igraph)
+library(network)
+library(ergm)
+# install packages intergraphs
+```
+
+Here is the example of a bipartite network with the ERPM data structure, with graphical representation of the partition clusters.
+You can modify everything before build_bipartite_network.
+don't forget to have the same number of data in labels, partition and diffent attributes.
+```{r,eval=FALSE}
+# Database example for ERPM
+
+# Vectors of objects labels
+labels <- c("A", "B", "C", "D", "E", "F")
+# labels <- c("A", "B", "C", "D")
+
+# Partition of the objects in groups
+partition <- c(1, 2, 2, 3, 3, 3)
+# partition <- c(1, 2, 2, 3)
+
+
+# Attributes of the objects
+#/!\ for now frindship_matrices does not work as expected.
+attributes <- list(
+  gender = c(1, 1, 1, 2, 2, 1),
+  age = c(15, 22, 22, 40, 30, 30),
+  friendship_matrices <- c(
+    matrix(c(0, 1, 1, 1, 0, 0), nrow=1),
+    matrix(c(1, 0, 0, 0, 1, 0), nrow=1),
+    matrix(c(1, 0, 0, 0, 1, 0), nrow=1),
+    matrix(c(1, 0, 0, 0, 0, 0), nrow=1),
+    matrix(c(0, 1, 1, 0, 0, 1), nrow=1),
+    matrix(c(0, 0, 0, 0, 1, 0), nrow=1))
+    )
+
+# attributes <- list(
+#   gender = c(1, 1, 1, 2),
+#   age = c(20, 22, 25, 30),
+#   friendship_matrices <- c(
+#     matrix(c(0, 1, 1, 1), nrow=1),
+#     matrix(c(1, 0, 0, 0), nrow=1),
+#     matrix(c(1, 0, 0, 0), nrow=1),
+#     matrix(c(1, 0, 0, 0), nrow=1))
+#     )
+
+# /!\ WIP for neighborhood matrix.
+fm <- c(0, 1, 1, 1, 0, 0,
+       1, 0, 0, 0, 1, 0,
+       1, 0, 0, 0, 1, 0,
+       1, 0, 0, 0, 0, 0,
+       0, 1, 1, 0, 0, 1,
+       0, 0, 0, 0, 1, 0)
+fm <- c(0, 1, 1, 1, 1, 1,
+       1, 0, 1, 1, 1, 1,
+       1, 1, 0, 1, 1, 1,
+       1, 1, 1, 0, 0, 0,
+       1, 1, 1, 0, 0, 0,
+       1, 1, 1, 0, 0, 0)
+mat <- matrix(fm, nrow = 6, ncol = 6, byrow = TRUE)
+
+# Transforms the ERPM example into a bipartite network usable by ergm.
+nw <- build_bipartite_network(labels, partition, attributes)
+
+# Plots the bipartite network with the partition clusters.
+plot_partition_clusters(nw)
+```
+
+
+Rerun this chunk if you need summary and plots of the network.
+```{r}
+# Plots the bipartite network with the partition clusters.
+plot_partition_clusters(nw)
+
+# summarize the network
+summary(nw)
+```
+
+Now are all the different ERGM effects that can be used with the bipartite network.
+Some are using ergm terms, some are user terms
+There is sometimes several way to do the same effect.
+```{r}
+# erpmTerms
+# ERPM Effect : groups
+# Use of b2degrange to get the number of groups in a certain range of sizes
+# Can use b2degree for only 1 size of group
+# b2degrange(from=2, to=3) == b2degree(2)
+summary(nw ~ b2degrange(from=2, to=3))
+ergm_model <- ergm(nw ~ b2degrange(from=2, to=3))
+```
+```{r}
+summary(nw ~ b2degree(2))
+# Number of groups with 2 nodes or more
+# b2degrange(from=2, to=Inf) == b2concurrent
+summary(nw ~ b2concurrent)
+# Number of groups with only 1 node
+# b2degrange(from=1, to=2) == isolates
+summary(nw ~ isolates)
+```
+```{r}
+# ERPM Effect : squared size
+# Will return the number the sum of the size of the groups
+# Can add the option pow=x (default is pow=2)
+summary(nw ~ squared_sizes(from=1, to=2))
+ergm_model <- ergm(nw ~ squared_sizes(from=1, to=2))
+```
+
+```{r}
+# ERPM Effect : same
+# Find the absolute number of nodes in a group with the same attribute value.
+# both will return the number of nodes in group 1 with the same attribute value
+summary(nw ~ b1nodematch("age"))
+ergm_model <- ergm(nw ~ b1nodematch("age"))
+```
+
+```{r}
+summary(nw ~ Proj1(~nodematch("age")))
+# This allow to make different statistics for each attribute of the same value
+summary(nw ~ Proj1(~nodematch("age", diff=TRUE)))
+
+```
+```{r}
+# ERPM Effect : cov_diff
+# Find the absolute difference between the values of the attribute in the group.
+summary(nw ~ Proj1(~B(~ absdiff("age"), form="nonzero")))
+ergm_model <- ergm(nw ~ Proj1(~B(~ absdiff("age"), form="nonzero")))
+```
+```{r}
+# ERPM Effect : dyadcov(_full?)
+# Be sure to initialize the mat matrix. you can also use a network with the neighborhood matrix.
+summary(nw ~ Proj2(~B(~ edgecov(mat), form="nonzero")))
+ergm_model = ergm(nw ~ Proj2(~B(~ edgecov(mat), form="nonzero")))
+```
+
+```{r}
+# Use of Proj1 and B :
+# Proj1 allows to project the bipartite network into a unipartite network, creating a new network with only the real nodes.
+# The groups are still present in the unipartite network, but the edges are only between the real nodes.
+# B allows the use of standard binary changestats on a projected network, which come by default as a wheighted network.
+# The form="nonzero" allows to use the changestats on the projected network by creating the edges.
+summary(nw ~ Proj1(~B(~ degrange(from=1, to=2), form="nonzero")))
+
+######################################################################
+# Other ERGM effects 
+# Not really sure yet
+summary(nw ~ b1factor("age"))
+
+# (1/number of dyads)
+summary(nw ~ density)
+# number of total edges
+summary(nw ~ edges)
+
+# summary(nw ~ Proj1(~B(~ sgroups(from=1, to=2), form="nonzero")))
+
+summary(nw ~ Proj2(~B(~isolates, form="nonzero")))
+
+summary(nw ~ Proj1(~B(~kstar(1), form="nonzero")))
+
+# Sum : make the sum of all chagestats
+summary(nw ~ Proj1(~B(~Sum(c(~absdiff("age"), ~absdiff("age")),""), form="nonzero")))
+# Log : make a natural log of the changestats (1/srqt(x) ?)
+summary(nw ~ Proj1(~B(~Log(~absdiff("age")), form="nonzero")))
+
+# For loop, and use of pow
+summary(nw ~ Proj1(~B(~For(. = 1:3, a = c("age"), ~absdiff(a, pow=.)),  form="nonzero")))
+
+# It's writing the same thing :
+summary(nw ~ Proj1(~B(~ absdiff("age"), form="nonzero")) + Proj1(~B(~ absdiff("gender"), form="nonzero")))
+summary(nw ~ Proj1(~B(~ absdiff("age") + absdiff("gender"), form="nonzero")))
+summary(nw ~ Proj1(~ absdiff("age") + absdiff("gender")))
+
+```
+
+```{r}
+# Test of gw_calc / gw_calc2
+# terms that are using gw_calc.
+# Should verify if it fit one of our idea
+summary(nw ~ gwb1dsp)
+summary(nw ~ gwb2dsp)
+summary(nw ~ dgwdsp)
+
+summary(nw ~ dgwesp)
+summary(nw ~ dgwnsp)
+
+# Geometrically weighted degree distribution in the 2nd mode
+# Calculation of the changestat : log( 1 - exp(-TAIL )) + log(1-exp(-HEAD)) 
+summary(nw ~ gwb2degree)
+
+# Does not exist, in experimental. Can be inspired
+summary(nw ~ gwdegreelambda)
+
+# Test of this term. Did not understand it
+summary(nw ~ gwb1dsp)
+```
+
+
+
+Here you can have the diagnostic of the model, and some other metrics.
+The options have to be tuned
+```{r}
+mcmc.diagnostics(ergm_model)
+ergm_model.gof<-gof(ergm_model)
+plot (ergm_model.gof)
+```
+
+Test of the wrapping of the ERGM call.
+1st test : only one term
+2nd test : several terms
+3rd test : new made term
+```{r}
+# ERPM Wrapper 1
+text_call <- erpm(nw ~ cov_diff("age"))
+text_call
+# eval(text_call)
+```
+
+```{r}
+# ERPM Wrapper 2
+text_call <- erpm(nw ~ groups(from = 1, to= Inf) + cov_diff("age") + dyadcov(mat))
+text_call
+# eval(text_call)
+```
+
+```{r}
+# ERPM Wrapper 3
+text_call <- erpm(nw ~ squared_sizes(from=1, to=2))
+text_call
+# eval(text_call)
+```
