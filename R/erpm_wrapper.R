@@ -67,7 +67,8 @@ erpm <- function(formula) {
     formula = call("~", new_rhs),
     constraints = call("~", as.name("b1part")))
   
-  full_formula <- as.call(list(as.name("~"), as.name("nw"), form$formula[[2]]))
+  #full_formula <- as.call(list(as.name("~"), as.name("nw"), form$formula[[2]]))
+  full_formula <- as.call(list(as.name("~"), substitute(lhs), form$formula[[2]]))
 
   # build the final call
   return(call("ergm", full_formula, constraints = form$constraints))
