@@ -207,6 +207,12 @@ summary(nw ~ gwdegreelambda)
 summary(nw ~ gwb1dsp)
 ```
 
+```{r}
+# Test of gw_calc / gw_calc2
+# terms that are using gw_calc.
+# Should verify if it fit one of our idea
+summary(nw ~ cliques)
+```
 
 
 Here you can have the diagnostic of the model, and some other metrics.

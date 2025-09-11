@@ -78,19 +78,21 @@ InitErgmTerm.squared_sizes<-function(nw, arglist, ..., version=packageVersion("e
     list(name=name,coef.names=coef.names, inputs=inputs, dependence=TRUE, minval = 0, maxval=network.size(nw), conflicts.constraints=paste0("b2","degreedist"), emptynwstats=emptynwstats)
 }
 
-InitErgmTerm.cliques <- function(nw, arglist, ...) {
+InitErgmTerm.cliques <- function(nw, arglist, ..., version=packageVersion("ergm")) {
   ### Check the network and arguments to make sure they are appropriate.
-  a <- check.ErgmTerm(nw, arglist, directed=NULL, bipartite=NULL,
-                     varnames = NULL,
-                     vartypes = NULL,
-                     defaultvalues = list(),
-                     required = NULL)
+  message("Start using \"cliques\" Init Ergm Term")
+  a <- check.ErgmTerm(nw, arglist, directed=NULL, bipartite=TRUE,
+                      varnames = c("nb_cliques"),
+                      vartypes = c("numeric"),
+                      defaultvalues = list(2),
+                      required = c(FALSE))
   ### Construct the list to return
-  list(name="isolates",                               #name: required
-       coef.names = "isolates",                       #coef.names: required
+  message("Return list for cliques")
+  list(name="cliques",                               #name: required
+       coef.names = "cliques",                       #coef.names: required
        emptynwstats = network.size(nw), # When nw is empty, isolates=n, not 0,
        minval = 0,
        maxval = network.size(nw),
        conflicts.constraints="degreedist"
-       )                                                               
+       )
 }
