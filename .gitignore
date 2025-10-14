@@ -101,3 +101,9 @@ dkms.conf
 .Ruserdata
 ERPM.Rproj
 docs
+
+# Fichier json (debug local)
+*.json
+
+# Perso Cubitech
+cub_*.R

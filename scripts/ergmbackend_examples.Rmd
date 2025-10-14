@@ -1,6 +1,6 @@
 This is the markdown R file to test all adapted function for ERPM with the ergm package.
-
 Load the local ergm package. Use the one depending from where you start your R session
+
 ```{r,eval=FALSE}
 dev_mode(TRUE)
 devtools::load_all()
