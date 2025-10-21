@@ -71,6 +71,8 @@ if(!exists(".__functions_erpm_bip_network_loaded", envir = .GlobalEnv)){
     library(igraph)
     library(RColorBrewer)
 
+    oldpar <- par(no.readonly = TRUE)               # Sauv. la config. modifiable graphique actuelle
+    on.exit(par(oldpar), add = TRUE)                # Action à effectuer à la fin de la fonction
     par(mfrow=c(1,2))
 
     group_indices <- which(grepl("^G", network.vertex.names(net)))
@@ -142,7 +144,8 @@ if(!exists(".__functions_erpm_bip_network_loaded", envir = .GlobalEnv)){
         mark.border ="white",
         mark.col = group.colors
     )
-}
+  }
+
 
   #' Crée un exemple de réseau ERPM bipartite
   #'

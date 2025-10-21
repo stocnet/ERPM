@@ -11,32 +11,32 @@
 with(.GlobalEnv, {
 
   # ======================================== INIT ======================================== 
-  # Charge les settings et force les variables dans .GlobalEnv
+  # ==== Charge les settings et force les variables dans .GlobalEnv ====
   source("scripts/settings.R", local = FALSE)
 
-  # Vérifie que toutes les variables sont bien là
+  # ==== Vérifie que toutes les variables sont bien là ====
   required_globals <- c("VERBOSE", "DEV_MODE", "PROJECT_ROOT")
   missing_globals <- required_globals[!sapply(required_globals, exists, envir = .GlobalEnv)]
   if (length(missing_globals) > 0) {
       stop(red(paste( "Les variables globales suivantes ne sont pas définies dans scripts/settings.R:", paste(missing_globals, collapse = ", "))))
   }
   
-  # Récupère les packages depuis DESCRIPTION
+  # ==== Récupère les packages depuis DESCRIPTION ====
   deps_info <- export_dependencies_from_description_file("DESCRIPTION")
 
-  # Version de R
+  # ==== Version de R ====
   if (!is.null(deps_info$r_version)) {
     if (getRversion() < deps_info$r_version) {
       stop(sprintf("R >= %s requis par DESCRIPTION", deps_info$r_version))
     }
   }
 
-  # Modules à charger ( pour le moment : pas de gestion des versions des modules)
+  # ==== Modules à charger ( pour le moment : pas de gestion des versions des modules) ====
   base_pkgs <- deps_info$packages
   base_pkgs <- unique(c(base_pkgs, "parallel", "igraph", "RColorBrewer", "devtools")) # Ajouter des packages supplémentaires nécessaires
   installation_status <- install_and_import_if_missing(base_pkgs, TRUE)
 
-  # Vérifie si 'devtools' a été chargé avec succès
+  # ==== Vérifie si 'devtools' a été chargé avec succès ====
   devtools_index <- which(installation_status$packages == "devtools")
 
   if (length(devtools_index) == 0 || !installation_status$packages_loaded[devtools_index]) {
@@ -53,6 +53,12 @@ with(.GlobalEnv, {
     devtools::load_all()
   }
 
+  # ==== Ajout du patch ergm ====
+  source("scripts/ergm_patch.R", local = TRUE)
+  res_tests <- ergm_patch_selftest(run_diagnostics = FALSE, verbose = TRUE) # selftest pour tester le patch sur ergm
+
+  ergm_patch_enable() # Appliquer le patch pour la suite
+
   log_msg("INFO", "Démarrage du script pour ERPM")
 
   # ======================================== RUN ======================================== 
@@ -60,20 +66,23 @@ with(.GlobalEnv, {
   res <- create_erpm_network()
   log_erpm_network(res)
 
-  # Extraction des données de réseau
+  # # Extraction des données de réseau
   nw <- res$network
   partition <- res$partition
   na_nodes <- names(which(is.na(partition))) # Objets sans groupe
   
-  # Plots the bipartite network with the partition clusters.
+  # # Plots the bipartite network with the partition clusters.
   plot_partition_clusters(nw)
 
-  summary(nw ~ b2degrange(from=2, to=3))
-  #ergm_model <- ergm(nw ~ b2degrange(from=2, to=3))
+  # Estimation du modèle ergm
+  options(error = recover) # Pour le debug
+  ergm_model <- ergm(nw ~ b2degrange(from=2, to=3))
 
   # ======================================== CLEAN ======================================== 
-
   log_msg("INFO", "Fin du programme -- Nettoyage de l'environnement global")
+
+  # Désactive le patch 
+  ergm_patch_enable()
 
   # Liste blanche : variables à conserver
   if (exists("DEV_MODE")){
