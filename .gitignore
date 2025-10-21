@@ -105,5 +105,15 @@ docs
 # Fichier json (debug local)
 *.json
 
-# Perso Cubitech
-cub_*.R
+#Ignorer les fichiers cachés Macos dans le projet
+*.DS_Store
+
+# Ignore tout dans documentation/dev
+documentation/dev/**
+
+# Ne pas ignorer les dossiers : Obligatoire sinon git ignore les règles qui visent des fichiers à l'intérieur
+!documentation/dev/
+!documentation/dev/**/
+
+# Ne pas ignorer les fichiers .pdf dans tous les sous-dossiers
+!documentation/dev/**/*.pdf

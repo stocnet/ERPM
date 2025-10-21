@@ -20,7 +20,7 @@ library(ergm)
 ```
 
 Here is the example of a bipartite network with the ERPM data structure, with graphical representation of the partition clusters.
-You can modify everything before build_bipartite_network.
+You can modify everything before partion_to_bipartite_network.
 don't forget to have the same number of data in labels, partition and diffent attributes.
 ```{r,eval=FALSE}
 # Database example for ERPM
@@ -74,7 +74,7 @@ fm <- c(0, 1, 1, 1, 1, 1,
 mat <- matrix(fm, nrow = 6, ncol = 6, byrow = TRUE)
 
 # Transforms the ERPM example into a bipartite network usable by ergm.
-nw <- build_bipartite_network(labels, partition, attributes)
+nw <- partion_to_bipartite_network(labels, partition, attributes)
 
 # Plots the bipartite network with the partition clusters.
 plot_partition_clusters(nw)
