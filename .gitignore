@@ -108,6 +108,9 @@ docs
 #Ignorer les fichiers cachés Macos dans le projet
 *.DS_Store
 
+# Ignore tout les fichiers .log
+*.log
+
 # Ignore tout dans documentation/dev
 documentation/dev/**
 
