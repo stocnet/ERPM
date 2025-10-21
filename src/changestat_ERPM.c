@@ -94,7 +94,7 @@ C_CHANGESTAT_FN(c_cliques) {
 
 }
 
-
+// Plus utilisé -> remplacer par ergm directement
 C_CHANGESTAT_FN(c_groups) {
   int j, echange;
   Vertex *id, *od;

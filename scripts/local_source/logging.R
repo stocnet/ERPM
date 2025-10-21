@@ -23,16 +23,16 @@ if (!exists(".__logging_loaded", envir = .GlobalEnv)) {
     
     # Affiche aussi dans la console si VERBOSE activé
     if (exists("VERBOSE") && VERBOSE) {
-      if (type == "ERROR") cat(red(line))
-      else if (type == "WARN") cat(yellow(line))
-      else cat(green(line))
+      if (type == "ERROR") cat(bold(red(line)))
+      else if (type == "WARN") cat(bold(yellow(line)))
+      else if (type == "INFO") cat(bold(cyan(line)))
+      else if (type == "SUCCESS") cat(bold(green(line)))
     }
+    
+    LOG_FILE # Renvoie le nom du fichier log
   }
 
   log_msg("INFO", sprintf("Fichier de log créé : %s", LOG_FILE))
-
-  source("scripts/colors.R")
-  cat("\n", yellow(sprintf("\n→ Log complet enregistré dans : %s\n", LOG_FILE)))
 
   # --- Marqueur interne pour indiquer que le module est chargé ---
   assign("log_file",          LOG_FILE,  envir = .GlobalEnv)
