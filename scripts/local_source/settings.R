@@ -38,9 +38,13 @@ if (!exists(".__settings_loaded", envir = .GlobalEnv)) {
     if (!exists("INC_DIR"))         assign("INC_DIR",       "scripts/local_source/",        envir = .GlobalEnv)
 
     # Fonctions/Variables Globales
-    source(sprintf("%scolors.R", INC_DIR))
-    source(sprintf("%slogging.R", INC_DIR))
-    source(sprintf("%simport_dependencies.R", INC_DIR))
+    source(file.path(INC_DIR, "colors.R"),             local = FALSE)
+    source(file.path(INC_DIR, "logging.R"),            local = FALSE)
+    source(file.path(INC_DIR, "import_dependencies.R"),local = FALSE)
+    source(file.path(INC_DIR, "clean_env.R"),          local = FALSE)
+    source(file.path(INC_DIR, "ergm_utils.R"),         local = FALSE)
+
+    
 
     # --- Marqueur interne pour indiquer que le module est chargé ---
     assign(".__settings_loaded", TRUE, envir = .GlobalEnv)

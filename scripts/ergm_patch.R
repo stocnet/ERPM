@@ -23,30 +23,33 @@ if(!exists(".__ergm_patch_loaded", envir = .GlobalEnv)){
   #' @examples
   #' ergm_patch_enable()
   #' @export
-  ergm_patch_enable <- function() {
-    # Nettoyage des traces précédentes
-    if ("ergm" %in% loadedNamespaces()) {
-      try(untrace("ergm.fit", where = asNamespace("ergm")), silent = TRUE)
+  ergm_patch_enable <- function(verbose = TRUE) {
+    if(!ERGM_PATCHED){
+      # Nettoyage des traces précédentes
+      if ("ergm" %in% loadedNamespaces()) {
+        suppressWarnings(suppressMessages(try(untrace("ergm.fit", where = asNamespace("ergm")), silent = TRUE)))
+      }
+      suppressWarnings(suppressMessages(try(untrace("replace", where = baseenv()), silent = TRUE)))
+
+      tracingState(on = TRUE)
+
+      # Patch via trace sur base::replace : correction des appels erronés
+      suppressWarnings(suppressMessages(
+        trace(
+          what  = "replace",
+          where = baseenv(),
+          tracer = quote({
+            if (is.function(list)) list <- list(x)
+          }),
+          print = FALSE
+        )
+      ))
+
+      stopifnot(identical(replace(c(1, NA, 3), is.na, 0), c(1, 0, 3)))
+
+      assign("ERGM_PATCHED", TRUE, envir = .GlobalEnv)
+      if(isTRUE(verbose)) message("[ergm_patch_enable] patch appliqué avec succès. Tracing sur baseenv::replace() activé.")
     }
-    try(untrace("replace", where = baseenv()), silent = TRUE)
-
-    # Activation du tracing global
-    tracingState(on = TRUE)
-
-    # Patch via trace sur base::replace : correction des appels erronés
-    trace(
-      what  = "replace",
-      where = baseenv(),
-      tracer = quote({
-        if (is.function(list)) list <- list(x)  # si un test de type is.na est passé, le corriger
-      }),
-      print = FALSE
-    )
-
-    # Vérification de bon fonctionnement du patch
-    stopifnot(identical(replace(c(1, NA, 3), is.na, 0), c(1, 0, 3)))
-
-    message("[ergm_patch_enable] patch appliqué avec succès.")
   }
 
   #' Désactive le patch sur base::replace()
@@ -56,11 +59,15 @@ if(!exists(".__ergm_patch_loaded", envir = .GlobalEnv)){
   #' @examples
   #' ergm_patch_disable()
   #' @export
-  ergm_patch_disable <- function() {
-    try(untrace("replace", where = baseenv()), silent = TRUE)  # retire le trace
-    tracingState(on = FALSE)                                   # désactive le tracing global
-    message("[ergm_patch_disable] patch retiré et tracing désactivé.")
+  ergm_patch_disable <- function(verbose = TRUE) {
+  if(ERGM_PATCHED){
+    suppressWarnings(suppressMessages(try(untrace("replace", where = baseenv()), silent = TRUE)))
+    tracingState(on = FALSE)
+    
+    assign("ERGM_PATCHED", FALSE, envir = .GlobalEnv)
+    if(isTRUE(verbose)) message("[ergm_patch_disable] patch retiré avec succès. Tracing sur baseenv::replace() desactivé..")
   }
+}
 
   #' Auto-test du patch ergm
   #'
@@ -82,171 +89,170 @@ if(!exists(".__ergm_patch_loaded", envir = .GlobalEnv)){
   #' ergm_patch_selftest(run_unipartite = TRUE, run_bipartite = TRUE)
   #' @export
   ergm_patch_selftest <- function(
-                                  run_unipartite   = TRUE,
-                                  run_bipartite    = TRUE,
-                                  run_attributes   = TRUE,
-                                  run_bip2star     = TRUE,
-                                  run_diagnostics  = FALSE,
-                                  seed             = 123,
-                                  verbose          = TRUE,
-                                  patch            = TRUE
-                                  ){
-    # Vérifie que les packages nécessaires sont présents
+    run_unipartite   = TRUE,
+    run_bipartite    = TRUE,
+    run_attributes   = TRUE,
+    run_bip2star     = TRUE,
+    run_diagnostics  = FALSE,
+    seed             = 123,
+    verbose          = TRUE,
+    patch            = TRUE
+  ){
     stopifnot(requireNamespace("network", quietly = TRUE),
               requireNamespace("ergm", quietly = TRUE))
 
-    # Active le patch si demandé
-    if(patch) ergm_patch_enable()
-
     say <- function(...) if (isTRUE(verbose)) cat(...)
 
-    results <- list()
-    set.seed(seed)  # pour la reproductibilité des tirages aléatoires
+    say("\n\n===================== SELF-TEST PATCH ERGM =================================\n")
 
-    # --- utilitaire d'exécution et de capture propre ---------------------------
-    # Cette fonction exécute un bloc expr, capture erreurs et temps d'exécution
+    # Active le patch une seule fois au début si demandé
+    if(patch) ergm_patch_enable(verbose = verbose)
+    on.exit({
+      # Désactive le patch à la fin du self-test
+      if(patch) ergm_patch_disable(verbose = verbose)
+      say("\n===================== FIN SELF-TEST PATCH ERGM =================================\n\n")
+    }, add = TRUE)
+
+    results <- list()
+    set.seed(seed)
+
     .run_case <- function(name, expr){
       t0 <- proc.time()
       out <- tryCatch(
         {
-          val <- force(expr)
+          val <- NULL
+          if(verbose){
+            # laisse ergm afficher normalement
+            val <- force(expr)
+          } else {
+            # capture toute la sortie si verbose = FALSE
+            val <- suppressWarnings(suppressMessages(
+              capture.output(val <- force(expr), type = "output")
+            ))
+          }
           list(ok = TRUE, value = val, error = NULL,
-               time_sec = as.numeric((proc.time()-t0)["elapsed"]))
+              time_sec = as.numeric((proc.time()-t0)["elapsed"]))
         },
         error = function(e){
           list(ok = FALSE, value = NULL, error = conditionMessage(e),
-               time_sec = as.numeric((proc.time()-t0)["elapsed"]))
+              time_sec = as.numeric((proc.time()-t0)["elapsed"]))
         }
       )
-      results[[name]] <<- out  # stocke le résultat dans l'environnement parent
-      
-      # Affichage du résultat du test
-      if (verbose) {
-        if (out$ok)
-          say(sprintf("✅ %-18s (%.2fs)\n", paste0(name, ":"), out$time_sec))
-        else
-          say(sprintf("❌ %-18s (%.2fs) -> %s\n", paste0(name, ":"), out$time_sec, out$error))
+      results[[name]] <<- out
+      if(verbose){
+        if(out$ok) say(sprintf("✅ %-28s (%.2fs)\n", paste0(name, ":"), out$time_sec))
+        else say(sprintf("❌ %-28s (%.2fs) -> %s\n", paste0(name, ":"), out$time_sec, out$error))
       }
       invisible(out)
     }
 
-    # ------------------------- CAS 1 : UNIPARTI --------------------------------
-    if (run_unipartite){
+    # ------------------------- CAS 1 : UNIPARTI -------------------------------
+    if(run_unipartite){
       .run_case("unipartite_edges+triangles", {
-        # Crée un petit réseau non orienté à 8 nœuds
         nw <- network::network.initialize(8, directed = FALSE)
-        # Ajoute une chaîne d’arêtes
         network::add.edges(nw, c(1,2,3,4,5), c(2,3,4,5,6))
-        # Ajuste un modèle ERGM simple
-        fit <- ergm::ergm(nw ~ edges + triangles, verbose = if (verbose) 2 else 0)
-        # Retourne les résultats principaux
-        list(
-          coef  = stats::coef(fit),
-          ll    = as.numeric(stats::logLik(fit)),
-          summ  = utils::capture.output(print(summary(fit)))
-        )
+        fit <- if(verbose){ 
+                  ergm::ergm(nw ~ edges + triangles, verbose = 2)
+                } else {
+                  suppressWarnings(
+                    suppressMessages(
+                      ergm::ergm(nw ~ edges + triangles, verbose = 0)
+                    )
+                  )
+                }
+        list(coef = stats::coef(fit), ll = as.numeric(stats::logLik(fit)),
+            summ = utils::capture.output(print(summary(fit))))
       })
     }
 
     # ------------------------- CAS 2 : ATTRIBUTS -------------------------------
-    if (run_attributes){
+    if(run_attributes){
       .run_case("unipartite_with_nodematch", {
-        # Crée un graphe uniparti de 10 nœuds
         nw <- network::network.initialize(10, directed = FALSE)
         pairs <- utils::combn(1:10, 2)
-        keep  <- which(stats::runif(ncol(pairs)) < 0.25)
-        if (length(keep)) network::add.edges(nw, pairs[1,keep], pairs[2,keep])
-
-        # Ajoute un attribut de groupe
+        keep <- which(stats::runif(ncol(pairs)) < 0.25)
+        if(length(keep)) network::add.edges(nw, pairs[1,keep], pairs[2,keep])
         network::set.vertex.attribute(nw, "grp", sample(c("A","B"), network::network.size(nw), TRUE))
-        # Ajuste un modèle avec un terme nodematch
-        fit <- ergm::ergm(nw ~ edges + nodematch("grp"), verbose = if (verbose) 2 else 0)
+        fit <- if(verbose){ 
+                  ergm::ergm(nw ~ edges + nodematch("grp"), verbose = 2)
+                } else {
+                  suppressWarnings(
+                    suppressMessages(
+                      ergm::ergm(nw ~ edges + nodematch("grp"), verbose = 0)
+                    )
+                  )
+                }
         list(coef = stats::coef(fit), ll = as.numeric(stats::logLik(fit)))
       })
     }
 
-    # ------------------------- CAS 3 : BIPARTI sans patch ----------------------
-    if (run_bipartite){
-      .run_case("bipartite_b2degrange_NO_PATCH", {
-        # Réseau biparti 3x3 (objets 1..3, groupes 4..6)
-        nw <- network::network.initialize(6, directed = FALSE, bipartite = 3)
-        network::add.edges(nw, c(1,1,2,3), c(4,5,5,6))
-        # Pas de patch ici -> on s’attend à une erreur sur certaines versions d’ergm
-        fit <- ergm::ergm(nw ~ b2degrange(from = 2, to = 3), verbose = if (verbose) 2 else 0)
-        list(coef = stats::coef(fit), ll = as.numeric(stats::logLik(fit)))
-      })
-    }
 
-    # ------------------------- CAS 4 : BIPARTI avec patch ----------------------
-    if (run_bipartite){
+    # ------------------------- CAS 4 : BIPARTI ----------------------
+    if(run_bipartite){
       .run_case("bipartite_b2degrange_WITH_PATCH", {
-        # Active le patch temporairement
-        if (exists("ergm_patch_enable", mode = "function")) ergm_patch_enable()
-        on.exit({
-          if (exists("ergm_patch_disable", mode = "function")) ergm_patch_disable()
-        }, add = TRUE)
-
-        # Même réseau biparti, cette fois avec patch actif
         nw <- network::network.initialize(6, directed = FALSE, bipartite = 3)
         network::add.edges(nw, c(1,1,2,3), c(4,5,5,6))
-        fit <- ergm::ergm(nw ~ b2degrange(from = 2, to = 3), verbose = if (verbose) 2 else 0)
-
-        # Diagnostics facultatifs
+        fit <- if(verbose){ 
+                  ergm::ergm(nw ~ b2degrange(from = 2, to = 3), verbose = 2)
+                } else {
+                  suppressWarnings(
+                    suppressMessages(
+                      ergm::ergm(nw ~ b2degrange(from = 2, to = 3), verbose = 0)
+                    )
+                  )
+                }
         diag <- NULL
-        if (isTRUE(run_diagnostics)) {
-          diag <- tryCatch(utils::capture.output(ergm::mcmc.diagnostics(fit)),
-                           error = function(e) paste("diag_error:", conditionMessage(e)))
-        }
-
-        list(coef = stats::coef(fit),
-             ll = as.numeric(stats::logLik(fit)),
-             diagnostics = diag)
+        if(isTRUE(run_diagnostics)) diag <- tryCatch(utils::capture.output(ergm::mcmc.diagnostics(fit)), error=function(e) paste("diag_error:", conditionMessage(e)))
+        list(coef = stats::coef(fit), ll = as.numeric(stats::logLik(fit)), diagnostics = diag)
       })
     }
 
     # ------------------------- CAS 5 : BIPARTI b2star(2) -----------------------
-    if (run_bip2star){
+    if(run_bip2star){
       .run_case("bipartite_b2star2_WITH_PATCH", {
-        if (exists("ergm_patch_enable", mode = "function")) ergm_patch_enable()
-        on.exit({
-          if (exists("ergm_patch_disable", mode = "function")) ergm_patch_disable()
-        }, add = TRUE)
-
-        # Crée un réseau biparti 4x4 et ajoute quelques liens
         nw <- network::network.initialize(8, directed = FALSE, bipartite = 4)
         tails <- c(1,1,2,3,4)
         heads <- c(5,6,6,7,8)
         network::add.edges(nw, tails, heads)
-
-        # Ajuste un modèle ERGM b2star(2)
-        fit <- ergm::ergm(nw ~ b2star(2), verbose = if (verbose) 2 else 0)
+        fit <- if(verbose){ 
+                  ergm::ergm(nw ~ b2star(2), verbose = 2)
+                } else {
+                  suppressWarnings(
+                    suppressMessages(
+                      ergm::ergm(nw ~ b2star(2), verbose = 0)
+                    )
+                  )
+                }
         list(coef = stats::coef(fit), ll = as.numeric(stats::logLik(fit)))
       })
     }
 
     # ------------------------- Résumé final ------------------------------------
-    if (verbose) {
-      say("\n===== RÉSUMÉ DES TESTS =====\n")
-      for (nm in names(results)) {
-        r <- results[[nm]]
-        if (!isTRUE(r$ok)) {
-          say(sprintf("• %-28s : ❌ %s\n", nm, r$error))
-        } else {
-          co <- r$value$coef
-          ll <- r$value$ll
-          say(sprintf("• %-28s : ✅ ll=%.4f; coef=%s\n",
-                      nm, ifelse(is.null(ll), NaN, ll),
-                      if (is.null(co)) "—" else paste(round(co, 4), collapse = ", ")))
-        }
+    say("\n===== RÉSUMÉ DES TESTS =====\n")
+    for(nm in names(results)){
+      r <- results[[nm]]
+      if(!isTRUE(r$ok)){
+        say(sprintf("• %-28s : ❌ %s\n", nm, r$error))
+      } else if(!is.list(r$value)){
+        # si r$value n'est pas une liste, on l'affiche brute
+        say(sprintf("• %-28s : ⚠ valeur inattendue : %s\n", nm, paste(r$value, collapse=", ")))
+      } else {
+        co <- r$value$coef
+        ll <- r$value$ll
+        say(sprintf("• %-28s : ✅ ll=%.4f; coef=%s\n", nm, ifelse(is.null(ll), NaN, ll),
+                    if(is.null(co)) "—" else paste(round(co, 4), collapse=", ")))
       }
     }
+    
 
     invisible(results)
   }
 
+
   # Attribution des fonctions à l’environnement global
-  assign("ergm_patch_enable",    ergm_patch_enable,    envir = .GlobalEnv)
-  assign("ergm_patch_disable",   ergm_patch_disable,   envir = .GlobalEnv)
-  assign("ergm_patch_selftest",  ergm_patch_selftest,  envir = .GlobalEnv)
-  assign(".__ergm_patch_loaded", TRUE,                 envir = .GlobalEnv)
+  assign("ERGM_PATCHED",          FALSE,                envir = .GlobalEnv)
+  assign("ergm_patch_enable",     ergm_patch_enable,    envir = .GlobalEnv)
+  assign("ergm_patch_disable",    ergm_patch_disable,   envir = .GlobalEnv)
+  assign("ergm_patch_selftest",   ergm_patch_selftest,  envir = .GlobalEnv)
+  assign(".__ergm_patch_loaded",  TRUE,                 envir = .GlobalEnv)
 }
