@@ -60,14 +60,41 @@ if(!exists(".__ergm_patch_loaded", envir = .GlobalEnv)){
   #' ergm_patch_disable()
   #' @export
   ergm_patch_disable <- function(verbose = TRUE) {
-  if(ERGM_PATCHED){
-    suppressWarnings(suppressMessages(try(untrace("replace", where = baseenv()), silent = TRUE)))
-    tracingState(on = FALSE)
-    
-    assign("ERGM_PATCHED", FALSE, envir = .GlobalEnv)
-    if(isTRUE(verbose)) message("[ergm_patch_disable] patch retiré avec succès. Tracing sur baseenv::replace() desactivé..")
+    if(ERGM_PATCHED){
+      suppressWarnings(suppressMessages(try(untrace("replace", where = baseenv()), silent = TRUE)))
+      tracingState(on = FALSE)
+      
+      assign("ERGM_PATCHED", FALSE, envir = .GlobalEnv)
+      if(isTRUE(verbose)) message("[ergm_patch_disable] patch retiré avec succès. Tracing sur baseenv::replace() desactivé..")
+    }
   }
-}
+
+  #' Affichage conditionnel basé sur la verbosité du contexte appelant
+  #'
+  #' Fonction interne servant à afficher des messages uniquement si la variable
+  #' \code{verbose} est définie et évaluée à \code{TRUE} dans l’environnement appelant.
+  #' Elle utilise \code{cat()} pour écrire directement sur la sortie standard.
+  #' 
+  #' Cette approche permet d’éviter de passer explicitement l’argument \code{verbose}
+  #' à chaque appel intermédiaire, tout en conservant un contrôle global du niveau
+  #' de verbosité dans les fonctions du patch ERGM.
+  #'
+  #' @param ... Un ou plusieurs éléments à afficher (texte, valeurs numériques, etc.).
+  #'
+  #' @return Aucun retour ; produit un effet de bord en affichant sur la console
+  #' uniquement si \code{verbose = TRUE} est détecté dans le contexte appelant.
+  #'
+  #' @examples
+  #' verbose <- TRUE
+  #' .say("Ce message sera affiché\n")
+  #' verbose <- FALSE
+  #' .say("Ce message ne sera pas affiché\n")
+  #'
+  #' @keywords internal
+  .say <- function(...) {
+    v <- tryCatch(get("verbose", parent.frame()), error = function(e) FALSE)
+    if (isTRUE(v)) cat(...)
+  }
 
   #' Auto-test du patch ergm
   #'
@@ -101,16 +128,16 @@ if(!exists(".__ergm_patch_loaded", envir = .GlobalEnv)){
     stopifnot(requireNamespace("network", quietly = TRUE),
               requireNamespace("ergm", quietly = TRUE))
 
-    say <- function(...) if (isTRUE(verbose)) cat(...)
+    
 
-    say("\n\n===================== SELF-TEST PATCH ERGM =================================\n")
+    .say("\n\n===================== SELF-TEST PATCH ERGM =================================\n")
 
     # Active le patch une seule fois au début si demandé
     if(patch) ergm_patch_enable(verbose = verbose)
     on.exit({
       # Désactive le patch à la fin du self-test
       if(patch) ergm_patch_disable(verbose = verbose)
-      say("\n===================== FIN SELF-TEST PATCH ERGM =================================\n\n")
+      .say("\n===================== FIN SELF-TEST PATCH ERGM =================================\n\n")
     }, add = TRUE)
 
     results <- list()
@@ -140,8 +167,8 @@ if(!exists(".__ergm_patch_loaded", envir = .GlobalEnv)){
       )
       results[[name]] <<- out
       if(verbose){
-        if(out$ok) say(sprintf("✅ %-28s (%.2fs)\n", paste0(name, ":"), out$time_sec))
-        else say(sprintf("❌ %-28s (%.2fs) -> %s\n", paste0(name, ":"), out$time_sec, out$error))
+        if(out$ok) .say(sprintf("✅ %-28s (%.2fs)\n", paste0(name, ":"), out$time_sec))
+        else .say(sprintf("❌ %-28s (%.2fs) -> %s\n", paste0(name, ":"), out$time_sec, out$error))
       }
       invisible(out)
     }
@@ -228,18 +255,18 @@ if(!exists(".__ergm_patch_loaded", envir = .GlobalEnv)){
     }
 
     # ------------------------- Résumé final ------------------------------------
-    say("\n===== RÉSUMÉ DES TESTS =====\n")
+    .say("\n===== RÉSUMÉ DES TESTS =====\n")
     for(nm in names(results)){
       r <- results[[nm]]
       if(!isTRUE(r$ok)){
-        say(sprintf("• %-28s : ❌ %s\n", nm, r$error))
+        .say(sprintf("• %-28s : ❌ %s\n", nm, r$error))
       } else if(!is.list(r$value)){
         # si r$value n'est pas une liste, on l'affiche brute
-        say(sprintf("• %-28s : ⚠ valeur inattendue : %s\n", nm, paste(r$value, collapse=", ")))
+        .say(sprintf("• %-28s : ⚠ valeur inattendue : %s\n", nm, paste(r$value, collapse=", ")))
       } else {
         co <- r$value$coef
         ll <- r$value$ll
-        say(sprintf("• %-28s : ✅ ll=%.4f; coef=%s\n", nm, ifelse(is.null(ll), NaN, ll),
+        .say(sprintf("• %-28s : ✅ ll=%.4f; coef=%s\n", nm, ifelse(is.null(ll), NaN, ll),
                     if(is.null(co)) "—" else paste(round(co, 4), collapse=", ")))
       }
     }
