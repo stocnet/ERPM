@@ -1,88 +1,153 @@
 # ==============================================================================
 # Fichier : init.R
 # Fonction : init_erpm
-# Utilité : Initialiser l'environnement ERPM, charger les settings, packages et le patch ERGM
+# Utilité : Initialiser l'environnement ERPM, charger les settings, packages,
+#           recompiler src/ au besoin, et activer le patch ERGM
 # ==============================================================================
 
 if(!exists(".__init_loaded", envir = .GlobalEnv)){
 
+  #' Charger le code R du package et recompiler src/ si nécessaire
+  #'
+  #' Cette fonction centralise le chargement dynamique du package ERPM pendant le
+  #' développement. Elle :
+  #' - détecte tous les fichiers `.c`, `.cc`, `.cpp` dans `src/` ;
+  #' - compare leurs dates de modification avec la DLL compilée (`ERPM.so`) ;
+  #' - recompile automatiquement si un fichier natif est plus récent ou absent ;
+  #' - recharge le code R via `devtools::load_all()` si disponible, sinon `pkgbuild` ou `R CMD SHLIB`.
+  #'
+  #' @param pkg_name Nom du package (utilisé pour la DLL, défaut `"ERPM"`).
+  #' @param src_dir Répertoire contenant les fichiers C/C++ (défaut `"src"`).
+  #' @param quiet Si TRUE, réduit le bruit d’affichage pendant la compilation.
+  #' @return TRUE si le code a été chargé avec succès ; stoppe en cas d’échec de compilation.
+  erpm_load_with_recompile <- function(pkg_name = "ERPM", src_dir = "src", quiet = TRUE) {
+
+    # Extension dynamique selon le système (.so ou .dll)
+    dynext <- .Platform$dynlib.ext
+
+    # Chemin attendu de la librairie compilée
+    dll_path <- file.path(src_dir, paste0(pkg_name, dynext))
+
+    # Liste des fichiers source C/C++
+    cfiles <- list.files(src_dir, pattern = "\\.(c|cc|cpp)$", full.names = TRUE)
+
+    # --- Fonction interne : déterminer si une recompilation est nécessaire ---
+    need_rebuild <- function() {
+      if (!length(cfiles)) return(FALSE)                      # Aucun fichier source
+      if (!file.exists(dll_path)) return(TRUE)                # Pas encore de DLL compilée
+      max(file.info(cfiles)$mtime, na.rm = TRUE) > file.info(dll_path)$mtime  # Au moins un .c plus récent
+    }
+
+    # --- 1) Si devtools est disponible ---
+    if (requireNamespace("devtools", quietly = TRUE)) {
+
+      # Recompile seulement si besoin, sinon simple rechargement
+      devtools::load_all(recompile = need_rebuild(), quiet = quiet)
+      return(TRUE)
+    }
+
+    # --- 2) Si devtools absent : recharger manuellement tous les R/*.R ---
+    r_files <- list.files("R", pattern = "\\.R$", full.names = TRUE)
+    invisible(lapply(r_files, function(f) try(source(f, local = .GlobalEnv), silent = TRUE)))
+
+    # --- 3) Si pkgbuild est disponible : l’utiliser pour compiler les DLL ---
+    if (requireNamespace("pkgbuild", quietly = TRUE)) {
+      if (need_rebuild()) pkgbuild::compile_dll(path = ".", quiet = quiet)
+
+      # Charger la DLL si non encore chargée
+      if (file.exists(dll_path) && !isTRUE(dll_path %in% names(getLoadedDLLs())))
+        try(dyn.load(dll_path), silent = TRUE)
+
+      return(TRUE)
+    }
+
+    # --- 4) Fallback : appel direct à R CMD SHLIB ---
+    if (need_rebuild()) {
+
+      # Récupère l’inclusion des headers ergm (utile pour les changestats)
+      inc_ergm <- try(system.file("include", package = "ergm"), silent = TRUE)
+      inc_flag <- if (!inherits(inc_ergm, "try-error") && nzchar(inc_ergm))
+        sprintf('-I"%s"', inc_ergm) else ""
+
+      # Construction de la commande de compilation
+      cmd <- sprintf(
+        'R CMD SHLIB %s -o %s %s',
+        paste(shQuote(cfiles), collapse = " "),
+        shQuote(dll_path),
+        inc_flag
+      )
+      
+      # Exécution et contrôle d’erreur
+      status <- system(cmd)
+      if (status != 0) stop("Échec compilation native: ", cmd)
+    }
+
+    # --- 5) Chargement dynamique final si la DLL existe ---
+    if (file.exists(dll_path) && !isTRUE(dll_path %in% names(getLoadedDLLs())))
+      try(dyn.load(dll_path), silent = TRUE)
+
+    TRUE
+  }
+
+
   #' Initialisation de l'environnement ERPM
   #'
-  #' Cette fonction prépare l'environnement de travail pour le projet ERPM :
   #' - Charge les settings globaux.
-  #' - Vérifie et installe les packages nécessaires listés dans DESCRIPTION.
-  #' - Charge automatiquement les modules via \pkg{devtools} si disponible.
-  #' - Ajoute le patch pour corriger le bug \code{type 'builtin' d'indice incorrect} dans \pkg{ergm}.
-  #' - Exécute un self-test du patch si \code{selftest = TRUE}.
+  #' - Vérifie/installe les packages (DESCRIPTION).
+  #' - Charge le code R et recompile src/ si nécessaire.
+  #' - Ajoute le patch ergm et exécute un self-test optionnel.
   #'
-  #' @param settings_file Chemin vers le fichier de settings (par défaut \code{"scripts/local_source/settings.R"}).
-  #' @param ergm_patch_file Chemin vers le fichier contenant le patch ERGM.
-  #' @param description_file Fichier DESCRIPTION contenant les dépendances du projet.
-  #' @param verbose Logique : afficher les messages d'information ou non (par défaut TRUE).
-  #' @param selftest Logique : exécuter le self-test du patch ERGM après initialisation.
-  #'
-  #' @return \code{TRUE} invisiblement si l'initialisation a réussi.
-  #' @examples
-  #' \dontrun{
-  #' init_erpm(verbose = TRUE, selftest = FALSE)
-  #' }
+  #' @param ergm_patch_file Chemin du patch ERGM.
+  #' @param description_file Fichier DESCRIPTION.
+  #' @param verbose Affichages.
+  #' @param selftest Exécuter le self-test du patch.
+  #' @return TRUE (invisible).
   #' @export
   init_erpm <- function(
     ergm_patch_file = "scripts/ergm_patch.R",
     description_file = "DESCRIPTION",
-    verbose = TRUE, 
+    verbose = TRUE,
     selftest = FALSE
-  ) {
-    # Garde-fou : normalement settings est défini avant le call de init_erpm
+  ){
+    # Settings
     if (!exists(".__settings_loaded", envir = .GlobalEnv)) {
       source("scripts/local_source/settings.R", local = FALSE)
     }
 
-    # ==== Vérifie que toutes les variables sont bien là ====
-    required_globals <- c("VERBOSE", "DEV_MODE", "PROJECT_ROOT")
+    # Garde-fous
+    required_globals <- c("VERBOSE", "DEV_MODE", "PROJECT_ROOT", "INC_DIR", "CRAN_MIRROR")
     missing_globals <- required_globals[!sapply(required_globals, exists, envir = .GlobalEnv)]
     if (length(missing_globals) > 0) {
-      stop(paste("Les variables globales suivantes ne sont pas définies dans", settings_file, ":", 
-                 paste(missing_globals, collapse = ", ")))
+      stop(
+        "Variables globales manquantes dans scripts/local_source/settings.R : ",
+        paste(missing_globals, collapse = ", ")
+      )
     }
 
-    # ==== Récupère les packages depuis DESCRIPTION ====
-    deps_info <- export_dependencies_from_description_file(description_file)
+    # Lanceur
+    if (!exists(".__launcher_loaded", envir = .GlobalEnv)) {
+      source("scripts/local_source/launcher.R", local = FALSE)
+    }
 
-    # ==== Version de R ====
+    # Dépendances
+    deps_info <- export_dependencies_from_description_file(description_file)
     if (!is.null(deps_info$r_version) && getRversion() < deps_info$r_version) {
       stop(sprintf("R >= %s requis par %s", deps_info$r_version, description_file))
     }
+    base_pkgs <- unique(c(deps_info$packages, "parallel", "igraph", "RColorBrewer", "devtools", "R.utils", "pkgbuild"))
+    install_and_import_if_missing(base_pkgs, TRUE)
 
-    # ==== Modules à charger ====
-    base_pkgs <- unique(c(deps_info$packages, "parallel", "igraph", "RColorBrewer", "devtools"))
-    installation_status <- install_and_import_if_missing(base_pkgs, TRUE)
+    # Chargement + recompilation conditionnelle
+    erpm_load_with_recompile(pkg_name = "ERPM", src_dir = "src", quiet = !isTRUE(verbose))
 
-    # ==== Vérifie si 'devtools' a été chargé avec succès ====
-    devtools_index <- which(installation_status$packages == "devtools")
-    if (length(devtools_index) == 0 || !installation_status$packages_loaded[devtools_index]) {
-      msg <- "'devtools' n'est pas disponible — chargement manuel des fichiers R."
-      if (exists("log_msg")) log_msg("WARN", msg) else warning(msg)
-      r_files <- list.files("R", pattern = "\\.R$", full.names = TRUE)
-      invisible(sapply(r_files, source, local = .GlobalEnv))
-    } else {
-      if (exists("log_msg")) log_msg("INFO", "'devtools' détecté — utilisation de devtools::load_all().")
-      else message("'devtools' détecté — utilisation de devtools::load_all().")
-      devtools::load_all()
-    }
-
-    # ==== Ajout du patch ergm ====
+    # Patch ergm
     source(ergm_patch_file, local = TRUE)
-
-    # ==== Self-test du patch si demandé ====
-    if(selftest){
-      res_tests <- ergm_patch_selftest(run_diagnostics = FALSE, verbose = verbose)
-    }
+    if (isTRUE(selftest)) ergm_patch_selftest(run_diagnostics = FALSE, verbose = verbose)
 
     invisible(TRUE)
   }
 
-  # --- Attribution à l'environnement global ---
+  assign("erpm_load_with_recompile", erpm_load_with_recompile, envir = .GlobalEnv)
   assign("init_erpm", init_erpm, envir = .GlobalEnv)
   assign(".__init_loaded", TRUE, envir = .GlobalEnv)
 }

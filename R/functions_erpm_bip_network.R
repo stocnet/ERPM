@@ -1,6 +1,6 @@
 # ==============================================================================
 # Fichier : functions_erpm_bip_network.R
-# Fonction : partion_to_bipartite_network(), plot_partition_clusters()
+# Fonction : partition_to_bipartite_network(), plot_partition_clusters()
 # Utilité : Initialise, transforme et affiche une partition en graphe bipartie
 # ==============================================================================
 if(!exists(".__functions_erpm_bip_network_loaded", envir = .GlobalEnv)){
@@ -19,8 +19,8 @@ if(!exists(".__functions_erpm_bip_network_loaded", envir = .GlobalEnv)){
   #' labels <- c("A", "B", "C", "D")
   #' partition <- c(1, 2, 2, 1)
   #' attrs <- list(gender = c(1, 2, 2, 1))
-  #' nw <- partion_to_bipartite_network(labels, partition, attrs)
-  partion_to_bipartite_network <- function(labels, partition, attributes = list()) {
+  #' nw <- partition_to_bipartite_network(labels, partition, attrs)
+  partition_to_bipartite_network <- function(labels, partition, attributes = list()) {
       stopifnot(length(labels) == length(partition))
 
       # Create all possible groups for partition, event the ones not used
@@ -34,7 +34,7 @@ if(!exists(".__functions_erpm_bip_network_loaded", envir = .GlobalEnv)){
       colnames(adj) <- all_labels
     
       # connect objects to their respective groups from the partition
-      for (i in seq_along(labels)) {
+      for ( i in seq_along(labels) ) {
           object_label <- labels[i]
           group_label <- paste0("G", partition[i])
           adj[object_label, group_label] <- 1
@@ -62,7 +62,7 @@ if(!exists(".__functions_erpm_bip_network_loaded", envir = .GlobalEnv)){
   #'   \item le réseau des objets coloré selon les clusters
   #' }
   #'
-  #' @param net Objet de classe \code{network} construit avec \code{partion_to_bipartite_network}.
+  #' @param net Objet de classe \code{network} construit avec \code{partition_to_bipartite_network}.
   #' @return Aucun retour, la fonction produit uniquement des graphiques.
   #' @examples
   #' plot_partition_clusters(nw)
@@ -172,7 +172,8 @@ if(!exists(".__functions_erpm_bip_network_loaded", envir = .GlobalEnv)){
     )
 
     if (VERBOSE) cat("\nConstruction du réseau bipartite...\n")
-    nw <- partion_to_bipartite_network(labels, partition, attributes)
+
+    nw <- partition_to_bipartite_network(labels, partition, attributes)
 
     if (VERBOSE) cat(green("Réseau bipartite construit avec succès.\n\n"))
 
@@ -181,6 +182,7 @@ if(!exists(".__functions_erpm_bip_network_loaded", envir = .GlobalEnv)){
       network = nw,
       partition = partition
     ))
+    
   }
 
   #' Log et affiche les informations d'un réseau ERPM
@@ -219,7 +221,7 @@ if(!exists(".__functions_erpm_bip_network_loaded", envir = .GlobalEnv)){
   } 
 
   assign("create_erpm_network",                   create_erpm_network,          envir = .GlobalEnv)
-  assign("partion_to_bipartite_network",          partion_to_bipartite_network, envir = .GlobalEnv)
+  assign("partition_to_bipartite_network",          partition_to_bipartite_network, envir = .GlobalEnv)
   assign("plot_partition_clusters",               plot_partition_clusters,      envir = .GlobalEnv)
   assign("log_erpm_network",                      log_erpm_network,             envir = .GlobalEnv)
   assign(".__functions_erpm_bip_network_loaded",  TRUE,                         envir = .GlobalEnv)

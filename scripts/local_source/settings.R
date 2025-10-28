@@ -38,11 +38,14 @@ if (!exists(".__settings_loaded", envir = .GlobalEnv)) {
     if (!exists("INC_DIR"))         assign("INC_DIR",       "scripts/local_source/",        envir = .GlobalEnv)
 
     # Fonctions/Variables Globales
-    source(file.path(INC_DIR, "colors.R"),             local = FALSE)
-    source(file.path(INC_DIR, "logging.R"),            local = FALSE)
-    source(file.path(INC_DIR, "import_dependencies.R"),local = FALSE)
-    source(file.path(INC_DIR, "clean_env.R"),          local = FALSE)
-    source(file.path(INC_DIR, "ergm_utils.R"),         local = FALSE)
+    # source(file.path(INC_DIR, "colors.R"),             local = FALSE)
+    # source(file.path(INC_DIR, "logging.R"),            local = FALSE)
+    # source(file.path(INC_DIR, "import_dependencies.R"),local = FALSE)
+    # source(file.path(INC_DIR, "clean_env.R"),          local = FALSE)
+    # source(file.path(INC_DIR, "ergm_utils.R"),         local = FALSE)
+    R_files <- c("colors.R","logging.R","import_dependencies.R","clean_env.R","ergm_utils.R")
+    paths   <- file.path(INC_DIR, R_files)
+    lapply(paths, source, local = FALSE)
 
     
 
