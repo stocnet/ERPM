@@ -33,25 +33,28 @@ if (exists("ergm_patch_enable")) ergm_patch_enable( verbose = VERBOSE )
 # ====================================================================================== 
 # ======================================== RUN ========================================= 
 
-# ret <- launch_model(
-#   engine      = "ergm",
-#   effects     = "b2degrange(from=2,to=3) + squared_sizes(from=1,to=2)", #b2degrange #group
-#   dry_run     = FALSE,
-#   estimate    = "CD",#"MLE",#
-#   eval_loglik = FALSE,         # pas de bridge sampling
-#   control     = list(MCMLE.maxit = 3, MCMC.samplesize = 1000), # override léger
-#   timeout     = 60             # coupe au bout de 60s
-# )
 
-ret <- launch_model(
-  engine      = "summary",#"ergm",#"erpm",#
-  effects     = "groups(from=2,to=3)", #b2degrange #group
-  dry_run     = FALSE,#TRUE,#
-  estimate    = "CD",#"MLE",#
-  eval_loglik = FALSE,         # pas de bridge sampling
-  control     = list(MCMLE.maxit = 3, MCMC.samplesize = 1000), # override léger
-  timeout     = 60             # coupe au bout de 60s
+cases <- list(
+  list(name="groups_all",        effects="groups"),                  # ≈ b2degrange(1, Inf)
+  list(name="groups_exact_3",    effects="groups(3)"),               # ≈ b2degrange(3, 4)
+  list(name="groups_interval",   effects="groups(from=2,to=4)")      # ≈ b2degrange(2, 4)
 )
+
+results <- list()
+
+for (cx in cases) {
+  log_msg("INFO", sprintf("ERPM run: %s -> %s", cx$name, cx$effects))
+  results[[cx$name]] <- launch_model(
+    engine      = "erpm",
+    effects     = cx$effects,
+    dry_run     = FALSE,
+    estimate    = "CD",
+    eval_loglik = TRUE,
+    control     = list(MCMLE.maxit = 3, MCMC.samplesize = 1000),
+    timeout     = NULL
+  )
+}
+
 
 # ======================================================================================= 
 # ======================================== CLEAN ======================================== 
