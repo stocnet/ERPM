@@ -138,13 +138,9 @@ estimation <- estimate_ERPM(partition,
                             burnin = 100,
                             thining = 20,
                             length.p1 = 500, # number of samples in phase 1
-
-                            multiplication.iter.p2 = 20,
-                            # factor for the number of iterations in phase 2 subphases
-
+                            multiplication.iter.p2 = 20, # factor for the number of iterations in phase 2 subphases
                             num.steps.p2 = 4, # number of phase 2 subphases
                             length.p3 = 1000) # number of samples in phase 3
-
 # get results table
 estimation
 }
