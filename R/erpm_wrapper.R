@@ -150,13 +150,15 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   erpm <- function( formula, 
                     eval_call = TRUE, 
                     verbose = TRUE,
-                    estimate = c("CD","MCMLE"),
+                    estimate = c("CD","MPLE", "MLE", "MCMLE"),
                     eval.loglik = TRUE,
                     control = NULL,
                     timeout = NULL) {
 
     # Valider arguments
     estimate <- match.arg(estimate)
+    if (identical(estimate, "MCMLE")) estimate <- "MLE"
+
     if (!inherits(formula, "formula"))
       stop("The input should be a formula of the form `nw ~ ...`.")
 
@@ -168,8 +170,7 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
     effect_rename_map <- c(
       cov_match     = "nodematch",
       cov_diff      = "absdiff",
-      dyadcov       = "edgecov",
-      squared_sizes = "squared_sizes"
+      dyadcov       = "edgecov"
     )
     wrap_with_proj1 <- c("nodematch", "absdiff", "edgecov")
     wrap_with_B     <- c("edgecov")

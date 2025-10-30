@@ -404,19 +404,19 @@ if (!exists(".__launcher_loaded", envir = .GlobalEnv)) {
     #'   eval_loglik = FALSE,
     #'   timeout     = 60)
     #' @export
-    launch_model <- function(engine = c("summary", "ergm", "erpm"),
-                         effects,
-                         effects_args = list(),
-                         partition = NULL,
-                         nw = NULL,
-                         dry_run = FALSE,
-                         verbose = TRUE,
-                         plot = FALSE,
-                         constraints = NULL,
-                         estimate = c("MLE", "MPLE", "CD"),
-                         eval_loglik = FALSE,
-                         control = list(),
-                         timeout = NULL) {
+    launch_model <- function(   engine = c("summary", "ergm", "erpm"),
+                                effects,
+                                effects_args = list(),
+                                partition = NULL,
+                                nw = NULL,
+                                dry_run = FALSE,
+                                verbose = TRUE,
+                                plot = FALSE,
+                                constraints = NULL,
+                                estimate = c("MLE", "MPLE", "CD"),
+                                eval_loglik = FALSE,
+                                control = list(),
+                                timeout = NULL) {
 
         estimate <- match.arg(estimate)
         engine <- match.arg(engine)                                   # Valide/choisit le moteur
@@ -551,7 +551,11 @@ if (!exists(".__launcher_loaded", envir = .GlobalEnv)) {
         f <- build_formula_from_rhs(rhs, nw = nw)                     # Formule pour wrapper erpm
 
         if (dry_run) {                                                # Dry-run : ne fit pas
-            call_erpm <- erpm(f, eval_call = FALSE, verbose = FALSE)  # Demande l’appel traduit sans évaluer
+            call_erpm <- erpm(  f,                      # Demande l’appel traduit sans évaluer
+                                eval_call   = FALSE,
+                                verbose     = verbose,
+                                estimate    = estimate
+                            )  
             call_text <- .fmt_call(call_erpm)
             .log_info(paste("Résultat (dry-run/erpm):", call_text))
             return(list(

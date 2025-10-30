@@ -10,13 +10,15 @@ invisible(Sys.setlocale("LC_CTYPE","fr_FR.UTF-8"))
 
 # ====================================================================================== 
 # ======================================== INIT ======================================== 
+suppressMessages(library(ergm))
+
 if (!exists(".__debug_loaded", envir = .GlobalEnv)) {
   source("scripts/local_source/debug.R", local = FALSE)
 }
 
 source("scripts/local_source/init.R", local = FALSE) # init l'environnement (source de settings et du launcher)
 source("R/erpm_wrapper.R", local = FALSE) # n'est pas dans scripts/local_source/ donc on le charge indépendemment
-# debug_source_file("R/erpm_wrapper.R") # n'est pas dans scripts/local_source/ donc on le charge indépendemment
+# debug_source_file("R/erpm_wrapper.R") 
 
 
 init_erpm(selftest=FALSE, verbose=FALSE)
@@ -33,11 +35,10 @@ if (exists("ergm_patch_enable")) ergm_patch_enable( verbose = VERBOSE )
 # ====================================================================================== 
 # ======================================== RUN ========================================= 
 
-
 cases <- list(
-  list(name="groups_all",        effects="groups"),                  # ≈ b2degrange(1, Inf)
-  list(name="groups_exact_3",    effects="groups(3)"),               # ≈ b2degrange(3, 4)
-  list(name="groups_interval",   effects="groups(from=2,to=4)")      # ≈ b2degrange(2, 4)
+  list(name="sq_all_pow2",  effects="squared_sizes"),
+  list(name="sq_2to5_pow2", effects="squared_sizes(from=2,to=5)"),
+  list(name="sq_all_pow3",  effects="squared_sizes(pow=3)")
 )
 
 results <- list()
@@ -54,7 +55,6 @@ for (cx in cases) {
     timeout     = NULL
   )
 }
-
 
 # ======================================================================================= 
 # ======================================== CLEAN ======================================== 

@@ -65,7 +65,7 @@ Function to sample the model with a Markov chain (single partition procedure).
 \examples{
 # define an arbitrary set of n = 6 nodes with attributes, and an arbitrary covariate matrix
 n <- 6
-nodes <- data.frame(label = c("A", "B", "C", "D", "E", "F"),
+nodes <- data.frame(label = c("A","B","C","D","E","F"),
                     gender = c(1, 1, 2, 1, 2, 2),
                     age = c(20, 22, 25, 30, 30, 31))
 friendship <- matrix(c(0, 1, 1, 1, 0, 0,
@@ -81,9 +81,9 @@ presence.tables <- matrix(c(1, 1, 1, 1, 1, 1,
                             1, 0, 1, 1, 1, 1), 6, 3)
 
 # choose effects to be included in the estimated model
-effects_multiple <- list(names = c("num_groups", "same", "diff", "tie", "inertia_1"),
-                objects = c("partitions", "gender", "age", "friendship", "partitions"),
-                objects2 = c("", "", "", "", ""))
+effects_multiple <- list(names = c("num_groups","same","diff","tie","inertia_1"),
+                objects = c("partitions","gender","age","friendship","partitions"),
+                objects2 = c("","","","",""))
 objects_multiple <- list()
 objects_multiple[[1]] <- list(name = "friendship", object = friendship)
 

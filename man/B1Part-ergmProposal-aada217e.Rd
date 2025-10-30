@@ -6,7 +6,7 @@
 \title{MHp for b1part constraints}
 \description{
 MHp for \code{constraints= ~b1part}. At this time, this is
-just the \code{\link[=CondB1Degree-ergmProposal]{CondB1Degree}} proposal
+just the \code{\link[ergm:CondB1Degree-ergmProposal-7a475c2a]{CondB1Degree}} proposal
 with a combinatoric adjustment.
 }
 \details{
@@ -15,7 +15,7 @@ with a combinatoric adjustment.
 \if{latex}{\Sexpr[results = rd, stage = render]{ergm:::.formatProposalsLatex(ergm:::.buildProposalsList(proposal = "B1Part"))}}
 }
 \seealso{
-\code{\link{ergmProposal}} for index of proposals currently visible to the package.
+\code{\link[ergm:ergmProposal]{ergm::ergmProposal}} for index of proposals currently visible to the package.
 
 \Sexpr[results = rd, stage = render]{ergm:::.formatTermKeywords("ergmProposal", "B1Part", "subsection")}
 }

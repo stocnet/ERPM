@@ -21,6 +21,7 @@ if(!exists(".__init_loaded", envir = .GlobalEnv)){
   #' @param quiet Si TRUE, réduit le bruit d’affichage pendant la compilation.
   #' @return TRUE si le code a été chargé avec succès ; stoppe en cas d’échec de compilation.
   erpm_load_with_recompile <- function(pkg_name = "ERPM", src_dir = "src", quiet = TRUE) {
+    requireNamespace("ergm", quietly = TRUE)
 
     # Extension dynamique selon le système (.so ou .dll)
     dynext <- .Platform$dynlib.ext
@@ -52,6 +53,7 @@ if(!exists(".__init_loaded", envir = .GlobalEnv)){
 
     # --- 3) Si pkgbuild est disponible : l’utiliser pour compiler les DLL ---
     if (requireNamespace("pkgbuild", quietly = TRUE)) {
+      requireNamespace("ergm", quietly = TRUE)
       if (need_rebuild()) pkgbuild::compile_dll(path = ".", quiet = quiet)
 
       # Charger la DLL si non encore chargée
