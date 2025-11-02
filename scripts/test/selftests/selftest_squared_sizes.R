@@ -1,7 +1,7 @@
 # ======================================================================================
-# Fichier : scripts/test/test_squared_sizes.R
+# Fichier : scripts/test/selftests/selftest_squared_sizes.R
 # Objet   : Self-test autonome pour l'effet ERPM `squared_sizes`
-# Exécution: Rscript scripts/test/test_squared_sizes.R
+# Exécution: Rscript scripts/test/selftests/selftest_squared_sizes.R
 # ======================================================================================
 
 # --------------------------------------------------------------------------------------
@@ -51,7 +51,7 @@ suppressMessages(suppressPackageStartupMessages({
 }
 
 script_dir <- .get_script_dir()
-log_path   <- file.path(script_dir, "test_squared_sizes.log")
+log_path   <- file.path(script_dir, "selftest_squared_sizes.log")
 
 # réinit
 if (file.exists(log_path)) unlink(log_path, force = TRUE)
@@ -466,11 +466,11 @@ partitions <- list(
 )
 
 cases <- list(
-    list(name="sq_all_pow2",  call_txt="squared_sizes",                 args=list(from=1, to=Inf, pow=2)),
-    list(name="sq_2to5_pow2", call_txt="squared_sizes(from=2,to=5)",    args=list(from=2, to=5,   pow=2)),
-    list(name="sq_all_pow3",  call_txt="squared_sizes(pow=3)",          args=list(from=1, to=Inf, pow=3)),
-    list(name="sq_1to2_pow2", call_txt="squared_sizes(from=1,to=2)",    args=list(from=1, to=2,   pow=2)),
-    list(name="sq_3toInf_pow2",call_txt="squared_sizes(from=3,to=Inf)", args=list(from=3, to=Inf, pow=2))
+    list(name="sq_all_pow2",    call_txt="squared_sizes",                   args=list(from=1, to=Inf, pow=2)),
+    list(name="sq_2to5_pow2",   call_txt="squared_sizes(from=2,to=5)",      args=list(from=2, to=5,   pow=2)),
+    list(name="sq_all_pow3",    call_txt="squared_sizes(pow=3)",            args=list(from=1, to=Inf, pow=3)),
+    list(name="sq_1to2_pow2",   call_txt="squared_sizes(from=1,to=2)",      args=list(from=1, to=2,   pow=2)),
+    list(name="sq_3toInf_pow2", call_txt="squared_sizes(from=3,to=Inf)",    args=list(from=3, to=Inf, pow=2))
 )
 
 # ======================================================================================
@@ -486,7 +486,7 @@ cases <- list(
 #' Gère le logging, agrège les résultats, et échoue si des validations sont en erreur.
 #'
 #' @details
-#' - Journalisation dans \code{scripts/test/test_squared_sizes.log} avec redirection de
+#' - Journalisation dans \code{scripts/test/selftests/selftest_squared_sizes.log} avec redirection de
 #'   \code{stdout} et \code{message}.  
 #' - \code{set.seed(42)} pour la reproductibilité.  
 #' - Pour chaque partition définie dans \code{partitions} et chaque cas de \code{cases} :
@@ -502,7 +502,7 @@ cases <- list(
 #'
 #' @examples
 #' res <- run_all_tests()
-#' # file.show("scripts/test/test_squared_sizes.log")
+#' # file.show("scripts/test/selftests/selftest_squared_sizes.log")
 #'
 #' @seealso \code{\link{.run_cases_for_partition}}, \code{\link{.run_one_case}},
 #'          \code{\link{.normalize_squared_sizes_signature}},
@@ -510,8 +510,8 @@ cases <- list(
 #'          \code{\link{.check_translation_contains}}
 #' @keywords internal
 run_all_tests <- function() {
-    # Logging dans scripts/test/test_squared_sizes.log
-    log_path <- file.path("scripts","test","test_squared_sizes.log")
+    # Logging dans scripts/test/selftests/selftest_squared_sizes.log
+    log_path <- file.path("scripts","test", "selftests", "selftest_squared_sizes.log")
     dir.create(dirname(log_path), recursive = TRUE, showWarnings = FALSE)
     if (file.exists(log_path)) unlink(log_path)
 

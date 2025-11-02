@@ -5,6 +5,26 @@
 # ==============================================================================
 if(!exists(".__functions_erpm_bip_network_loaded", envir = .GlobalEnv)){
   
+  # -- Bloc minimal: dépendances et symboles requis --
+  # Garantit l'accès à network() et à as.matrix.network.adjacency() sans
+  # nécessiter library() à chaque sourcing.
+  stopifnot(requireNamespace("network", quietly = TRUE),
+            requireNamespace("sna",     quietly = TRUE))
+
+  if (!exists("network", mode = "function", inherits = TRUE)) {
+    assign("network",
+           get("network", envir = asNamespace("network")),
+           envir = .GlobalEnv)
+  }
+
+  if (!exists("as.matrix.network.adjacency", mode = "function", inherits = TRUE)) {
+    assign("as.matrix.network.adjacency",
+           get("as.matrix.network.adjacency", envir = asNamespace("sna")),
+           envir = .GlobalEnv)
+  }
+
+  if (!exists("VERBOSE", envir = .GlobalEnv)) assign("VERBOSE", FALSE, envir = .GlobalEnv)
+
   #' Transforme une partition en réseau bipartite
   #'
   #' Cette fonction prend un vecteur d'objets, un vecteur de partition et éventuellement des attributs
@@ -161,14 +181,14 @@ if(!exists(".__functions_erpm_bip_network_loaded", envir = .GlobalEnv)){
 
     attributes <- list(
       gender = c(1, 1, 1, 2, 2, 1),
-      age = c(15, 22, 22, 40, 30, 30),
-      friendship_matrices <- c(
-        matrix(c(0, 1, 1, 1, 0, 0), nrow=1),
-        matrix(c(1, 0, 0, 0, 1, 0), nrow=1),
-        matrix(c(1, 0, 0, 0, 1, 0), nrow=1),
-        matrix(c(1, 0, 0, 0, 0, 0), nrow=1),
-        matrix(c(0, 1, 1, 0, 0, 1), nrow=1),
-        matrix(c(0, 0, 0, 0, 1, 0), nrow=1))
+      age = c(15, 22, 22, 40, 30, 30)#,
+      # friendship_matrices <- c(
+      #   matrix(c(0, 1, 1, 1, 0, 0), nrow=1),
+      #   matrix(c(1, 0, 0, 0, 1, 0), nrow=1),
+      #   matrix(c(1, 0, 0, 0, 1, 0), nrow=1),
+      #   matrix(c(1, 0, 0, 0, 0, 0), nrow=1),
+      #   matrix(c(0, 1, 1, 0, 0, 1), nrow=1),
+      #   matrix(c(0, 0, 0, 0, 1, 0), nrow=1))
     )
 
     if (VERBOSE) cat("\nConstruction du réseau bipartite...\n")

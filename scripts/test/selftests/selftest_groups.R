@@ -1,7 +1,7 @@
 # ======================================================================================
-# Fichier : scripts/test/test_groups.R
+# Fichier : scripts/test/selftests/selftest_groups.R
 # Objet   : Tests robustes pour l'effet ERPM `groups` → {ergm} `b2degrange`
-# Exécution: Rscript scripts/test/test_groups.R
+# Exécution: Rscript scripts/test/selftests/selftest_groups.R
 # ======================================================================================
 
 # --------------------------------------------------------------------------------------
@@ -53,7 +53,7 @@ get_script_dir <- function() {
 }
 
 script_dir <- get_script_dir()
-log_path   <- file.path(script_dir, "test_groups.log")
+log_path   <- file.path(script_dir, "selftest_groups.log")
 
 # Réinit
 if (file.exists(log_path)) unlink(log_path, force = TRUE)
@@ -366,7 +366,7 @@ cases <- list(
 #' Gère le logging vers fichier et console, agrège les résultats, et échoue si des validations sont en erreur.
 #'
 #' @details
-#' - Journalisation dans \code{scripts/test/test_groups.log} avec redirection de \code{stdout} et \code{message}.  
+#' - Journalisation dans \code{scripts/test/selftests/selftest_groups.log} avec redirection de \code{stdout} et \code{message}.  
 #' - \code{set.seed(42)} pour la reproductibilité.  
 #' - Pour chaque partition de \code{partitions} et chaque cas de \code{cases} :
 #'   exécute \code{run_cases_for_partition()}, cumule les validations, et imprime un bilan global.  
@@ -380,14 +380,14 @@ cases <- list(
 #' @examples
 #' # Exécuter tous les tests et consulter le log :
 #' res <- run_all_tests()
-#' # file.show("scripts/test/test_groups.log")
+#' # file.show("scripts/test/selftests/selftest_groups.log")
 #'
 #' @seealso \code{\link{run_cases_for_partition}}, \code{\link{run_one_case}},
 #'          \code{\link{normalize_groups_signature}}, \code{\link{check_translation_contains}}
 #' @keywords internal
 run_all_tests <- function() {
   # --- Logging console + fichier (dans une fonction => on.exit marche) ---
-  log_path <- file.path("scripts","test","test_groups.log")
+  log_path <- file.path("scripts","test", "selftests", "selftest_groups.log")
   dir.create(dirname(log_path), recursive = TRUE, showWarnings = FALSE)
   if (file.exists(log_path)) unlink(log_path)
 
