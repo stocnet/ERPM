@@ -53,6 +53,47 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
     stop("groups(): utilisez soit `groups`, soit `groups(taille)`, soit `groups(from=.., to=..)`.")  
   }
 
+  #' Normaliser les arguments de cliques(...) vers (k, normalized)
+  #'
+  #' Conventions/par défauts :
+  #' - `cliques` ou `cliques()`                 → k = 2, normalized = FALSE
+  #' - `cliques(normalized=TRUE|FALSE)`         → k = 2, normalized = <bool>
+  #' - `cliques(clique_size=k)`                 → k = <k>, normalized = FALSE
+  #' - `cliques(k)` (un seul argument nu)       → k = <k>, normalized = FALSE
+  #'
+  #' @param args_list Liste d’arguments capturés depuis l’appel `cliques(...)`.
+  #' @return list(k = <int>, normalized = <logical>)
+  #' @keywords internal
+  .normalize_cliques_args <- function(args_list) {
+    k     <- 2L
+    norm  <- FALSE
+
+    if (length(args_list) == 0L) {
+      return(list(k = k, normalized = norm))
+    }
+
+    nm <- names(args_list)
+
+    # Forme abrégée : cliques(3)
+    if (length(args_list) == 1L && (is.null(nm) || isTRUE(nm[1L] == ""))) {
+      k <- as.integer(args_list[[1L]])
+      return(list(k = k, normalized = norm))
+    }
+
+    # Nominal : clique_size=..., normalized=...
+    if (!is.null(nm)) {
+      if ("clique_size" %in% nm) k    <- as.integer(args_list[["clique_size"]])
+      if ("normalized"  %in% nm) norm <- isTRUE(args_list[["normalized"]])
+      return(list(k = k, normalized = norm))
+    }
+
+    # Sinon, tenter d'être robustes (ex: ordre des params non nommés)
+    # 1er arg = k éventuel, 2e = normalized éventuel
+    if (length(args_list) >= 1L) k    <- as.integer(args_list[[1L]])
+    if (length(args_list) >= 2L) norm <- isTRUE(args_list[[2L]])
+    list(k = k, normalized = norm)
+  }
+
   #' Découper récursivement les termes d'un RHS
   #'
   #' Décompose une expression du côté droit d'une formule (RHS) contenant des
@@ -106,11 +147,33 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
     fun_sym   <- term_call[[1L]]
     args_list <- as.list(term_call)[-1L]
 
-    # Cas spécial : groups(...) -> b2degrange(from,to)
+    # Cas : groups(...) -> b2degrange(from,to)
     if (is.symbol(fun_sym) && identical(fun_sym, as.name("groups"))) {
       gt <- .normalize_groups_args(args_list)  # Calculer from/to selon les cas
       # Construire l’appel b2degrange(from=?, to=?)
       return(as.call(list(as.name("b2degrange"), from = gt$from, to = gt$to)))
+    }
+
+    # Cas : cliques(...) -> cliques(clique_size=?, normalized=?)
+    if (is.symbol(fun_sym) && identical(fun_sym, as.name("cliques"))) {
+      # Valeurs par défaut ERPM/ERGM
+      k    <- 2L
+      norm <- FALSE
+
+      # Lire args, en acceptant k, clique_size et normalized, + cliques(3) positionnel
+      if (length(args_list) == 1L && (is.null(names(args_list)) || names(args_list)[1L] == "")) {
+        k <- as.integer(args_list[[1L]])
+      } else {
+        al <- as.pairlist(args_list)
+        if (!is.null(al$k))           k    <- as.integer(al$k)
+        if (!is.null(al$clique_size)) k    <- as.integer(al$clique_size)
+        if (!is.null(al$normalized))  norm <- isTRUE(al$normalized)
+      }
+
+      # Toujours renvoyer le terme cliques {ergm}, même pour k=1
+      return(as.call(list(as.name("cliques"),
+                          clique_size = k,
+                          normalized  = norm)))
     }
 
     # Renommage générique via dictionnaire
@@ -258,6 +321,7 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   # ============================================================================
   # Export des fonctions
   # ============================================================================
+  assign(".normalize_cliques_args", .normalize_cliques_args, envir = .GlobalEnv)
   assign(".normalize_groups_args",  .normalize_groups_args,  envir = .GlobalEnv)
   assign(".split_sum_terms",        .split_sum_terms,        envir = .GlobalEnv)
   assign(".translate_one_term",     .translate_one_term,     envir = .GlobalEnv)

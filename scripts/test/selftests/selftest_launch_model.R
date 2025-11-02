@@ -1,5 +1,5 @@
 # ==============================================================================
-# Fichier : test_launch_model.R
+# Fichier : selftest_launch_model.R
 # Objet   : Batterie de tests robuste pour launch_model() (summary | ergm | erpm)
 # Auteur  : réécriture avec journalisation fiable et sortie sans couleurs
 # ==============================================================================
@@ -14,7 +14,7 @@ options(crayon.enabled = FALSE, cli.num_colors = 1, warn = 1)
 # Dossier de logs + duplication sortie console
 log_dir <- "scripts/test"
 dir.create(log_dir, recursive = TRUE, showWarnings = FALSE)
-log_file_out <- file.path(log_dir, "test_launch_model.log")
+log_file_out <- file.path(log_dir, "selftest_launch_model.log")
 
 sink(log_file_out, split = TRUE)      # stdout -> fichier + console
 sink(stdout(), type = "message")      # messages -> stdout (donc même fichier)

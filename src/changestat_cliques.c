@@ -1,42 +1,71 @@
-// changestats_cliques.c
-// Term: cliques — exemple composite minimaliste pour illustrer la
-//        variation combinée "triangles + 2-stars" pondérée par un unique poids.
-// ATTENTION: ce terme n’est pas un clone fidèle d’un terme {ergm}. Il sert
-//            uniquement à corriger les erreurs de compilation et de signe
-//            observées dans le code fourni.
-// Entrée (INPUT_PARAM):
-//   [0] = w  (poids double appliqué à toute la variation)
-// Définition opérationnelle:
-//   Δ = w * ( ΔTriangles(head,tail) + ΔTwoStars(head,tail) ),
-//   où ΔTriangles = nb de voisins communs de head et tail avec signe du toggle,
-//       ΔTwoStars = (deg(head)-edgestate) + (deg(tail)-edgestate) avec signe.
-// Complexité: O(deg(head) + deg(tail)).
+// =============================================================================
+//  Fichier : changestat_cliques.c
+//  Terme   : `cliques` — Somme des k-cliques d'acteurs via tailles des groupes
+//
+//  k >= 2 : Stat = sum_g C(n_g, k).
+//  k == 1 : Stat = # { g : n_g == 1 }  (compte des groupes de taille 1).
+//
+//  Variation un-toggle :
+//    k >= 2 :
+//      +edge : Δ =  C(n_g,   k-1)
+//      -edge : Δ = -C(n_g-1, k-1)
+//    k == 1 :
+//      +edge : Δ = (n_g==0) ? +1 : (n_g==1) ? -1 : 0
+//      -edge : Δ = (n_g==2) ? +1 : (n_g==1) ? -1 : 0
+//
+//  Option d'échelle : scale_j = 1 ou 1/C(N1,k) (marche aussi pour k=1, denom = N1).
+// =============================================================================
+
 #include "ergm_changestat.h"
 #include "ergm_storage.h"
+#include <R_ext/Print.h>
+
+#define DEBUG_CLIQUES 0
 
 C_CHANGESTAT_FN(c_cliques){
-  const double w = (N_INPUT_PARAMS >= 1) ? INPUT_PARAM[0] : 1.0;
-  const int add = edgestate ? -1 : +1; // +1 si on ajoute, -1 si on retire
+  ZERO_ALL_CHANGESTATS(0);
 
-  // --- Triangles (voisins communs) ---
-  // On parcourt les voisins de head et on teste la présence d'un lien avec tail.
-  // Pour des graphes non orientés, IS_UNDIRECTED_EDGE est adapté.
-  // Pour orientés, ce n'est qu'une approximation.
-  Vertex n3;
-  Edge e;
-  int commons = 0;
+  const int n1 = BIPARTITE; // taille du mode 1 (acteurs)
 
-  STEP_THROUGH_OUTEDGES(head, e, n3){ commons += IS_UNDIRECTED_EDGE(n3, tail); }
-  STEP_THROUGH_INEDGES(head,  e, n3){ commons += IS_UNDIRECTED_EDGE(n3, tail); }
+  // nœud "groupe" (mode 2 : index > n1)
+  Vertex t = tail, h = head;
+  Vertex v2 = (t > n1) ? t : h;
 
-  double d = 0.0;
-  d += w * add * (double)commons;
+  // degré groupe avant toggle
+  int deg_old = (int)(OUT_DEG[v2] + IN_DEG[v2]);
 
-  // --- 2-stars centrées sur head et tail ---
-  // Variation pour un toggle: (deg(head) + deg(tail)) avec signe add.
-  const int taildeg = (int)(OUT_DEG[tail] + IN_DEG[tail] - edgestate);
-  const int headdeg = (int)(OUT_DEG[head] + IN_DEG[head] - edgestate);
-  d += w * add * (double)(taildeg + headdeg);
+  const int is_add = edgestate ? 0 : 1;
 
-  CHANGE_STAT[0] += d;
+  for(int j = 0; j < N_CHANGE_STATS; ++j){
+    int    k     = (int)   INPUT_PARAM[2*j + 0];
+    double scale = (double)INPUT_PARAM[2*j + 1];
+
+    double delta = 0.0;
+
+    if(k == 1){
+      if(is_add){
+        // 0->1 : +1 ; 1->2 : -1 ; sinon 0
+        if(deg_old == 0) delta = +1.0;
+        else if(deg_old == 1) delta = -1.0;
+      }else{
+        // 2->1 : +1 ; 1->0 : -1 ; sinon 0
+        if(deg_old == 2) delta = +1.0;
+        else if(deg_old == 1) delta = -1.0;
+      }
+    }else{
+      if(is_add){
+        if(deg_old >= k-1) delta = CHOOSE(deg_old, k-1);
+      }else{
+        if(deg_old-1 >= k-1 && deg_old >= 1) delta = -CHOOSE(deg_old - 1, k-1);
+        else delta = 0.0;
+      }
+    }
+
+    CHANGE_STAT[j] += scale * delta;
+
+    #if DEBUG_CLIQUES
+      Rprintf("[c_cliques] v2=%d, deg_old=%d, k=%d, add=%d, delta=%.6f, scale=%g, out=%.6f\n",
+              (int)v2, deg_old, k, is_add, delta, scale, CHANGE_STAT[j]);
+    #endif
+  }
 }
