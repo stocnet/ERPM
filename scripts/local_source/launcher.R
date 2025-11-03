@@ -250,49 +250,86 @@ if (!exists(".__launcher_loaded", envir = .GlobalEnv)) {
     # Construction réseau / formule / effets
     # ============================================================
 
-    #' Construire un réseau bipartite depuis une partition
-    #'
-    #' Construit un \code{network} bipartite à partir d'une partition fournie,
-    #' ou utilise \code{create_erpm_network()} si \code{partition} est \code{NULL}.
-    #' Peut tracer le réseau et consigner des infos via \code{log_erpm_network()}.
-    #'
-    #' @param partition  Vecteur des groupes (entiers/factor) ou \code{NULL}.
-    #' @param labels     Noms des objets (défaut : \code{LETTERS[...]}).
-    #' @param attributes Liste d'attributs par objet.
-    #' @param verbose    Affichages/logs.
-    #' @param plot       Tracer le réseau/partition.
-    #' @return \code{list(network = nw, partition = part)}.
-    build_bipartite_from_partition <- function(partition = NULL,
-                                               labels    = NULL,
-                                               attributes = list(),
-                                               verbose   = TRUE,
-                                               plot      = FALSE) {
+                #' Construire un réseau bipartite depuis une partition
+                #'
+                #' Construit un \code{network} bipartite à partir d'une partition fournie,
+                #' ou utilise \code{create_erpm_network()} si \code{partition} est \code{NULL}.
+                #' Peut tracer le réseau et consigner des infos via \code{log_erpm_network()}.
+                #'
+                #' @param partition  Vecteur des groupes (entiers/factor) ou \code{NULL}.
+                #' @param labels     Noms des objets (défaut : \code{LETTERS[...]}).
+                #' @param attributes Liste d'attributs par objet.
+                #' @param verbose    Affichages/logs.
+                #' @param plot       Tracer le réseau/partition.
+                #' @return \code{list(network = nw, partition = part)}.
+                # build_bipartite_from_partition <- function(partition = NULL,
+                #                                            labels    = NULL,
+                #                                            attributes = list(),
+                #                                            verbose   = TRUE,
+                #                                            plot      = FALSE) {
+                #     if (is.null(partition)) {
+                #         if (exists("log_msg")) log_msg("INFO", "Aucune partition en entrée — utilisation de la partition de démonstration.")
+                #         else if (isTRUE(verbose)) message("INFO: aucune partition en entrée — utilisation de la partition de démonstration.")
+                #         res  <- create_erpm_network()
+                #         nw   <- res$network
+                #         part <- res$partition
+                #     } else {
+                #         stopifnot(is.atomic(partition), length(partition) >= 2)
+                #         if (is.null(labels)) labels <- LETTERS[seq_along(partition)]
+                #         stopifnot(length(labels) == length(partition))
+                #         nw   <- partition_to_bipartite_network(labels, partition, attributes)
+                #         part <- partition
+                #     }
+
+                #     if (exists("log_erpm_network")) {
+                #         log_erpm_network(list(network = nw, partition = part), verbose = verbose)
+                #     } else if (isTRUE(verbose)) {
+                #         cat(sprintf("Réseau : %d sommets, %d arêtes\n",
+                #                     network::network.size(nw), network::network.edgecount(nw)))
+                #     }
+
+                #     if (isTRUE(plot)) {
+                #         try(plot_partition_clusters(nw), silent = TRUE)
+                #     }
+
+                #     list(network = nw, partition = part)
+                # }
+
+    # Unifier l'entrée: partition | network biparti
+    coerce_to_bipartite <- function(nw = NULL,
+                                    partition = NULL,
+                                    nodes = NULL,
+                                    dyads = list(),
+                                    verbose = TRUE,
+                                    plot = FALSE) {
+        if (!is.null(nw)) {
+            if (!is_bipartite_network(nw))
+            stop("nw fourni n'est pas biparti (attribut %n% 'bipartite' manquant ou invalide).")
+            # Partition best-effort à partir des arêtes acteur→groupe
+            n <- nw %n% "bipartite"
+            vn <- network::network.vertex.names(nw)
+            actors <- vn[seq_len(n)]
+            groups <- vn[seq.int(n + 1L, n + max(1L, length(vn) - n))]
+            A <- network::as.sociomatrix(nw)#A <- sna::as.matrix.network.adjacency(nw)
+            part <- vapply(actors, function(a) {
+            g <- groups[which(A[a, groups] > 0L)]
+            if (length(g) == 0L) NA_integer_ else as.integer(sub("^G", "", g[1L]))
+            }, integer(1))
+            return(list(network = nw, partition = part))
+        }
+
+        # sinon construire depuis partition (+ attributs)
         if (is.null(partition)) {
-            if (exists("log_msg")) log_msg("INFO", "Aucune partition en entrée — utilisation de la partition de démonstration.")
-            else if (isTRUE(verbose)) message("INFO: aucune partition en entrée — utilisation de la partition de démonstration.")
-            res  <- create_erpm_network()
-            nw   <- res$network
-            part <- res$partition
-        } else {
-            stopifnot(is.atomic(partition), length(partition) >= 2)
-            if (is.null(labels)) labels <- LETTERS[seq_along(partition)]
-            stopifnot(length(labels) == length(partition))
-            nw   <- partition_to_bipartite_network(labels, partition, attributes)
-            part <- partition
+            if (exists("log_msg")) log_msg("INFO","Aucune partition — réseau démo.")
+            res <- create_erpm_network()
+            nw  <- res$network; part <- res$partition
+            return(list(network = nw, partition = part))
         }
 
-        if (exists("log_erpm_network")) {
-            log_erpm_network(list(network = nw, partition = part), verbose = verbose)
-        } else if (isTRUE(verbose)) {
-            cat(sprintf("Réseau : %d sommets, %d arêtes\n",
-                        network::network.size(nw), network::network.edgecount(nw)))
-        }
-
-        if (isTRUE(plot)) {
-            try(plot_partition_clusters(nw), silent = TRUE)
-        }
-
-        list(network = nw, partition = part)
+        built <- build_bipartite_from_inputs(partition = partition, nodes = nodes, dyads = dyads)
+        if (exists("log_erpm_network")) log_erpm_network(built, verbose = verbose)
+        if (isTRUE(plot)) try(plot_partition_clusters(built$network), silent = TRUE)
+        list(network = built$network, partition = built$partition)
     }
 
     #' Construire une formule \code{nw ~ <rhs>} en liant \code{nw} dans l'environnement
@@ -408,6 +445,8 @@ if (!exists(".__launcher_loaded", envir = .GlobalEnv)) {
                                 effects,
                                 effects_args = list(),
                                 partition = NULL,
+                                nodes = NULL, 
+                                dyads = list(),
                                 nw = NULL,
                                 dry_run = FALSE,
                                 verbose = TRUE,
@@ -421,17 +460,33 @@ if (!exists(".__launcher_loaded", envir = .GlobalEnv)) {
         estimate <- match.arg(estimate)
         engine <- match.arg(engine)                                   # Valide/choisit le moteur
 
-        # -- Réseau : construit à partir de la partition si besoin ----
+                # -- Réseau : construit à partir de la partition si besoin ----
+                # if (is.null(nw)) {
+                #     built <- build_bipartite_from_partition(                  # Crée un réseau biparti démo ou depuis `partition`
+                #         partition = partition,
+                #         labels    = NULL,
+                #         attributes = list(),
+                #         verbose   = verbose,
+                #         plot      = plot
+                #     )
+                #     nw        <- built$network                                # Récupère le network créé
+                #     partition <- built$partition                              # Récupère la partition associée
+                # }
+
+        # -- Réseau : déduire/constuire depuis partition|nw + attributs ----
         if (is.null(nw)) {
-            built <- build_bipartite_from_partition(                  # Crée un réseau biparti démo ou depuis `partition`
-                partition = partition,
-                labels    = NULL,
-                attributes = list(),
-                verbose   = verbose,
-                plot      = plot
-            )
-            nw        <- built$network                                # Récupère le network créé
-            partition <- built$partition                              # Récupère la partition associée
+        built <- coerce_to_bipartite(nw = NULL,
+                                    partition = partition,
+                                    nodes = nodes,
+                                    dyads = dyads,
+                                    verbose = verbose,
+                                    plot = plot)
+        nw        <- built$network
+        partition <- built$partition
+        } else {
+        built <- coerce_to_bipartite(nw = nw, partition = NULL, verbose = verbose, plot = FALSE)
+        # nw conservé tel quel, partition best-effort
+        partition <- built$partition
         }
 
         # -- RHS : combine 1+ effets, puis normalise Proj1/B ---------
@@ -619,7 +674,7 @@ if (!exists(".__launcher_loaded", envir = .GlobalEnv)) {
     # Exports
     # ============================================================
 
-    assign("build_bipartite_from_partition", build_bipartite_from_partition, envir = .GlobalEnv)
+    assign("coerce_to_bipartite", coerce_to_bipartite, envir = .GlobalEnv)
     assign("build_formula_from_rhs",         build_formula_from_rhs,         envir = .GlobalEnv)
     assign("build_effect_call",              build_effect_call,              envir = .GlobalEnv)
     assign("build_rhs_from_effects",         build_rhs_from_effects,         envir = .GlobalEnv)
