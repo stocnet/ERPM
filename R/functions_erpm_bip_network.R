@@ -8,8 +8,7 @@ if(!exists(".__functions_erpm_bip_network_loaded", envir = .GlobalEnv)){
   # -- Bloc minimal: dépendances et symboles requis --
   # Garantit l'accès à network() et à as.matrix.network.adjacency() sans
   # nécessiter library() à chaque sourcing.
-  stopifnot(requireNamespace("network", quietly = TRUE),
-            requireNamespace("sna",     quietly = TRUE))
+  stopifnot(requireNamespace("network", quietly = TRUE))
 
   if (!exists("network", mode = "function", inherits = TRUE)) {
     assign("network",
@@ -17,10 +16,11 @@ if(!exists(".__functions_erpm_bip_network_loaded", envir = .GlobalEnv)){
            envir = .GlobalEnv)
   }
 
-  if (!exists("as.matrix.network.adjacency", mode = "function", inherits = TRUE)) {
-    assign("as.matrix.network.adjacency",
-           get("as.matrix.network.adjacency", envir = asNamespace("sna")),
-           envir = .GlobalEnv)
+  # -- Shim compat SNA: fournir as.matrix.network.adjacency si absent ----------
+  if (!exists("as.matrix.network.adjacency", mode = "function")) {
+    as.matrix.network.adjacency <- function(x, ...) {
+      as.matrix(x, matrix.type = "adjacency", ...)
+    }
   }
 
   if (!exists("VERBOSE", envir = .GlobalEnv)) assign("VERBOSE", FALSE, envir = .GlobalEnv)

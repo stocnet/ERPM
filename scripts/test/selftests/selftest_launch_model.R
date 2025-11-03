@@ -5,8 +5,14 @@
 # ==============================================================================
 
 # macOS/Linux : empêcher les séquences ANSI et forcer FR UTF-8
-Sys.setenv(LANG = "fr_FR.UTF-8",
-           CLI_NO_COLOR="1", NO_COLOR="1", R_CLI_NUM_COLORS="0", CRAYON_DISABLE="1", TERM="dumb")
+Sys.setenv(
+  LANG             = "fr_FR.UTF-8",
+  CLI_NO_COLOR     = "1",
+  NO_COLOR         = "1",
+  R_CLI_NUM_COLORS = "0",
+  CRAYON_DISABLE   = "1",
+  TERM             = "dumb"
+)
 invisible(try(Sys.setlocale("LC_CTYPE", "fr_FR.UTF-8"), silent = TRUE))
 options(crayon.enabled = FALSE, cli.num_colors = 1, warn = 1)
 
@@ -16,16 +22,14 @@ log_dir <- "scripts/test"
 dir.create(log_dir, recursive = TRUE, showWarnings = FALSE)
 log_file_out <- file.path(log_dir, "selftest_launch_model.log")
 
-sink(log_file_out, split = TRUE)      # stdout -> fichier + console
-sink(stdout(), type = "message")      # messages -> stdout (donc même fichier)
+sink(log_file_out, split = TRUE)            # stdout -> fichier + console
+sink(stdout(), type = "message")            # messages -> stdout (même fichier)
 
 # Chargement strict des dépendances
 .pkgs <- c("ergm", "network")
 .miss <- .pkgs[!vapply(.pkgs, requireNamespace, FALSE, quietly = TRUE)]
 if (length(.miss)) stop("Packages manquants: ", paste(.miss, collapse = ", "))
-suppressPackageStartupMessages({
-  lapply(.pkgs, require, character.only = TRUE)
-})
+suppressPackageStartupMessages(lapply(.pkgs, require, character.only = TRUE))
 
 # Sources locales nécessaires
 source("scripts/local_source/settings.R",      local = FALSE)
@@ -36,6 +40,7 @@ source("R/functions_erpm_bip_network.R",       local = FALSE)
 
 # Initialisation du package ERPM
 init_erpm(selftest = FALSE, verbose = TRUE)
+if (exists("ergm_patch_enable")) ergm_patch_enable(verbose = VERBOSE)
 
 # ------------------------------------------------------------------------------
 #' @title .strip_ansi_file
@@ -44,7 +49,7 @@ init_erpm(selftest = FALSE, verbose = TRUE)
 #' @return Invisible. Écrit le fichier nettoyé sur place.
 .strip_ansi_file <- function(path) {
   if (!file.exists(path)) return(invisible())
-  txt <- tryCatch(readLines(path, warn = FALSE), error = function(e) return(character()))
+  txt <- tryCatch(readLines(path, warn = FALSE), error = function(e) character())
   if (!length(txt)) return(invisible())
   if (requireNamespace("fansi", quietly = TRUE)) {
     txt <- fansi::strip_sgr(txt)
@@ -144,8 +149,10 @@ set.seed(1234)
   t0 <- proc.time()[["elapsed"]]
   w <- character()
   out <- withCallingHandlers(
-    tryCatch(force(expr),
-             error = function(e) structure(list(`__err__` = TRUE, message = conditionMessage(e)), class = "test_error")),
+    tryCatch(
+      force(expr),
+      error = function(e) structure(list(`__err__` = TRUE, message = conditionMessage(e)), class = "test_error")
+    ),
     warning = function(m) {
       msg <- conditionMessage(m)
       harmless <- grepl("Rglpk.*falling back to.*lpSolveAPI", msg)
@@ -194,10 +201,9 @@ create_demo <- function(seed = 1234) {
   list(nw = demo$network, part = demo$partition)
 }
 
-.demo <- create_demo()
+.demo     <- create_demo()
 nw_demo   <- .demo$nw
 part_demo <- .demo$part
-
 
 # ==============================================================================
 # TESTS SUMMARY (statistiques rapides)
@@ -456,17 +462,11 @@ cat("Total dégénérés :", n_deg, "\n")
 if (!interactive()) {
 
   # Ferme proprement les sinks
-  while (sink.number(type="message") > 0) sink(NULL, type="message")
+  while (sink.number(type = "message") > 0) sink(NULL, type = "message")
   while (sink.number() > 0) sink(NULL)
 
-  # Strip ANSI et, si voulu, remplace les symboles Unicode
-  try({
-    .strip_ansi_file(log_file_out)
-    txt <- readLines(log_file_out, warn = FALSE)
-    # Optionnel: ASCII only
-    txt <- chartr("ℹ✔✖", "i+ x", txt)
-    writeLines(txt, log_file_out)
-  }, silent = TRUE)
+  # Nettoie ANSI du log
+  try(.strip_ansi_file(log_file_out), silent = TRUE)
 
   quit(save = "no", status = if ((n_err + n_deg) > 0) 1L else 0L)
 }
