@@ -119,4 +119,4 @@ documentation/dev/**
 !documentation/dev/**/
 
 # Ne pas ignorer les fichiers .pdf dans tous les sous-dossiers
-!documentation/dev/**/*.pdf
+!documentation/dev/**/Avancement.pdf
