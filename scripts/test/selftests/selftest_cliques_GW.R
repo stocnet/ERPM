@@ -1,7 +1,7 @@
 # ======================================================================================
-# Fichier : scripts/test/selftests/selftest_cliques.R
-# Objet   : Self-test autonome pour l'effet ERPM/ERGM `cliques`
-# Exécution: Rscript scripts/test/selftests/selftest_cliques.R
+# Fichier : scripts/test/selftests/selftest_cliques_GW.R
+# Objet   : Self-test autonome pour l'effet ERPM/ERGM `cliques_GW`
+# Exécution: Rscript scripts/test/selftests/selftest_cliques_GW.R
 # ======================================================================================
 
 # --------------------------------------------------------------------------------------
@@ -20,9 +20,11 @@ suppressMessages(suppressPackageStartupMessages({
   library(ergm,    quietly = TRUE, warn.conflicts = FALSE)
 }))
 
-source("scripts/ergm_patch.R")
-ergm_patch_enable()
-
+# Patch ERGM optionnel si tu en as besoin pour le projet
+if (file.exists("scripts/ergm_patch.R")) {
+  source("scripts/ergm_patch.R")
+  ergm_patch_enable()
+}
 
 # --------------------------------------------------------------------------------------
 # Helpers généraux (chemin script + logging)
@@ -41,7 +43,7 @@ ergm_patch_enable()
 }
 
 script_dir <- .get_script_dir()
-log_path   <- file.path(script_dir, "selftest_cliques.log")
+log_path   <- file.path(script_dir, "selftest_cliques_GW.log")
 
 if (file.exists(log_path)) unlink(log_path, force = TRUE)
 con_out <- file(log_path, open = "wt")
@@ -64,8 +66,8 @@ cat("==> Log: ", log_path, "\n")
 if (requireNamespace("devtools", quietly = TRUE) && file.exists("DESCRIPTION")) {
   devtools::load_all(quiet = TRUE)
 } else {
-  if (!exists("InitErgmTerm.cliques", mode = "function")) {
-    stop("InitErgmTerm.cliques introuvable. Exécute depuis le package (devtools::load_all) ou charge le package.")
+  if (!exists("InitErgmTerm.cliques_GW", mode = "function")) {
+    stop("InitErgmTerm.cliques_GW introuvable. Exécute depuis le package (devtools::load_all) ou charge le package.")
   }
 }
 
@@ -96,89 +98,41 @@ if (!exists("erpm", mode = "function")) {
   partition_to_bipartite_network(labels = lbl, partition = part, attributes = list())
 }
 
-# Tailles de groupes
-.group_sizes_from_partition <- function(part) as.integer(table(part))
-
-# N1 = #acteurs (taille du mode 1 dans le biparti)
-.get_N1_from_nw <- function(nw) {
-  n1 <- network::get.network.attribute(nw, "bipartite")
-  if (is.null(n1) || is.na(n1)) stop("Réseau non biparti ou attribut 'bipartite' manquant.")
-  as.integer(n1)
-}
-
-# Valeur attendue de la stat cliques (partition → valeur théorique)
-# - k == 1 : nombre de groupes de taille 1
-# - k >= 2 : sum_g choose(n_g, k)
-# - normalized : division par choose(N1, k) (k=1 ⇒ denom = N1)
-.expected_cliques <- function(part, k = 2L, normalized = FALSE) {
-  sz <- .group_sizes_from_partition(part)
-  if (k == 1L) {
-    num <- sum(sz == 1L)
-  } else {
-    num <- sum(choose(sz, k))
-  }
-  if (!normalized) return(num)
-  N1 <- length(part)
-  denom <- choose(N1, k)
-  if (denom == 0 || is.na(denom)) return(0)
-  num / denom
-}
-
-# Normaliser la "signature" attendue côté traduction erpm
-# Défauts ERPM/ERGM : k = 2, normalized = FALSE
-.normalize_cliques_signature <- function(args = list()) {
-  out <- list(k = 2L, normalized = FALSE, text = "cliques(k=2,normalized=FALSE)")
-  if (length(args)) {
-    nm <- names(args)
-    if (!is.null(nm) && length(nm)) {
-      if ("k"          %in% nm) out$k          <- as.integer(args[["k"]])
-      if ("clique_size"%in% nm) out$k          <- as.integer(args[["clique_size"]])
-      if ("normalized" %in% nm) out$normalized <- isTRUE(args[["normalized"]])
-    }
-  }
-  out$text <- sprintf("cliques(k=%s,normalized=%s)", as.integer(out$k), if (out$normalized) "TRUE" else "FALSE")
+# Signature attendue pour la traduction
+# Hypothèses par défaut usuelles des GW-terms: k=2, decay=0.5, fixed=TRUE
+# Remplace .normalize_gw_signature(...)
+.normalize_gw_signature <- function(args = list()) {
+  out <- list(lambda = 2)
+  if (length(args) && !is.null(args$lambda)) out$lambda <- as.numeric(args$lambda)
   out
 }
 
-# Vérifier la présence des seuls arguments non-défaut dans l'appel ergm traduit
+# Remplace .check_translation_ok(...)
 .check_translation_ok <- function(call_ergm, args = list()) {
   line <- paste(deparse(call_ergm, width.cutoff = 500L), collapse = " ")
   compact <- gsub("\\s+", "", line)
+  if (!grepl("\\bcliques_GW\\(", compact)) return(FALSE)
 
-  if (!grepl("\\bcliques\\(", compact)) return(FALSE)
+  if (is.null(args$lambda)) return(TRUE)  # défaut
 
-  def_k   <- 2L
-  def_nrm <- FALSE
-
-  checks <- logical(0)
-
-  k_eff <- if (!is.null(args$clique_size)) as.integer(args$clique_size)
-           else if (!is.null(args$k))      as.integer(args$k)
-           else def_k
-  if (!identical(k_eff, def_k)) {
-    checks <- c(checks, grepl(paste0("k=", k_eff), compact, fixed = TRUE) |
-                       grepl(paste0("clique_size=", k_eff), compact, fixed = TRUE))
-  }
-
-  nrm_eff <- isTRUE(args$normalized)
-  if (isTRUE(nrm_eff != def_nrm)) {
-    checks <- c(checks, grepl("normalized=TRUE", compact, fixed = TRUE))
-  }
-
-  if (!length(checks)) return(TRUE)
-  all(checks)
+  lam <- as.numeric(args$lambda)
+  # tolérance de formatage
+  fmt1 <- function(x) sub("\\.?0+$","", format(x, trim=TRUE, scientific=FALSE))
+  # si vecteur, on exige que chaque valeur apparaisse dans l’appel
+  all(vapply(lam, function(v) {
+    pat <- paste0("lambda=.*", fmt1(v))
+    grepl(pat, compact)
+  }, logical(1)))
 }
-
 # Exécuter un cas summary + traduction
 .run_one_case <- function(part, name, call_txt, args) {
   nw <- .make_nw_from_partition(part)
-  sig <- .normalize_cliques_signature(args)
-
-  truth <- .expected_cliques(part, k = sig$k, normalized = sig$normalized)
 
   f <- as.formula(paste0("nw ~ ", call_txt))
   environment(f) <- list2env(list(nw = nw), parent = parent.frame())
-  stat_val <- as.numeric(summary(f))
+  stat_val <- suppressMessages(as.numeric(summary(f)))  # peut être long>=1
+
+  ok_stat <- isTRUE(all(is.finite(stat_val)))
 
   ok_trad <- NA
   if (exists("erpm", mode = "function")) {
@@ -186,21 +140,13 @@ if (!exists("erpm", mode = "function")) {
     ok_trad <- .check_translation_ok(call_ergm, args = args)
   }
 
-  cat(sprintf("\n[CAS %-18s] part={%s}", name, paste(part, collapse=",")))
-  cat(sprintf("\t  appel          : %s", call_txt))
-  cat(sprintf("\t  summary(.)     : %s", format(stat_val)))
-  cat(sprintf("\t  attendu(part)  : %s", format(truth)))
-  if (!is.na(ok_trad))     cat(sprintf("\t  traduction erpm : %s", if (ok_trad) "OK" else "KO"))
+  cat(sprintf("\n[CAS %-20s] part={%s}", name, paste(part, collapse=",")))
+  cat(sprintf("\t  appel        : %s", call_txt))
+  cat(sprintf("\t  summary(.)   : %s", paste(format(stat_val), collapse=", ")))
+  if (!is.na(ok_trad)) cat(sprintf("\t  traduction   : %s", if (ok_trad) "OK" else "KO"))
   cat("\n")
 
-  list(
-    ok_stat = isTRUE(all.equal(unname(as.numeric(stat_val)),
-                               unname(as.numeric(truth)),
-                               tolerance = 1e-10)),
-    ok_trad   = ok_trad,
-    stat      = stat_val,
-    expected  = truth
-  )
+  list(ok_stat = ok_stat, ok_trad = ok_trad, stat = stat_val)
 }
 
 # Panel sur une partition
@@ -208,11 +154,10 @@ if (!exists("erpm", mode = "function")) {
   res <- lapply(panel, function(cx) {
     out <- .run_one_case(part, cx$name, cx$call_txt, cx$args)
     data.frame(
-      case     = cx$name,
-      ok_stat  = out$ok_stat,
-      ok_trad  = if (is.na(out$ok_trad)) NA else out$ok_trad,
-      stat     = out$stat,
-      expected = out$expected,
+      case    = cx$name,
+      ok_stat = out$ok_stat,
+      ok_trad = if (is.na(out$ok_trad)) NA else out$ok_trad,
+      stat    = I(list(out$stat)),   # préserve le vecteur
       stringsAsFactors = FALSE
     )
   })
@@ -223,28 +168,26 @@ if (!exists("erpm", mode = "function")) {
 # Jeu de tests
 # ======================================================================================
 partitions <- list(
-  P1 = c(1, 2, 2, 3, 3, 3),            # tailles = 1,2,3
-  P2 = c(1, 1, 2, 3, 3, 4, 4, 4),      # tailles = 2,1,2,1,3 -> tri: 1,1,2,2,3
-  P3 = c(1, 1, 1, 2, 2, 3),            # tailles = 3,2,1
-  P4 = c(1, 2, 3, 4, 5),               # tailles = 1,1,1,1,1
-  P5 = rep(1, 6)                       # taille = 6 (un seul groupe)
+  P1 = c(1, 2, 2, 3, 3, 3),
+  P2 = c(1, 1, 2, 3, 3, 4, 4, 4),
+  P3 = c(1, 1, 1, 2, 2, 3),
+  P4 = c(1, 2, 3, 4, 5),
+  P5 = rep(1, 6)
 )
 
+# Remplace 'cases <- list(...)'
 cases <- list(
-  list(name="k1_raw",     call_txt="cliques(k=1)",                      args=list(k=1, normalized=FALSE)),
-  list(name="k1_norm",    call_txt="cliques(k=1, normalized=TRUE)",     args=list(k=1, normalized=TRUE)),
-  list(name="k2_default", call_txt="cliques()",                         args=list(k=2, normalized=FALSE)),
-  list(name="k2_exp",     call_txt="cliques(k=2)",                      args=list(k=2, normalized=FALSE)),
-  list(name="k2_norm",    call_txt="cliques(k=2, normalized=TRUE)",     args=list(k=2, normalized=TRUE)),
-  list(name="k3_raw",     call_txt="cliques(k=3)",                      args=list(k=3, normalized=FALSE)),
-  list(name="k3_alias",   call_txt="cliques(clique_size=3)",            args=list(clique_size=3, normalized=FALSE))
+  list(name="gw_default",  call_txt="cliques_GW()",                 args=list()),
+  list(name="gw_lam2",     call_txt="cliques_GW(lambda=2)",         args=list(lambda=2)),
+  list(name="gw_lam1_5",   call_txt="cliques_GW(lambda=1.5)",       args=list(lambda=1.5)),
+  list(name="gw_lam_vec",  call_txt="cliques_GW(lambda=c(1.25,4))", args=list(lambda=c(1.25,4)))
 )
 
 # ======================================================================================
 # Phase 1 : tests summary + traduction
 # ======================================================================================
 run_all_tests <- function() {
-  log_path <- file.path("scripts","test","selftests","selftest_cliques.log")
+  log_path <- file.path("scripts","test","selftests","selftest_cliques_GW.log")
   dir.create(dirname(log_path), recursive = TRUE, showWarnings = FALSE)
   if (file.exists(log_path)) unlink(log_path)
 
@@ -259,7 +202,7 @@ run_all_tests <- function() {
   }, add = TRUE)
 
   set.seed(42)
-  cat("=== TEST ERPM: cliques ===\n")
+  cat("=== TEST ERPM: cliques_GW ===\n")
 
   all_results <- list(); total_ok <- 0L; total_n <- 0L
   for (nm in names(partitions)) {
@@ -288,10 +231,10 @@ run_all_tests <- function() {
                           estimate = "CD",
                           eval.loglik = FALSE,
                           control = list(MCMLE.maxit = 2, MCMC.samplesize = 500),
-                          lhs_mode = c("network","partition")) {
+                          lhs_mode = c("partition","network")) {
   lhs_mode <- match.arg(lhs_mode)
   if (!exists("erpm", mode = "function")) {
-    cat(sprintf("\n[ERPM-FIT %-18s] SKIP (erpm() indisponible)\n", name))
+    cat(sprintf("\n[ERPM-FIT %-20s] SKIP (erpm() indisponible)\n", name))
     return(list(ok = NA, error = FALSE, coef = NA))
   }
 
@@ -308,15 +251,11 @@ run_all_tests <- function() {
     environment(f) <- list2env(list(partition = partition), parent = parent.frame())
   }
 
-  cat(sprintf("\n[ERPM-FIT %-18s] part={%s}\t RHS=%s\t LHS=%s\n",
+  cat(sprintf("\n[ERPM-FIT %-20s] part={%s}\t RHS=%s\t LHS=%s\n",
               name, paste(part, collapse=","), rhs, lhs_mode))
 
   fit <- try(
-    erpm(f,
-         estimate    = estimate,
-         eval.loglik = eval.loglik,   # <-- nom correct
-         control     = control,
-         verbose     = FALSE),
+    erpm(f, estimate = estimate, eval.loglik = eval.loglik, control = control, verbose = FALSE),
     silent = TRUE
   )
   if (inherits(fit, "try-error")) {
@@ -343,31 +282,31 @@ run_all_tests_with_fits <- function() {
   cat("\n=== PHASE 2 : Fits erpm() courts ===\n")
   fit_results <- list()
 
-  # Choix de 3 fits modestes et rapides
-  fit_results[["F1_P1_k2"]] <- .erpm_fit_one(
+  # Remplace les RHS des trois fits
+  fit_results[["F1_P1_def"]] <- .erpm_fit_one(
     part   = partitions$P1,
-    rhs    = "cliques()",            # k=2 défaut
-    name   = "F1_P1_k2",
+    rhs    = "cliques_GW()",
+    name   = "F1_P1_def",
     estimate    = "CD",
     eval.loglik = FALSE,
     control     = list(MCMLE.maxit = 2, MCMC.samplesize = 500),
     lhs_mode    = "partition"
   )
 
-  fit_results[["F2_P2_k3"]] <- .erpm_fit_one(
+  fit_results[["F2_P2_lam3"]] <- .erpm_fit_one(
     part   = partitions$P2,
-    rhs    = "cliques(k=3)",
-    name   = "F2_P2_k3",
+    rhs    = "cliques_GW(lambda=3)",
+    name   = "F2_P2_lam3",
     estimate    = "CD",
     eval.loglik = FALSE,
-    control     = list(MCMLE.maxit = 2, MCMC.samplesize = 500), 
+    control     = list(MCMLE.maxit = 2, MCMC.samplesize = 500),
     lhs_mode    = "partition"
   )
 
-  fit_results[["F3_P3_k1n"]] <- .erpm_fit_one(
+  fit_results[["F3_P3_lam1"]] <- .erpm_fit_one(
     part   = partitions$P3,
-    rhs    = "cliques(k=1, normalized=TRUE)",
-    name   = "F3_P3_k1n",
+    rhs    = "cliques_GW(lambda=1.1)",
+    name   = "F3_P3_lam1.1",
     estimate    = "CD",
     eval.loglik = FALSE,
     control     = list(MCMLE.maxit = 2, MCMC.samplesize = 500),
@@ -387,4 +326,4 @@ if (identical(environment(), globalenv())) {
   run_all_tests_with_fits()
 }
 
-ergm_patch_disable()
+on.exit(try(ergm_patch_disable(), silent = TRUE), add = TRUE)

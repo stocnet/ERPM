@@ -17,10 +17,43 @@ invisible(try(Sys.setlocale("LC_CTYPE", "fr_FR.UTF-8"), silent = TRUE))
 options(crayon.enabled = FALSE, cli.num_colors = 1, warn = 1)
 
 # --- Préambule ---------------------------------------------------------------
+
+#' Obtenir le répertoire du script en cours d'exécution
+#'
+#' Cette fonction renvoie le chemin absolu du répertoire contenant
+#' le script R actuellement exécuté, que celui-ci soit lancé avec
+#' `Rscript`, `source()`, ou en session interactive.
+#'
+#' @details
+#' - Si le script est lancé avec `Rscript`, le chemin est extrait de `--file=`.
+#' - Si le script est exécuté via `source()`, la fonction parcourt la pile
+#'   d'appels pour retrouver l'origine (`ofile`).
+#' - En dernier recours, elle renvoie le répertoire de travail courant (`getwd()`).
+#'
+#' @return Un chemin absolu (chaîne de caractères) normalisé avec des barres obliques `/`.
+#' @examples
+#' get_script_dir()
+#'
+#' @keywords internal
+get_script_dir <- function() {
+  a <- commandArgs(FALSE)
+  f <- sub("^--file=", "", a[grepl("^--file=", a)])
+  if (length(f) == 1L) return(normalizePath(dirname(f), winslash = "/", mustWork = FALSE))
+  # fallback: si source() en interactif
+  if (!is.null(sys.frames()) && !is.null(sys.calls())) {
+    for (i in rev(seq_along(sys.calls()))) {
+      cf <- sys.frame(i)
+      if (!is.null(cf$ofile)) return(normalizePath(dirname(cf$ofile), winslash = "/", mustWork = FALSE))
+    }
+  }
+  normalizePath(getwd(), winslash = "/", mustWork = FALSE)
+}
+
+
 # Dossier de logs + duplication sortie console
-log_dir <- "scripts/test"
+script_dir <- get_script_dir()
 dir.create(log_dir, recursive = TRUE, showWarnings = FALSE)
-log_file_out <- file.path(log_dir, "selftest_launch_model.log")
+log_file_out <- file.path(script_dir, "selftest_launch_model.log")
 
 sink(log_file_out, split = TRUE)            # stdout -> fichier + console
 sink(stdout(), type = "message")            # messages -> stdout (même fichier)

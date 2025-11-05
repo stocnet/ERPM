@@ -77,10 +77,12 @@
 
 // Test d’appartenance à l’intervalle [a,b)
 #define IN_RANGE(x,a,b) ((x) >= (a) && (x) < (b))
+
+// Si vaut 1, permet de print dans la console
 #define DEBUG_SQUARED_SIZES 0
 
 // -----------------------------------------------------------------------------
-// Exponentiation rapide (exponentiation by squaring)
+// Exponentiation rapide 
 //   Idée : écriture binaire de exp, boucle en O(log exp) (bien plus rapide
 //   et stable qu’une boucle naïve en O(exp)).
 // -----------------------------------------------------------------------------
