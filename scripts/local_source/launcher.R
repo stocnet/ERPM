@@ -587,6 +587,17 @@ if (!exists(".__launcher_loaded", envir = .GlobalEnv)) {
             #     ergm::ergm(f, constraints = constraints)
             # }
 
+            if (!inherits(fit, "ergm")) {
+                .log_info("Fit non disponible ou interrompu (timeout/erreur). Aucun résumé.")
+                return(list(
+                    engine=engine, mode="fit_failed",
+                    rhs=rhs, rhs_text=rhs_text,
+                    constraints=constraints, constraints_text=constraints_text,
+                    call=NULL, call_text=call_text,
+                    fit=fit, result=fit,
+                    network=nw, partition=partition
+                ))
+            }
             .summarize_fit(fit, nw = nw, partition = partition, verbose = verbose)  # Résumé enrichi si dispo
 
             return(list(                                              # Retour standardisé
@@ -632,6 +643,12 @@ if (!exists(".__launcher_loaded", envir = .GlobalEnv)) {
                 MCMC.interval   = 1000L
             )
         ctrl_list <- .modify_list(ctrl_defaults, control)
+
+        # juste avant do.call(ergm::control.ergm, ctrl_list)
+        if (!is.null(control$init)) {
+            k <- length(summary(build_formula_from_rhs(rhs, nw = nw)))
+            if (length(control$init) %in% c(1L, k-1L, k+1L)) control$init <- NULL
+        }
         ctrl <- do.call(ergm::control.ergm, ctrl_list)
         fit <- erpm(
             f,
@@ -643,6 +660,18 @@ if (!exists(".__launcher_loaded", envir = .GlobalEnv)) {
             timeout     = timeout
         )
         
+        if (!inherits(fit, "ergm")) {
+            .log_info("Fit non disponible ou interrompu (timeout/erreur). Aucun résumé.")
+            return(list(
+                engine=engine, mode="fit_failed",
+                rhs=rhs, rhs_text=rhs_text,
+                constraints=constraints, constraints_text=constraints_text,
+                call=NULL, call_text=call_text,
+                fit=fit, result=fit,
+                network=nw, partition=partition
+            ))
+        }
+
         .summarize_fit(fit, nw = nw, partition = partition, verbose = verbose)  # Résumé enrichi si dispo
 
         return(list(                                                  # Retour standardisé

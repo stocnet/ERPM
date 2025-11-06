@@ -361,10 +361,16 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
             else if (is.null(control)) ergm::control.ergm()
             else do.call(ergm::control.ergm, as.list(control))
 
+    # Garde fou pour init pas de même longueur que le call
+    k <- length(summary(new_formula, constraints = ~ b1part))
+    if (!is.null(ctrl$init) && length(ctrl$init) != k) ctrl$init <- NULL
+
     # Placer le contrôle dans l’environnement d’éval et ne passer qu’un symbole
     ctrl_sym  <- as.name(sprintf(".ctrl_%08x", as.integer(runif(1, 0, .Machine$integer.max))))
     eval_env  <- if (!is.null(env)) env else parent.frame()
     assign(as.character(ctrl_sym), ctrl, envir = eval_env)
+
+    
 
     # --- 6) Construire l’appel ergm(...) -------------------------------------
     ergm_call <- as.call(list(
