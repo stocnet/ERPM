@@ -15,8 +15,8 @@ suppressPackageStartupMessages({
 devtools::load_all(".")
 
 # ----- Active le patch {ergm} ---------------------------------------------------------
-# source("scripts/ergm_patch.R")
-# ergm_patch_enable()
+#source("scripts/ergm_patch.R")
+#ergm_patch_enable()
 
 # ----- Partitions de test -------------------------------------------------------------
 partition_mix <- c(1, 2, 2, 3, 3, 3)
