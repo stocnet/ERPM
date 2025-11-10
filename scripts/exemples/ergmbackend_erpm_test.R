@@ -24,6 +24,9 @@ as.matrix(nw)
 
 summary(nw ~ Proj1(~B(~edges + nodematch("gender") + edgecov("friendship"), "nonzero")))
 
+fit <- ergm(nw ~ b2degrange(1, Inf),
+            constraints = ~b1part)
+
 fit <- ergm(nw ~ b2degrange(1, Inf) + Proj1(~B(~nodematch("gender") + absdiff("age") + edgecov("friendship"), "nonzero")),
             constraints = ~b1part)
 
