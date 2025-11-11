@@ -19,13 +19,26 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
     inherits(x, "network") && !is.null(x %n% "bipartite") && is.finite(x %n% "bipartite")
   }
 
-  #' Validation du data.frame nodes
-  #' @keywords internal
+  .get_label_col <- function(nodes, prefer = "label") {
+    stopifnot(is.data.frame(nodes))
+    nms <- trimws(names(nodes))
+    aliases <- c(prefer, "label", "nom", "name", "id")
+    hit <- intersect(aliases, nms)
+    if (length(hit)) hit[1L] else NULL
+  }
+
   .check_nodes_df <- function(nodes) {
-    stopifnot(is.data.frame(nodes), "label" %in% names(nodes))
-    if (anyDuplicated(nodes$label)) stop("nodes$label contient des doublons.")
+    stopifnot(is.data.frame(nodes))
+    lab <- .get_label_col(nodes)           # peut être NULL
+    if (!is.null(lab) && anyDuplicated(nodes[[lab]]))
+      stop(sprintf("nodes$%s contient des doublons.", lab))
     invisible(TRUE)
   }
+  # .check_nodes_df <- function(nodes) {
+  #   stopifnot(is.data.frame(nodes), "label" %in% names(nodes))
+  #   if (anyDuplicated(nodes$label)) stop("nodes$label contient des doublons.")
+  #   invisible(TRUE)
+  # }
 
   #' Validation des matrices dyadiques n×n
   #' @keywords internal
@@ -35,10 +48,9 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
     for (nm in names(dyads)) {
       M <- dyads[[nm]]
       stopifnot(is.matrix(M), nrow(M) == n, ncol(M) == n)
-      # Optionnel : aligner si noms fournis
       if (!is.null(rownames(M)) && !is.null(colnames(M))) {
         if (!identical(rownames(M), labels) || !identical(colnames(M), labels))
-          stop(sprintf("dyads['%s']: row/colnames doivent matcher nodes$label.", nm))
+          stop(sprintf("dyads['%s']: row/colnames doivent matcher l’ordre des acteurs.", nm))
       }
     }
     invisible(TRUE)
@@ -146,6 +158,18 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
                                           dyads     = list()) {
     stopifnot(!is.null(partition), is.atomic(partition), length(partition) >= 1L)
 
+    # # 1) Labels acteurs
+    # if (is.null(nodes)) {
+    #   n      <- length(partition)
+    #   labels <- sprintf("A%d", seq_len(n))
+    #   nodes  <- data.frame(label = labels, stringsAsFactors = FALSE)
+    # } else {
+    #   .check_nodes_df(nodes)
+    #   if (nrow(nodes) != length(partition))
+    #     stop("nrow(nodes) doit égaler length(partition).")
+    #   labels <- as.character(nodes$label)
+    # }
+    # n <- length(labels)
     # 1) Labels acteurs
     if (is.null(nodes)) {
       n      <- length(partition)
@@ -155,9 +179,20 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
       .check_nodes_df(nodes)
       if (nrow(nodes) != length(partition))
         stop("nrow(nodes) doit égaler length(partition).")
-      labels <- as.character(nodes$label)
+      labcol <- .get_label_col(nodes)  # peut être NULL
+
+      if (is.null(labcol)) {
+        labels <- sprintf("A%d", seq_len(nrow(nodes)))
+        nodes$label <- labels
+      } else {
+        labels <- as.character(nodes[[labcol]])
+        if (anyNA(labels) || any(!nzchar(labels))) stop("labels vides/NA non autorisés.")
+        if (anyDuplicated(labels)) stop("labels en double non autorisés.")
+        if (!("label" %in% names(nodes))) nodes$label <- labels
+      }
     }
     n <- length(labels)
+
 
     # 2) Valider dyads
     .check_dyads(dyads, n, labels)
@@ -179,26 +214,47 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
     network::set.network.attribute(nw, "bipartite", n)
     network::set.vertex.attribute(nw, "vertex.names", all_v)
 
-    # 6) Attributs nodaux
+    # 6) Attributs nodaux (évite doublons)
     if (ncol(nodes) > 1L) {
-      for (a in setdiff(names(nodes), "label")) {
+      for (a in setdiff(names(nodes), c("label"))) {   # exclut 'label' interne
         vals <- nodes[[a]]
         network::set.vertex.attribute(nw, a, c(vals, rep(NA, G)))
       }
     }
 
-    # 7) Covariables dyadiques n×n (pour edgecov() après Proj1/B)
+    # 7) dyads: inchangé, mais garantit l’ordre selon `labels`
     if (length(dyads)) {
       for (nm in names(dyads)) {
         M <- dyads[[nm]]
-        dimnames(M) <- list(labels, labels) # garantir l’ordre
+        dimnames(M) <- list(labels, labels)
         nw %n% nm <- M
       }
     }
 
     list(network = nw, partition = partition,
-         actor_labels = labels, group_labels = g_names)
+        actor_labels = labels, group_labels = g_names)
   }
+
+  #   # 6) Attributs nodaux
+  #   if (ncol(nodes) > 1L) {
+  #     for (a in setdiff(names(nodes), "label")) {
+  #       vals <- nodes[[a]]
+  #       network::set.vertex.attribute(nw, a, c(vals, rep(NA, G)))
+  #     }
+  #   }
+
+  #   # 7) Covariables dyadiques n×n (pour edgecov() après Proj1/B)
+  #   if (length(dyads)) {
+  #     for (nm in names(dyads)) {
+  #       M <- dyads[[nm]]
+  #       dimnames(M) <- list(labels, labels) # garantir l’ordre
+  #       nw %n% nm <- M
+  #     }
+  #   }
+
+  #   list(network = nw, partition = partition,
+  #        actor_labels = labels, group_labels = g_names)
+  # }
 
   #' Traduire un terme ERPM vers un terme {ergm}
   #'
@@ -273,9 +329,6 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   #' @param dyads list optionnelle de matrices n×n (edgecov sur Proj1).
   #' @return Objet {ergm} si eval_call=TRUE, sinon un call.
   #' @examples
-  #' \dontrun{
-  #'   erpm(partition ~ groups(from=2,to=3) + cov_match("grp"), eval_call=FALSE)
-  #' }
   #' @export
   erpm <- function(formula, 
                    eval_call   = TRUE, 
@@ -418,10 +471,11 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   # ============================================================================
   # Export des fonctions
   # ============================================================================
-  assign(".normalize_cliques_args", .normalize_cliques_args, envir = .GlobalEnv)
-  assign(".normalize_groups_args",  .normalize_groups_args,  envir = .GlobalEnv)
-  assign(".split_sum_terms",        .split_sum_terms,        envir = .GlobalEnv)
-  assign(".translate_one_term",     .translate_one_term,     envir = .GlobalEnv)
-  assign("erpm",                    erpm,                    envir = .GlobalEnv)
-  assign(".__erpm_wrapper_loaded",  TRUE,                    envir = .GlobalEnv)
+  assign("build_bipartite_from_inputs", build_bipartite_from_inputs,  envir = .GlobalEnv)
+  assign(".normalize_cliques_args",     .normalize_cliques_args,      envir = .GlobalEnv)
+  assign(".normalize_groups_args",      .normalize_groups_args,       envir = .GlobalEnv)
+  assign(".split_sum_terms",            .split_sum_terms,             envir = .GlobalEnv)
+  assign(".translate_one_term",         .translate_one_term,          envir = .GlobalEnv)
+  assign("erpm",                        erpm,                         envir = .GlobalEnv)
+  assign(".__erpm_wrapper_loaded",      TRUE,                         envir = .GlobalEnv)
 }

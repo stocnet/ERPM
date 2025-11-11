@@ -47,12 +47,12 @@ C_CHANGESTAT_FN(c_cov_ingroup){
   const double *x     = (L>0) ? (&INPUT_PARAM[2+L]) : (&INPUT_PARAM[2]);
 
   /* ---------------- Identifier acteur v1 et groupe v2 ---------------- */
-  const int n1_lim = BIPARTITE; /* doit coïncider avec n1 */
+  const Vertex n1_lim = (Vertex)BIPARTITE; /* doit coïncider avec n1 */
   Vertex v2 = (tail > n1_lim) ? tail : head; /* groupe côté mode 2 */
   Vertex v1 = (tail > n1_lim) ? head : tail; /* acteur côté mode 1 */
 
   /* Sécurité : v1 doit être dans [1..n1] */
-  if(v1<1 || v1>n1){
+  if(v1 < (Vertex)1 || v1 > (Vertex)n1){
     CHANGE_STAT[0] += 0.0;
     return;
   }
@@ -67,19 +67,19 @@ C_CHANGESTAT_FN(c_cov_ingroup){
   Edge e;
 
   STEP_THROUGH_OUTEDGES(v2, e, h){
-    if(h>=1 && h<=n1) X += x[h-1]; /* x est indexé 0..n1-1, vertices 1..n */
+    if(h >= (Vertex)1 && h <= (Vertex)n1) X += x[(int)h - 1]; /* x indexé 0..n1-1, vertices 1..n */
   }
   /* Si des arêtes pouvaient être "entrantes" pour v2 (selon orientation),
      on pourrait dé-commenter le bloc suivant pour être exhaustif :
   STEP_THROUGH_INEDGES(v2, e, h){
-    if(h>=1 && h<=n1) X += x[h-1];
+    if(h >= (Vertex)1 && h <= (Vertex)n1) X += x[(int)h - 1];
   }
   */
 
   /* ---------------- Valeurs avant/après ---------------- */
   const int is_add   = (edgestate==0);             /* 1 si AJOUT, 0 si RETRAIT */
   const int n_new    = deg_old + (is_add ? +1 : -1);
-  const double xi    = x[v1-1];
+  const double xi    = x[(int)v1 - 1];
   const double X_new = X + (is_add ? +xi : -xi);
 
   /* ---------------- Filtre de tailles S ---------------- */
@@ -87,8 +87,8 @@ C_CHANGESTAT_FN(c_cov_ingroup){
   const int w_new = in_sizes_set(n_new,  sizes, L);
 
   /* ---------------- Variation locale ---------------- */
-  double d = 0.0;
   /* Δ = (n_new * X_new * w_new) - (deg_old * X * w_old) */
+  double d = 0.0;
   d = (w_new ? ( (double)n_new * X_new ) : 0.0)
     - (w_old ? ( (double)deg_old * X   ) : 0.0);
 

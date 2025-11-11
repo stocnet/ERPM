@@ -36,19 +36,30 @@ if (requireNamespace("devtools", quietly = TRUE) && file.exists("DESCRIPTION")) 
 # Logging local
 # --------------------------------------------------------------------------------------
 .get_script_dir <- function() {
-    a <- commandArgs(FALSE)
-    f <- sub("^--file=", "", a[grepl("^--file=", a)])
-    if (length(f) == 1L) return(normalizePath(dirname(f), winslash = "/", mustWork = FALSE))
-    if (!is.null(sys.frames()) && !is.null(sys.calls())) {
-        for (i in rev(seq_along(sys.calls()))) {
-        cf <- sys.frame(i)
-        if (!is.null(cf$ofile)) return(normalizePath(dirname(cf$ofile), winslash = "/", mustWork = FALSE))
-        }
-    }
-    normalizePath(getwd(), winslash = "/", mustWork = FALSE)
+  # 1) Rscript ... --file=...
+  a <- commandArgs(trailingOnly = FALSE)
+  i <- grep("^--file=", a)
+  if (length(i)) return(dirname(normalizePath(sub("^--file=", "", a[i[1]]))))
+
+  # 2) source("...") : chercher ofile dans les frames
+  fs <- sys.frames()
+  ofiles <- vapply(fs, function(f) if (!is.null(f$ofile)) f$ofile else NA_character_, "")
+  if (any(!is.na(ofiles))) {
+    j <- which.max(nchar(ofiles))  # le plus long est souvent le bon
+    return(dirname(normalizePath(ofiles[j])))
+  }
+
+  # 3) fallback
+  normalizePath(getwd())
 }
-script_dir <- .get_script_dir()
-log_path   <- file.path(script_dir, "selftest_cov_ingroup.log")
+
+# script_dir <- .get_script_dir()
+# log_path   <- file.path(script_dir, "selftest_cov_ingroup.log")
+root <- tryCatch(
+  rprojroot::find_root(rprojroot::is_r_package),
+  error = function(e) getwd()
+)
+log_path <- file.path(root, "scripts", "test", "selftests", "selftest_cov_ingroup.log")
 if (file.exists(log_path)) unlink(log_path, force = TRUE)
 con_out <- file(log_path, open = "wt")
 con_err <- file(log_path, open = "at")

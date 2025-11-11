@@ -42,8 +42,13 @@ if (file.exists("scripts/ergm_patch.R")) {
   normalizePath(getwd(), winslash = "/", mustWork = FALSE)
 }
 
-script_dir <- .get_script_dir()
-log_path   <- file.path(script_dir, "selftest_log_factorial_sizes.log")
+# script_dir <- .get_script_dir()
+# log_path   <- file.path(script_dir, "selftest_log_factorial_sizes.log")
+root <- tryCatch(
+  rprojroot::find_root(rprojroot::is_r_package),
+  error = function(e) getwd()
+)
+log_path <- file.path(root, "scripts", "test", "selftests", "selftest_log_factorial_sizes.log")
 
 dir.create(dirname(log_path), recursive = TRUE, showWarnings = FALSE)
 if (file.exists(log_path)) unlink(log_path, force = TRUE)

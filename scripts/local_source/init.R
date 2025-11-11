@@ -20,74 +20,96 @@ if(!exists(".__init_loaded", envir = .GlobalEnv)){
   #' @param src_dir Répertoire contenant les fichiers C/C++ (défaut `"src"`).
   #' @param quiet Si TRUE, réduit le bruit d’affichage pendant la compilation.
   #' @return TRUE si le code a été chargé avec succès ; stoppe en cas d’échec de compilation.
-  erpm_load_with_recompile <- function(pkg_name = "ERPM", src_dir = "src", quiet = TRUE) {
+  erpm_load_with_recompile <- function(pkg_name = "ERPM",
+                                      src_dir = "src",
+                                      quiet   = TRUE,
+                                      install_verbose = FALSE) {
     requireNamespace("ergm", quietly = TRUE)
 
-    # Extension dynamique selon le système (.so ou .dll)
-    dynext <- .Platform$dynlib.ext
+    dynext  <- .Platform$dynlib.ext
+    dll_path<- file.path(src_dir, paste0(pkg_name, dynext))
+    cfiles  <- list.files(src_dir, pattern = "\\.(c|cc|cpp)$", full.names = TRUE)
 
-    # Chemin attendu de la librairie compilée
-    dll_path <- file.path(src_dir, paste0(pkg_name, dynext))
-
-    # Liste des fichiers source C/C++
-    cfiles <- list.files(src_dir, pattern = "\\.(c|cc|cpp)$", full.names = TRUE)
-
-    # --- Fonction interne : déterminer si une recompilation est nécessaire ---
     need_rebuild <- function() {
-      if (!length(cfiles)) return(FALSE)                      # Aucun fichier source
-      if (!file.exists(dll_path)) return(TRUE)                # Pas encore de DLL compilée
-      max(file.info(cfiles)$mtime, na.rm = TRUE) > file.info(dll_path)$mtime  # Au moins un .c plus récent
+      if (!length(cfiles)) return(FALSE)
+      if (!file.exists(dll_path)) return(TRUE)
+      max(file.info(cfiles)$mtime, na.rm = TRUE) > file.info(dll_path)$mtime
     }
 
-    # --- 1) Si devtools est disponible ---
     if (requireNamespace("devtools", quietly = TRUE)) {
 
-      # Recompile seulement si besoin, sinon simple rechargement
-      devtools::load_all(recompile = need_rebuild(), quiet = quiet)
-      return(TRUE)
+      if (isTRUE(install_verbose)) {
+        # Build verbeux + logs détaillés
+        # old <- Sys.getenv(c("MAKEFLAGS","R_KEEP_PKG_SOURCE","PKG_CFLAGS","PKG_CPPFLAGS"), unset = NA)
+        # on.exit({
+        #   # restore
+        #   mapply(Sys.setenv,
+        #         names(old),
+        #         ifelse(is.na(old), "", old))
+        # }, add = TRUE)
+
+        old <- Sys.getenv(c("MAKEFLAGS","R_KEEP_PKG_SOURCE","PKG_CFLAGS","PKG_CPPFLAGS"),
+                  unset = NA_character_)
+
+        on.exit({
+          # rétablir celles qui existaient
+          to_set <- as.list(old[!is.na(old)])
+          if (length(to_set)) do.call(Sys.setenv, to_set)
+          # retirer celles qui n'existaient pas
+          to_unset <- names(old)[is.na(old)]
+          if (length(to_unset)) Sys.unsetenv(to_unset)
+        }, add = TRUE)
+
+        Sys.setenv(
+          MAKEFLAGS            = "-j1",
+          R_KEEP_PKG_SOURCE    = "yes",
+          PKG_CFLAGS           = "-std=c11 -O0 -g3 -Wall -Wextra -pedantic -ferror-limit=0 -fmacro-backtrace-limit=0",
+          PKG_CPPFLAGS         = "-DDEBUG_COV_FULLMATCH=1 -fdiagnostics-color=never"
+        )
+
+        devtools::install(
+          ".", upgrade = "never", quiet = FALSE,
+          args = c("--no-clean-on-error","--preclean","-v")
+        )
+        # recharge le code R après install pour garder l’environnement dev
+        devtools::load_all(recompile = FALSE, quiet = quiet)
+        return(TRUE)
+      } else {
+        # Flux rapide: recompile si nécessaire, sinon charge
+        Sys.setenv(
+          MAKEFLAGS    = "-j1",
+          PKG_CFLAGS   = "-std=c11 -O2 -Wall",
+          PKG_CPPFLAGS = ""
+        )
+        devtools::load_all(recompile = need_rebuild(), quiet = quiet)
+        return(TRUE)
+      }
     }
 
-    # --- 2) Si devtools absent : recharger manuellement tous les R/*.R ---
+    # Fallbacks identiques à ta version…
     r_files <- list.files("R", pattern = "\\.R$", full.names = TRUE)
     invisible(lapply(r_files, function(f) try(source(f, local = .GlobalEnv), silent = TRUE)))
 
-    # --- 3) Si pkgbuild est disponible : l’utiliser pour compiler les DLL ---
     if (requireNamespace("pkgbuild", quietly = TRUE)) {
-      requireNamespace("ergm", quietly = TRUE)
       if (need_rebuild()) pkgbuild::compile_dll(path = ".", quiet = quiet)
-
-      # Charger la DLL si non encore chargée
       if (file.exists(dll_path) && !isTRUE(dll_path %in% names(getLoadedDLLs())))
         try(dyn.load(dll_path), silent = TRUE)
-
       return(TRUE)
     }
 
-    # --- 4) Fallback : appel direct à R CMD SHLIB ---
+    # SHLIB direct (inchangé)
     if (need_rebuild()) {
-
-      # Récupère l’inclusion des headers ergm (utile pour les changestats)
-      inc_ergm <- try(system.file("include", package = "ergm"), silent = TRUE)
-      inc_flag <- if (!inherits(inc_ergm, "try-error") && nzchar(inc_ergm))
-        sprintf('-I"%s"', inc_ergm) else ""
-
-      # Construction de la commande de compilation
-      cmd <- sprintf(
-        'R CMD SHLIB %s -o %s %s',
-        paste(shQuote(cfiles), collapse = " "),
-        shQuote(dll_path),
-        inc_flag
-      )
-      
-      # Exécution et contrôle d’erreur
+      rincl   <- sprintf('-I"%s"', R.home("include"))
+      ergminc <- system.file("include", package = "ergm")
+      eincl   <- if (nzchar(ergminc)) sprintf('-I"%s"', ergminc) else ""
+      cmd <- sprintf('R CMD SHLIB %s -o %s %s %s',
+                    paste(shQuote(cfiles), collapse = " "),
+                    shQuote(dll_path), rincl, eincl)
       status <- system(cmd)
       if (status != 0) stop("Échec compilation native: ", cmd)
     }
-
-    # --- 5) Chargement dynamique final si la DLL existe ---
     if (file.exists(dll_path) && !isTRUE(dll_path %in% names(getLoadedDLLs())))
       try(dyn.load(dll_path), silent = TRUE)
-
     TRUE
   }
 
@@ -109,7 +131,8 @@ if(!exists(".__init_loaded", envir = .GlobalEnv)){
     ergm_patch_file = "scripts/ergm_patch.R",
     description_file = "DESCRIPTION",
     verbose = TRUE,
-    selftest = FALSE
+    selftest = FALSE, 
+    install_verbose = FALSE
   ){
     # Settings
     if (!exists(".__settings_loaded", envir = .GlobalEnv)) {
@@ -140,7 +163,10 @@ if(!exists(".__init_loaded", envir = .GlobalEnv)){
     install_and_import_if_missing(base_pkgs, TRUE)
 
     # Chargement + recompilation conditionnelle
-    erpm_load_with_recompile(pkg_name = "ERPM", src_dir = "src", quiet = !isTRUE(verbose))
+    erpm_load_with_recompile( pkg_name        = "ERPM",
+                              src_dir         = "src",
+                              quiet           = !isTRUE(verbose),
+                              install_verbose = install_verbose)
 
     # Patch ergm
     source(ergm_patch_file, local = TRUE)
