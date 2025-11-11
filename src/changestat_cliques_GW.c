@@ -77,7 +77,7 @@ C_CHANGESTAT_FN(c_cliques_GW){
 
   // --- 3) Sélection du nœud côté groupes (mode 2) : indices > n1. ---
   //     Le toggle peut être orienté dans un sens quelconque : on cible le sommet > n1.
-  Vertex v2 = (tail > n1) ? tail : head;
+  Vertex v2 = (tail > (Vertex)n1) ? tail : head;
 
   // --- 4) Degrés avant/après toggle (calcul local). ---
   //     OUT_DEG/IN_DEG : tableaux internes des degrés sortants/entrants.
