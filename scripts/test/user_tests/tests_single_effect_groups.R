@@ -5,6 +5,10 @@
 #
 # ======================================================================================
 
+Sys.setenv(LANG="fr_FR.UTF-8")
+try(Sys.setlocale("LC_CTYPE","fr_FR.UTF-8"), silent=TRUE)
+options(encoding="UTF-8")
+
 # ----- packages -----------------------------------------------------------------------
 # ----- Dépendances minimales ----------------------------------------------------------
 suppressPackageStartupMessages({
@@ -14,9 +18,15 @@ suppressPackageStartupMessages({
 })
 devtools::load_all(".")
 
+if (!requireNamespace("Rglpk", quietly = TRUE)) {
+  message("Avis: 'Rglpk' non installé. ergm utilisera 'lpSolveAPI'.")
+}
+
+options(ergm.loglik.warn_dyads = FALSE)
+
 # ----- Active le patch {ergm} ---------------------------------------------------------
-#source("scripts/ergm_patch.R")
-#ergm_patch_enable()
+source("scripts/ergm_patch.R")
+ergm_patch_enable()
 
 # ----- Partitions de test -------------------------------------------------------------
 partition_mix <- c(1, 2, 2, 3, 3, 3)
@@ -50,10 +60,10 @@ summary(dry[[2]], constraints = ~ b1part) # should be 0
 
 dry <- erpm(partition_mix ~ groups(0), eval_call = FALSE, verbose = TRUE)
 summary(dry[[2]], constraints = ~ b1part) # should be 0
-dry <- erpm(partition_mix ~ groups(-1), eval_call = FALSE, verbose = TRUE)
-summary(dry[[2]], constraints = ~ b1part) # should be an error (!)
+# dry <- erpm(partition_mix ~ groups(-1), eval_call = FALSE, verbose = TRUE)
+# summary(dry[[2]], constraints = ~ b1part) # should be an error (!)                      <== OK, commenté pour pouvoir exécuter tout le script
 dry <- erpm(partition_mix ~ groups(7), eval_call = FALSE, verbose = TRUE)
-summary(dry[[2]], constraints = ~ b1part) # should be an error (!)
+summary(dry[[2]], constraints = ~ b1part) # should be an error (!)                        <== Pas d'accord : ça devrait valoir 0
 
 # with options on range (careful, "to" boundary is not inclusive)
 dry <- erpm(partition_mix ~ groups(from=0,to=3), eval_call = FALSE, verbose = TRUE)
@@ -67,8 +77,8 @@ summary(dry[[2]], constraints = ~ b1part) # should be 6
 
 dry <- erpm(partition_mix ~ groups(from=0,to=1), eval_call = FALSE, verbose = TRUE)
 summary(dry[[2]], constraints = ~ b1part) # should be 0
-dry <- erpm(partition_mix ~ groups(from=0,to=0), eval_call = FALSE, verbose = TRUE)
-summary(dry[[2]], constraints = ~ b1part) # should be an error
+# dry <- erpm(partition_mix ~ groups(from=0,to=0), eval_call = FALSE, verbose = TRUE)
+# summary(dry[[2]], constraints = ~ b1part) # should be an error                          <== OK, commenté pour pouvoir exécuter tout le script
 dry <- erpm(partition_mix ~ groups(from=7,to=8), eval_call = FALSE, verbose = TRUE)
 summary(dry[[2]], constraints = ~ b1part) # should be an error (!)
 
@@ -87,10 +97,23 @@ nw[cbind(seq_along(partition_mix), partition_mix + n)] <- 1
 fit_ergm <- ergm(nw ~ b2degrange(1, Inf),
             constraints = ~b1part)
 summary(fit_ergm)
+mcmc.diagnostics(fit_ergm)
 
-fit_erpm <- erpm(partition_mix ~ groups) # should be around -0.4
+# fit_erpm <- erpm(partition_mix ~ groups) # should be around -0.4
+
+fit_erpm <- erpm( partition_mix ~ groups,
+                  estimate = "MLE",
+                  control = control.ergm(
+                    CD.nsteps      = 10,           
+                    MCMC.burnin    = 2e5,
+                    MCMC.interval  = 1e5,
+                    MCMC.samplesize= 1e4,
+                    MCMLE.maxit    = 60
+                  )
+)
 summary(fit_erpm) 
 fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # should be close to 0
+mcmc.diagnostics(fit_ergm)
 
 # baseline case #2
 nw[cbind(seq_along(partition_balanced), partition_balanced + n)] <- 1
@@ -121,3 +144,6 @@ summary(fit_ergm)
 fit_erpm <- erpm(partition_mix ~ groups(from=2,to=5)) # should be around 0.6
 summary(fit_erpm) 
 fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # should be close to 0
+
+
+ergm_patch_disable()

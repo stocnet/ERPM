@@ -4,6 +4,9 @@
 # Objet   : Test single effects one by one with different options
 #
 # ======================================================================================
+Sys.setenv(LANG="fr_FR.UTF-8")
+try(Sys.setlocale("LC_CTYPE","fr_FR.UTF-8"), silent=TRUE)
+options(encoding="UTF-8")
 
 # ----- packages -----------------------------------------------------------------------
 # ----- Dépendances minimales ----------------------------------------------------------
@@ -14,9 +17,13 @@ suppressPackageStartupMessages({
 })
 devtools::load_all(".")
 
+if (!requireNamespace("Rglpk", quietly = TRUE)) {
+  message("Avis: 'Rglpk' non installé. ergm utilisera 'lpSolveAPI'.")
+}
+
 # ----- Active le patch {ergm} ---------------------------------------------------------
-#source("scripts/ergm_patch.R")
-#ergm_patch_enable()
+source("scripts/ergm_patch.R")
+ergm_patch_enable()
 
 # ----- Partitions de test -------------------------------------------------------------
 partition_mix <- c(1, 2, 2, 3, 3, 3)
@@ -51,9 +58,20 @@ n <- 6
 nw <- network.initialize(n * 2, dir = FALSE, bip = n)
 
 # baseline case #1
+ctrl_A <- control.ergm(
+  init              = "MPLE",  # point de départ stable
+  CD.nsteps         = 0,       # saute complètement CD
+  MCMLE.termination = "Hummel",
+  MCMLE.maxit       = 60,
+  MCMC.burnin       = 2e5,
+  MCMC.interval     = 5e3,
+  MCMC.samplesize   = 5e3
+)
 nw[cbind(seq_along(partition_mix), partition_mix + n)] <- 1
-fit_ergm <- ergm(nw ~ log_factorial_sizes,
-                 constraints = ~b1part)
+fit_ergm <- ergm( nw ~ log_factorial_sizes,
+                  constraints = ~b1part, 
+                  estimate="MLE", 
+                  control=ctrl_A)
 summary(fit_ergm)
 
 fit_erpm <- erpm(partition_mix ~ log_factorial_sizes) # should be around -0.1
