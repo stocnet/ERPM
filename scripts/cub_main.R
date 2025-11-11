@@ -1,245 +1,339 @@
-# ====================================================================================== 
+# ======================================================================================
 # Fichier : cub_test.R
-# Fonction :
-# Utilité : test pour les nouvelles fonctions ERPM
-# ====================================================================================== 
+# Fonction : scénario de tests ERPM/ERGM
+# Utilité  : valider un effet via summary/ergm/erpm (partition et biparti)
+# ======================================================================================
 
-# macOS/Linux
+# macOS/Linux : UTF-8 propre
 Sys.setenv(LANG="fr_FR.UTF-8")
 invisible(Sys.setlocale("LC_CTYPE","fr_FR.UTF-8"))
 
-# ====================================================================================== 
-# ======================================== INIT ======================================== 
+# ======================================== INIT ========================================
 suppressMessages(library(ergm))
 
 if (!exists(".__debug_loaded", envir = .GlobalEnv)) {
   source("scripts/local_source/debug.R", local = FALSE)
 }
 
-source("scripts/local_source/init.R", local = FALSE) # init l'environnement (source de settings et du launcher)
-source("R/erpm_wrapper.R", local = FALSE) # n'est pas dans scripts/local_source/ donc on le charge indépendemment
-# debug_source_file("R/erpm_wrapper.R") 
+# init global (settings + launcher + logging)
+source("scripts/local_source/init.R", local = FALSE)
+# wrapper ERPM (chargé à part)
+source("R/erpm_wrapper.R", local = FALSE)
+# debug_source_file("R/erpm_wrapper.R")
 
+init_erpm(selftest = FALSE, verbose = FALSE, install_verbose = FALSE)
 
-init_erpm(selftest=FALSE, verbose=FALSE)
+if (exists("log_msg")) log_msg("INFO", "Démarrage du script pour ERPM") else message("Démarrage du script pour ERPM")
 
-if (exists("log_msg")) {
-  log_msg("INFO", "Démarrage du script pour ERPM")
-} else {
-  message("Démarrage du script pour ERPM")
-}
+# Patch ERGM optionnel
+if (exists("ergm_patch_enable")) ergm_patch_enable(verbose = VERBOSE)
 
-if (exists("ergm_patch_enable")) ergm_patch_enable( verbose = VERBOSE )
+# ======================================== RUN =========================================
 
-
-# ====================================================================================== 
-# ======================================== RUN ========================================= 
-
-
-# cases <- list(
-#   # Acceptés
-#   list(name = "clq_default",         effects = "cliques"),                                       # -> edges()
-#   list(name = "clq_k2_F",            effects = "cliques(clique_size = 2, normalized = FALSE)"),  # -> edges()
-#   list(name = "clq_k2_T",            effects = "cliques(clique_size = 2, normalized = TRUE)"),   # -> edges() + normalisation post
-#   list(name = "clq_normF_defaultk",  effects = "cliques(normalized = FALSE)"),                   # -> edges()
-#   list(name = "clq_normT_defaultk",  effects = "cliques(normalized = TRUE)"),                    # -> edges() + normalisation post
-#   list(name = "clq_k2_only",         effects = "cliques(clique_size = 2)"),                      # -> edges()
-#   list(name = "clq_k1_default",      effects = "cliques(clique_size = 1)"),                      # -> b2degrange(0,0)
-#   list(name = "clq_k1_F",            effects = "cliques(clique_size = 1, normalized = FALSE)")   # -> b2degrange(0,0)
-# )
-
-# results <- list()
-
-# for (cx in cases) {
-#   log_msg("INFO", sprintf("ERPM run: %s -> %s", cx$name, cx$effects))
-#   results[[cx$name]] <- launch_model(
-#     engine      = "erpm",
-#     effects     = cx$effects,
-#     dry_run     = FALSE,
-#     estimate    = "CD",
-#     eval_loglik = TRUE,
-#     control     = list(MCMLE.maxit = 3, MCMC.samplesize = 1000),
-#     timeout     = NULL
-#   )
-# }
-
-# Données
-partition <- c(1, 1, 2, 2, 2, 3)
-
-nodes <- data.frame(
-  label  = c("A","B","C","D","E","F"),
-  gender = c(1, 1, 2, 1, 2, 2),
-  age    = c(20,22,25,30,30,31),
+# ---------- Scénario 1 ----------
+part1 <- c(1,1, 2,2,2, 3,3,3,3, 4)  # tailles: 2,3,4,1  => N=10 # nolint # nolint: commas_linter.
+noeuds1 <- data.frame(
+  nom      = LETTERS[1:length(part1)],
+  sexe     = c("F","F",  "H","H","H",  "F","F","F","F",  "H"),
+  service  = c("RH","RH","Vent","Vent","Vent", "RH","RH","Info","Info","Info"),
+  promo    = c(2020,2020, 2019,2019,2019, 2021,2021,2021,2021, 2018),
   stringsAsFactors = FALSE
 )
 
-friendship <- matrix(c(
-  0,1,1,1,0,0,
-  1,0,0,0,1,0,
-  1,0,0,0,1,0,
-  1,0,0,0,0,0,
-  0,1,1,0,0,1,
-  0,0,0,0,1,0
-), 6, 6, byrow = TRUE, dimnames = list(nodes$label, nodes$label))
+launch_model(engine="summary",
+             effects = "cov_fullmatch('sexe')",
+             partition = part1, nodes = noeuds1,
+             estimate = "CD", eval_loglik = FALSE, verbose = TRUE)
 
-distance <- matrix(c(
-  0,2,3,4,5,6,
-  2,0,1,3,4,5,
-  3,1,0,2,3,5,
-  4,3,2,0,2,4,
-  5,4,3,2,0,1,
-  6,5,5,4,1,0
-), 6, 6, byrow = TRUE, dimnames = list(nodes$label, nodes$label))
+launch_model(engine="summary",
+             effects = "cov_fullmatch('sexe', size = 2:3)",
+             partition = part1, nodes = noeuds1,
+             estimate = "CD", eval_loglik = FALSE, verbose = TRUE)
 
-# --- Construire nw (avec attributs) ---
-{
-  # Vérifie que le package 'network' est bien disponible
-  stopifnot(requireNamespace("network", quietly = TRUE))
+launch_model(engine="summary",
+             effects = "cov_fullmatch('sexe', category = 'F')",
+             partition = part1, nodes = noeuds1,
+             estimate = "CD", eval_loglik = FALSE, verbose = TRUE)
 
-  # n = nombre d’acteurs ; G = nombre de groupes distincts
-  n <- length(partition)
-  G <- max(partition)
+launch_model(engine="summary",
+             effects = "cov_fullmatch('service') + cov_fullmatch('service', category = 'Info', size = c(3,4))",
+             partition = part1, nodes = noeuds1,
+             estimate = "CD", eval_loglik = FALSE, verbose = TRUE)
 
-  # Noms des acteurs et des groupes
-  actor_names <- nodes$label
-  group_names <- paste0("G", seq_len(G))
-  all_names   <- c(actor_names, group_names)  # noms de tous les sommets
-
-  # Initialise la matrice d’adjacence (0 partout)
-  adj <- matrix(0L, n + G, n + G, dimnames = list(all_names, all_names))
-
-  # Indices des acteurs et de leurs groupes
-  ia <- seq_len(n)        # indices 1..n pour les acteurs
-  ig <- n + partition     # indices des groupes associés dans la matrice
-
-  # Relie chaque acteur à son groupe dans la matrice
-  adj[cbind(ia, ig)] <- 1L
-  adj[cbind(ig, ia)] <- 1L
-
-  # Crée un objet 'network' biparti non orienté à partir de la matrice
-  nw <- network::network(adj, directed = FALSE, matrix.type = "adjacency")
-
-  # Spécifie la taille du premier mode (nombre d’acteurs)
-  network::set.network.attribute(nw, "bipartite", n)
-
-  # Enregistre les noms des sommets
-  network::set.vertex.attribute(nw, "vertex.names", all_names)
-
-  # Ajoute les attributs monadiques (gender, age, …)
-  for (a in setdiff(names(nodes), "label")) {
-    # On complète avec NA pour les sommets représentant les groupes
-    network::set.vertex.attribute(nw, a, c(nodes[[a]], rep(NA, G)))
-  }
-
-  # Ajoute les matrices dyadiques comme attributs réseau (edgecov utilisera ça)
-  nw %n% "friendship" <- friendship
-  nw %n% "distance"   <- distance
-}
-
-# --- Construire nw2 (sans attributs) ---
-{
-  n <- length(partition)              # nb d'acteurs (mode 1)
-  G <- max(partition)                 # nb de groupes distincts (mode 2)
-
-  actor_names <- nodes$label          # noms des acteurs (A,B,C, …)
-  group_names <- paste0("G", seq_len(G)) # noms des groupes (G1,G2,…,GG)
-  all_names   <- c(actor_names, group_names) # noms de tous les sommets (acteurs puis groupes)
-
-  # Matrice d’adjacence vide (0) de taille (n+G)×(n+G) avec noms de lignes/colonnes
-  adj <- matrix(0L, n + G, n + G, dimnames = list(all_names, all_names))
-
-  # Indices des acteurs dans 'all_names' (ici 1..n, mais on reste robuste)
-  ia <- match(actor_names, all_names)
-
-  # Indices, dans 'all_names', des groupes auxquels appartient chaque acteur
-  # Exemple: partition = c(1,1,2,2,2,3)  →  "G1","G1","G2","G2","G2","G3"
-  ig <- match(paste0("G", partition), all_names)
-
-  # Pose les arêtes bipartites ACTEUR->GROUPE (demi-matrice supérieure)
-  adj[cbind(ia, ig)] <- 1L
-
-  # Symétrise (graphe non orienté) : GROUPE->ACTEUR
-  adj[cbind(ig, ia)] <- 1L
-
-  # Construit l’objet `network` non orienté à partir de la matrice d’adjacence
-  nw2 <- network::network(adj, directed = FALSE, matrix.type = "adjacency")
-
-  # Déclare le graphe biparti et indique la taille du premier mode (acteurs)
-  network::set.network.attribute(nw2, "bipartite", n)
-
-  # Enregistre les étiquettes des sommets (utile pour inspection/affichage)
-  network::set.vertex.attribute(nw2, "vertex.names", all_names)
-}
+launch_model(engine="summary",
+             effects = quote(cov_fullmatch(cov = noeuds1$promo) + cov_fullmatch(cov = noeuds1$promo, size = 3:4)),
+             partition = part1, nodes = noeuds1,
+             estimate = "CD", eval_loglik = FALSE, verbose = TRUE)
 
 
-# A1. Groupes non vides
-erpm(partition ~ groups + squared_sizes, estimate = "MLE", eval.loglik = FALSE)
-
-# A2. Groupes de taille exactement 2
-erpm(partition ~ groups(2))
-
-# A3. Groupes de taille dans [2,4)
-erpm(partition ~ groups(from = 2, to = 4))
-
-# A4. Cliques k=2 (défaut)
-erpm(partition ~ cliques())
-
-# A5. Cliques k=3
-erpm(partition ~ cliques(3))
-
-# A6. Cliques normalisées k=2
-erpm(partition ~ cliques(clique_size = 2, normalized = TRUE))
-
-# A7. Somme des tailles^2
-erpm(partition ~ squared_sizes())
-
-# B1. Effets acteurs simples via Proj1/B
-erpm(
-  partition ~ Proj1(~ B(~ nodematch("gender") + absdiff("age") + edgecov("friendship"), "nonzero")),
-  nodes = nodes, 
-  dyads = list(friendship = friendship, distance = distance)
+# ---------- Scénario 2 ----------
+part2 <- c(1,1,1, 2,2, 3,3, 4,4,4,4, 5)  # tailles: 3,2,2,4,1 => N=12
+noeuds2 <- data.frame(
+  nom      = paste0("V", seq_along(part2)),
+  sexe     = c("H","H","H",  "F","F",  "H","F",  "F","F","F","F",  "H"),
+  service  = c("Rech","Rech","Rech","RH","RH","Vent","Vent","Vent","Vent","Vent","Vent","RH"),
+  promo    = c(2022,2022,2022, 2020,2020, 2019,2021, 2018,2018,2018,2018, 2023),
+  stringsAsFactors = FALSE
 )
 
-# B2. Modèle combiné: groups + cliques + squared_sizes + covariés acteurs
-erpm(
-  partition ~ groups() + cliques(2) + squared_sizes(pow=3) +
-               Proj1(~ B(~ nodematch("gender") + absdiff("age") + edgecov("friendship"), "nonzero")),
-  nodes = nodes, 
-  dyads = list(friendship = friendship)
+launch_model(engine="summary",
+             effects = "cov_fullmatch('sexe') + cov_fullmatch('sexe', category = 'H', size = c(2,3,4))",
+             partition = part2, nodes = noeuds2,
+             estimate = "CD", eval_loglik = FALSE, verbose = TRUE)
+
+launch_model(engine="summary",
+             effects = "cov_fullmatch('service', size = 4) + cov_fullmatch('service', category = 'Vent')",
+             partition = part2, nodes = noeuds2,
+             estimate = "CD", eval_loglik = FALSE, verbose = TRUE)
+
+launch_model(engine="summary",
+             effects = quote(cov_fullmatch(cov = noeuds2$promo, category = '2018')),
+             partition = part2, nodes = noeuds2,
+             estimate = "CD", eval_loglik = FALSE, verbose = TRUE)
+
+
+# # ---------- Scénario 3 ----------
+part3 <- c(1, 2,2, 3,3,3, 4,4, 5,5,5,5, 6)  # tailles: 1,2,3,2,4,1 => N=13
+noeuds3 <- data.frame(
+  nom      = paste0("N", seq_along(part3)),
+  sexe     = c("F",    "H","H",       "F","F","H",    "F","H",        "F","F","F","F",              "H"),
+  service  = c("Info", "Info","Info", "RH","RH","RH", "Rech","Rech",  "Rech","Rech","Rech","Rech",  "Vent"),
+  promo    = c(2017, 2020,2020, 2021,2021,2021, 2019,2019, 2018,2018,2018,2018, 2022),
+  stringsAsFactors = FALSE
 )
 
-# C1. Avec nw (attributs disponibles)
-erpm(
-  nw ~ groups() + cliques(3) + squared_sizes() +
-       Proj1(~ B(~ nodematch("gender") + absdiff("age") + edgecov("friendship"), "nonzero")),
-  estimate = "CD", 
-  eval.loglik = FALSE
+launch_model(engine="summary",
+             effects = "cov_fullmatch('sexe') + cov_fullmatch('sexe', size = c(1,4))",
+             partition = part3, nodes = noeuds3,
+             estimate = "CD", eval_loglik = FALSE, verbose = TRUE)
+
+launch_model(engine="summary",
+             effects = "cov_fullmatch('service', category = 'Rech') + cov_fullmatch('service', category = 'Info', size = 2)",
+             partition = part3, nodes = noeuds3,
+             estimate = "CD", eval_loglik = FALSE, verbose = TRUE)
+
+launch_model(engine="summary",
+             effects = quote(cov_fullmatch(cov = noeuds3$promo) + cov_fullmatch(cov = noeuds3$promo, category = '2018')),
+             partition = part3, nodes = noeuds3,
+             estimate = "CD", eval_loglik = FALSE, verbose = TRUE)
+
+
+# # ---------- Variante : test sur un biparti explicite ----------
+# biparti3 <- build_bipartite_from_inputs(partition = part3, nodes = noeuds3, dyads = list())
+# nw3      <- biparti3$network
+
+# launch_model(engine="summary",
+#              effects = "cov_fullmatch('sexe') + cov_fullmatch('service', category = 'Rech', size = 4)",
+#              nw = nw3,
+#              estimate = "CD", eval_loglik = FALSE, verbose = TRUE)
+
+
+# ---------- Tests ciblés cov_fullmatch : cas limites à verrouiller ----------
+
+# # Helper minimal: construit l'effet, exécute summary, compare au attendu.
+# .cfm_extract_stat <- function(x) {
+#   if (is.numeric(x) && length(x) == 1L) return(as.numeric(x))
+#   if (is.list(x)) {
+#     if (!is.null(x$result) && is.numeric(x$result)) return(as.numeric(x$result))
+#     if (!is.null(x$stats)  && is.numeric(x$stats))  return(as.numeric(x$stats))
+#   }
+#   stop("Impossible d'extraire une stat numérique depuis l'objet retourné.")
+# }
+
+# .cfm_expect <- function(partition, cov_vec, size = NULL, category = NULL, expected, label) {
+#   nodes <- data.frame(val = cov_vec, stringsAsFactors = FALSE)
+#   eff <- "cov_fullmatch('val')"
+#   if (!is.null(size) && !is.null(category)) eff <- sprintf("cov_fullmatch('val', size = c(%s), category = '%s')",
+#                                                           paste(size, collapse=","), as.character(category))
+#   else if (!is.null(size))     eff <- sprintf("cov_fullmatch('val', size = c(%s))", paste(size, collapse=","))
+#   else if (!is.null(category)) eff <- sprintf("cov_fullmatch('val', category = '%s')", as.character(category))
+
+#   res <- launch_model(engine = "summary",
+#                       effects = eff,
+#                       partition = partition, nodes = nodes,
+#                       estimate = "CD", eval_loglik = FALSE, verbose = FALSE)
+
+#   got <- .cfm_extract_stat(res)
+#   ok  <- isTRUE(all.equal(got, as.numeric(expected)))
+#   msg <- sprintf("[cov_fullmatch] %-24s eff=%s  obtenu=%s  attendu=%s  -> %s",
+#                  label, eff, as.character(got), as.character(expected),
+#                  if (ok) "OK" else "ECHEC")
+#   if (exists("log_msg")) log_msg(if (ok) "INFO" else "ERROR", msg) else message(msg)
+#   if (!ok) stop(msg)
+# }
+
+# .cfm_expect_error <- function(partition, cov_vec, size = NULL, category = NULL, label) {
+#   nodes <- data.frame(val = cov_vec, stringsAsFactors = FALSE)
+#   eff <- "cov_fullmatch('val')"
+#   if (!is.null(size) && !is.null(category)) eff <- sprintf("cov_fullmatch('val', size = c(%s), category = '%s')",
+#                                                           paste(size, collapse=","), as.character(category))
+#   else if (!is.null(size))     eff <- sprintf("cov_fullmatch('val', size = c(%s))", paste(size, collapse=","))
+#   else if (!is.null(category)) eff <- sprintf("cov_fullmatch('val', category = '%s')", as.character(category))
+
+#   err <- NULL
+#   tryCatch({
+#     launch_model(engine="summary",
+#                  effects = eff,
+#                  partition = partition, nodes = nodes,
+#                  estimate = "CD", eval_loglik = FALSE, verbose = FALSE)
+#   }, error = function(e) err <<- e$message)
+
+#   ok <- !is.null(err) && (
+#     grepl("cov_fullmatch: NA non autorisé", err, fixed = TRUE) ||
+#     grepl("cov_fullmatch: 'size' vide (integer\\(0\\)) interdit", err)
+#   )
+#   msg <- sprintf("[cov_fullmatch] %-24s eff=%s  -> %s",
+#                  paste0(label, " (NA fail-fast)"), eff, if (ok) "OK" else "ECHEC")
+#   if (exists("log_msg")) log_msg(if (ok) "INFO" else "ERROR", msg) else message(msg)
+#   if (!ok) stop(err %||% "Erreur attendue non levée.")
+# }
+
+# # Rappel: définition visée
+# # Stat = somme des tailles de groupes n_g tels que:
+# #  - sans 'category' : tous les membres du groupe partagent la même valeur non-NA
+# #  - avec 'category' : tous les membres du groupe ont exactement 'category'
+# #  - 'size' filtre les tailles admissibles; size = integer(0) => aucun groupe admissible
+
+# # ---------- 2) Ex æquo cnt_max mais cnt_max < n_g : doit rester 0 ----------
+# # Groupe de taille 4 avec 2 'A' et 2 'B' -> pas homogène
+# p_tie <- c(1,1,1,1,           2,2,2)
+# v_tie <- c("A","A","B","B",  "Z","Z","Z") # g1 non homogène, g2 homogène
+# # Sans filtre -> g1=0, g2=3 -> 3
+# .cfm_expect(p_tie, v_tie, expected = 1, label = "tie 2v2 neutralisé")
+# # size=4 isole le groupe ex-aequo -> 0
+# .cfm_expect(p_tie, v_tie, size = 4, expected = 0, label = "tie 2v2 size=4 -> 0")
+
+# # # ---------- 3) size singleton, vide, et incluant 1 ----------
+# p_sz <- c(1,      2,2,      3,3,3)   # tailles 1,2,3
+# v_sz <- c("X",    "Y","Y",  "Z","Z","Z")
+
+# # # size=1 : seul singleton compte -> 1
+# .cfm_expect(p_sz, v_sz, size = 1, expected = 1, label = "size=1 uniquement")
+# # # size=integer(0) : aucun admissible -> 0
+# # .cfm_expect(p_sz, v_sz, size = 0, expected = 0, label = "size vide interdit")
+# # size=c(1,3) : singleton (1) + double (2,2) -> 1+1 = 2
+# .cfm_expect(p_sz, v_sz, size = c(1,3), expected = 2, label = "size incluant 1 et 3")
+
+# # ---------- 4) Numérique dense quasi jamais homogène ----------
+# set.seed(42)
+# p_dense <- c(1,1,1, 2,2,2, 3,3,3, 4, 5)  # trois groupes de 3, deux singletons
+# val_dense <- c(1,2,3, 4,5,6, 7,8,9,  10, 11)  # tous distincts
+# # Sans filtre -> seuls les singletons contribuent -> 1 + 1 = 2
+# .cfm_expect(p_dense, val_dense, expected = 2, label = "numérique dense")
+# # size=3 élimine les singletons -> 0
+# .cfm_expect(p_dense, val_dense, size = 3, expected = 0, label = "dense size=3 -> 0")
+
+# # ---------- 5) category absent de tout groupe : doit renvoyer 0 ----------
+# p_cat0 <- c(1,1, 2,2,2, 3,3,3,3)
+# v_cat0 <- c("A","A", "B","B","B", "C","C","C","C")
+# # .cfm_expect_error(p_cat0, v_cat0, category = "ZZZ", label = "category absent -> 0")
+
+# ---------- Paramètres communs ERPM rapides ----------
+ctrl_fast <- control.ergm(
+  init.method   = "CD",
+  CD.samplesize = 50000,
+  CD.nsteps     = 5,
+  MCMC.burnin   = 4000,
+  MCMC.interval = 1000,
+  MCMLE.maxit   = 1
 )
 
-# C2. Avec nw2 (aucun attribut → pas de covariés acteurs)
-erpm(
-  nw2 ~ groups() + cliques(2) + squared_sizes(),
-  estimate = "CD", 
-  eval.loglik = FALSE
+ctrl_cd_only <- control.ergm(
+  init.method      = "CD",
+  CD.samplesize    = 100000,
+  CD.nsteps        = 15,
+  MCMC.burnin      = 20000,
+  MCMC.interval    = 2000,
+  force.main       = TRUE,
+  parallel         = 0,
+  seed             = 1
 )
+tmo <- 10
 
-# C3. Exemple minimal structurel sur nw
-erpm(nw ~ groups() + cliques(3))
+# ========== ERPM: cas "size=1" et "size=c(1,3)" ==========
+p_sz <- c(1,    2,2,      3,3,3)
+v_sz <- c("X",  "Y","Y",  "Z","Z","Z")
+nodes_sz <- data.frame(val = v_sz, stringsAsFactors = FALSE)
 
-# C4. Exemple minimal structurel sur nw2
-erpm(nw2 ~ squared_sizes() + groups(from = 2, to = 4))
+# size = 1
+err <- NULL; res <- NULL
+tryCatch({
+  res <- launch_model(engine="erpm",
+                      effects = "cov_fullmatch('val', size = c(1))",
+                      partition = p_sz, nodes = nodes_sz,
+                      estimate = "MLE", eval_loglik = FALSE,
+                      control = ctrl_fast, timeout = tmo, verbose = FALSE)
+}, error = function(e) err <<- e$message)
+if (is.null(err)) { log_msg("INFO","[ERPM] size=1 uniquement -> OK") } else { log_msg("ERROR",err); stop(err) }
 
-# ======================================================================================= 
-# ======================================== CLEAN ======================================== 
+# size = c(1,3)
+err <- NULL; res <- NULL
+tryCatch({
+  res <- launch_model(engine="erpm",
+                      effects = "cov_fullmatch('val', size = c(1,3))",
+                      partition = p_sz, nodes = nodes_sz,
+                      estimate = "CD", eval_loglik = FALSE,
+                      control = ctrl_cd_only, timeout = tmo, verbose = FALSE)
+}, error = function(e) err <<- e$message)
+if (is.null(err)) { log_msg("INFO","[ERPM] size=1,3 -> OK") } else { log_msg("ERROR",err); stop(err) }
 
-# Désactive le patch ERGM si actif
-if (exists("ergm_patch_disable")) ergm_patch_disable( verbose = VERBOSE )
+# ========== ERPM: cas tie 2v2 et filtre size=4 ==========
+p_tie <- c(1,1,1,1, 2,2,2)
+v_tie <- c("A","A","B","B", "Z","Z","Z")
+nodes_tie <- data.frame(val = v_tie, stringsAsFactors = FALSE)
 
-# Vide le buffer stdout
-flush.console()  
+# sans filtre
+err <- NULL; res <- NULL
+tryCatch({
+  res <- launch_model(engine="erpm",
+                      effects = "cov_fullmatch('val')",
+                      partition = p_tie, nodes = nodes_tie,
+                      estimate = "CD", eval_loglik = FALSE,
+                      control = ctrl_fast, timeout = tmo, verbose = FALSE)
+}, error = function(e) err <<- e$message)
+if (is.null(err)) { log_msg("INFO","[ERPM] tie 2v2 neutralisé -> OK") } else { log_msg("ERROR",err); stop(err) }
 
-# Log
+# size = 4
+err <- NULL; res <- NULL
+tryCatch({
+  res <- launch_model(engine="erpm",
+                      effects = "cov_fullmatch('val', size = c(4))",
+                      partition = p_tie, nodes = nodes_tie,
+                      estimate = "CD", eval_loglik = FALSE,
+                      control = ctrl_fast, timeout = tmo, verbose = FALSE)
+}, error = function(e) err <<- e$message)
+if (is.null(err)) { log_msg("INFO","[ERPM] tie 2v2 size=4 -> OK") } else { log_msg("ERROR",err); stop(err) }
+
+# ========== ERPM: numérique dense ==========
+set.seed(42)
+p_dense <- c(1,1,1, 2,2,2, 3,3,3, 4, 5)
+val_dense <- c(1,2,3, 4,5,6, 7,8,9, 10, 11)
+nodes_dense <- data.frame(val = val_dense, stringsAsFactors = FALSE)
+
+# run sans filtre
+err <- NULL; res <- NULL
+tryCatch({
+  res <- launch_model(engine="erpm",
+                      effects = "cov_fullmatch('val')",
+                      partition = p_dense, nodes = nodes_dense,
+                      estimate = "CD", eval_loglik = FALSE,
+                      control = ctrl_fast, timeout = tmo, verbose = FALSE)
+}, error = function(e) err <<- e$message)
+if (is.null(err)) { log_msg("INFO","[ERPM] dense sans filtre -> OK") } else { log_msg("ERROR",err); stop(err) }
+
+# size = 3
+err <- NULL; res <- NULL
+tryCatch({
+  res <- launch_model(engine="erpm",
+                      effects = "cov_fullmatch('val', size = c(3))",
+                      partition = p_dense, nodes = nodes_dense,
+                      estimate = "CD", eval_loglik = FALSE,
+                      control = ctrl_fast, timeout = tmo, verbose = FALSE)
+}, error = function(e) err <<- e$message)
+if (is.null(err)) { log_msg("INFO","[ERPM] dense size=3 -> OK") } else { log_msg("ERROR",err); stop(err) }
+
+# ======================================== CLEAN =======================================
+if (exists("ergm_patch_disable")) ergm_patch_disable(verbose = VERBOSE)
+flush.console()
 if (exists("log_msg")) log_msg("INFO", "Fin du programme -- Nettoyage de l'environnement global")
-
-# Nettoie l'environnement
 clean_global_env(verbose = VERBOSE)
