@@ -29,7 +29,7 @@ C_CHANGESTAT_FN(c_cliques){
 
   // nœud "groupe" (mode 2 : index > n1)
   Vertex t = tail, h = head;
-  Vertex v2 = (t > n1) ? t : h;
+  Vertex v2 = (t > (Vertex)n1) ? t : h;
 
   // degré groupe avant toggle
   int deg_old = (int)(OUT_DEG[v2] + IN_DEG[v2]);
