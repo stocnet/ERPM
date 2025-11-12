@@ -1,110 +1,74 @@
 # ==============================================================================
 # Fichier : scripts/test/minimal_working_exemple/MWE_log_factorial_sizes.R
-#
-# Objet   : MWE pour l’effet ERPM `log_factorial_sizes` — calcule la stat observée
-#            via dry-run `erpm()` + réalise un fit ERGM via `erpm()`.
-#
-# Chaîne : partition -> biparti -> traduction -> (dry) formule -> summary(formule)
-#          partition -> biparti -> traduction -> formule -> ergm()
-#
-# Expression math  : stat = Σ_g log((n_g - 1)!) = Σ_g lgamma(n_g)
-# Remarque : pas de paramètre pour cet effet. Contrainte ~b1part.
+# Objet   : MWE pour l’effet ERPM `log_factorial_sizes`
+# Chaîne  : partition -> biparti (wrapper) -> summary de référence
+#           partition -> erpm(dry-run) -> summary observé -> comparaison
+#           partition -> erpm(MLE) -> summary(fit)
+# Stat    : Σ_g log((n_g - 1)!) = Σ_g lgamma(n_g) ; contrainte ~ b1part
 # ==============================================================================
 
-# ----- Préambule locale/UTF-8 -------------------------------------------------
+options(ergm.loglik.warn_dyads = FALSE)
 Sys.setenv(LANG = "fr_FR.UTF-8")
 invisible(try(Sys.setlocale("LC_CTYPE","fr_FR.UTF-8"), silent = TRUE))
 
-# ----- Dépendances minimales ---------------------------------------------------
 suppressPackageStartupMessages({
-  library(devtools)  # load_all(".")
-  library(network)
+  library(devtools)
   library(ergm)
 })
 
-# ----- Charge le package local ERPM -------------------------------------------
 devtools::load_all(".")
 
-# ----- Active le patch {ergm} si présent --------------------------------------
 if (file.exists("scripts/ergm_patch.R")) {
   source("scripts/ergm_patch.R")
   ergm_patch_enable()
 }
 
-# ----- Partition de test -------------------------------------------------------
-#   Groupes effectifs = {1,2,3,4} ; tailles = (1,4,2,3) ; N1 = 10 acteurs
+# ------------------------------------------------------------------------------ 
+# Données fixes
+# Groupes effectifs = {1,2,3,4} ; tailles = (1,4,2,3) ; N1 = 10
+# ------------------------------------------------------------------------------ 
 partition <- c(1, 2, 2, 2, 2, 3, 3, 4, 4, 4)
+cat("Partition :", paste(partition, collapse = " "), "\n")
+cat("Tailles groupes :", paste(as.integer(table(partition)), collapse = ", "), "\n\n")
 
-cat("\nPartition :", paste(partition, collapse = ", "), "\n")
-sizes <- as.integer(table(partition))
-cat("Tailles des groupes (par ordre de label):", paste(sizes, collapse = ", "), "\n")
-cat("Nombre d'acteurs (N1):", length(partition), " | Nombre de groupes:", length(sizes), "\n\n")
+# ------------------------------------------------------------------------------ 
+# 1) Réseau biparti via wrapper (build_bipartite_from_inputs)
+# ------------------------------------------------------------------------------ 
+bld <- build_bipartite_from_inputs(partition = partition)
+nw  <- bld$network
 
-# ----- Helper forme fermée ----------------------------------------------------
-# Référence: Σ_g log((n_g - 1)!) = Σ_g lgamma(n_g)
-stat_expected <- function(part) {
-  sizes <- as.integer(table(part))
-  sum(lgamma(sizes))
-}
+# ------------------------------------------------------------------------------ 
+# 2) SUMMARY de référence direct sur le biparti
+# ------------------------------------------------------------------------------ 
+summary_reference_val     <- as.numeric(summary(nw ~ log_factorial_sizes(), constraints = ~ b1part))
+summary_reference_closed  <- sum(lgamma(as.integer(table(partition))))
+cat("[summary|référence] network ~ log_factorial_sizes() :", summary_reference_val, "\n")
+cat("[summary|fermée   ] Σ_g lgamma(n_g)                :", summary_reference_closed, "\n\n")
+stopifnot(isTRUE(all.equal(summary_reference_val, summary_reference_closed, tol = 0)))
 
-# ==============================================================================
-# 1) STAT OBSERVÉE — dry-run erpm -> formule -> summary(formule, ~b1part)
-# ==============================================================================
-
-# Dry-run: partition LHS -> call ergm(...)
+# ------------------------------------------------------------------------------ 
+# 3) SUMMARY observé via erpm(dry-run) -> formule -> summary(...)
+# ------------------------------------------------------------------------------ 
 dry <- erpm(partition ~ log_factorial_sizes, eval_call = FALSE, verbose = TRUE)
-
-# Extraire la formule {ergm} traduite et l’évaluer sous contrainte bipartite
 fml <- dry[[2]]
-obs <- summary(fml, constraints = ~ b1part)
+cons <- if (length(dry) >= 3L && inherits(dry[[3]], "formula")) dry[[3]] else ~ b1part
 
-# Comparaison à la valeur fermée
-exp_val <- stat_expected(partition)
+summary_observed_via_erpm_dry <- as.numeric(summary(fml, constraints = cons))
+cat("[summary|erpm(dry)]                                 :", summary_observed_via_erpm_dry, "\n\n")
+stopifnot(isTRUE(all.equal(summary_observed_via_erpm_dry, summary_reference_val, tol = 0)))
 
-cat(sprintf("[MWE log_factorial_sizes] summary observé = %.12f | attendu = %.12f\n",
-            as.numeric(obs), as.numeric(exp_val)))
-stopifnot(is.numeric(obs), length(obs) == 1L,
-          isTRUE(all.equal(as.numeric(obs), as.numeric(exp_val), tol = 1e-10)))
-
-# ==============================================================================
-# 1-bis) Explicitation (pas sûr que ça se dise) du réseau
-# ==============================================================================
-# Construction bipartie minimale si le helper projet n’est pas chargé
-partition_to_bipartite_network_min <- function(labels, partition) {
-  stopifnot(length(labels) == length(partition))
-  nA <- length(partition)
-  G  <- max(partition)
-  inc <- matrix(0L, nrow = nA, ncol = G,
-                dimnames = list(labels, paste0("G", seq_len(G))))
-  inc[cbind(seq_len(nA), partition)] <- 1L
-  nw <- network::network(inc, matrix.type = "bipartite", bipartite = nA, directed = FALSE)
-  network::set.vertex.attribute(nw, "vertex.names", c(labels, colnames(inc)))
-  nw
-}
-
-lbl <- paste0("A", seq_len(length(partition)))
-nw_bip <- partition_to_bipartite_network_min(lbl, partition)
-
-# Formule réseau explicite
-obs_nw <- summary(nw_bip ~ log_factorial_sizes(), constraints = ~ b1part)
-cat(sprintf("[Route réseau] summary(nw ~ log_factorial_sizes()) = %.12f\n", as.numeric(obs_nw)))
-stopifnot(isTRUE(all.equal(as.numeric(obs_nw), as.numeric(exp_val), tol = 1e-10)))
-
-# ==============================================================================
-# 2) FIT ERGM COURT — estimation via erpm()
-# ==============================================================================
+# ------------------------------------------------------------------------------ 
+# 4) FIT via erpm() en MLE + logLik (appel direct et concis)
+# ------------------------------------------------------------------------------ 
 set.seed(1)
-oldopt <- options(ergm.loglik.warn_dyads = FALSE); on.exit(options(oldopt), add = TRUE)
+fit_erpm_mle <- erpm(
+  partition ~ log_factorial_sizes,
+  estimate    = "MLE",
+  eval.loglik = TRUE,
+  verbose     = TRUE
+)
 
-fit <- erpm(partition ~ log_factorial_sizes,
-            eval_call   = TRUE,
-            verbose     = TRUE,
-            estimate    = "CD",       # rapide et suffisant pour le MWE
-            eval.loglik = FALSE,
-            control     = list(MCMLE.maxit = 2, MCMC.samplesize = 500))
+cat("\n--- summary(fit_erpm_mle) ---\n")
+print(summary(fit_erpm_mle))
 
-cat("\n--- summary(fit) (style ergm) ---\n")
-print(summary(fit))
-
-# ----- Nettoyage patch ---------------------------------------------------------
 on.exit(try(ergm_patch_disable(), silent = TRUE), add = TRUE)

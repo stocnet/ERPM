@@ -21,45 +21,25 @@ partition_mix <- c(1,2,2,3,3,3)
 built <- build_bipartite_from_inputs(partition = partition_mix)
 nw2   <- built$network  # réseau biparti du wrapper
 
-# # create nw for ergm
-# n <- 6
-# nw <- network.initialize(n * 2, dir = FALSE, bip = n)
-
-# # baseline case #1
-# nw[cbind(seq_along(partition_mix), partition_mix + n)] <- 1
-
-
-# 2) Contrôles identiques
-ctrl <- control.ergm(
-  # init              = "MPLE",
-  # CD.nsteps         = 20,        # ou 0 pour sauter CD
-  # MCMC.burnin       = 2e5,
-  # MCMC.interval     = 5e3,
-  # MCMC.samplesize   = 5e3,
-  # MCMLE.termination = "Hummel",
-  # MCMLE.maxit       = 60
-)
 
 set.seed(1)
 
-# 3) Appel {ergm} de référence sur le même réseau
-message("[ERGM] Appel {ergm} de référence sur le même réseau")
+# 2) Appel ergm  sur le même réseau
+message("[ERGM] Appel ergm sur le même réseau")
 fit_ergm <- ergm(
   nw2 ~ b2degrange(1, Inf),
   constraints = ~ b1part,
   estimate    = "MLE",
-  eval.loglik = TRUE,
-  control     = ctrl
+  eval.loglik = TRUE
 )
 
 
-message("[ERPM] Appel wrapper strictement équivalent")
-# 4) Appel wrapper strictement équivalent
+message("[ERPM] Appel erpm strictement équivalent")
+# 3) Appel erpm  équivalent
 fit_erpm <- erpm(
   partition_mix ~ groups,
   estimate    = "MLE",
-  eval.loglik = TRUE,
-  control     = ctrl
+  eval.loglik = TRUE
 )
 
 

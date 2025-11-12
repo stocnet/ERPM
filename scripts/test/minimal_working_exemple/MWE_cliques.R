@@ -1,40 +1,39 @@
-# ======================================================================================
+# ==============================================================================
 # Fichier : scripts/test/minimal_working_exemple/MWE_cliques.R
 #
 # Objet   : MWE pour l’effet ERPM `cliques(k)` — calcule la stat observée (summary)
-#            via dry-run `erpm()` + calcule un fit ERGM via `erpm()` non normalisé.
+#            via une formule directe sur le biparti + réalise un fit ERGM via `erpm()`.
 #
-# Contexte: Ce script illustre la chaîne ERPM → ERGM :
-#            partition -> réseau biparti -> traduction -> (dry) formule -> summary(formule) / ergm()
-#            partition -> réseau biparti -> traduction -> formule -> ergm()
+# Chaîne ERPM → ERGM :
+#   partition -> biparti (build_bipartite_from_inputs) -> summary(nw ~ ...) / erpm(partition ~ ...)
 #
 # Résumé technique :
-#   • `cliques(k)` est implémenté côté ERGM (InitErgmTerm + change-stat C).
-#   • Pour le summary : `erpm(..., eval_call=FALSE)` renvoie un appel `ergm(formule, ...)` non évalué.
-#     La formule capture `nw` dans son environnement ; `summary(formule, ...)` l’utilise.
-#   • k ≥ 1 pris en charge ; k=1 = nombre de groupes de taille 1.
+#   • `cliques(k)` (k ≥ 1 ; k=1 = nombre de groupes de taille 1).
 #   • `normalized=TRUE` divise par C(N1,k), N1 = nb d’acteurs.
-# ======================================================================================
+#   • Summary : formule directe `nw ~ cliques(...)`, contrainte `~ b1part`.
+#   • Fit : appel direct `erpm(partition ~ cliques(...), estimate="MLE", eval.loglik=TRUE)`.
+# ==============================================================================
 
-# ----- Préambule locale/UTF-8 ---------------------------------------------------------
+# ----- Préambule locale/UTF-8 -------------------------------------------------
 Sys.setenv(LANG = "fr_FR.UTF-8")
-invisible(try(Sys.setlocale("LC_CTYPE","fr_FR.UTF-8"), silent = TRUE))
+invisible(try(Sys.setlocale("LC_CTYPE", "fr_FR.UTF-8"), silent = TRUE))
+options(ergm.loglik.warn_dyads = FALSE)   # 4) demandé
 
-# ----- Dépendances minimales ----------------------------------------------------------
 suppressPackageStartupMessages({
-  library(devtools)  # load_all(".")
-  library(network)   # objet network + attribut 'bipartite'
-  library(ergm)      # summary(), ergm(), control.ergm(), etc.
+  library(devtools)   # expose erpm(), cliques(), build_bipartite_from_inputs, etc.
+  library(ergm)
 })
 
-# ----- Charge le package local ERPM ---------------------------------------------------
+# ----- Charge le package local ERPM -------------------------------------------
 devtools::load_all(".")
 
-# ----- Active le patch {ergm} ---------------------------------------------------------
-source("scripts/ergm_patch.R")
-ergm_patch_enable()
+# ----- Active le patch {ergm} si présent --------------------------------------
+if (file.exists("scripts/ergm_patch.R")) {
+  source("scripts/ergm_patch.R")
+  ergm_patch_enable()
+}
 
-# ----- Partition de test --------------------------------------------------------------
+# ----- Partition de test -------------------------------------------------------
 #   Groupes effectifs = {1,2,3,4} ; tailles = (1,4,2,3) ; N1 = 10 acteurs
 partition <- c(1, 2, 2, 2, 2, 3, 3, 4, 4, 4)
 
@@ -43,47 +42,46 @@ sizes <- as.integer(table(partition))
 cat("Tailles des groupes (par ordre de label):", paste(sizes, collapse = ", "), "\n")
 cat("Nombre d'acteurs (N1):", length(partition), " | Nombre de groupes:", length(sizes), "\n\n")
 
-# ======================================================================================
-# 1) STAT OBSERVÉE SANS FIT — 
-#    dry-run erpm -> extraction de la formule -> summary(formule, ~b1part)
-# ======================================================================================
+# ----- Construction explicite du biparti via le wrapper ERPM ------------------
+# 1) demandé : construire le biparti depuis build_bipartite_from_inputs
+bld <- build_bipartite_from_inputs(partition = partition)
+nw  <- bld$network
+
+# ==============================================================================
+# 1) SUMMARY DIRECT — formule simple sur le biparti
+# ==============================================================================
+# 2) demandé : noms explicites, appels directs et visuels simples
 k <- 2
-dry <- erpm(partition ~ cliques(cliques_sizes = k), eval_call = FALSE, verbose = TRUE)
-fml <- dry[[2]]  # formule: nw ~ cliques(clique_size=k, normalized=FALSE)
 
-# Le réseau biparti 'nw' est dans l’environnement de la formule
-obs <- summary(fml, constraints = ~ b1part)
-cat(sprintf("[MWE cliques(k=%d)] summary observé = %s  | terme = %s\n\n",
-            k, paste0(obs, collapse = ", "), paste0(names(obs), collapse = ", ")))
+# Summary non normalisé
+stat_summary_cliques_k2 <- summary(nw ~ cliques(clique_size = k), constraints = ~ b1part)
+cat(sprintf("[summary] cliques(k=%d) = %s\n",
+            k, paste0(as.numeric(stat_summary_cliques_k2), collapse = ", ")))
 
-stopifnot(is.numeric(obs), length(obs) == 1L)
+# Summary normalisé
+stat_summary_cliques_k2_norm <- summary(nw ~ cliques(clique_size = k, normalized = TRUE), constraints = ~ b1part)
+cat(sprintf("[summary] cliques(k=%d, normalized=TRUE) = %s\n\n",
+            k, paste0(as.numeric(stat_summary_cliques_k2_norm), collapse = ", ")))
 
-# ======================================================================================
-# 2) STAT OBSERVÉE NORMALISÉE —
-#    dry-run erpm avec normalized=TRUE, puis summary() sur la formule
-# ======================================================================================
+# Garde-fous simples
+stopifnot(length(stat_summary_cliques_k2)      == 1L, is.finite(stat_summary_cliques_k2))
+stopifnot(length(stat_summary_cliques_k2_norm) == 1L, is.finite(stat_summary_cliques_k2_norm))
 
-dry_norm <- erpm(partition ~ cliques(cliques_sizes = 2, normalized = TRUE),
-                 eval_call = FALSE, verbose = TRUE)
-fml_norm <- dry_norm[[2]]
+# ==============================================================================
+# 2) FIT ERPM MLE + logLik — appel direct et minimal
+# ==============================================================================
+set.seed(1)
 
-obs_norm <- summary(fml_norm, constraints = ~ b1part)
-cat("[MWE cliques(k=2, normalized=TRUE)] summary observé =", obs_norm, "\n\n")
+# 3) demandé : estimate="MLE", eval.loglik=TRUE
+fit_cliques_k2 <- erpm(
+  partition ~ cliques(clique_size = 2),
+  estimate    = "MLE",
+  eval.loglik = TRUE,
+  verbose     = TRUE
+)
 
-stopifnot(is.numeric(obs_norm), length(obs_norm) == 1L)
+cat("\n--- summary(fit_cliques_k2) (style ergm) ---\n")
+print(summary(fit_cliques_k2))
 
-# ======================================================================================
-# 3) FIT ERGM COMPLET NON NORMALISÉ — k = 2
-#    Un fit via erpm() est réalisé, puis un résumé standard du fit est affiché.
-# ======================================================================================
-
-set.seed(1)  # stabilise l’estimation si on utilise une estimation CD dans ergm
-fit <- erpm(partition ~ cliques(cliques_sizes = 2),
-            eval_call   = TRUE,
-            verbose     = TRUE,
-            estimate    = "MLE",
-            eval.loglik = TRUE)
-
-# Affiche un résumé du fit
-cat("\n--- summary(fit) (style ergm) ---\n")
-print(summary(fit))
+# ----- Désactivation du patch {ergm} si activé --------------------------------
+on.exit(try(ergm_patch_disable(), silent = TRUE), add = TRUE)

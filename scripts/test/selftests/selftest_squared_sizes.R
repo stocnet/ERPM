@@ -9,546 +9,423 @@
 # --------------------------------------------------------------------------------------
 Sys.setenv(LANG = "fr_FR.UTF-8")
 invisible(try(Sys.setlocale("LC_CTYPE","fr_FR.UTF-8"), silent = TRUE))
+options(ergm.loglik.warn_dyads = FALSE)
 
 suppressPackageStartupMessages({
-    if (!requireNamespace("network", quietly = TRUE)) stop("Package 'network' requis.")
-    if (!requireNamespace("ergm",    quietly = TRUE)) stop("Package 'ergm' requis.")
+  if (!requireNamespace("network", quietly = TRUE)) stop("Package 'network' requis.")
+  if (!requireNamespace("ergm",    quietly = TRUE)) stop("Package 'ergm' requis.")
 })
 
 suppressMessages(suppressPackageStartupMessages({
-    library(network, quietly = TRUE, warn.conflicts = FALSE)
-    library(ergm,    quietly = TRUE, warn.conflicts = FALSE)
+  library(network, quietly = TRUE, warn.conflicts = FALSE)
+  library(ergm,    quietly = TRUE, warn.conflicts = FALSE)
 }))
 
-#' Obtenir le répertoire du script en cours d'exécution
-#'
-#' Cette fonction renvoie le chemin absolu du répertoire contenant
-#' le script R actuellement exécuté, que celui-ci soit lancé avec
-#' `Rscript`, `source()`, ou en session interactive.
-#'
-#' @details
-#' - Si le script est lancé avec `Rscript`, le chemin est extrait de `--file=`.
-#' - Si le script est exécuté via `source()`, la fonction parcourt la pile
-#'   d'appels pour retrouver l'origine (`ofile`).
-#' - En dernier recours, elle renvoie le répertoire de travail courant (`getwd()`).
-#'
-#' @return Un chemin absolu (chaîne de caractères) normalisé avec des barres obliques `/`.
-#' @examples
-#' .get_script_dir()
-#'
-#' @keywords internal
-.get_script_dir <- function() {
-    a <- commandArgs(FALSE)
-    f <- sub("^--file=", "", a[grepl("^--file=", a)])
-    if (length(f) == 1L) return(normalizePath(dirname(f), winslash = "/", mustWork = FALSE))
-    if (!is.null(sys.frames()) && !is.null(sys.calls())) {
-        for (i in rev(seq_along(sys.calls()))) {
-        cf <- sys.frame(i)
-        if (!is.null(cf$ofile)) return(normalizePath(dirname(cf$ofile), winslash = "/", mustWork = FALSE))
-        }
-    }
-    normalizePath(getwd(), winslash = "/", mustWork = FALSE)
+# Patch traçage/contournement ERGM si disponible
+if (file.exists("scripts/ergm_patch.R")) {
+  source("scripts/ergm_patch.R")
+  if (exists("ergm_patch_enable", mode = "function")) {
+    ergm_patch_enable()
+  } else {
+    message("[ergm_patch] fonction ergm_patch_enable absente")
+  }
+} else {
+  message("[ergm_patch] scripts/ergm_patch.R introuvable, on continue sans patch")
 }
 
+# --------------------------------------------------------------------------------------
+# Local logging minimal
+# --------------------------------------------------------------------------------------
+.get_script_dir <- function() {
+  a <- commandArgs(FALSE)
+  f <- sub("^--file=", "", a[grepl("^--file=", a)])
+  if (length(f) == 1L) return(normalizePath(dirname(f), winslash = "/", mustWork = FALSE))
+  if (!is.null(sys.frames()) && !is.null(sys.calls())) {
+    for (i in rev(seq_along(sys.calls()))) {
+      cf <- sys.frame(i)
+      if (!is.null(cf$ofile)) return(normalizePath(dirname(cf$ofile), winslash = "/", mustWork = FALSE))
+    }
+  }
+  normalizePath(getwd(), winslash = "/", mustWork = FALSE)
+}
 script_dir <- .get_script_dir()
 log_path   <- file.path(script_dir, "selftest_squared_sizes.log")
-
-# réinit
+cat("[diag] script_dir =", script_dir, "\n")
+cat("[diag] log_path   =", log_path,   "\n")
 if (file.exists(log_path)) unlink(log_path, force = TRUE)
-
-# connexions dédiées
-con_out <- file(log_path, open = "wt")  # sortie standard
-con_err <- file(log_path, open = "at")  # messages/erreurs en append
-
-sink(con_out, split = TRUE)             # stdout → fichier + console
-sink(con_err, type = "message")         # messages → fichier
-
+con_out <- file(log_path, open = "wt")
+con_err <- file(log_path, open = "at")
+sink(con_out, split = TRUE)
+sink(con_err, type = "message")
 on.exit({
-    try(sink(type = "message"), silent = TRUE)
-    try(close(con_err),        silent = TRUE)
-    try(sink(),                silent = TRUE)
-    try(close(con_out),        silent = TRUE)
-    flush.console()
+  try(sink(type = "message"), silent = TRUE)
+  try(close(con_err),        silent = TRUE)
+  try(sink(),                silent = TRUE)
+  try(close(con_out),        silent = TRUE)
+  flush.console()
 }, add = TRUE)
 
-# Charger le terme ERGM squared_sizes si non chargé
+# --------------------------------------------------------------------------------------
+# Chargement package/terme + wrapper ERPM
+# --------------------------------------------------------------------------------------
 if (requireNamespace("devtools", quietly = TRUE) && file.exists("DESCRIPTION")) {
-    # si tu es dans le package, charge tout (inclut C/registration si déjà compilé)
-    devtools::load_all(quiet = TRUE)
+  cat("[diag] devtools::load_all()...\n")
+  devtools::load_all(quiet = TRUE)
+  cat("[diag] load_all OK. Terme attendu présent ? ",
+      exists("InitErgmTerm.squared_sizes", mode = "function"), "\n")
 } else {
-    stop("InitErgmTerm.squared_sizes introuvable. Place le fichier sous R/ ou exécute depuis le package (load_all).")
+  stop("InitErgmTerm.squared_sizes introuvable. Exécuter depuis le package (load_all).")
 }
 
-# Charger les fonctions biparti si non chargées
-if (!exists("partition_to_bipartite_network", mode = "function")) {
-    if (file.exists("R/functions_erpm_bip_network.R")) {
-        source("R/functions_erpm_bip_network.R", local = FALSE)
-    } else {
-        stop("functions_erpm_bip_network.R introuvable. Place ce fichier sous R/.")
-    }
-}
-
-# Charger le wrapper ERPM si tu veux aussi inspecter la traduction
-if (!exists("erpm", mode = "function")) {
+if (!exists("build_bipartite_from_inputs", mode = "function") || !exists("erpm", mode = "function")) {
   if (file.exists("R/erpm_wrapper.R")) {
+    cat("[diag] source R/erpm_wrapper.R\n")
     source("R/erpm_wrapper.R", local = FALSE)
   } else {
-    stop("erpm_wrapper.R introuvable. Place ce fichier sous R/.")
+    cat("[diag] R/erpm_wrapper.R introuvable, on suppose erpm déjà chargé ailleurs\n")
   }
 }
+cat("[diag] fonctions wrapper dispo ? build_bipartite_from_inputs=",
+    exists("build_bipartite_from_inputs", mode = "function"),
+    " erpm=", exists("erpm", mode = "function"), "\n")
+if (!exists("build_bipartite_from_inputs", mode = "function"))
+  stop("build_bipartite_from_inputs indisponible. Charger R/erpm_wrapper.R.")
 
 # ======================================================================================
-# Fonctions locales
+# Fonctions locales — noms explicites: *summary* / *erpm*
 # ======================================================================================
 
-#' Construire un réseau biparti depuis une partition
-#' @param part vecteur de groupes par objet, ex. c(1,2,2,3,3,3).
-#' @return objet `network` bipartite prêt pour {ergm}.
-#' @keywords internal
-.make_nw_from_partition <- function(part) {
-    n <- length(part)
-    stopifnot(n >= 1, is.atomic(part))
-    lbl <- utils::head(LETTERS, n)
-    partition_to_bipartite_network(labels = lbl, partition = part, attributes = list())
+# Construction du biparti via le wrapper (exigé)
+.build_bipartite_nw_via_wrapper <- function(part) {
+  stopifnot(length(part) >= 1L)
+  nodes <- data.frame(label = utils::head(LETTERS, length(part)),
+                      stringsAsFactors = FALSE)
+
+  if (!exists("build_bipartite_from_inputs", mode = "function")) {
+    stop("build_bipartite_from_inputs indisponible (charger R/erpm_wrapper.R).")
+  }
+  builder <- get("build_bipartite_from_inputs", mode = "function")
+
+  try_sigs <- list(
+    list(expr = quote(builder(partition = part, nodes = nodes)),                                   tag = "partition+nodes"),
+    list(expr = quote(builder(partition = part, labels = nodes$label, attributes = list())),        tag = "partition+labels+attributes"),
+    list(expr = quote(builder(partition = part)),                                                   tag = "partition seul"),
+    list(expr = quote(builder(partition = part, labels = nodes$label)),                             tag = "partition+labels")
+  )
+
+  last_err <- NULL
+  for (sig in try_sigs) {
+    cat("[diag] build_bipartite_from_inputs essai:", sig$tag, "\n")
+    out <- try(eval(sig$expr), silent = TRUE)
+    if (!inherits(out, "try-error") && !is.null(out)) {
+      if (inherits(out, "network")) {
+        cat("[diag] build OK (retour = network) via", sig$tag, "\n")
+        return(out)
+      }
+      if (is.list(out)) {
+        for (nm in c("network","nw","net","graph","g","bip")) {
+          if (!is.null(out[[nm]]) && inherits(out[[nm]], "network")) {
+            cat("[diag] build OK (retour = list$", nm, ") via", sig$tag, "\n")
+            return(out[[nm]])
+          }
+        }
+      }
+    } else {
+      last_err <- out
+      cat("[diag] build FAIL via", sig$tag, ":", if (!is.null(out)) as.character(out)[1] else "<NA>", "\n")
+    }
+  }
+
+  fm <- try(formals(builder), silent = TRUE)
+  stop(paste0(
+    "build_bipartite_from_inputs a échoué avec toutes les signatures testées.\n",
+    "Formals: ", if (!inherits(fm, "try-error")) paste(names(fm), collapse = ", ") else "<inconnus>", "\n",
+    "Dernière erreur: ", if (!is.null(last_err)) as.character(last_err)[1] else "<aucune>"
+  ))
 }
 
-#' Calculer les tailles de groupes à partir d'une partition
-#'
-#' Cette fonction calcule le nombre d'éléments dans chaque groupe
-#' à partir d'un vecteur de partition.
-#'
-#' @param part Un vecteur indiquant, pour chaque élément, le groupe auquel il appartient.
-#'
-#' @return Un vecteur d'entiers représentant la taille de chaque groupe,
-#'         ordonné selon les identifiants de groupes présents dans `part`.
-#'
-#' @examples
-#' .group_sizes_from_partition(c(1, 2, 2, 3, 3, 3))
-#' # Renvoie : 1 2 3
-#'
-#' @keywords internal
-.group_sizes_from_partition <- function(part) {
-    as.integer(table(part))
+# Tailles de groupes depuis partition
+.group_sizes_from_partition <- function(part) as.integer(table(part))
+
+# Attendue: somme des tailles^pow filtrées par [from,to)
+.expected_summary_squared_sizes_from_partition <- function(part, from = 1, to = Inf, pow = 2) {
+  sz  <- .group_sizes_from_partition(part)
+  idx <- (sz >= from) & (sz < to)
+  sum((sz[idx])^pow)
 }
 
-#' Calculer la somme des tailles de groupes élevées à une puissance donnée
-#'
-#' Cette fonction calcule la somme des tailles de groupes (issues d'une partition)
-#' élevées à la puissance `pow`, en ne considérant que les groupes dont la taille
-#' est comprise entre `from` (inclus) et `to` (exclus).
-#'
-#' @param part Un vecteur de partition indiquant l'appartenance de chaque élément à un groupe.
-#' @param from Taille minimale des groupes à inclure (valeur par défaut : 1).
-#' @param to Taille maximale des groupes à inclure (valeur par défaut : \code{Inf}).
-#' @param pow Puissance à laquelle élever les tailles de groupes (valeur par défaut : 2).
-#'
-#' @return Un scalaire numérique correspondant à la somme des tailles de groupes sélectionnés
-#'         élevées à la puissance spécifiée.
-#'
-#' @examples
-#' .expected_squared_sizes(c(1, 2, 2, 3, 3, 3))
-#' # Calcule 1^2 + 2^2 + 3^2 = 14
-#'
-#' .expected_squared_sizes(c(1, 1, 2, 2, 2), from = 2, pow = 3)
-#' # Calcule uniquement les groupes de taille >= 2 : 3^3 + 2^3 = 35
-#'
-#' @keywords internal
-.expected_squared_sizes <- function(part, from = 1, to = Inf, pow = 2) {
-    sz <- .group_sizes_from_partition(part)
-    idx <- (sz >= from) & (sz < to)
-    sum( (sz[idx])^pow )
+# Identité pow2 sur réseau (contrôle)
+.identity_pow2_all_summary_on_network <- function(nw) {
+  stopifnot(inherits(nw, "network"))
+  n1 <- network::get.network.attribute(nw, "bipartite")
+  if (is.null(n1) || is.na(n1)) stop("Réseau non biparti.")
+  n  <- network::network.size(nw)
+  v2 <- seq.int(as.integer(n1) + 1L, n)
+  deg2 <- vapply(v2, function(v) length(network::get.neighborhood(nw, v, type = "combined")), integer(1L))
+  ecount <- network::network.edgecount(nw)
+  ecount + 2L * sum(choose(deg2, 2))
 }
 
-#' Calculer la statistique d'identité au carré sur un réseau biparti
-#'
-#' Cette fonction évalue la statistique utilisée pour vérifier l'effet
-#' \texttt{squared\_sizes} sur un réseau biparti.  
-#' Elle combine le nombre total d’arêtes et la somme des combinaisons
-#' possibles entre les degrés du mode 2.
-#'
-#' @param nw Un objet \code{network} biparti (issu du package \pkg{network}).
-#'
-#' @details
-#' La fonction :
-#' \enumerate{
-#'   \item identifie la frontière entre les deux modes du graphe ;
-#'   \item calcule les degrés des nœuds du second mode ;
-#'   \item renvoie la somme du nombre d’arêtes et de deux fois la somme des combinaisons \code{choose(deg2, 2)}.
-#' }
-#'
-#' @return Un scalaire numérique correspondant à la valeur totale de la statistique.
-#'
-#' @examples
-#' nw <- network.initialize(6, bipartite = 3)
-#' add.edges(nw, tail = c(1,2,3), head = c(4,5,6))
-#' .identity_pow2_all(nw)
-#'
-#' @keywords internal
-.identity_pow2_all <- function(nw) {
-    # Garde-fous explicites
-    stopifnot(inherits(nw, "network"))
-    n_attr <- network::get.network.attribute(nw, "bipartite")
-    if (is.null(n_attr) || is.na(n_attr)) stop("Réseau non biparti ou attribut 'bipartite' manquant.")
-    n1 <- as.integer(n_attr)
-    n  <- network::network.size(nw)
-    if (!(n1 >= 0L && n1 < n)) stop("Attribut 'bipartite' incohérent avec la taille du réseau.")
-
-    # Mode 2
-    v2 <- seq.int(n1 + 1L, n)
-
-    # Degrés du mode 2 sans conversion en matrice
-    deg2 <- vapply(
-    v2,
-    function(v) length(network::get.neighborhood(nw, v, type = "combined")),
-    integer(1L)
-    )
-
-    # Nombre d'arêtes sans summary()
-    ecount <- network::network.edgecount(nw)
-
-    # Identité: sum_g d_g^2 = edges + 2 * sum_g C(d_g, 2)
-    ecount + 2L * sum(choose(deg2, 2))
-}
-
-#' Normaliser les arguments de l'effet \code{squared_sizes}
-#'
-#' Cette fonction prépare et complète la liste d’arguments associée à l’effet
-#' \code{squared_sizes}, en appliquant des valeurs par défaut et en produisant
-#' une représentation textuelle standardisée.
-#'
-#' @param args Une liste d’arguments optionnels pouvant contenir
-#'        \code{from}, \code{to} et \code{pow}.
-#'
-#' @details
-#' - Les valeurs par défaut sont : \code{from = 1}, \code{to = Inf}, \code{pow = 2}.  
-#' - Les arguments fournis remplacent sélectivement ces valeurs.  
-#' - Un champ \code{text} est ajouté pour fournir une version textuelle
-#'   complète de la configuration (ex. : \code{"squared_sizes(from=1,to=Inf,pow=2)"}).
-#'
-#' @return Une liste contenant les éléments \code{from}, \code{to}, \code{pow}
-#'         et \code{text}.
-#'
-#' @examples
-#' .normalize_squared_sizes_signature(list(from = 2, pow = 3))
-#' # Renvoie une liste équivalente à :
-#' # $from = 2, $to = Inf, $pow = 3,
-#' # $text = "squared_sizes(from=2,to=Inf,pow=3)"
-#'
-#' @keywords internal
+# Normalisation de la signature
 .normalize_squared_sizes_signature <- function(args = list()) {
-    # défaut : from=1, to=Inf, pow=2
-    out <- list(from = 1, to = Inf, pow = 2, text = "squared_sizes(from=1,to=Inf,pow=2)")
-    if (length(args)) {
+  out <- list(from = 1, to = Inf, pow = 2, text = "squared_sizes(from=1,to=Inf,pow=2)")
+  if (length(args)) {
     nm <- names(args)
     if (!is.null(nm) && length(nm)) {
-        if ("from" %in% nm) out$from <- as.numeric(args[["from"]])
-        if ("to"   %in% nm) out$to   <- as.numeric(args[["to"]])
-        if ("pow"  %in% nm) out$pow  <- as.numeric(args[["pow"]])
+      if ("from" %in% nm) out$from <- as.numeric(args[["from"]])
+      if ("to"   %in% nm) out$to   <- as.numeric(args[["to"]])
+      if ("pow"  %in% nm) out$pow  <- as.numeric(args[["pow"]])
     }
-    }
-    txt <- sprintf("squared_sizes(from=%s,to=%s,pow=%s)",
-                    if (is.infinite(out$from)) "Inf" else as.character(out$from),
-                    if (is.infinite(out$to))   "Inf" else as.character(out$to),
-                    as.character(out$pow))
-    out$text <- txt
-    out
+  }
+  out$text <- sprintf("squared_sizes(from=%s,to=%s,pow=%s)",
+                      if (is.infinite(out$from)) "Inf" else as.character(out$from),
+                      if (is.infinite(out$to))   "Inf" else as.character(out$to),
+                      as.character(out$pow))
+  out
 }
 
-#' Vérifier la présence d'un motif dans un appel \code{ergm} traduit
-#'
-#' Cette fonction teste si une chaîne attendue (\code{expected})
-#' est bien présente dans la version compacte (sans espaces)
-#' d’un appel \code{ergm} déparsé.
-#'
-#' @param call_ergm Un appel \R{} (objet de type \code{call}) correspondant
-#'        à la traduction générée pour \code{ergm()}.
-#' @param expected Une chaîne de caractères à rechercher dans l’appel.
-#'
-#' @details
-#' La fonction :
-#' \enumerate{
-#'   \item convertit l’appel en texte avec \code{deparse()};
-#'   \item supprime tous les espaces et sauts de ligne ;
-#'   \item vérifie si la chaîne \code{expected} est contenue dans le texte.
-#' }
-#'
-#' @return Un booléen : \code{TRUE} si la sous-chaîne est trouvée, sinon \code{FALSE}.
-#'
-#' @examples
-#' call <- quote(ergm(nw ~ b2degrange(from=1,to=5)))
-#' .check_translation_contains(call, "b2degrange(from=1,to=5)")
-#' # Renvoie TRUE
-#'
-#' @keywords internal
-.check_translation_ok <- function(call_ergm, term = "squared_sizes", args = list()) {
-    line <- paste(deparse(call_ergm, width.cutoff = 500L), collapse = " ")
-    compact <- gsub("\\s+", "", line)
-
-    # défauts reconnus par InitErgmTerm.squared_sizes
-    def <- list(from = 1, to = Inf, pow = 2)
-
-    # 1) le terme doit être présent
-    if (!grepl(paste0("\\b", term, "\\("), compact)) return(FALSE)
-
-    # 2) on n’exige la présence QUE des arguments ≠ défauts
-    checks <- logical(0)
-    if (!is.null(args$from) && !identical(as.numeric(args$from), def$from)) {
+# Vérification que l'appel erpm traduit contient la bonne signature
+.check_translation_ok_erpm <- function(call_ergm, term = "squared_sizes", args = list()) {
+  line <- paste(deparse(call_ergm, width.cutoff = 500L), collapse = " ")
+  compact <- gsub("\\s+", "", line)
+  def <- list(from = 1, to = Inf, pow = 2)
+  if (!grepl(paste0("\\b", term, "\\("), compact)) return(FALSE)
+  checks <- logical(0)
+  if (!is.null(args$from) && !identical(as.numeric(args$from), def$from)) {
     checks <- c(checks, grepl(paste0("from=", gsub("\\s+", "", as.character(args$from))), compact, fixed = TRUE))
-    }
-    if (!is.null(args$to) && !(is.infinite(args$to) && is.infinite(def$to)) &&
-        !identical(as.numeric(args$to), def$to)) {
+  }
+  if (!is.null(args$to) && !(is.infinite(args$to) && is.infinite(def$to)) &&
+      !identical(as.numeric(args$to), def$to)) {
     checks <- c(checks, grepl(paste0("to=", gsub("\\s+", "", as.character(args$to))), compact, fixed = TRUE))
-    }
-    if (!is.null(args$pow) && !identical(as.numeric(args$pow), def$pow)) {
+  }
+  if (!is.null(args$pow) && !identical(as.numeric(args$pow), def$pow)) {
     checks <- c(checks, grepl(paste0("pow=", gsub("\\s+", "", as.character(args$pow))), compact, fixed = TRUE))
-    }
-
-    # si aucun arg non-défaut → OK dès que le terme est présent
-    if (!length(checks)) return(TRUE)
-    all(checks)
+  }
+  if (!length(checks)) return(TRUE)
+  all(checks)
 }
-# .check_translation_contains <- function(call_ergm, expected) {
-#   line <- paste(deparse(call_ergm, width.cutoff = 500L), collapse = " ")
-#   compact <- gsub("\\s+", "", line)
-#   grepl(expected, compact, fixed = TRUE)
-# }
 
-# ======================================================================================
-# Noyau de test
-# ======================================================================================
+# ---------- Couche SUMMARY : un cas ----------
+.run_one_case_summary_squared_sizes <- function(part, name, call_txt, args) {
+  nw <- .build_bipartite_nw_via_wrapper(part)
+  sg <- .normalize_squared_sizes_signature(args)
 
-#' Exécuter un cas de test pour l'effet \code{squared_sizes}
-#'
-#' Construit un réseau biparti à partir d'une partition, normalise la signature
-#' \code{squared_sizes}, calcule la valeur thérorique, évalue la statistique
-#' via \code{summary()} d'ERGM, vérifie éventuellement la traduction \code{erpm}
-#' et teste l'identité de contrôle pour \code{pow = 2} et \code{[from,to) = [1,Inf)}.
-#' Un récapitulatif est imprimé sur la console.
-#'
-#' @param part Vecteur de partition définissant l'appartenance des nœuds.
-#' @param name Nom court du cas de test.
-#' @param call_txt Terme ERPM à évaluer dans la formule, ex. \code{"squared_sizes(from=1,to=Inf,pow=2)"}.
-#' @param args Liste d'arguments pour \code{squared_sizes} (peut contenir \code{from}, \code{to}, \code{pow}).
-#'
-#' @details
-#' Étapes principales :
-#' \enumerate{
-#'   \item \code{nw <- .make_nw_from_partition(part)}
-#'   \item \code{sg <- .normalize_squared_sizes_signature(args)}
-#'   \item valeur thérorique : \code{.expected_squared_sizes(part, sg$from, sg$to, sg$pow)}
-#'   \item Stat ERGM : \code{summary(as.formula(paste0("nw ~ ", call_txt)))}
-#'   \item Traduction (optionnelle) : si \code{erpm()} existe, \code{.check_translation_contains()}
-#'   \item Identité de contrôle : si \code{pow=2} et intervalle complet, comparaison avec \code{.identity_pow2_all(nw)}
-#' }
-#'
-#' @return Une liste avec :
-#' \describe{
-#'   \item{\code{ok_stat}}{Booléen. \code{summary()} égale à la valeur thérorique.}
-#'   \item{\code{ok_trad}}{Booléen ou \code{NA}. Traduction \code{erpm} conforme à la signature attendue.}
-#'   \item{\code{ok_ident}}{Booléen ou \code{NA}. Identité de contrôle valide pour \code{pow=2}.}
-#'   \item{\code{stat}}{Valeur numérique de \code{summary()}.}
-#'   \item{\code{expected}}{Valeur numérique attendue.}
-#' }
-#'
-#' @examples
-#' .run_one_case(c(1,2,2,3,3,3), "pow2_full", "squared_sizes(from=1,to=Inf,pow=2)",
-#'              list(from=1, to=Inf, pow=2))
-#'
-#' @seealso \code{\link{.normalize_squared_sizes_signature}},
-#'          \code{\link{.expected_squared_sizes}},
-#'          \code{\link{.identity_pow2_all}},
-#'          \code{\link{.check_translation_contains}}
-#' @keywords internal
-.run_one_case <- function(part, name, call_txt, args) {
-    nw <- .make_nw_from_partition(part)
-    sg <- .normalize_squared_sizes_signature(args)
+  expected_val <- .expected_summary_squared_sizes_from_partition(part, from = sg$from, to = sg$to, pow = sg$pow)
 
-    # Valeur attendue depuis la partition
-    truth <- .expected_squared_sizes(part, from = sg$from, to = sg$to, pow = sg$pow)
+  f <- as.formula(paste0("nw ~ ", call_txt))
+  environment(f) <- list2env(list(nw = nw), parent = parent.frame())
+  stat_val <- as.numeric(summary(f))
 
-    # Valeur via {ergm}
-    f <- as.formula(paste0("nw ~ ", call_txt))
-    environment(f) <- list2env(list(nw = nw), parent = parent.frame())
-    stat_val <- as.numeric(summary(f))
+  ok_trad <- NA
+  if (exists("erpm", mode = "function")) {
+    call_ergm <- erpm(f, eval_call = FALSE, verbose = TRUE)
+    ok_trad <- .check_translation_ok_erpm(call_ergm, term = "squared_sizes", args = args)
+  }
 
-    # (Optionnel) inspection traduction via erpm si dispo
-    ok_trad <- NA
-    if (exists("erpm", mode = "function")) {
-        call_ergm <- erpm(f, eval_call = FALSE, verbose = TRUE)
-        ok_trad <- .check_translation_ok(call_ergm, term = "squared_sizes", args = args)
-    }
+  ok_identity <- NA
+  if (isTRUE(sg$pow == 2 && sg$from == 1 && isTRUE(is.infinite(sg$to)))) {
+    id_val <- .identity_pow2_all_summary_on_network(nw)
+    ok_identity <- identical(unname(as.integer(stat_val)), unname(as.integer(id_val)))
+  }
 
-    # Identité de contrôle pour pow=2 et [1,Inf)
-    ok_identity <- NA
-    if (isTRUE(sg$pow == 2 && isTRUE(sg$from == 1) && isTRUE(is.infinite(sg$to)))) {
-        id_val <- .identity_pow2_all(nw)
-        ok_identity <- identical(unname(as.integer(stat_val)), unname(as.integer(id_val)))
-    }
+  cat(sprintf("\n[SUMMARY CAS %-18s] part={%s}", name, paste(part, collapse=",")))
+  cat(sprintf("\tappel=%s", sg$text))
+  cat(sprintf("\tsummary(.)=%s", format(stat_val)))
+  cat(sprintf("\tattendu(part)=%s", format(expected_val)))
+  if (!is.na(ok_identity)) cat(sprintf("\tidentité pow2=%s", if (ok_identity) "OK" else "KO"))
+  if (!is.na(ok_trad))     cat(sprintf("\ttrad erpm=%s",    if (ok_trad) "OK" else "KO"))
+  cat("\n")
 
-    cat(sprintf("\n[CAS %-18s] part={%s}", name, paste(part, collapse=",")))
-    cat(sprintf("\t  appel          : %s", sg$text))
-    cat(sprintf("\t  summary(.)     : %s", format(stat_val)))
-    cat(sprintf("\t  attendu(part)  : %s", format(truth)))
-    if (!is.na(ok_identity)) cat(sprintf("\t  identité pow2   : %s", if (ok_identity) "OK" else "KO"))
-    if (!is.na(ok_trad))     cat(sprintf("\t  traduction erpm : %s", if (ok_trad) "OK" else "KO"))
-    cat("\n")
+  list(
+    ok_stat   = identical(unname(as.integer(stat_val)), unname(as.integer(expected_val))),
+    ok_trad   = ok_trad,
+    ok_ident  = ok_identity,
+    stat      = stat_val,
+    expected  = expected_val
+  )
+}
 
-    list(
-        ok_stat    = identical(unname(as.integer(stat_val)), unname(as.integer(truth))),
-        ok_trad    = ok_trad,
-        ok_ident   = ok_identity,
-        stat       = stat_val,
-        expected   = truth
+# ---------- Couche SUMMARY : panneau ----------
+.run_cases_for_partition_summary_squared_sizes <- function(part, panel) {
+  res <- lapply(panel, function(cx) {
+    out <- .run_one_case_summary_squared_sizes(part, cx$name, cx$call_txt, cx$args)
+    data.frame(
+      case     = cx$name,
+      ok_stat  = out$ok_stat,
+      ok_trad  = if (is.na(out$ok_trad)) NA else out$ok_trad,
+      ok_ident = if (is.na(out$ok_ident)) NA else out$ok_ident,
+      stat     = out$stat,
+      expected = out$expected,
+      stringsAsFactors = FALSE
     )
+  })
+  do.call(rbind, res)
 }
 
-#' Exécuter une série de cas de test pour une partition donnée (\code{squared_sizes})
-#'
-#' Cette fonction applique \code{.run_one_case()} à chaque cas de test défini
-#' dans un panneau (\code{panel}) pour une partition donnée, puis regroupe
-#' les résultats dans un tableau récapitulatif.
-#'
-#' @param part Un vecteur de partition (entiers ou facteurs) indiquant
-#'        l’appartenance des nœuds à des groupes.
-#' @param panel Une liste de cas de test, où chaque élément doit contenir :
-#'        \itemize{
-#'          \item \code{name} : nom du cas de test (chaîne) ;
-#'          \item \code{call_txt} : texte de la formule ERPM à tester ;
-#'          \item \code{args} : liste d’arguments de l’effet (\code{from}, \code{to}, \code{pow}, etc.).
-#'        }
-#'
-#' @details
-#' Pour chaque cas du panneau :
-#' \enumerate{
-#'   \item Exécute \code{.run_one_case(part, name, call_txt, args)} ;
-#'   \item Extrait les principaux indicateurs de validation :
-#'         \code{ok_stat}, \code{ok_trad}, \code{ok_ident}, \code{stat}, \code{expected} ;
-#'   \item Convertit le tout en \code{data.frame} pour un affichage et un traitement faciles.
-#' }
-#'
-#' @return Un \code{data.frame} combiné contenant une ligne par cas de test et les colonnes :
-#' \code{case}, \code{ok_stat}, \code{ok_trad}, \code{ok_ident}, \code{stat}, \code{expected}.
-#'
-#' @examples
-#' panel <- list(
-#'   list(name = "full_pow2", call_txt = "squared_sizes(from=1,to=Inf,pow=2)", args = list(from=1, to=Inf, pow=2)),
-#'   list(name = "range_pow3", call_txt = "squared_sizes(from=2,to=5,pow=3)", args = list(from=2, to=5, pow=3))
-#' )
-#' .run_cases_for_partition(c(1,2,2,3,3,3), panel)
-#'
-#' @seealso \code{\link{.run_one_case}}
-#' @keywords internal
-.run_cases_for_partition <- function(part, panel) {
-    res <- lapply(panel, function(cx) {
-            out <- .run_one_case(part, cx$name, cx$call_txt, cx$args)
-            data.frame(
-                case      = cx$name,
-                ok_stat   = out$ok_stat,
-                ok_trad   = if (is.na(out$ok_trad)) NA else out$ok_trad,
-                ok_ident  = if (is.na(out$ok_ident)) NA else out$ok_ident,
-                stat      = out$stat,
-                expected  = out$expected,
-                stringsAsFactors = FALSE
-            )
-        })
-  do.call(rbind, res)
+# ---------- Couche ERPM FIT : un cas ----------
+.run_one_case_erpm_fit_squared_sizes <- function(part, name, call_txt, ctrl) {
+  cat(sprintf("\n[ERPM-FIT %s] début\n", name))
+
+  if (!exists("erpm", mode = "function")) {
+    cat(sprintf("[ERPM-FIT %-18s] SKIP (erpm() indisponible)\n", name))
+    return(list(ok = NA, error = TRUE, coef = NA, fit = NULL))
+  }
+
+  # Inspecte la signature d’erpm
+  frm <- try(formals(erpm), silent = TRUE)
+  if (inherits(frm, "try-error")) {
+    cat("[diag] formals(erpm) -> ERREUR\n")
+    frm_names <- character(0)
+  } else {
+    frm_names <- names(frm)
+    cat("[diag] formals(erpm) noms =", paste(frm_names, collapse = ", "), "\n")
+  }
+  has_labels     <- "labels"     %in% frm_names
+  has_attributes <- "attributes" %in% frm_names
+  cat(sprintf("[diag] support labels=%s, attributes=%s\n", has_labels, has_attributes))
+
+  # Formule ERPM avec partition en LHS
+  f <- as.formula(paste0("part ~ ", call_txt))
+  environment(f) <- list2env(list(part = part), parent = parent.frame())
+  cat("[diag] formule ERPM =", paste(deparse(f, width.cutoff = 500L), collapse = " "), "\n")
+
+  # Prépare arguments dynamiquement
+  lab <- utils::head(LETTERS, length(part))
+  arglist <- list(
+    formula     = f,
+    estimate    = "MLE",
+    eval.loglik = TRUE,
+    control     = ctrl,
+    verbose     = TRUE
+  )
+  if (has_labels)     arglist$labels     <- lab
+  if (has_attributes) arglist$attributes <- list()
+
+  cat("[diag] arguments passés à erpm(): ", paste(names(arglist), collapse = ", "), "\n")
+
+  # Dry-run pour voir l’appel ergm final
+  arglist_dry <- arglist
+  arglist_dry$eval_call <- FALSE
+  dry <- try(do.call(erpm, arglist_dry), silent = TRUE)
+  if (inherits(dry, "try-error")) {
+    cat("[diag] dry-run erpm -> ERREUR:\n", as.character(dry)[1], "\n")
+    return(list(ok = FALSE, error = TRUE, coef = NA, fit = NULL))
+  }
+  dry_s <- paste(deparse(dry, width.cutoff = 500L), collapse = " ")
+  cat("[diag] dry-run appel ergm =", dry_s, "\n")
+  dl <- as.list(dry); nm <- names(dl)
+  has_constraints <- !is.null(nm) && any(nm == "constraints")
+  cat("[diag] contraintes présentes dans l’appel dry-run: ", has_constraints, "\n")
+
+  # Fit réel via erpm
+  res <- try(do.call(erpm, arglist), silent = TRUE)
+  if (inherits(res, "try-error")) {
+    cat(sprintf("[ERPM-FIT %-18s] ERREUR évaluation: %s\n", name, as.character(res)[1]))
+    tb <- try(utils::traceback(x = NULL, max.lines = 1), silent = TRUE)
+    if (!inherits(tb, "try-error")) cat("[diag] traceback court affiché ci-dessus s’il existe.\n")
+    return(list(ok = FALSE, error = TRUE, coef = NA, fit = NULL))
+  }
+
+  cf <- try(stats::coef(res), silent = TRUE)
+  ok_coef  <- !(inherits(cf, "try-error")) && all(is.finite(cf))
+  ok_class <- inherits(res, "ergm")
+  cat(sprintf("[ERPM-FIT %-18s] coef finies: %s | coef=%s\n",
+              name, if (ok_coef) "OK" else "KO",
+              if (ok_coef) paste(format(as.numeric(cf)), collapse=", ") else "NA"))
+
+  list(ok = ok_class && ok_coef, error = FALSE, coef = if (ok_coef) cf else NA, fit = res)
 }
 
 # ======================================================================================
 # Jeu de tests
 # ======================================================================================
 partitions <- list(
-    P1 = c(1, 2, 2, 3, 3, 3),
-    P2 = c(1, 1, 2, 3, 3, 4, 4, 4),
-    P3 = c(1, 1, 1, 2, 2, 3),
-    P4 = c(1, 2, 3, 4, 5),
-    P5 = rep(1, 6)
+  P1 = c(1, 2, 2, 3, 3, 3),
+  P2 = c(1, 1, 2, 3, 3, 4, 4, 4),
+  P3 = c(1, 1, 1, 2, 2, 3),
+  P4 = c(1, 2, 3, 4, 5),
+  P5 = rep(1, 6)
 )
 
 cases <- list(
-    list(name="sq_all_pow2",    call_txt="squared_sizes",                   args=list(from=1, to=Inf, pow=2)),
-    list(name="sq_2to5_pow2",   call_txt="squared_sizes(from=2,to=5)",      args=list(from=2, to=5,   pow=2)),
-    list(name="sq_all_pow3",    call_txt="squared_sizes(pow=3)",            args=list(from=1, to=Inf, pow=3)),
-    list(name="sq_1to2_pow2",   call_txt="squared_sizes(from=1,to=2)",      args=list(from=1, to=2,   pow=2)),
-    list(name="sq_3toInf_pow2", call_txt="squared_sizes(from=3,to=Inf)",    args=list(from=3, to=Inf, pow=2))
+  list(name="sq_all_pow2",    call_txt="squared_sizes",                   args=list(from=1, to=Inf, pow=2)),
+  list(name="sq_2to5_pow2",   call_txt="squared_sizes(from=2,to=5)",      args=list(from=2, to=5,   pow=2)),
+  list(name="sq_all_pow3",    call_txt="squared_sizes(pow=3)",            args=list(from=1, to=Inf, pow=3)),
+  list(name="sq_1to2_pow2",   call_txt="squared_sizes(from=1,to=2)",      args=list(from=1, to=2,   pow=2)),
+  list(name="sq_3toInf_pow2", call_txt="squared_sizes(from=3,to=Inf)",    args=list(from=3, to=Inf, pow=2))
+)
+
+# Contrôle MCMLE commun
+ctrl_fit <- control.ergm(
+  MCMLE.maxit     = 10,
+  MCMC.samplesize = 1e4
 )
 
 # ======================================================================================
-# Run principal
+# Run principal — noms explicites
 # ======================================================================================
+run_all_tests_squared_sizes <- function() {
+  # Logging centralisé côté repo
+  log_path2 <- file.path("scripts","test","selftests","selftest_squared_sizes.log")
+  dir.create(dirname(log_path2), recursive = TRUE, showWarnings = FALSE)
+  if (file.exists(log_path2)) unlink(log_path2)
+  sink(file = log_path2, split = TRUE)
+  con_msg <- file(log_path2, open = "at")
+  sink(con_msg, type = "message")
+  on.exit({
+    try(sink(type = "message"), silent = TRUE)
+    try(close(con_msg),        silent = TRUE)
+    try(sink(),                silent = TRUE)
+    flush.console()
+  }, add = TRUE)
 
-#' Exécuter l'ensemble de tests \code{ERPM: squared_sizes}
-#'
-#' Lance tous les tests pour l'effet \code{squared_sizes} :
-#' (i) comparaison statistique \code{summary()} vs valeur thérorique,
-#' (ii) identité de contrôle (si applicable),
-#' (iii) vérification de la traduction \code{erpm} -> \code{ergm} (si disponible).
-#' Gère le logging, agrège les résultats, et échoue si des validations sont en erreur.
-#'
-#' @details
-#' - Journalisation dans \code{scripts/test/selftests/selftest_squared_sizes.log} avec redirection de
-#'   \code{stdout} et \code{message}.  
-#' - \code{set.seed(42)} pour la reproductibilité.  
-#' - Pour chaque partition définie dans \code{partitions} et chaque cas de \code{cases} :
-#'   exécute \code{.run_cases_for_partition()}, imprime le \code{data.frame} de résultats,
-#'   et cumule les validations :
-#'   \code{ok_stat} (toujours), \code{ok_ident} (si testable), \code{ok_trad} (si \code{erpm} présent).  
-#' - Interrompt avec \code{stop()} si au moins une validation échoue.
-#' - Suppose \code{partitions} et \code{cases} disponibles dans l'environnement.
-#'
-#' @return
-#' Une liste nommée (invisible) de \code{data.frame}, un par partition, contenant
-#' les colonnes \code{case}, \code{ok_stat}, \code{ok_trad}, \code{ok_ident}, \code{stat}, \code{expected}.
-#'
-#' @examples
-#' res <- run_all_tests()
-#' # file.show("scripts/test/selftests/selftest_squared_sizes.log")
-#'
-#' @seealso \code{\link{.run_cases_for_partition}}, \code{\link{.run_one_case}},
-#'          \code{\link{.normalize_squared_sizes_signature}},
-#'          \code{\link{.expected_squared_sizes}},
-#'          \code{\link{.check_translation_contains}}
-#' @keywords internal
-run_all_tests <- function() {
-    # Logging dans scripts/test/selftests/selftest_squared_sizes.log
-    log_path <- file.path("scripts","test", "selftests", "selftest_squared_sizes.log")
-    dir.create(dirname(log_path), recursive = TRUE, showWarnings = FALSE)
-    if (file.exists(log_path)) unlink(log_path)
+  set.seed(42)
+  cat("=== TEST ERPM: squared_sizes ===\n")
+  cat("[diag] R.version =", paste(R.version$major, R.version$minor, sep="."), "\n")
+  cat("[diag] ergm version =", as.character(utils::packageVersion("ergm")), "\n")
 
-    sink(file = log_path, split = TRUE)
-    con_msg <- file(log_path, open = "at")
-    sink(con_msg, type = "message")
+  all_summary_results <- list()
+  fit_results <- list()
 
-    on.exit({
-        try(sink(type = "message"), silent = TRUE)
-        try(close(con_msg),        silent = TRUE)
-        try(sink(),                silent = TRUE)
-        flush.console()
-    }, add = TRUE)
+  total_ok <- 0L; total_n <- 0L
 
-    set.seed(42)
-    cat("=== TEST ERPM: squared_sizes ===\n")
+  # ---------- Phase SUMMARY sur toutes partitions ----------
+  for (nm in names(partitions)) {
+    cat(sprintf("\n--- SUMMARY Partition %s ---\n", nm))
+    df <- .run_cases_for_partition_summary_squared_sizes(partitions[[nm]], cases)
+    all_summary_results[[nm]] <- df
+    total_ok <- total_ok + sum(df$ok_stat,  na.rm = TRUE); total_n <- total_n + sum(!is.na(df$ok_stat))
+    total_ok <- total_ok + sum(df$ok_ident, na.rm = TRUE); total_n <- total_n + sum(!is.na(df$ok_ident))
+    total_ok <- total_ok + sum(df$ok_trad,  na.rm = TRUE); total_n <- total_n + sum(!is.na(df$ok_trad))
+    print(df)
+  }
 
-    all_results <- list(); total_ok <- 0L; total_n <- 0L
-    for (nm in names(partitions)) {
-        cat(sprintf("\n--- Partition %s ---\n", nm))
-        df <- .run_cases_for_partition(partitions[[nm]], cases)
-        all_results[[nm]] <- df
-        # ok_stat : 1 validation / cas
-        total_ok <- total_ok + sum(df$ok_stat, na.rm = TRUE)
-        total_n  <- total_n  + sum(!is.na(df$ok_stat))
-        # identité (si applicable)
-        total_ok <- total_ok + sum(df$ok_ident, na.rm = TRUE)
-        total_n  <- total_n  + sum(!is.na(df$ok_ident))
-        # traduction (si erpm dispo)
-        total_ok <- total_ok + sum(df$ok_trad, na.rm = TRUE)
-        total_n  <- total_n  + sum(!is.na(df$ok_trad))
-        print(df)
+  cat(sprintf("\n=== Bilan global SUMMARY : %d / %d validations OK ===\n", total_ok, total_n))
+  if (total_ok < total_n) stop(sprintf("Echec SUMMARY: %d validations KO", total_n - total_ok))
+
+  # ---------- Phase ERPM FIT sur quelques cas représentatifs ----------
+  cat("\n=== PHASE ERPM FIT: estimation MLE + loglik ===\n")
+  part_ref <- partitions$P1
+  fit_results[["FIT_sq_all_pow2"]]  <- .run_one_case_erpm_fit_squared_sizes(part_ref, "sq_all_pow2",  "squared_sizes", ctrl_fit)
+  fit_results[["FIT_sq_2to5_pow2"]] <- .run_one_case_erpm_fit_squared_sizes(part_ref, "sq_2to5_pow2", "squared_sizes(from=2,to=5)", ctrl_fit)
+  fit_results[["FIT_sq_all_pow3"]]  <- .run_one_case_erpm_fit_squared_sizes(part_ref, "sq_all_pow3",  "squared_sizes(pow=3)", ctrl_fit)
+
+  ok <- vapply(fit_results, function(x) isTRUE(x$ok), logical(1))
+  n_ok <- sum(ok, na.rm = TRUE); n_tot <- sum(!is.na(ok))
+  cat(sprintf("\n=== Bilan fits erpm() : %d / %d OK ===\n", n_ok, n_tot))
+
+  cat("\n=== Résumés détaillés des fits ERPM réussis ===\n")
+  for (nm in names(fit_results)) {
+    fit_obj <- fit_results[[nm]]
+    if (isTRUE(fit_obj$ok) && inherits(fit_obj$coef, "numeric")) {
+      cat(sprintf("\n--- Résumé fit %s ---\n", nm))
+      print(summary(fit_obj$fit))
     }
+  }
 
-    cat(sprintf("\n=== Bilan global : %d / %d validations OK ===\n", total_ok, total_n))
-    if (total_ok < total_n) stop(sprintf("Echec: %d validations KO", total_n - total_ok))
-    invisible(all_results)
+  if (n_ok < n_tot) stop(sprintf("Echec fits: %d KO", n_tot - n_ok))
+
+  invisible(list(summary_results = all_summary_results, fit_results = fit_results))
 }
 
-if (identical(environment(), globalenv())) run_all_tests()
+if (identical(environment(), globalenv())) run_all_tests_squared_sizes()

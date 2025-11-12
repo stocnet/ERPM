@@ -85,112 +85,83 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
     invisible(TRUE)
   }
 
-  #' Normalize `groups(...)` into `b2degrange(from, to)` arguments
+  #' Normalize `groups(...)` into `b2degrange(from, to)`
   #'
-  #' Accepts the ERPM calling styles:
-  #' - `groups`             → [1, Inf)
-  #' - `groups(size)`       → [size, size+1)
-  #' - `groups(from=..,to=..) → [from, to)`
-  #'
-  #' Validates that bounds are integers with `from >= 0` and `to > from` or `to == Inf`.
-  #'
-  #' @param args_list list of captured arguments from `groups(...)`
-  #' @return list(from=?, to=?), where `to` may be `Inf` or a computed `k+1`
-  #' @keywords internal
+  #' Accepted ERPM signatures:
+  #'   groups
+  #'   groups(k) / groups(size = k)
+  #'   groups(from = ..., to = ...)
+  #' Rules:
+  #'   - from: integer >= 0
+  #'   - to: integer > from  OR Inf
+  #' Returns list(from = <int>, to = <int|quote(Inf)>)
   .normalize_groups_args <- function(args_list) {
     nm <- names(args_list)
 
-    # Accept alias `size=...` as the single positional argument.
-    if (!is.null(nm) && "size" %in% nm && !("from" %in% nm) && !("to" %in% nm)) {
-      args_list <- list(args_list[["size"]]); nm <- NULL
-    }
-
-    # --- Small local evaluators and checkers -----------------------------------
+    # -- helpers ---------------------------------------------------------------
     .deparse1 <- function(x) paste(deparse(x, width.cutoff = 500L), collapse = " ")
-    .eval_numeric_scalar <- function(x, env = parent.frame()) {
+    .eval_num_scalar <- function(x, env = parent.frame()) {
       if (is.numeric(x) && length(x) == 1L) return(x)
       vx <- try(eval(x, envir = env), silent = TRUE)
       if (inherits(vx, "try-error")) return(NULL)
       if (is.numeric(vx) && length(vx) == 1L) return(vx)
       NULL
     }
-    .require_int_ge <- function(x, name, minval, env = parent.frame()) {
-      v <- .eval_numeric_scalar(x, env)
-      if (is.null(v) || !is.finite(v))
-        stop(sprintf("groups(%s): %s must be a finite integer >= %d. Got: %s",
-                    name, name, minval, .deparse1(x)))
-      iv <- as.integer(round(v))
-      if (!isTRUE(all.equal(v, iv)))
-        stop(sprintf("groups(%s): %s must be an integer. Got: %s",
-                    name, name, format(v)))
-      if (iv < minval)
-        stop(sprintf("groups(%s): %s must be >= %d. Got: %d",
-                    name, name, minval, iv))
-      iv
-    }
     .as_from_int <- function(x, env = parent.frame()) {
       if (is.symbol(x) && identical(x, as.name("Inf")))
         stop("groups(from,to): 'from' cannot be Inf.")
-      .require_int_ge(x, "from", 0L, env)
+      v <- .eval_num_scalar(x, env)
+      if (is.null(v) || !is.finite(v))
+        stop(sprintf("groups(from): must be a finite integer >= 0. Got: %s", .deparse1(x)))
+      iv <- as.integer(round(v))
+      if (!isTRUE(all.equal(v, iv))) stop(sprintf("groups(from): integer required. Got: %s", format(v)))
+      if (iv < 0L) stop("groups(from): must be >= 0.")
+      iv
     }
     .as_to_val <- function(x, env = parent.frame()) {
-      if (is.symbol(x) && identical(x, as.name("Inf"))) return(Inf)
-      .require_int_ge(x, "to", 0L, env)
+      # Accept both symbol Inf and numeric Inf.
+      if ((is.symbol(x) && identical(x, as.name("Inf"))) ||
+          (is.numeric(x) && length(x) == 1L && is.infinite(x))) {
+        return(quote(Inf))
+      }
+      v <- .eval_num_scalar(x, env)
+      if (is.null(v) || !is.finite(v))
+        stop(sprintf("groups(to): must be a finite integer or Inf. Got: %s", .deparse1(x)))
+      iv <- as.integer(round(v))
+      if (!isTRUE(all.equal(v, iv))) stop(sprintf("groups(to): integer or Inf required. Got: %s", format(v)))
+      iv
     }
-    # --------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
-    # No args: `groups` ≡ [1, Inf)
+    # No args: groups ≡ [1, Inf)
     if (length(args_list) == 0L) return(list(from = 1L, to = quote(Inf)))
 
-    # Single positional arg: `groups(k)` ≡ [k, k+1)
+    # Alias support: groups(size = k)
+    if (!is.null(nm) && "size" %in% nm && !("from" %in% nm) && !("to" %in% nm)) {
+      args_list <- list(args_list[["size"]]); nm <- NULL
+    }
+
+    # Single positional: groups(k) ≡ [k, k+1)
     if (length(args_list) == 1L && (is.null(nm) || isTRUE(nm[1L] == ""))) {
-      k <- .require_int_ge(args_list[[1L]], "k", 0L, parent.frame())
+      k <- .as_from_int(args_list[[1L]], parent.frame())
       return(list(from = k, to = k + 1L))
     }
 
-    # Named pair: `groups(from=..., to=...)`
+    # Named pair: groups(from=..., to=...)
     if (!is.null(nm) && all(c("from","to") %in% nm)) {
       from <- .as_from_int(args_list[["from"]], parent.frame())
       to   <- .as_to_val  (args_list[["to"]],   parent.frame())
 
-      valid <- is.infinite(to) || (is.finite(to) && to > from)
-      if (!valid) {
-        to_str <- if (is.infinite(to)) "Inf" else as.character(to)
-        stop(sprintf("groups(from,to): requires 'from' < 'to'. Got: from=%d, to=%s",
-                    from, to_str))
+      # Resolve numeric to for check; keep quote(Inf) if Inf.
+      to_num <- if (is.language(to)) Inf else to
+      if (!(is.infinite(to_num) || (is.finite(to_num) && to_num > from))) {
+        to_str <- if (is.language(to)) "Inf" else as.character(to_num)
+        stop(sprintf("groups(from,to): requires 'from' < 'to'. Got: from=%d, to=%s", from, to_str))
       }
       return(list(from = from, to = to))
     }
 
-    # Fallback: unsupported signature.
-    stop("groups(): use `groups`, `groups(size=k)`/`groups(k)`, or `groups(from=..,to=..)`. ")
-  }
-
-  #' Normalize `cliques(...)` arguments into `(k, normalized)`
-  #'
-  #' @param args_list list of captured arguments from `cliques(...)`
-  #' @return list(k=<int>, normalized=<logical>)
-  #' @keywords internal
-  .normalize_cliques_args <- function(args_list) {
-    k     <- 2L
-    norm  <- FALSE
-    if (length(args_list) == 0L) return(list(k = k, normalized = norm))
-    nm <- names(args_list)
-    # `cliques(3)` form
-    if (length(args_list) == 1L && (is.null(nm) || isTRUE(nm[1L] == ""))) {
-      k <- as.integer(args_list[[1L]])
-      return(list(k = k, normalized = norm))
-    }
-    # Named form
-    if (!is.null(nm)) {
-      if ("clique_size" %in% nm) k    <- as.integer(args_list[["clique_size"]])
-      if ("normalized"  %in% nm) norm <- isTRUE(args_list[["normalized"]])
-      return(list(k = k, normalized = norm))
-    }
-    # Robust to positional `(k, normalized)` as a last resort
-    if (length(args_list) >= 1L) k    <- as.integer(args_list[[1L]])
-    if (length(args_list) >= 2L) norm <- isTRUE(args_list[[2L]])
-    list(k = k, normalized = norm)
+    stop("groups(): use `groups`, `groups(k)`/`groups(size=k)`, or `groups(from=..,to=..)`. ")
   }
 
   #' Split a sum-of-terms RHS recursively
@@ -296,74 +267,7 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
         actor_labels = labels,
         group_labels = g_names)
   }
-  # build_bipartite_from_inputs <- function(partition = NULL,
-  #                                         nodes     = NULL,
-  #                                         dyads     = list()) {
-  #   stopifnot(!is.null(partition), is.atomic(partition), length(partition) >= 1L)
-
-  #   # Derive actor labels if none provided via `nodes`.
-  #   if (is.null(nodes)) {
-  #     n      <- length(partition)
-  #     labels <- sprintf("A%d", seq_len(n))
-  #     nodes  <- data.frame(label = labels, stringsAsFactors = FALSE)
-  #   } else {
-  #     .check_nodes_df(nodes)
-  #     if (nrow(nodes) != length(partition))
-  #       stop("nrow(nodes) must equal length(partition).")
-  #     labcol <- .get_label_col(nodes)
-  #     if (is.null(labcol)) {
-  #       # Create an internal `label` column if missing.
-  #       labels <- sprintf("A%d", seq_len(nrow(nodes)))
-  #       nodes$label <- labels
-  #     } else {
-  #       labels <- as.character(nodes[[labcol]])
-  #       if (anyNA(labels) || any(!nzchar(labels))) stop("empty/NA labels are not allowed.")
-  #       if (anyDuplicated(labels)) stop("duplicate labels are not allowed.")
-  #       if (!("label" %in% names(nodes))) nodes$label <- labels
-  #     }
-  #   }
-
-  #   n <- length(labels)
-  #   .check_dyads(dyads, n, labels)
-
-  #   # Number of groups inferred from the partition.
-  #   G       <- max(partition, na.rm = TRUE)
-  #   g_names <- sprintf("G%d", seq_len(G))
-  #   all_v   <- c(labels, g_names)
-
-  #   # Build bipartite adjacency with actors in 1..n and groups in (n+1)..(n+G).
-  #   adj <- matrix(0L, n + G, n + G, dimnames = list(all_v, all_v))
-  #   idx_actor  <- match(labels, all_v)
-  #   idx_group  <- n + partition
-  #   adj[cbind(idx_actor, idx_group)] <- 1L
-  #   adj[cbind(idx_group, idx_actor)] <- 1L
-
-  #   # Create the network object. Undirected bipartite by construction.
-  #   nw <- network::network(adj, directed = FALSE, matrix.type = "adjacency")
-  #   network::set.network.attribute(nw, "bipartite", n)
-  #   network::set.vertex.attribute(nw, "vertex.names", all_v)
-
-  #   # Push extra node attributes for actors only (groups receive NA padding).
-  #   if (ncol(nodes) > 1L) {
-  #     for (a in setdiff(names(nodes), c("label"))) {
-  #       vals <- nodes[[a]]
-  #       network::set.vertex.attribute(nw, a, c(vals, rep(NA, G)))
-  #     }
-  #   }
-
-  #   # Attach dyadic matrices to `%n%`.
-  #   if (length(dyads)) {
-  #     for (nm in names(dyads)) {
-  #       M <- dyads[[nm]]
-  #       dimnames(M) <- list(labels, labels) # enforce order
-  #       nw %n% nm <- M
-  #     }
-  #   }
-
-  #   list(network = nw, partition = partition,
-  #        actor_labels = labels, group_labels = g_names)
-  # }
-
+  
   #' Translate a single ERPM term into an {ergm} term
   #'
   #' Handles:
@@ -597,6 +501,10 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
     ctrl <- if (inherits(control, "control.ergm")) control
             else if (is.null(control)) ergm::control.ergm()
             else do.call(ergm::control.ergm, as.list(control))
+            
+    if (identical(estimate, "MLE") && is.null(ctrl$init)) {
+      ctrl$init <- 0  # évite l’appel au MPLE
+    }
 
     # Guard: drop `init` when its length does not match the number of stats.
     k <- length(summary(new_formula, constraints = ~ b1part))
@@ -668,7 +576,7 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   # Export functions to the global environment
   # ============================================================================
   assign("build_bipartite_from_inputs", build_bipartite_from_inputs,  envir = .GlobalEnv)
-  assign(".normalize_cliques_args",     .normalize_cliques_args,      envir = .GlobalEnv)
+  # assign(".normalize_cliques_args",     .normalize_cliques_args,      envir = .GlobalEnv)
   assign(".normalize_groups_args",      .normalize_groups_args,       envir = .GlobalEnv)
   assign(".split_sum_terms",            .split_sum_terms,             envir = .GlobalEnv)
   assign(".translate_one_term",         .translate_one_term,          envir = .GlobalEnv)
