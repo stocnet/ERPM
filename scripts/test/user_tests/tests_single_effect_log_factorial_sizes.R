@@ -75,7 +75,6 @@ ctrl_A <- control.ergm(
   force.main      = TRUE,
   parallel        = 0
 )
-# nw[cbind(seq_along(partition_mix), partition_mix + n)] <- 1
 
 nw <- make_nw_from_partition(partition_mix)
 fit_ergm <- ergm( nw ~ log_factorial_sizes,
@@ -89,7 +88,6 @@ print(summary(fit_erpm))
 fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # should be close to 0
 
 # baseline case #2
-# nw[cbind(seq_along(partition_balanced), partition_balanced + n)] <- 1
 nw <- make_nw_from_partition(partition_balanced)
 fit_ergm <- ergm( nw ~ log_factorial_sizes,
                   estimate="MLE",
@@ -98,6 +96,6 @@ fit_ergm <- ergm( nw ~ log_factorial_sizes,
 print(summary(fit_ergm))
 
 fit_erpm <- erpm( partition_balanced ~ log_factorial_sizes, 
-                  control=ctrl_A) # should be around 0.4
+                  control=ctrl_A) # should be around -5
 print(summary(fit_erpm))
 fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # should be close to 0
