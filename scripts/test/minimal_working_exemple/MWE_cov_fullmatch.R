@@ -1,20 +1,19 @@
 # ==============================================================================
 # Fichier : scripts/test/minimal_working_exemple/MWE_cov_fullmatch.R
 # Objet   : MWE pour l’effet ERPM `cov_fullmatch`
-# Chaîne  : partition -> biparti -> traduction -> (dry) formule -> summary
-#           partition -> biparti -> traduction -> formule -> ergm()
+# Chaîne  : partition -> biparti (wrapper) -> summary(nw ~ ...) / erpm(partition ~ ...)
 # ==============================================================================
 
 Sys.setenv(LANG = "fr_FR.UTF-8")
 invisible(try(Sys.setlocale("LC_CTYPE","fr_FR.UTF-8"), silent = TRUE))
+options(ergm.loglik.warn_dyads = FALSE)
 
 suppressPackageStartupMessages({
-  library(devtools)
-  library(network)
+  library(devtools)  # expose erpm(), build_bipartite_from_inputs, etc.
   library(ergm)
 })
 
-# Chargement du package local
+# Charge le package local
 devtools::load_all(".")
 
 # Patch {ergm} si présent
@@ -27,69 +26,65 @@ if (file.exists("scripts/ergm_patch.R")) {
 partition <- c(1,1, 2,2, 3,3,3, 4,4)
 labels    <- paste0("A", seq_along(partition))
 
-# Attributs: catégoriel (dept)
-dept <- c("A","B", "A","A", "B","B","B", "A","A")
-
+# Attribut catégoriel (dept)
+dept  <- c("A","B", "A","A", "B","B","B", "A","A")
 nodes <- data.frame(label = labels, dept = dept, stringsAsFactors = FALSE)
 
 cat("\nPartition : ", paste(partition, collapse=" "), "\n", sep = "")
-cat("Tailles groupes : ", paste(as.integer(table(partition)), collapse = ", "), "\n\n", sep = "")
+cat("Tailles groupes : ", paste(as.integer(table(partition))), "\n\n", sep = "")
 
-# ---------------------- Réseau biparti explicite (référence) -------------------
-nA <- length(partition); G <- max(partition)
-inc <- matrix(0L, nrow = nA, ncol = G, dimnames = list(labels, paste0("G", 1:G)))
-inc[cbind(seq_len(nA), partition)] <- 1L
+# ---------------------- Biparti via wrapper (référence) ------------------------
+# 1) demandé : construire le biparti avec build_bipartite_from_inputs()
+bld <- build_bipartite_from_inputs(partition = partition, nodes = nodes)
+nw  <- bld$network
 
-nw <- network::network(inc, matrix.type = "bipartite", bipartite = nA, directed = FALSE)
-network::set.vertex.attribute(nw, "vertex.names", c(labels, colnames(inc)))
-network::set.vertex.attribute(nw, "dept", c(nodes$dept, rep(NA_character_, G)))
+# -------------------------- Summary de référence (direct) ----------------------
+# Définition : nombre de groupes homogènes sur la covariée
+summary_ref_allSizes <- as.numeric(summary(nw ~ cov_fullmatch("dept"), constraints = ~ b1part))
+summary_ref_A_2to3   <- as.numeric(summary(nw ~ cov_fullmatch("dept", category = "A", size = 2:3),
+                                           constraints = ~ b1part))
 
-# -------------------------- Cas 1 et Cas 2 : attendus --------------------------
-# Définition du terme : nombre de groupes homogènes sur la covariée
-# Cas 1: toutes tailles
-# Cas 2: catégorie "A", tailles = 2:3
+# ---------------------- Observés via dry-run erpm() ----------------------------
+# 2) demandé : noms explicites + appels directs
+dry_allSizes <- erpm(partition ~ cov_fullmatch("dept"),
+                     eval_call = FALSE, verbose = FALSE, nodes = nodes)
+summary_obs_allSizes <- as.numeric(summary(dry_allSizes[[2]], constraints = ~ b1part))
 
-exp1 <- as.numeric(summary(nw ~ cov_fullmatch("dept"), constraints = ~ b1part))
-exp2 <- as.numeric(summary(nw ~ cov_fullmatch("dept", category = "A", size = 2:3), constraints = ~ b1part))
+dry_A_2to3 <- erpm(partition ~ cov_fullmatch("dept", category = "A", size = 2:3),
+                   eval_call = FALSE, verbose = FALSE, nodes = nodes)
+summary_obs_A_2to3 <- as.numeric(summary(dry_A_2to3[[2]], constraints = ~ b1part))
 
-# ----------------------- Observés via dry-run erpm() ---------------------------
-dry1 <- erpm(partition ~ cov_fullmatch("dept"), eval_call = FALSE, verbose = TRUE, nodes = nodes)
-obs1 <- as.numeric(summary(dry1[[2]], constraints = ~ b1part))
+cat(sprintf("[summary] cov_fullmatch(dept) : observé=%g | référence=%g\n",
+            summary_obs_allSizes, summary_ref_allSizes))
+stopifnot(all.equal(summary_obs_allSizes, summary_ref_allSizes, tol = 0))
 
-dry2 <- erpm(partition ~ cov_fullmatch("dept", category = "A", size = 2:3),
-             eval_call = FALSE, verbose = TRUE, nodes = nodes)
-obs2 <- as.numeric(summary(dry2[[2]], constraints = ~ b1part))
+cat(sprintf("[summary] cov_fullmatch(dept, A, 2:3) : observé=%g | référence=%g\n",
+            summary_obs_A_2to3, summary_ref_A_2to3))
+stopifnot(all.equal(summary_obs_A_2to3, summary_ref_A_2to3, tol = 0))
 
-cat(sprintf("[MWE cov_fullmatch] dept : summary=%g | ref=%g\n", obs1, exp1))
-stopifnot(all.equal(obs1, exp1, tol = 0))
-
-cat(sprintf("[MWE cov_fullmatch] dept=='A', S={2,3} : summary=%g | ref=%g\n", obs2, exp2))
-stopifnot(all.equal(obs2, exp2, tol = 0))
-
-# ------------------------------- Fit CD court ----------------------------------
-ctrl_cd <- control.ergm(
-  init.method      = "zeros",
-  CD.maxit         = 30,
-  CD.samplesize    = 20000,
-  CD.nsteps        = 3,
-  CD.NR.maxit      = 0,
-  CD.conv.min.pval = 1e-12,
-  MCMLE.maxit      = 0,
-  parallel         = 0
+# ------------------------------- Fit MLE court ---------------------------------
+# 3) demandé : estimate="MLE", eval.loglik=TRUE
+set.seed(1)
+nw <- build_bipartite_from_inputs(partition = partition, nodes = nodes)
+fit <- ergm(
+  nw$network ~ cov_fullmatch("dept", category = "A", size = 1:3),
+  constraints = ~ b1part,
+  estimate    = "MLE",
+  eval.loglik = TRUE,
+  verbose     = TRUE
 )
 
 set.seed(1)
-fit <- erpm(
-  partition ~ cov_fullmatch("dept") + cov_fullmatch("dept", category = "A", size = 2:3),
-  estimate    = "CD",
+fit_mle <- erpm(
+  partition ~ cov_fullmatch("dept", category = "A", size = 1:3),
+  estimate    = "MLE",
   eval.loglik = TRUE,
-  control     = ctrl_cd,
   verbose     = TRUE,
   nodes       = nodes
 )
-mcmc.diagnostics(fit)
-cat("\n--- summary(fit) ---\n")
-print(summary(fit))
+
+cat("\n--- summary(fit_mle) ---\n")
+print(summary(fit_mle))
 
 # Nettoyage patch
 on.exit(try(ergm_patch_disable(), silent = TRUE), add = TRUE)

@@ -103,13 +103,6 @@ mcmc.diagnostics(fit_ergm)
 
 fit_erpm <- erpm( partition_mix ~ groups,
                   estimate = "MLE",
-                  control = control.ergm(
-                    CD.nsteps      = 10,           
-                    MCMC.burnin    = 2e5,
-                    MCMC.interval  = 1e5,
-                    MCMC.samplesize= 1e4,
-                    MCMLE.maxit    = 60
-                  )
 )
 summary(fit_erpm) 
 fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # should be close to 0

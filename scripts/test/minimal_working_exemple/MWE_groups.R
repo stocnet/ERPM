@@ -2,84 +2,76 @@
 # Fichier : scripts/test/minimal_working_exemple/MWE_groups.R
 #
 # Objet   : MWE pour l’effet ERPM `groups(k)` — calcule la stat observée (summary)
-#            et effectue un fit ERGM complet via `erpm()`, avec affichage lisible.
+#           et effectue un fit ERGM complet via `erpm()`, avec appels directs.
 #
-# Contexte: Ce script illustre la chaîne complète ERPM → ERGM :
-#            partition -> réseau biparti -> traduction -> ergm() ou summary()
+# Chaîne  : partition -> biparti (build_bipartite_from_inputs) -> summary(nw ~ ...)
+#           partition -> erpm(partition ~ ...) -> fit MLE
 #
 # Résumé technique :
-#   • L’effet `groups(k)` ne nécessite pas de code C ni d’InitErgmTerm dédié.
-#   • `erpm()` convertit la partition en graphe biparti (acteurs ↔ groupes).
-#   • Le wrapper traduit `groups(k)` en `b2degrange(from=k,to=k+1)`.
-#   • {ergm} sait déjà calculer cette statistique sur le second mode (groupes).
-#   • Ainsi, `summary()` ou `ergm()` fonctionnent directement sur la formule traduite.
+#   • `groups(k)` ≡ nombre de groupes de taille EXACTEMENT k.
+#   • Le wrapper traduit `groups(k)` en {ergm} `b2degrange(from=k, to=k+1)`.
+#   • On compare un summary direct sur `nw` et un summary via dry-run `erpm`.
 # ======================================================================================
 
-# ----- Préambule locale/UTF-8 (assure des affichages stables) -------------------------
+# ----- Préambule ----------------------------------------------------------------------
+options(ergm.loglik.warn_dyads = FALSE)  # (4) demandé
 Sys.setenv(LANG = "fr_FR.UTF-8")
 invisible(try(Sys.setlocale("LC_CTYPE","fr_FR.UTF-8"), silent = TRUE))
 
-# ----- Dépendances minimales ----------------------------------------------------------
 suppressPackageStartupMessages({
-  library(devtools)  # charge le package local avec load_all(".")
-  library(network)   # fournit l’objet network et l’attribut 'bipartite'
-  library(ergm)      # fournit summary(), ergm(), control.ergm(), etc.
+  library(devtools)   # expose erpm(), build_bipartite_from_inputs, etc.
+  library(ergm)
 })
 
-# ----- Charge le package local ERPM (expose erpm, InitErgmTerm, patch helpers) --------
 devtools::load_all(".")
 
-# ----- Active le patch {ergm} -------------------------------------------
-#   Le patch corrige le trace base::replace()
-source("scripts/ergm_patch.R")
-ergm_patch_enable()
+# Patch {ergm} optionnel si présent
+if (file.exists("scripts/ergm_patch.R")) {
+  source("scripts/ergm_patch.R"); ergm_patch_enable()
+}
 
-# ----- Crée la partition de test ------------------------------------------------------
-#   On a 4 groupes : {1,2,3,4} de tailles = (1,3,2,2)
+# ----- Données de test ---------------------------------------------------------------
+# 4 groupes {1,2,3,4} ; tailles = (1,3,2,2)
 partition <- c(1, 2, 2, 2, 3, 3, 4, 4)
+k_group   <- 2  # groups(k) : taille EXACTE recherchée
 
-cat("\nPartition :", paste(partition, collapse = ", "), "\n")
-sizes <- as.integer(table(partition))
-cat("Tailles des groupes (par ordre de label):", paste(sizes, collapse = ", "), "\n")
-cat("Nombre d'acteurs (N1):", length(partition), " | Nombre de groupes:", length(sizes), "\n\n")
+cat("\nPartition :", paste(partition, collapse = " "), "\n")
+cat("Tailles groupes :", paste(as.integer(table(partition)), collapse = ", "), "\n\n")
 
-# ----- Définit la taille du groupe à évaluer ------------------------------------------
-#   groups(k) compte les groupes de taille EXACTEMENT k.
-taille_group <- 2
-
-# ======================================================================================
-# 1) ÉVALUE LA STAT OBSERVÉE SANS FIT
-#    - ERPM renvoie la formule  -> ERGM sans l'exécuter (dry-run)
-#    - Passe la formule traduite à summary() avec la contrainte bipartite (~b1part)
-# ======================================================================================
-dry <- erpm(partition ~ groups(taille_group), eval_call = FALSE, verbose = TRUE)
-
-# Récupère la formule ergm() traduite 
-fml <- dry[[2]]
-
-# Calcule la statistique observée sur le réseau biparti construit par erpm()
-obs <- summary(fml, constraints = ~ b1part)                         # le réseau biparti est dans l'environnement de fml
-cat(sprintf("\n[MWE groups(%d)] summary observé = %d  | terme = %s\n\n",
-            taille_group, as.integer(obs), names(obs)))
-
-# Vérifie que la valeur est correcte et cohérente avec la partition
-stopifnot(is.numeric(obs), length(obs) == 1L)
+# ----- (1) Biparti via wrapper -------------------------------------------------------
+bld <- build_bipartite_from_inputs(partition = partition)
+nw  <- bld$network
 
 # ======================================================================================
-# 2) EFFECTUE UN FIT ERGM COMPLET ET AFFICHE LES RÉSULTATS DE MANIÈRE LISIBLE
-#    - Le fit retourne un paramètre estimé 
-#    - On vérifie la cohérence en recalculant summary() sur la formule du fit
+# 1) SUMMARY DIRECT sur le biparti (référence)
 # ======================================================================================
-# Fixe une seed pour rendre l’estimation  plus stable entre exécutions
+stat_summary_ref_groups_k <- as.numeric(
+  summary(nw ~ b2degrange(from = k_group, to = k_group + 1), constraints = ~ b1part)
+)
+cat(sprintf("[summary|ref] groups(k=%d) = %g\n", k_group, stat_summary_ref_groups_k))
+
+# ======================================================================================
+# 2) SUMMARY via erpm(dry-run) puis summary(formule) — vérification
+# ======================================================================================
+dry_erpm_groups_k <- erpm(partition ~ groups(k_group), eval_call = FALSE, verbose = FALSE)
+stat_summary_via_dry_groups_k <- as.numeric(summary(dry_erpm_groups_k[[2]], constraints = ~ b1part))
+cat(sprintf("[summary|erpm(dry)] groups(k=%d) = %g\n\n", k_group, stat_summary_via_dry_groups_k))
+
+stopifnot(isTRUE(all.equal(stat_summary_via_dry_groups_k, stat_summary_ref_groups_k, tol = 0)))
+
+# ======================================================================================
+# 3) FIT ERPM COMPLET — (3) demandé : estimate="MLE", eval.loglik=TRUE
+# ======================================================================================
 set.seed(1)
+fit_erpm_groups_k_mle <- erpm(
+  partition ~ groups(k_group),
+  estimate    = "MLE",
+  eval.loglik = TRUE,
+  verbose     = TRUE
+)
 
-# Lance le fit complet
-fit <- erpm(partition ~ groups(taille_group),
-            eval_call  = TRUE,
-            verbose    = TRUE,
-            estimate   = "MLE",
-            eval.loglik = TRUE)
+cat("\n--- summary(fit_erpm_groups_k_mle) ---\n")
+print(summary(fit_erpm_groups_k_mle))
 
-# ----- Affiche le fit de manière synthétique ------------------------------------------
-cat("\n--- summary(fit) ---\n") # Affiche un résumé standard ergm() plus détaillé
-print(summary(fit))
+# Patch off proprement si activé
+on.exit(try(ergm_patch_disable(), silent = TRUE), add = TRUE)

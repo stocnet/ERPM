@@ -186,6 +186,8 @@ C_CHANGESTAT_FN(c_cov_fullmatch){
   Vertex actor = (a <= (Vertex)n1) ? a : b;
   Vertex group = (a <= (Vertex)n1) ? b : a;
 
+  UNUSED_WARNING(actor);
+
   /* Diagnostic : état de l’arête avant le toggle (robuste: OUT || IN) */
   #if DEBUG_COV_FULLMATCH
     int present_out = IS_OUTEDGE(actor, group);

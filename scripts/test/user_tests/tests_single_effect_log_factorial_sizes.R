@@ -1,5 +1,5 @@
 # ======================================================================================
-# Fichier : scripts/test/user_tests/tests_single_effects.R
+# Fichier : scripts/test/user_tests/tests_single_effect_log_factorial_sizes.R
 #
 # Objet   : Test single effects one by one with different options
 #
@@ -37,13 +37,13 @@ partition_singleton <- c(1, 2, 3, 4, 5, 6)
 
 # baseline test
 dry <- erpm(partition_mix ~ log_factorial_sizes, eval_call = FALSE, verbose = TRUE)
-summary(dry[[2]], constraints = ~ b1part) # should be log(2)=0.6931472
+print(summary(dry[[2]], constraints = ~ b1part)) # should be log(2)=0.6931472
 dry <- erpm(partition_balanced ~ log_factorial_sizes, eval_call = FALSE, verbose = TRUE)
-summary(dry[[2]], constraints = ~ b1part) # should be 0
+print(summary(dry[[2]], constraints = ~ b1part)) # should be 0
 dry <- erpm(partition_full ~ log_factorial_sizes, eval_call = FALSE, verbose = TRUE)
-summary(dry[[2]], constraints = ~ b1part) # should be log(2*3*4*5) = 4.787492
+print(summary(dry[[2]], constraints = ~ b1part)) # should be log(2*3*4*5) = 4.787492
 dry <- erpm(partition_singleton ~ log_factorial_sizes, eval_call = FALSE, verbose = TRUE)
-summary(dry[[2]], constraints = ~ b1part) # should be 0
+print(summary(dry[[2]], constraints = ~ b1part)) # should be 0
 
 
 
@@ -53,37 +53,51 @@ summary(dry[[2]], constraints = ~ b1part) # should be 0
 
 set.seed(1)  # stabilise l’estimation si on utilise une estimation CD dans ergm
 
+make_nw_from_partition <- function(part) {
+  n <- length(part)
+  nw <- network.initialize(n * 2, dir = FALSE, bip = n)
+  nw[cbind(seq_along(part), part + n)] <- 1
+  nw
+}
+
+
 # create nw for ergm
-n <- 6
-nw <- network.initialize(n * 2, dir = FALSE, bip = n)
+# n <- 6
+# nw <- network.initialize(n * 2, dir = FALSE, bip = n)
 
 # baseline case #1
 ctrl_A <- control.ergm(
-  init              = "MPLE",  # point de départ stable
-  CD.nsteps         = 0,       # saute complètement CD
-  MCMLE.termination = "Hummel",
-  MCMLE.maxit       = 60,
-  MCMC.burnin       = 2e5,
-  MCMC.interval     = 5e3,
-  MCMC.samplesize   = 5e3
+  CD.maxit        = 0,        # saute la phase contrastive
+  MCMLE.maxit     = 10,
+  MCMC.burnin     = 5000,
+  MCMC.interval   = 1000,
+  MCMC.samplesize = 1e4,
+  force.main      = TRUE,
+  parallel        = 0
 )
-nw[cbind(seq_along(partition_mix), partition_mix + n)] <- 1
+# nw[cbind(seq_along(partition_mix), partition_mix + n)] <- 1
+
+nw <- make_nw_from_partition(partition_mix)
 fit_ergm <- ergm( nw ~ log_factorial_sizes,
                   constraints = ~b1part, 
                   estimate="MLE", 
                   control=ctrl_A)
-summary(fit_ergm)
+print(summary(fit_ergm))
 
 fit_erpm <- erpm(partition_mix ~ log_factorial_sizes) # should be around -0.1
-summary(fit_erpm) 
+print(summary(fit_erpm))
 fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # should be close to 0
 
 # baseline case #2
-nw[cbind(seq_along(partition_balanced), partition_balanced + n)] <- 1
-fit_ergm <- ergm(nw ~ log_factorial_sizes,
-                 constraints = ~b1part)
-summary(fit_ergm)
+# nw[cbind(seq_along(partition_balanced), partition_balanced + n)] <- 1
+nw <- make_nw_from_partition(partition_balanced)
+fit_ergm <- ergm( nw ~ log_factorial_sizes,
+                  estimate="MLE",
+                  constraints = ~b1part,
+                  control=ctrl_A)
+print(summary(fit_ergm))
 
-fit_erpm <- erpm(partition_balanced ~ log_factorial_sizes) # should be around 0.4
-summary(fit_erpm)
+fit_erpm <- erpm( partition_balanced ~ log_factorial_sizes, 
+                  control=ctrl_A) # should be around 0.4
+print(summary(fit_erpm))
 fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # should be close to 0

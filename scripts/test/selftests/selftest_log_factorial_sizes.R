@@ -9,6 +9,7 @@
 # --------------------------------------------------------------------------------------
 Sys.setenv(LANG = "fr_FR.UTF-8")
 invisible(try(Sys.setlocale("LC_CTYPE","fr_FR.UTF-8"), silent = TRUE))
+options(ergm.loglik.warn_dyads = FALSE)
 
 suppressPackageStartupMessages({
   if (!requireNamespace("network", quietly = TRUE)) stop("Package 'network' requis.")
@@ -42,14 +43,11 @@ if (file.exists("scripts/ergm_patch.R")) {
   normalizePath(getwd(), winslash = "/", mustWork = FALSE)
 }
 
-# script_dir <- .get_script_dir()
-# log_path   <- file.path(script_dir, "selftest_log_factorial_sizes.log")
 root <- tryCatch(
   rprojroot::find_root(rprojroot::is_r_package),
   error = function(e) getwd()
 )
 log_path <- file.path(root, "scripts", "test", "selftests", "selftest_log_factorial_sizes.log")
-
 dir.create(dirname(log_path), recursive = TRUE, showWarnings = FALSE)
 if (file.exists(log_path)) unlink(log_path, force = TRUE)
 con_out <- file(log_path, open = "wt")
@@ -63,18 +61,25 @@ on.exit({
   try(close(con_out),        silent = TRUE)
   flush.console()
 }, add = TRUE)
-
 cat("==> Log: ", log_path, "\n")
 
 # --------------------------------------------------------------------------------------
-# Chargements utilitaires ERPM si disponibles
+# Chargements utilitaires ERPM / wrapper
 # --------------------------------------------------------------------------------------
 if (requireNamespace("devtools", quietly = TRUE) && file.exists("DESCRIPTION")) {
   devtools::load_all(quiet = TRUE)
 }
 
+if (!exists("erpm", mode = "function") || !exists("build_bipartite_from_inputs", mode = "function")) {
+  if (file.exists("R/erpm_wrapper.R")) {
+    source("R/erpm_wrapper.R", local = FALSE)
+  } else {
+    cat("[WARN] erpm()/build_bipartite_from_inputs indisponibles. Fallbacks utilisés.\n")
+  }
+}
+
+# Fallback minimal si wrapper absent
 if (!exists("partition_to_bipartite_network", mode = "function")) {
-  # Fallback minimal interne
   partition_to_bipartite_network <- function(labels, partition, attributes = list()) {
     stopifnot(length(labels) == length(partition))
     nA <- length(partition)
@@ -95,170 +100,167 @@ if (!exists("partition_to_bipartite_network", mode = "function")) {
   }
 }
 
-if (!exists("erpm", mode = "function")) {
-  if (file.exists("R/erpm_wrapper.R")) {
-    source("R/erpm_wrapper.R", local = FALSE)
+# --------------------------------------------------------------------------------------
+# Construction bipartie via wrapper ERPM
+# --------------------------------------------------------------------------------------
+.erpm_build_bipartite_network <- function(partition, nodes_df = NULL) {
+  n <- length(partition)
+  if (is.null(nodes_df)) {
+    nodes_df <- data.frame(label = paste0("A", seq_len(n)), stringsAsFactors = FALSE)
   } else {
-    cat("[WARN] erpm() indisponible. Les tests de traduction et les fits via erpm() seront sautés.\n")
+    stopifnot(nrow(nodes_df) == n)
+    if (!"label" %in% names(nodes_df)) {
+      nodes_df$label <- paste0("A", seq_len(n))
+    }
   }
+  attrs <- as.list(nodes_df[, setdiff(names(nodes_df), "label"), drop = FALSE])
+
+  # 1) Tentatives via build_bipartite_from_inputs du wrapper
+  if (exists("build_bipartite_from_inputs", mode = "function")) {
+    builder <- get("build_bipartite_from_inputs")
+    # Signature 1
+    out <- try(builder(partition = partition, nodes = nodes_df), silent = TRUE)
+    # Signature 2
+    if (inherits(out, "try-error") || is.null(out)) {
+      out <- try(builder(partition = partition, labels = nodes_df$label, attributes = attrs), silent = TRUE)
+    }
+    # Extraction d'un objet 'network'
+    if (!inherits(out, "try-error") && !is.null(out)) {
+      if (inherits(out, "network")) return(out)
+      if (is.list(out)) {
+        for (nm in c("network","nw","g","graph","bip","net")) {
+          if (!is.null(out[[nm]]) && inherits(out[[nm]], "network")) return(out[[nm]])
+        }
+      }
+    }
+  }
+
+  # 2) Fallback explicite
+  partition_to_bipartite_network(labels = nodes_df$label, partition = partition, attributes = attrs)
 }
 
-# ======================================================================================
-# Fonctions locales
-# ======================================================================================
+# --------------------------------------------------------------------------------------
+# Fonctions locales explicites (SUMMARY / ERPM)
+# --------------------------------------------------------------------------------------
 
-.is_degenerate_for_fitting <- function(part){
-  sz <- as.integer(table(part))
-  # Dégénéré si: tous singletons, ou un seul groupe, ou variance très faible attendue
-  if (length(sz) == length(part)) return(TRUE)   # tous singletons
-  if (length(sz) == 1L)           return(TRUE)   # un seul groupe
-  FALSE
+# Référence analytique: sum_g log((n_g-1)!) = sum_g lgamma(n_g)
+summary_expected_log_factorial_value <- function(partition) {
+  sum(lgamma(as.integer(table(partition))))
 }
 
-
-# Construire un biparti depuis une partition
-.make_nw_from_partition <- function(part) {
-  n <- length(part); stopifnot(n >= 1, is.atomic(part))
-  lbl <- paste0("A", seq_len(n))
-  partition_to_bipartite_network(labels = lbl, partition = part, attributes = list())
-}
-
-# Valeur de référence analytique: sum_g log((n_g-1)!) = sum_g lgamma(n_g)
-.expected_log_factorial <- function(p) {
-  sum(lgamma(as.integer(table(p))))
-}
-
-# Vérifie un appel erpm(...) non évalué
-.check_translation_ok <- function(call_ergm) {
+# Vérifie qu'un appel erpm(...) contient bien log_factorial_sizes()
+erpm_check_translation_contains_lfs <- function(call_ergm) {
   line <- paste(deparse(call_ergm, width.cutoff = 500L), collapse = " ")
   compact <- gsub("\\s+", "", line)
   grepl("\\blog_factorial_sizes\\(\\)", compact)
 }
 
-# Exécuter un cas summary + check analytique + dry-runs
-.run_one_partition_all <- function(part, name) {
-  nw <- .make_nw_from_partition(part)
+# Exécute summary côté réseau biparti (construit via wrapper)
+summary_on_bipartite_from_wrapper <- function(partition) {
+  nw <- .erpm_build_bipartite_network(partition)
+  as.numeric(suppressMessages(summary(nw ~ log_factorial_sizes())))
+}
 
-  # 1) summary( nw ~ log_factorial_sizes() )
-  f_nw <- nw ~ log_factorial_sizes()
-  stat_summary <- suppressMessages(as.numeric(summary(f_nw)))
+# Secoue la chaîne ERPM: dry-runs traduction pour LHS=network et LHS=partition
+erpm_dryruns_check_translations <- function(partition) {
+  if (!exists("erpm", mode = "function")) return(list(ok_net = NA, ok_part = NA))
+
+  # LHS = network
+  nw <- .erpm_build_bipartite_network(partition)
+  call_net  <- erpm(nw ~ log_factorial_sizes(), eval_call = FALSE, verbose = FALSE)
+  ok_net    <- erpm_check_translation_contains_lfs(call_net)
+
+  # LHS = partition
+  f_part <- partition ~ log_factorial_sizes
+  environment(f_part) <- list2env(list(partition = partition), parent = parent.frame())
+  call_part <- erpm(f_part, eval_call = FALSE, verbose = FALSE)
+  ok_part   <- erpm_check_translation_contains_lfs(call_part)
+
+  list(ok_net = ok_net, ok_part = ok_part)
+}
+
+# Un cas complet: summary + analytique + dry-runs
+summary_run_one_partition_all <- function(partition, name) {
+  stat_summary <- summary_on_bipartite_from_wrapper(partition)
+  expected     <- summary_expected_log_factorial_value(partition)
   ok_summary   <- isTRUE(all(is.finite(stat_summary)))
+  ok_value     <- isTRUE(abs(stat_summary[1] - expected) < 1e-9)
 
-  # 2) check analytique
-  expected <- .expected_log_factorial(part)
-  ok_value <- isTRUE(abs(stat_summary[1] - expected) < 1e-9)
+  tr <- erpm_dryruns_check_translations(partition)
 
-  # 3) dry-run erpm LHS=network
-  ok_trad_net <- NA
-  if (exists("erpm", mode = "function")) {
-    call_net <- erpm(f_nw, eval_call = FALSE, verbose = FALSE)
-    ok_trad_net <- .check_translation_ok(call_net)
-  }
-
-  # 4) dry-run erpm LHS=partition
-  ok_trad_part <- NA
-  if (exists("erpm", mode = "function")) {
-    partition <- part
-    f_part <- partition ~ log_factorial_sizes
-    environment(f_part) <- list2env(list(partition = partition), parent = parent.frame())
-    call_part <- erpm(f_part, eval_call = FALSE, verbose = FALSE)
-    ok_trad_part <- .check_translation_ok(call_part)
-  }
-
-  cat(sprintf("\n[PART %-8s] part={%s}", name, paste(part, collapse=",")))
-  cat(sprintf("\t summary=%.12f\t expected=%.12f\t summaryOK=%s\t valueOK=%s",
-              stat_summary[1], expected, ok_summary, ok_value))
-  if (!is.na(ok_trad_net))  cat(sprintf("\t trad[LHS=nw]=%s",  if (ok_trad_net) "OK" else "KO"))
-  if (!is.na(ok_trad_part)) cat(sprintf("\t trad[LHS=part]=%s",if (ok_trad_part) "OK" else "KO"))
-  cat("\n")
+  cat(sprintf("\n[SUMMARY %-8s] part={%s}\t summary=%.12f\t expected=%.12f\t summaryOK=%s\t valueOK=%s\t trad[LHS=nw]=%s\t trad[LHS=part]=%s\n",
+              name, paste(partition, collapse=","), stat_summary[1], expected,
+              ok_summary, ok_value,
+              if (is.na(tr$ok_net)) "NA" else if (tr$ok_net) "OK" else "KO",
+              if (is.na(tr$ok_part)) "NA" else if (tr$ok_part) "OK" else "KO"))
 
   data.frame(
-    name        = name,
-    n           = length(part),
-    groups      = length(unique(part)),
-    summary     = stat_summary[1],
-    expected    = expected,
-    ok_summary  = ok_summary,
-    ok_value    = ok_value,
-    ok_trad_nw  = ok_trad_net,
-    ok_trad_part= ok_trad_part,
+    name          = name,
+    n             = length(partition),
+    groups        = length(unique(partition)),
+    summary       = stat_summary[1],
+    expected      = expected,
+    ok_summary    = ok_summary,
+    ok_value      = ok_value,
+    ok_trad_nw    = tr$ok_net,
+    ok_trad_part  = tr$ok_part,
     stringsAsFactors = FALSE
   )
 }
 
-# Petit fit via erpm() (CD rapide, sans logLik) — LHS au choix
-.erpm_fit_one <- function(part, lhs_mode = c("partition","network"),
-                          estimate = "CD",
-                          eval.loglik = FALSE,
-                          control = list(CD.maxit = 4, MCMLE.maxit = 0, MCMC.samplesize = 500)) {
+# Fit via erpm() avec MLE + logLik, LHS = partition ou réseau
+erpm_run_fit_one <- function(partition, lhs_mode = c("partition","network"),
+                             estimate = "MLE", eval.loglik = TRUE,
+                             control = control.ergm(MCMLE.maxit = 10, MCMC.samplesize = 3000)) {
   lhs_mode <- match.arg(lhs_mode)
-
-  if (.is_degenerate_for_fitting(part)) {
-    cat(sprintf("[FIT %-10s] part={%s}\t SKIP (profil dégénéré pour le fit)\n",
-                lhs_mode, paste(part, collapse=",")))
-    return(list(ok = NA, coef = NA))
+  # profils dégénérés → SKIP
+  sz <- as.integer(table(partition))
+  if (length(sz) == length(partition) || length(sz) == 1L) {
+    cat(sprintf("[ERPM-FIT %-10s] part={%s}\t SKIP (profil dégénéré)\n",
+                lhs_mode, paste(partition, collapse=",")))
+    return(list(ok = NA, error = FALSE, coef = NA, fit = NULL))
   }
-
   if (!exists("erpm", mode = "function")) {
-    cat(sprintf("[FIT %-10s] part={%s}\t SKIP erpm() indisponible\n",
-                lhs_mode, paste(part, collapse=",")))
-    return(list(ok = NA, coef = NA))
+    cat(sprintf("[ERPM-FIT %-10s] part={%s}\t SKIP erpm() indisponible\n",
+                lhs_mode, paste(partition, collapse=",")))
+    return(list(ok = NA, error = TRUE, coef = NA, fit = NULL))
   }
 
-  oldopt <- options(ergm.loglik.warn_dyads = FALSE); on.exit(options(oldopt), add = TRUE)
   set.seed(42)
-
   if (lhs_mode == "network") {
-    nw <- .make_nw_from_partition(part)
+    nw <- .erpm_build_bipartite_network(partition)
     f  <- nw ~ log_factorial_sizes()
   } else {
-    partition <- part
+    # LHS = partition, lier le bon symbole dans l'environnement
     f <- partition ~ log_factorial_sizes
     environment(f) <- list2env(list(partition = partition), parent = parent.frame())
   }
 
-  cat(sprintf("[FIT %-10s] part={%s}\n", lhs_mode, paste(part, collapse=",")))
+  cat(sprintf("[ERPM-FIT %-10s] part={%s}\n", lhs_mode, paste(partition, collapse=",")))
 
-  fit_try <- function(ctrl){
-    try(erpm(f, estimate = "CD", eval.loglik = FALSE, control = ctrl, verbose = FALSE),
-        silent = TRUE)
+  res <- withCallingHandlers(
+    try(erpm(f, estimate = estimate, eval.loglik = eval.loglik,
+             control = control, verbose = FALSE), silent = TRUE),
+    warning = function(w) { message <- conditionMessage(w); cat("  - WARNING: ", message, "\n", sep=""); invokeRestart("muffleWarning") }
+  )
+  if (inherits(res, "try-error")) {
+    cat("  -> ERREUR fit: ", as.character(res), "\n", sep = "")
+    return(list(ok = FALSE, error = TRUE, coef = NA, fit = NULL))
   }
 
-  # tentative 1: CD seul, court
-  ctrl1 <- do.call(ergm::control.ergm, control)
-  fit   <- fit_try(ctrl1)
-
-  # tentative 2: si erreur, CD encore plus court
-  if (inherits(fit, "try-error")) {
-    ctrl2 <- ergm::control.ergm(CD.maxit = 3, MCMLE.maxit = 0, MCMC.samplesize = 300)
-    fit   <- fit_try(ctrl2)
-  }
-
-  # abandon propre -> SKIP
-  if (inherits(fit, "try-error")) {
-    msg <- as.character(fit)
-    if (grepl("essentially constant|Hotelling", msg, ignore.case = TRUE)) {
-      cat("  -> SKIP fit (variance quasi nulle détectée)\n")
-      return(list(ok = NA, coef = NA))
-    }
-    cat("  -> ERREUR fit: ", msg, "\n")
-    return(list(ok = FALSE, coef = NA))
-  }
-
-  cf <- try(stats::coef(fit), silent = TRUE)
-  ok_coef <- !inherits(cf, "try-error") && all(is.finite(cf))
+  cf <- try(stats::coef(res), silent = TRUE)
+  ok_coef  <- !(inherits(cf, "try-error")) && all(is.finite(cf))
+  ok_class <- inherits(res, "ergm")
   cat(sprintf("  -> class(ergm)=%s | coef finies=%s | coef=%s\n",
-              inherits(fit, "ergm"), ok_coef,
-              if (ok_coef) paste0(format(as.numeric(cf)), collapse=", ") else "NA"))
-  list(ok = inherits(fit, "ergm") && ok_coef, coef = if (ok_coef) cf else NA)
+              ok_class, if (ok_coef) "OK" else "KO",
+              if (ok_coef) paste(format(as.numeric(cf)), collapse=", ") else "NA"))
+
+  list(ok = ok_class && ok_coef, error = FALSE, coef = if (ok_coef) cf else NA, fit = res)
 }
 
-
-# ======================================================================================
+# --------------------------------------------------------------------------------------
 # Jeu de tests
-# ======================================================================================
-
-# Partitions variées, couvrant: singletons, tous dans un groupe, tailles mixtes, multi-groupes
+# --------------------------------------------------------------------------------------
 partitions <- list(
   P1 = c(1, 1, 2, 2, 2, 3),               # tailles: (2,3,1)
   P2 = c(1, 1, 1, 2, 3, 3, 3, 3),         # tailles: (3,1,4)
@@ -269,15 +271,15 @@ partitions <- list(
   P7 = c(1,2,2,2,2,3,3,4,4,4,4,4)         # tailles: (1,4,2,5)
 )
 
-# ======================================================================================
+# --------------------------------------------------------------------------------------
 # Phase 1 : summary + analytique + dry-runs
-# ======================================================================================
-run_phase1 <- function() {
-  cat("=== PHASE 1: summary + expected + dry-run translations ===\n")
-  rows <- lapply(names(partitions), function(nm) .run_one_partition_all(partitions[[nm]], nm))
+# --------------------------------------------------------------------------------------
+summary_run_phase1_all <- function() {
+  cat("=== PHASE 1: summary + expected + ERPM dry-runs ===\n")
+  rows <- lapply(names(partitions), function(nm) summary_run_one_partition_all(partitions[[nm]], nm))
   df <- do.call(rbind, rows)
 
-  # Bilan
+  # Bilan validations
   ok_flags <- c(df$ok_summary, df$ok_value,
                 if (!all(is.na(df$ok_trad_nw))) df$ok_trad_nw else TRUE,
                 if (!all(is.na(df$ok_trad_part))) df$ok_trad_part else TRUE)
@@ -289,52 +291,59 @@ run_phase1 <- function() {
   df
 }
 
-# ======================================================================================
-# Phase 2 : petits fits via erpm() pour LHS partition et LHS réseau
-# ======================================================================================
-# --- dans run_phase2(), garde l’échantillon mais les cas dégénérés seront SKIP automatiquement ---
-run_phase2 <- function() {
+# --------------------------------------------------------------------------------------
+# Phase 2 : fits MLE + logLik, pour LHS partition et LHS réseau
+# --------------------------------------------------------------------------------------
+erpm_run_phase2_fits <- function() {
   if (!exists("erpm", mode = "function")) {
     cat("\n=== PHASE 2: SKIP (erpm() indisponible) ===\n"); return(invisible(NULL))
   }
-  cat("\n=== PHASE 2: Fits erpm() courts ===\n")
+  cat("\n=== PHASE 2: Fits erpm() MLE + logLik ===\n")
   pick <- c("P1","P2","P4","P5")
-  res_fit <- list()
+  fit_results <- list()
   for (nm in pick) {
     part <- partitions[[nm]]
-    res_fit[[paste0(nm,"_part")]] <- .erpm_fit_one(part, lhs_mode = "partition")
-    res_fit[[paste0(nm,"_net")]]  <- .erpm_fit_one(part, lhs_mode = "network")
+    fit_results[[paste0(nm,"_part")]] <- erpm_run_fit_one(part, lhs_mode = "partition")
+    fit_results[[paste0(nm,"_net")]]  <- erpm_run_fit_one(part, lhs_mode = "network")
   }
 
-  # NE PAS utiliser isTRUE ici
-  ok <- vapply(res_fit, function(x) x$ok, logical(1))
+    # Bilan des fits  — gère explicitement SKIP (= NA)
+    ok_raw <- vapply(fit_results, function(x) x$ok, logical(1))
+    n_skip <- sum(is.na(ok_raw))
+    n_tot  <- length(ok_raw) - n_skip            # seulement les cas évalués
+    n_ok   <- sum(ok_raw, na.rm = TRUE)          # OK parmi non-SKIP
+    n_fail <- n_tot - n_ok                       # vrais échecs
 
-  n_skip <- sum(is.na(ok))
-  n_tot  <- length(ok) - n_skip          # total hors SKIP
-  n_ok   <- sum(ok, na.rm = TRUE)        # OK parmi non-NA
-  n_fail <- n_tot - n_ok                 # échecs réels
+    cat(sprintf("\n=== Bilan fits erpm() : %d / %d OK ; %d SKIP ===\n",
+                n_ok, n_tot, n_skip))
 
-  cat(sprintf("\n=== Bilan Phase 2 (fits) : %d / %d OK ; %d SKIP ===\n",
-              n_ok, n_tot, n_skip))
+    # Résumés détaillés des fits ERPM réussis
+    cat("\n=== Résumés détaillés des fits ERPM réussis ===\n")
+    for (nm in names(fit_results)) {
+      fit_obj <- fit_results[[nm]]
+      if (isTRUE(fit_obj$ok) && inherits(fit_obj$coef, "numeric")) {
+        cat(sprintf("\n--- Résumé fit %s ---\n", nm))
+        print(summary(fit_obj$fit))
+      }
+    }
 
-  if (n_fail > 0)
-    stop(sprintf("Phase 2 KO: %d fits en échec (hors SKIP)", n_fail))
-
-  invisible(res_fit)
+    if (n_fail > 0) stop(sprintf("Echec fits: %d KO", n_fail))
+    invisible(fit_results)
 }
 
-# ======================================================================================
+# --------------------------------------------------------------------------------------
 # Point d'entrée
-# ======================================================================================
+# --------------------------------------------------------------------------------------
 if (identical(environment(), globalenv())) {
   set.seed(42)
-  oldopt <- options(ergm.loglik.warn_dyads = FALSE); on.exit(options(oldopt), add = TRUE)
 
-  p1 <- run_phase1()
-  p2 <- run_phase2()
+  summary_results <- summary_run_phase1_all()
+  fit_results     <- erpm_run_phase2_fits()
 
   cat("\n=== SELFTEST log_factorial_sizes : SUCCESS ===\n")
-  print(p1)
+  print(summary_results)
+
+  invisible(list(summary_results = summary_results, fit_results = fit_results))
 }
 
 on.exit(try(ergm_patch_disable(), silent = TRUE), add = TRUE)
