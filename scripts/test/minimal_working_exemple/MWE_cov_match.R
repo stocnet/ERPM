@@ -1,0 +1,103 @@
+# ==============================================================================
+# Fichier : scripts/test/minimal_working_exemple/MWE_cov_match.R
+# Objet   : MWE minimal pour l’effet ERPM `cov_match`
+# Chaîne  : partition → biparti → summary(nw) / erpm(partition)
+# ==============================================================================
+
+Sys.setenv(LANG = "fr_FR.UTF-8")
+invisible(try(Sys.setlocale("LC_CTYPE", "fr_FR.UTF-8"), silent = TRUE))
+options(ergm.loglik.warn_dyads = FALSE)
+
+suppressPackageStartupMessages({
+  library(devtools)  # expose erpm(), build_bipartite_from_inputs
+  library(ergm)
+})
+
+# Charger le package local
+devtools::load_all(".")
+
+# Patch {ergm} si disponible
+if (file.exists("scripts/ergm_patch.R")) {
+  source("scripts/ergm_patch.R")
+  ergm_patch_enable()
+}
+
+# ----------------------------- Données fixes -----------------------------------
+# Partition simple (10 acteurs)
+partition <- c(1,1, 2,2, 3,3,3, 4,4,4)
+labels    <- paste0("A", seq_along(partition))
+
+# Attributs : sexe, dept
+sexe <- c("F","H", "F","F", "H","H","H", "F","H","H")
+dept <- c("RH","RH", "Info","Info", "RH","Info","Info", "RH","RH","Info")
+
+nodes <- data.frame(label = labels, sexe = sexe, dept = dept, stringsAsFactors = FALSE)
+
+cat("\nPartition :  ", paste(partition, collapse=" "), "\n", sep = "")
+cat("Tailles groupes : ", paste(as.integer(table(partition))), "\n\n", sep = "")
+
+# ---------------------- Biparti via wrapper (référence) ------------------------
+bld <- build_bipartite_from_inputs(partition = partition, nodes = nodes)
+nw  <- bld$network
+
+# -------------------------- Summary de référence -------------------------------
+ref_k2      <- as.numeric(summary(nw ~ cov_match("sexe", clique_size = 2), constraints = ~ b1part))
+ref_k2_bg   <- as.numeric(summary(nw ~ cov_match("sexe", clique_size = 2, normalized="by_group"),
+                                  constraints = ~ b1part))
+ref_k1_F_bg <- as.numeric(summary(nw ~ cov_match("sexe", clique_size = 1, category="F",
+                                                 normalized="by_group"),
+                                  constraints = ~ b1part))
+
+# -------------------------- Summary via erpm() --------------------------------
+dry_k2 <- erpm(partition ~ cov_match("sexe", clique_size = 2),
+               eval_call = FALSE, verbose = FALSE, nodes = nodes)
+obs_k2 <- as.numeric(summary(dry_k2[[2]], constraints = ~ b1part))
+
+dry_k2_bg <- erpm(partition ~ cov_match("sexe", clique_size = 2, normalized="by_group"),
+                  eval_call = FALSE, verbose = FALSE, nodes = nodes)
+obs_k2_bg <- as.numeric(summary(dry_k2_bg[[2]], constraints = ~ b1part))
+
+dry_k1_F_bg <- erpm(partition ~ cov_match("sexe", clique_size = 1, category="F",
+                                          normalized="by_group"),
+                    eval_call = FALSE, verbose = FALSE, nodes = nodes)
+obs_k1_F_bg <- as.numeric(summary(dry_k1_F_bg[[2]], constraints = ~ b1part))
+
+# -------------------------- Vérifications --------------------------------------
+cat(sprintf("[summary] cov_match(sexe,k=2)             : obs=%g | ref=%g\n", obs_k2,    ref_k2))
+stopifnot(all.equal(obs_k2, ref_k2, tol=0))
+
+cat(sprintf("[summary] cov_match(sexe,k=2,by_group)   : obs=%g | ref=%g\n", obs_k2_bg, ref_k2_bg))
+stopifnot(all.equal(obs_k2_bg, ref_k2_bg, tol=0))
+
+cat(sprintf("[summary] cov_match(sexe==F,k=1,bg)      : obs=%g | ref=%g\n", obs_k1_F_bg, ref_k1_F_bg))
+stopifnot(all.equal(obs_k1_F_bg, ref_k1_F_bg, tol=0))
+
+# ------------------------------- Fit MLE simple --------------------------------
+set.seed(1)
+nw2 <- build_bipartite_from_inputs(partition = partition, nodes = nodes)
+
+fit_ref <- ergm(
+  nw2$network ~ cov_match("sexe", clique_size = 2),
+  constraints = ~ b1part,
+  estimate    = "MLE",
+  control=control.ergm( MCMLE.maxit=40, 
+                        MCMC.samplesize=8000),
+  eval.loglik = TRUE
+)
+
+set.seed(1)
+fit_erpm <- erpm(
+  partition ~ cov_match("sexe", clique_size = 2),
+  estimate    = "MLE",
+  eval.loglik = TRUE,
+  verbose     = TRUE,
+  control=control.ergm( MCMLE.maxit=40, 
+                        MCMC.samplesize=8000),
+  nodes       = nodes
+)
+
+cat("\n--- summary(fit_erpm) ---\n")
+print(summary(fit_erpm))
+
+# Nettoyage
+on.exit(try(ergm_patch_disable(), silent = TRUE), add = TRUE)

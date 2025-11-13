@@ -115,7 +115,10 @@ if (!exists(".__launcher_loaded", envir = .GlobalEnv)) {
       vn <- network::network.vertex.names(nw); if (is.null(vn)) vn <- seq_len(network::network.size(nw))
       actors <- vn[seq_len(n)]
       groups <- vn[seq.int(n + 1L, n + max(1L, length(vn) - n))]
-      A <- network::as.matrix(nw, matrix.type = "adjacency")
+      A <- as.matrix(nw, matrix.type = "adjacency")                 # recommandé
+
+    
+
       part <- vapply(seq_len(n), function(i) {
         gi <- which(A[actors[i], groups] > 0L)
         if (length(gi)) as.integer(sub("^G", "", groups[gi[1L]])) else NA_integer_
