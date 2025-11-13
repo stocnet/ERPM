@@ -12,6 +12,7 @@
 #' The file also includes argument normalizers and internal validation helpers.
 #' All user-facing console messages are in English for consistency with {ergm}.
 #'
+#' TODO : Remove references to old wrappring : effect_rename_map, wrap_with_proj1, wrap_with_B
 #' @keywords ERPM ERGM wrapper bipartite translation
 #' @md
 
@@ -411,14 +412,10 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
     rhs_expr     <- new_formula[[3]]
 
     # Rename ERPM terms to {ergm} terms
-    effect_rename_map <- c(
-      cov_match = "nodematch",
-      cov_diff  = "absdiff",
-      dyadcov   = "edgecov"
-    )
+    effect_rename_map <- c()
     # Terms that must run in the 1-mode projection or as a biased constraint
-    wrap_with_proj1 <- c("nodematch", "absdiff", "edgecov")
-    wrap_with_B     <- c("edgecov")
+    wrap_with_proj1 <- c()
+    wrap_with_B     <- c()
 
     # Translate and validate shapes immediately to fail fast on malformed inputs.
     safe_translate <- function() {
@@ -451,6 +448,7 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
         }
         term_call
       }
+      
       lapply(translated_terms, validate_groups_shape)
     }
 
