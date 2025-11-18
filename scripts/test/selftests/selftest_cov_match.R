@@ -408,8 +408,11 @@ run_fit <- function(part, nodes, rhs, tag) {
 
     # Exécution avec capture des warnings
     res <- .with_warning_capture(
-        try(erpm(f, estimate = "MLE", eval.loglik = TRUE, control = ctrl_mle,
-                verbose = FALSE, nodes = nodes), silent = TRUE)
+        try(erpm(f, eval.loglik = TRUE, 
+                    # control = ctrl_mle,
+                    # estimate = "MLE",
+                    verbose = FALSE, 
+                    nodes = nodes), silent = TRUE)
     )
     fit   <- res$value
     warns <- res$warnings

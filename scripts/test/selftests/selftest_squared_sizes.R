@@ -293,9 +293,9 @@ if (!exists("build_bipartite_from_inputs", mode = "function"))
   lab <- utils::head(LETTERS, length(part))
   arglist <- list(
     formula     = f,
-    estimate    = "MLE",
+    # estimate    = "MLE",
+    # control     = ctrl,
     eval.loglik = TRUE,
-    control     = ctrl,
     verbose     = TRUE
   )
   if (has_labels)     arglist$labels     <- lab

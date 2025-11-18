@@ -91,26 +91,27 @@ if (!exists("erpm", mode = "function") || !exists("build_bipartite_from_inputs",
 
 # Panel de partitions variées (tailles plus grandes pour faire varier la stat)
 partitions <- list(
+    # A : 3 groupes (2,3,2) = 7 sommets
     A = c(
-        1,1,1,              # taille 3
-        2,2,2,2,            # taille 4
-        3,3,3,3,3,          # taille 5
-        4,4,4               # taille 3
-    ),                      # n = 15, tailles: 3,4,5,3
+        1,1,          # 2
+        2,2,2,        # 3
+        3,3           # 2
+    ),
+    # B : 6 groupes (5,5,4,4,3,3) = 24 sommets  --> plus grand pour éviter le cas quasi-constant
     B = c(
-        1,1,1,1,            # 4
-        2,2,2,              # 3
-        3,3,3,3,            # 4
-        4,4,4,4,            # 4
-        5,5,                # 2
-        6                   # 1
-    ),                      # n = 18, tailles: 4,3,4,4,2,1
+        rep(1, 5),    # 5
+        rep(2, 5),    # 5
+        rep(3, 4),    # 4
+        rep(4, 4),    # 4
+        rep(5, 3),    # 3
+        rep(6, 3)     # 3
+    ),
+    # C : 3 groupes (2,2,3) = 7 sommets
     C = c(
-        1,1,1,1,            # 4
-        2,2,2,2,            # 4
-        3,3,                # 2
-        4,4,4               # 3
-    )                       # n = 13, tailles: 4,4,2,3
+        1,1,          # 2
+        2,2,          # 2
+        3,3,3         # 3
+    )
 )
 
 # Génère un jeu d'attributs contrôlé par partition
@@ -133,18 +134,16 @@ partitions <- list(
 partA  <- partitions$A
 nodesA <- data.frame(
     label = LETTERS[1:length(partA)],
-    # un pattern non trivial pour faire varier la stat cov_match_GW(sexe)
+    # pattern non trivial pour cov_match_GW('sexe')
     sexe  = c(
-        "F","F","H",        # g1
-        "H","F","H","F",    # g2
-        "H","H","F","H","F",# g3
-        "F","H","H"         # g4
+        "F","H",        # g1 (mixte)
+        "H","F","F",    # g2 (majorité F)
+        "H","H"         # g3 (tout H)
     ),
     dept  = c(
-        "RH","RH","V",      # g1
-        "V","V","IT","IT",  # g2
-        "IT","IT","IT","V","V", # g3
-        "RH","V","IT"       # g4
+        "RH","RH",      # g1
+        "V","IT","IT",  # g2
+        "RH","V"        # g3
     ),
     stringsAsFactors = FALSE
 )
@@ -154,17 +153,15 @@ partC  <- partitions$C
 nodesC <- data.frame(
     label = paste0("C", seq_along(partC)),
     sexe  = c(
-        "F","H","H","F",    # g1
-        "H","H","F","H",    # g2
-        "F","H",            # g3
-        "F","H","H"         # g4
+        "F","H",        # g1
+        "H","H",        # g2
+        "F","H","F"     # g3
     ),
-    # pattern grade : certains groupes riches en G1, d'autres en G2/G3
+    # pattern grade : G1 présent dans plusieurs groupes, G2/G3 en complément
     grade = c(
-        "G1","G2","G2","G1",    # g1
-        "G1","G3","G1","G2",    # g2
-        "G2","G3",              # g3
-        "G1","G1","G2"          # g4
+        "G1","G2",      # g1
+        "G1","G3",      # g2
+        "G1","G1","G2"  # g3
     ),
     stringsAsFactors = FALSE
 )
@@ -404,8 +401,11 @@ run_fit_GW <- function(part, nodes, rhs, tag) {
     }
 
     res <- .with_warning_capture(
-        try(erpm(f, estimate = "MLE", eval.loglik = TRUE, control = ctrl_mle,
-                 verbose = FALSE, nodes = nodes), silent = TRUE)
+        try(erpm(f, eval.loglik = TRUE, 
+                    # estimate = "MLE", 
+                    # control = ctrl_mle,
+                    verbose = FALSE, 
+                    nodes = nodes), silent = TRUE)
     )
     fit   <- res$value
     warns <- res$warnings
