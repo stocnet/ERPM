@@ -32,7 +32,7 @@ message("[ERGM] Appel ergm sur le même réseau")
 fit_ergm <- ergm(
   nw ~ b2degrange(1, Inf),
   constraints = ~ b1part,
-  estimate    = "MLE",
+  # estimate    = "MLE",
   eval.loglik = TRUE
 )
 
@@ -42,7 +42,7 @@ message("[ERPM] Appel erpm strictement équivalent")
 # 3) Appel erpm  équivalent
 fit_erpm <- erpm(
   partition_mix ~ groups,
-  estimate    = "MLE",
+  # estimate    = "MLE",
   eval.loglik = TRUE
 )
 

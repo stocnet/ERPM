@@ -224,8 +224,13 @@ run_phase1_summary_equivalence_checks <- function() {
 # Phase 2: Fits via ERPM
 # ======================================================================================
 
-run_one_erpm_fit_with_return <- function(partition_vec, nodes_df, rhs_txt, fit_name,
-                                         estimate = "CD", eval.loglik = TRUE, control = ctrl) {
+run_one_erpm_fit_with_return <- function( partition_vec, 
+                                          nodes_df, rhs_txt, 
+                                          fit_name,
+                                          estimate = NULL,
+                                          control = NULL, 
+                                          eval.loglik = TRUE
+                                        ) {
   if (!exists("erpm", mode = "function")) {
     cat(sprintf("[ERPM-FIT %-20s] SKIP (erpm() indisponible)\n", fit_name))
     return(list(ok = NA, error = FALSE, coef = NA, fit = NULL))
@@ -236,7 +241,11 @@ run_one_erpm_fit_with_return <- function(partition_vec, nodes_df, rhs_txt, fit_n
   cat(sprintf("[ERPM-FIT %-20s] n=%-3d RHS=%s  | estimate=%s eval.loglik=%s\n",
               fit_name, length(partition_vec), rhs_txt, estimate, as.character(eval.loglik)))
   fit <- try(
-    erpm(f, estimate = estimate, eval.loglik = eval.loglik, control = control, verbose = FALSE, nodes = nodes_df),
+    erpm(f, eval.loglik = eval.loglik,
+            # estimate = estimate,  
+            # control = control, 
+            verbose = FALSE, 
+            nodes = nodes_df),
     silent = TRUE
   )
   if (inherits(fit, "try-error")) {
@@ -278,9 +287,9 @@ run_phase2_erpm_fits_and_print_summaries <- function() {
         nodes_df      = nodes,
         rhs_txt       = rhs_list[[nm]],
         fit_name      = key,
-        estimate      = "CD",
-        eval.loglik   = TRUE,
-        control       = ctrl
+        # estimate      = "CD",
+        # control       = ctrl,
+        eval.loglik   = TRUE
       )
     }
   }

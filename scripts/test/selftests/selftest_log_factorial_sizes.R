@@ -210,8 +210,10 @@ summary_run_one_partition_all <- function(partition, name) {
 
 # Fit via erpm() avec MLE + logLik, LHS = partition ou réseau
 erpm_run_fit_one <- function(partition, lhs_mode = c("partition","network"),
-                             estimate = "MLE", eval.loglik = TRUE,
-                             control = control.ergm(MCMLE.maxit = 10, MCMC.samplesize = 3000)) {
+                             estimate = NULL, 
+                             control = NULL,
+                             eval.loglik = TRUE
+                             ) {
   lhs_mode <- match.arg(lhs_mode)
   # profils dégénérés → SKIP
   sz <- as.integer(table(partition))

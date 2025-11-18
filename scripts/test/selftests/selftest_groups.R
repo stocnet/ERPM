@@ -243,9 +243,10 @@ run_phase1_summary_equivalence_checks_for_groups <- function() {
 
 # Fit unique ERPM avec retour détaillé
 run_one_erpm_fit_with_return_for_groups <- function(partition_vec, rhs_txt, fit_name,
-                                                    estimate = "MLE", eval.loglik = TRUE,
-                                                    control = control.ergm(MCMC.samplesize = 2000,
-                                                                           MCMLE.maxit = 10)) {
+                                                    estimate = NULL, 
+                                                    control = NULL,
+                                                    eval.loglik = TRUE
+                                                    ) {
   if (!exists("erpm", mode = "function")) {
     cat(sprintf("[ERPM-FIT %-20s] SKIP (erpm() indisponible)\n", fit_name))
     return(list(ok = NA, error = FALSE, coef = NA, fit = NULL))
@@ -256,7 +257,10 @@ run_one_erpm_fit_with_return_for_groups <- function(partition_vec, rhs_txt, fit_
   cat(sprintf("[ERPM-FIT %-20s] n=%-3d RHS=%s  | estimate=%s eval.loglik=%s\n",
               fit_name, length(partition_vec), rhs_txt, estimate, as.character(eval.loglik)))
   fit <- try(
-    erpm(f, estimate = estimate, eval.loglik = eval.loglik, control = control, verbose = FALSE),
+    erpm(f, eval.loglik = eval.loglik, 
+            # estimate = estimate, 
+            # control = control, 
+            verbose = FALSE),
     silent = TRUE
   )
   if (inherits(fit, "try-error")) {
@@ -297,9 +301,9 @@ run_phase2_erpm_fits_and_print_summaries_for_groups <- function() {
         partition_vec = px$part,
         rhs_txt       = rhs_list[[nm]],
         fit_name      = key,
-        estimate      = "MLE",
-        eval.loglik   = TRUE,
-        control       = control.ergm(MCMC.samplesize = 3000, MCMLE.maxit = 10)
+        # estimate      = "MLE",
+        # control       = control.ergm(MCMC.samplesize = 3000, MCMLE.maxit = 10),
+        eval.loglik   = TRUE
       )
     }
   }
