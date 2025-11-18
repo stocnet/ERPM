@@ -21,18 +21,22 @@ partition_mix <- c(1,2,2,3,3,3)
 built <- build_bipartite_from_inputs(partition = partition_mix)
 nw2   <- built$network  # réseau biparti du wrapper
 
+n <- 6
+nw <- network.initialize(n * 2, dir = FALSE, bip = n)
+nw[cbind(seq_along(partition_mix), partition_mix + n)] <- 1
 
 set.seed(1)
 
 # 2) Appel ergm  sur le même réseau
 message("[ERGM] Appel ergm sur le même réseau")
 fit_ergm <- ergm(
-  nw2 ~ b2degrange(1, Inf),
+  nw ~ b2degrange(1, Inf),
   constraints = ~ b1part,
   estimate    = "MLE",
   eval.loglik = TRUE
 )
 
+set.seed(1)
 
 message("[ERPM] Appel erpm strictement équivalent")
 # 3) Appel erpm  équivalent
@@ -46,4 +50,7 @@ fit_erpm <- erpm(
 # 5) Vérif rapide
 print(summary(fit_ergm))
 print(summary(fit_erpm))
-fit_ergm$coef - fit_erpm$coef
+cat("\n[ERGM vs ERPM]",
+    "\n\t", sprintf("fit_ergm = %f", fit_ergm$coefficients),
+    "\n\t", sprintf("fit_erpm = %f", fit_erpm$coefficients),
+    "\n\t", sprintf("fit_ergm - fit_erpm = %f", fit_ergm$coefficients - fit_erpm$coefficients))

@@ -1,4 +1,4 @@
-dev_mode(TRUE)
+#dev_mode(TRUE)
 library(ergm)
 
 # data

@@ -231,7 +231,7 @@ if (!exists(".__launcher_loaded", envir = .GlobalEnv)) {
       }
       out <- if (is.null(constraints)) summary(f) else summary(f, constraints = constraints)
       out_brief <- .brief_result(out, engine = "summary")
-      .log_info(paste("Résultat (summary):\n", out_brief))
+      # .log_info(paste("Résultat (summary):\n", out_brief))
       return(list(engine=engine, mode="summary", rhs=rhs, rhs_text=rhs_text,
                   constraints=constraints, constraints_text=constraints_text,
                   call=f, call_text=call_text, fit=NULL, result=out,

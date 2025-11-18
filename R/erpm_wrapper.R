@@ -12,7 +12,6 @@
 #' The file also includes argument normalizers and internal validation helpers.
 #' All user-facing console messages are in English for consistency with {ergm}.
 #'
-#' TODO : Remove references to old wrappring : effect_rename_map, wrap_with_proj1, wrap_with_B
 #' @keywords ERPM ERGM wrapper bipartite translation
 #' @md
 
@@ -47,7 +46,7 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
     stopifnot(is.data.frame(nodes))
     nms <- trimws(names(nodes))
     aliases <- c(prefer, "label", "nom", "name", "id")
-    hit <- intersect(aliases, nms)
+    hit <- intersect(aliases, nms) # Avoid duplicate "label" entries when prefer = "label"
     if (length(hit)) hit[1L] else NULL
   }
 
@@ -180,6 +179,37 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
     list(expr)
   }
 
+  # Helper interne : stop message + usage bloc
+  .stop_build_bipartite <- function(msg) {
+    usage <- paste(
+      "[ERPM] build_bipartite_from_inputs usage:",
+      "",
+      "  build_bipartite_from_inputs(partition, nodes = NULL, dyads = list())",
+      "",
+      "  # Exemple minimal :",
+      "  partition <- c(1, 1, 2, 2, 2, 3)",
+      "  nodes <- data.frame(",
+      "    label  = c('A','B','C','D','E','F'),",
+      "    gender = c(1,1,2,1,2,2),",
+      "    age    = c(20,22,25,30,30,31)",
+      "  )",
+      "  friendship <- matrix(c(",
+      "    0,1,1,1,0,0,",
+      "    1,0,0,0,1,0,",
+      "    1,0,0,0,1,0,",
+      "    1,0,0,0,0,0,",
+      "    0,1,1,0,0,1,",
+      "    0,0,0,0,1,0",
+      "  ), 6, 6, byrow = TRUE)",
+      "  dyads <- list(friendship = friendship)",
+      "",
+      "  built <- build_bipartite_from_inputs(partition, nodes = nodes, dyads = dyads)",
+      "  nw    <- built$network",
+      sep = "\n"
+    )
+    stop(paste0(msg, "\n\n", usage), call. = FALSE)
+  }
+
   #' Build a padded bipartite: G = n groups to maximize ERGM variability.
   #' Requires helper functions present in the wrapper:
   #'   .check_nodes_df(), .get_label_col(), .check_dyads()  
@@ -196,9 +226,12 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
                                           nodes     = NULL,
                                           dyads     = list()) {
     # -- Checks on partition -------------------------------------------------------
-    stopifnot(!is.null(partition), is.atomic(partition), length(partition) >= 1L)
-    if (any(!is.finite(partition)) || any(partition < 1))
-      stop("partition must contain finite positive integers.")
+    if (is.null(partition) || !is.atomic(partition) || length(partition) < 1L) {
+      .stop_build_bipartite("partition must be a non-empty atomic vector.")
+    }
+    if (any(!is.finite(partition)) || any(partition < 1)) {
+      .stop_build_bipartite("partition must contain finite positive integers.")
+    }
     n <- length(partition)
 
     # -- Nodes / labels ------------------------------------------------------------
@@ -206,27 +239,44 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
       labels <- sprintf("A%d", seq_len(n))
       nodes  <- data.frame(label = labels, stringsAsFactors = FALSE)
     } else {
-      .check_nodes_df(nodes)
-      if (nrow(nodes) != n)
-        stop("nrow(nodes) must equal length(partition).")
+      # erreurs de .check_nodes_df enveloppées
+      ok_nodes <- try(.check_nodes_df(nodes), silent = TRUE)
+      if (inherits(ok_nodes, "try-error")) {
+        .stop_build_bipartite(
+          paste0("Invalid `nodes` data.frame: ", conditionMessage(attr(ok_nodes, "condition")))
+        )
+      }
+      if (nrow(nodes) != n) {
+        .stop_build_bipartite("nrow(nodes) must equal length(partition).")
+      }
       labcol <- .get_label_col(nodes)
       if (is.null(labcol)) {
         labels <- sprintf("A%d", seq_len(n))
         nodes$label <- labels
       } else {
         labels <- as.character(nodes[[labcol]])
-        if (anyNA(labels) || any(!nzchar(labels))) stop("empty/NA labels are not allowed.")
-        if (anyDuplicated(labels)) stop("duplicate labels are not allowed.")
+        if (anyNA(labels) || any(!nzchar(labels)))
+          .stop_build_bipartite("empty/NA labels are not allowed in `nodes`.")
+        if (anyDuplicated(labels))
+          .stop_build_bipartite("duplicate labels are not allowed in `nodes`.")
         if (!("label" %in% names(nodes))) nodes$label <- labels
       }
     }
 
     # -- Padded groups: G = n ------------------------------------------------------
     G_obs <- max(partition, na.rm = TRUE)
-    if (G_obs > n)
-      stop("max(partition) cannot exceed n when padding with G = n.")
+    if (G_obs > n) {
+      .stop_build_bipartite("max(partition) cannot exceed n when padding with G = n.")
+    }
     G <- n  # force as many groups as actors
-    .check_dyads(dyads, n, labels)
+
+    # contrôle des matrices dyadiques
+    ok_dyads <- try(.check_dyads(dyads, n, labels), silent = TRUE)
+    if (inherits(ok_dyads, "try-error")) {
+      .stop_build_bipartite(
+        paste0("Invalid `dyads` list: ", conditionMessage(attr(ok_dyads, "condition")))
+      )
+    }
 
     # -- Names and adjacency -------------------------------------------------------
     g_names <- sprintf("G%d", seq_len(G))
@@ -263,11 +313,40 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
       }
     }
 
-    list(network = nw,
-        partition = partition,
-        actor_labels = labels,
-        group_labels = g_names)
+    list(
+      network      = nw,
+      partition    = partition,
+      actor_labels = labels,
+      group_labels = g_names
+    )
   }
+
+  #   nw <- network::network(adj, directed = FALSE, matrix.type = "adjacency")
+  #   network::set.network.attribute(nw, "bipartite", n)
+  #   network::set.vertex.attribute(nw, "vertex.names", all_v)
+
+  #   # Push actor attributes; pad groups with NA
+  #   if (ncol(nodes) > 1L) {
+  #     for (a in setdiff(names(nodes), c("label"))) {
+  #       vals <- nodes[[a]]
+  #       network::set.vertex.attribute(nw, a, c(vals, rep(NA, G)))
+  #     }
+  #   }
+
+  #   # Attach dyadic n×n matrices as %n% attributes, with enforced dimnames order
+  #   if (length(dyads)) {
+  #     for (nm in names(dyads)) {
+  #       M <- dyads[[nm]]
+  #       dimnames(M) <- list(labels, labels)
+  #       nw %n% nm <- M
+  #     }
+  #   }
+
+  #   list(network = nw,
+  #       partition = partition,
+  #       actor_labels = labels,
+  #       group_labels = g_names)
+  # }
   
   #' Translate a single ERPM term into an {ergm} term
   #'
