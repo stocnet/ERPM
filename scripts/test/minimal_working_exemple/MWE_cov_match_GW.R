@@ -111,31 +111,31 @@ cat(sprintf("[summary] cov_match_GW(sexe==F,λ=2)       : obs=%g | ref=%g\n",
             obs_l2_F, ref_l2_F))
 stopifnot(all.equal(obs_l2_F, ref_l2_F, tol = 0))
 
-# ------------------------------- Fit MLE simple --------------------------------
+# ------------------------------- Fit simple --------------------------------
 set.seed(1)
 nw2 <- build_bipartite_from_inputs(partition = partition, nodes = nodes)
 
 fit_ergm <- ergm(
   nw2$network ~ cov_match_GW("sexe", lambda = 2),
   constraints = ~ b1part,
-  estimate    = "MLE",
-  control     = control.ergm(
-    MCMLE.maxit     = 40,
-    MCMC.samplesize = 30000
-  ),
+  # estimate    = "MLE",
+  # control     = control.ergm(
+  #   MCMLE.maxit     = 40,
+  #   MCMC.samplesize = 30000
+  # ),
   eval.loglik = TRUE
 )
 
 set.seed(1)
 fit_erpm <- erpm(
   partition ~ cov_match_GW("sexe", lambda = 2),
-  estimate    = "MLE",
+  # estimate    = "MLE",
   eval.loglik = TRUE,
   verbose     = TRUE,
-  control     = control.ergm(
-    MCMLE.maxit     = 40,
-    MCMC.samplesize = 30000
-  ),
+  # control     = control.ergm(
+  #   MCMLE.maxit     = 40,
+  #   MCMC.samplesize = 30000
+  # ),
   nodes       = nodes
 )
 

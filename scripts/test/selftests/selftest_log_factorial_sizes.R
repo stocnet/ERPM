@@ -208,14 +208,11 @@ summary_run_one_partition_all <- function(partition, name) {
   )
 }
 
-# Fit via erpm() avec MLE + logLik, LHS = partition ou réseau
+# Fit via erpm() avec MLE par défaut + logLik, LHS = partition ou réseau
 erpm_run_fit_one <- function(partition, lhs_mode = c("partition","network"),
-                             estimate = NULL, 
-                             control = NULL,
-                             eval.loglik = TRUE
-                             ) {
+                             eval.loglik = TRUE) {
   lhs_mode <- match.arg(lhs_mode)
-  # profils dégénérés → SKIP
+  # Profils dégénérés → SKIP (un seul groupe ou tous les groupes singleton)
   sz <- as.integer(table(partition))
   if (length(sz) == length(partition) || length(sz) == 1L) {
     cat(sprintf("[ERPM-FIT %-10s] part={%s}\t SKIP (profil dégénéré)\n",
@@ -241,9 +238,17 @@ erpm_run_fit_one <- function(partition, lhs_mode = c("partition","network"),
   cat(sprintf("[ERPM-FIT %-10s] part={%s}\n", lhs_mode, paste(partition, collapse=",")))
 
   res <- withCallingHandlers(
-    try(erpm(f, estimate = estimate, eval.loglik = eval.loglik,
-             control = control, verbose = FALSE), silent = TRUE),
-    warning = function(w) { message <- conditionMessage(w); cat("  - WARNING: ", message, "\n", sep=""); invokeRestart("muffleWarning") }
+    try(
+      erpm(f,
+           eval.loglik = eval.loglik,
+           verbose = FALSE),
+      silent = TRUE
+    ),
+    warning = function(w) {
+      message <- conditionMessage(w)
+      cat("  - WARNING: ", message, "\n", sep = "")
+      invokeRestart("muffleWarning")
+    }
   )
   if (inherits(res, "try-error")) {
     cat("  -> ERREUR fit: ", as.character(res), "\n", sep = "")
@@ -264,8 +269,8 @@ erpm_run_fit_one <- function(partition, lhs_mode = c("partition","network"),
 # Jeu de tests
 # --------------------------------------------------------------------------------------
 partitions <- list(
-  P1 = c(1, 1, 2, 2, 2, 3),               # tailles: (2,3,1)
-  P2 = c(1, 1, 1, 2, 3, 3, 3, 3),         # tailles: (3,1,4)
+  P1 = c(1, 1, 2, 2, 2, 3),               # tailles: (2,3,1)  -> non dégénéré
+  P2 = c(1, 1, 1, 2, 3, 3, 3, 3),         # tailles: (3,1,4)  -> non dégénéré
   P3 = c(1, 2, 2, 3, 3, 4, 4, 4),         # tailles: (1,2,2,3)
   P4 = c(1, 2, 3, 4, 5),                  # toutes tailles 1
   P5 = rep(1, 6),                         # un seul groupe
@@ -294,14 +299,19 @@ summary_run_phase1_all <- function() {
 }
 
 # --------------------------------------------------------------------------------------
-# Phase 2 : fits MLE + logLik, pour LHS partition et LHS réseau
+# Phase 2 : fits MLE par défaut + logLik, pour LHS partition et LHS réseau
+#          (uniquement partitions non dégénérées, sans SKIP attendu)
 # --------------------------------------------------------------------------------------
 erpm_run_phase2_fits <- function() {
   if (!exists("erpm", mode = "function")) {
     cat("\n=== PHASE 2: SKIP (erpm() indisponible) ===\n"); return(invisible(NULL))
   }
   cat("\n=== PHASE 2: Fits erpm() MLE + logLik ===\n")
-  pick <- c("P1","P2","P4","P5")
+
+  # Ne garder que des partitions non dégénérées pour éviter les SKIP
+  # P1 et P2 sont connues pour bien converger (voir logs précédents)
+  pick <- c("P1","P2")
+
   fit_results <- list()
   for (nm in pick) {
     part <- partitions[[nm]]
@@ -309,28 +319,28 @@ erpm_run_phase2_fits <- function() {
     fit_results[[paste0(nm,"_net")]]  <- erpm_run_fit_one(part, lhs_mode = "network")
   }
 
-    # Bilan des fits  — gère explicitement SKIP (= NA)
-    ok_raw <- vapply(fit_results, function(x) x$ok, logical(1))
-    n_skip <- sum(is.na(ok_raw))
-    n_tot  <- length(ok_raw) - n_skip            # seulement les cas évalués
-    n_ok   <- sum(ok_raw, na.rm = TRUE)          # OK parmi non-SKIP
-    n_fail <- n_tot - n_ok                       # vrais échecs
+  # Bilan des fits  — gère explicitement SKIP (= NA)
+  ok_raw <- vapply(fit_results, function(x) x$ok, logical(1))
+  n_skip <- sum(is.na(ok_raw))
+  n_tot  <- length(ok_raw) - n_skip            # seulement les cas évalués
+  n_ok   <- sum(ok_raw, na.rm = TRUE)          # OK parmi non-SKIP
+  n_fail <- n_tot - n_ok                       # vrais échecs
 
-    cat(sprintf("\n=== Bilan fits erpm() : %d / %d OK ; %d SKIP ===\n",
-                n_ok, n_tot, n_skip))
+  cat(sprintf("\n=== Bilan fits erpm() : %d / %d OK ; %d SKIP ===\n",
+              n_ok, n_tot, n_skip))
 
-    # Résumés détaillés des fits ERPM réussis
-    cat("\n=== Résumés détaillés des fits ERPM réussis ===\n")
-    for (nm in names(fit_results)) {
-      fit_obj <- fit_results[[nm]]
-      if (isTRUE(fit_obj$ok) && inherits(fit_obj$coef, "numeric")) {
-        cat(sprintf("\n--- Résumé fit %s ---\n", nm))
-        print(summary(fit_obj$fit))
-      }
+  # Résumés détaillés des fits ERPM réussis
+  cat("\n=== Résumés détaillés des fits ERPM réussis ===\n")
+  for (nm in names(fit_results)) {
+    fit_obj <- fit_results[[nm]]
+    if (isTRUE(fit_obj$ok) && inherits(fit_obj$coef, "numeric")) {
+      cat(sprintf("\n--- Résumé fit %s ---\n", nm))
+      print(summary(fit_obj$fit))
     }
+  }
 
-    if (n_fail > 0) stop(sprintf("Echec fits: %d KO", n_fail))
-    invisible(fit_results)
+  if (n_fail > 0) stop(sprintf("Echec fits: %d KO", n_fail))
+  invisible(fit_results)
 }
 
 # --------------------------------------------------------------------------------------

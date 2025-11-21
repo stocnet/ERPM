@@ -503,3 +503,6 @@ if (!interactive()) {
 
   quit(save = "no", status = if ((n_err + n_deg) > 0) 1L else 0L)
 }
+
+ ergm_patch_disable()
+ 

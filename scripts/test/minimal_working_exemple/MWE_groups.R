@@ -5,7 +5,7 @@
 #           et effectue un fit ERGM complet via `erpm()`, avec appels directs.
 #
 # Chaîne  : partition -> biparti (build_bipartite_from_inputs) -> summary(nw ~ ...)
-#           partition -> erpm(partition ~ ...) -> fit MLE
+#           partition -> erpm(partition ~ ...) -> fit 
 #
 # Résumé technique :
 #   • `groups(k)` ≡ nombre de groupes de taille EXACTEMENT k.
@@ -60,12 +60,12 @@ cat(sprintf("[summary|erpm(dry)] groups(k=%d) = %g\n\n", k_group, stat_summary_v
 stopifnot(isTRUE(all.equal(stat_summary_via_dry_groups_k, stat_summary_ref_groups_k, tol = 0)))
 
 # ======================================================================================
-# 3) FIT ERPM COMPLET — (3) demandé : estimate="MLE", eval.loglik=TRUE
+# 3) FIT ERPM COMPLET — (3) demandé : eval.loglik=TRUE
 # ======================================================================================
 set.seed(1)
 fit_erpm_groups_k_mle <- erpm(
   partition ~ groups(k_group),
-  estimate    = "MLE",
+  # estimate    = "MLE",
   eval.loglik = TRUE,
   verbose     = TRUE
 )

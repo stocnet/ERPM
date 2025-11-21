@@ -429,3 +429,4 @@ run_all_tests_squared_sizes <- function() {
 }
 
 if (identical(environment(), globalenv())) run_all_tests_squared_sizes()
+ergm_patch_disable()

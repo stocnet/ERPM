@@ -72,27 +72,27 @@ stopifnot(all.equal(obs_k2_bg, ref_k2_bg, tol=0))
 cat(sprintf("[summary] cov_match(sexe==F,k=1,bg)      : obs=%g | ref=%g\n", obs_k1_F_bg, ref_k1_F_bg))
 stopifnot(all.equal(obs_k1_F_bg, ref_k1_F_bg, tol=0))
 
-# ------------------------------- Fit MLE simple --------------------------------
+# ------------------------------- Fit simple --------------------------------
 set.seed(1)
 nw2 <- build_bipartite_from_inputs(partition = partition, nodes = nodes)
 
 fit_ref <- ergm(
   nw2$network ~ cov_match("sexe", clique_size = 2),
   constraints = ~ b1part,
-  estimate    = "MLE",
-  control=control.ergm( MCMLE.maxit=40, 
-                        MCMC.samplesize=8000),
+  # estimate    = "MLE",
+  # control=control.ergm( MCMLE.maxit=40, 
+  #                       MCMC.samplesize=8000),
   eval.loglik = TRUE
 )
 
 set.seed(1)
 fit_erpm <- erpm(
   partition ~ cov_match("sexe", clique_size = 2),
-  estimate    = "MLE",
+  # estimate    = "MLE",
   eval.loglik = TRUE,
   verbose     = TRUE,
-  control=control.ergm( MCMLE.maxit=40, 
-                        MCMC.samplesize=8000),
+  # control=control.ergm( MCMLE.maxit=40, 
+  #                       MCMC.samplesize=8000),
   nodes       = nodes
 )
 

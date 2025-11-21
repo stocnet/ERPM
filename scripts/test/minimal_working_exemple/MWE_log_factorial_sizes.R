@@ -3,7 +3,7 @@
 # Objet   : MWE pour l’effet ERPM `log_factorial_sizes`
 # Chaîne  : partition -> biparti (wrapper) -> summary de référence
 #           partition -> erpm(dry-run) -> summary observé -> comparaison
-#           partition -> erpm(MLE) -> summary(fit)
+#           partition -> erpm() -> summary(fit)
 # Stat    : Σ_g log((n_g - 1)!) = Σ_g lgamma(n_g) ; contrainte ~ b1part
 # ==============================================================================
 
@@ -58,12 +58,12 @@ cat("[summary|erpm(dry)]                                 :", summary_observed_vi
 stopifnot(isTRUE(all.equal(summary_observed_via_erpm_dry, summary_reference_val, tol = 0)))
 
 # ------------------------------------------------------------------------------ 
-# 4) FIT via erpm() en MLE + logLik (appel direct et concis)
+# 4) FIT via erpm() en  logLik (appel direct et concis)
 # ------------------------------------------------------------------------------ 
 set.seed(1)
 fit_erpm_mle <- erpm(
   partition ~ log_factorial_sizes,
-  estimate    = "MLE",
+  # estimate    = "MLE",
   eval.loglik = TRUE,
   verbose     = TRUE
 )

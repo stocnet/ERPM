@@ -114,31 +114,31 @@ cat(sprintf("[summary] cov_fulldiff(score,S=6:20)     : obs=%g | ref=%g\n",
             obs_big, ref_big))
 stopifnot(all.equal(obs_big, ref_big, tol = 0))
 
-# ------------------------------- Fit MLE simple --------------------------------
+# ------------------------------- Fit simple --------------------------------
 set.seed(1)
 nw2 <- build_bipartite_from_inputs(partition = partition, nodes = nodes)
 
 fit_ergm <- ergm(
   nw2$network ~ cov_fulldiff("score"),
   constraints = ~ b1part,
-  estimate    = "MLE",
-  control     = control.ergm(
-    MCMLE.maxit     = 40,
-    MCMC.samplesize = 30000
-  ),
+  # estimate    = "MLE",
+  # control     = control.ergm(
+  #   MCMLE.maxit     = 40,
+  #   MCMC.samplesize = 30000
+  # ),
   eval.loglik = TRUE
 )
 
 set.seed(1)
 fit_erpm <- erpm(
   partition ~ cov_fulldiff("score"),
-  estimate    = "MLE",
+  # estimate    = "MLE",
   eval.loglik = TRUE,
   verbose     = TRUE,
-  control     = control.ergm(
-    MCMLE.maxit     = 40,
-    MCMC.samplesize = 30000
-  ),
+  # control     = control.ergm(
+  #   MCMLE.maxit     = 40,
+  #   MCMC.samplesize = 30000
+  # ),
   nodes       = nodes
 )
 

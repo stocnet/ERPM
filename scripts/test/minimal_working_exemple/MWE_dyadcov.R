@@ -101,8 +101,8 @@ cat(sprintf("[summary] dyadcov('Z1', k=2, norm=TRUE)  : observé=%g | référenc
             summary_obs_k2_norm, summary_ref_k2_norm))
 stopifnot(all.equal(summary_obs_k2_norm, summary_ref_k2_norm, tol = 0))
 
-# ------------------------------- Fit MLE court ---------------------------------
-# On illustre un fit MLE avec la variante k=2 normalisée,
+# ------------------------------- Fit  court ---------------------------------
+# On illustre un fit avec la variante k=2 normalisée,
 # qui est généralement mieux conditionnée sur ces exemples.
 
 set.seed(1)

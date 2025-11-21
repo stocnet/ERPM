@@ -1,7 +1,7 @@
 # ==============================================================================
 # Fichier : scripts/test/minimal_working_exemple/MWE_cov_diff_GW.R
 # Objet   : MWE minimal pour l’effet ERPM `cov_diff_GW`
-# Chaîne  : partition → biparti → summary(nw) / erpm(partition) → fit MLE simple
+# Chaîne  : partition → biparti → summary(nw) / erpm(partition) → fit simple
 # ==============================================================================
 
 Sys.setenv(LANG = "fr_FR.UTF-8")
@@ -116,7 +116,7 @@ cat(sprintf("[summary] cov_diff_GW(score,lambda=c(2,4)) : obs=%s | ref=%s\n",
             paste(obs_l2_l4, collapse = ","), paste(ref_l2_l4, collapse = ",")))
 stopifnot(all.equal(obs_l2_l4, ref_l2_l4, tol = 0))
 
-# ------------------------------- Fit MLE simple --------------------------------
+# ------------------------------- Fit  simple --------------------------------
 # Modèle jouet : terme structurel + cov_diff_GW(lambda=2)
 set.seed(1)
 bld2 <- build_bipartite_from_inputs(partition = partition, nodes = nodes)
@@ -131,8 +131,8 @@ ctrl_mle <- control.ergm(
 fit_ergm <- ergm(
   nw2 ~ cov_diff_GW("score", lambda = 2),
   constraints = ~ b1part,
-  estimate    = "MLE",
-  control     = ctrl_mle,
+  # estimate    = "MLE",
+  # control     = ctrl_mle,
   eval.loglik = TRUE
 )
 
@@ -140,10 +140,10 @@ fit_ergm <- ergm(
 set.seed(1)
 fit_erpm <- erpm(
   partition ~ cov_diff_GW("score", lambda = 2),
-  estimate    = "MLE",
+  # estimate    = "MLE",
+  # control     = ctrl_mle,
   eval.loglik = TRUE,
   verbose     = TRUE,
-  control     = ctrl_mle,
   nodes       = nodes
 )
 

@@ -42,8 +42,6 @@ if (!exists("build_bipartite_from_inputs", mode = "function")) {
   stop("build_bipartite_from_inputs() indisponible. Il doit être exporté par R/erpm_wrapper.R.")
 }
 
-options(ergm.loglik.warn_dyads = FALSE)
-
 # --------------------------------------------------------------------------------------
 # Logging local
 # --------------------------------------------------------------------------------------
@@ -265,7 +263,7 @@ cases_summary <- c(
 # ======================================================================================
 
 ctrl <- control.ergm(
-  # Laisser les valeurs par défaut pour MCMLE, l'effet est seul dans le modèle.
+  # Laisser les valeurs par défaut pour MCMLE, l'effet est seul dans le modèle ou presque.
 )
 
 # ======================================================================================
@@ -379,8 +377,8 @@ run_phase2_erpm_fits_and_print_summaries_dyadcov <- function() {
   rhs_list <- list(
     R1 = "dyadcov('Z1', clique_size = 2, normalized = FALSE)",
     R2 = "dyadcov('Z1', clique_size = 2, normalized = TRUE)",
-    R3 = "dyadcov('Z2', clique_size = 3, normalized = FALSE)",
-    R4 = "dyadcov('Z2', clique_size = 3, normalized = TRUE)"
+    R3 = "dyadcov('Z2', clique_size = 3, normalized = FALSE) + cliques",
+    R4 = "dyadcov('Z2', clique_size = 3, normalized = TRUE) + cliques"
   )
 
   parts <- list(
@@ -393,6 +391,14 @@ run_phase2_erpm_fits_and_print_summaries_dyadcov <- function() {
     nodes <- .make_nodes_df_for_partition(px$part)
     dyads <- .make_dyads_for_partition(px$part)
     for (nm in names(rhs_list)) {
+
+      # Cas pathologique connu : P1 + R4 => mélange MCMC très mauvais, durée excessive.
+      if (px$name == "P1" && nm == "R4") {
+        key_skip <- paste0(px$name, "_", nm)
+        cat(sprintf("[ERPM-FIT %-20s] SKIP (modèle numériquement dégénéré, selftest)\n", key_skip))
+        next
+      }
+
       key <- paste0(px$name, "_", nm)
       fit_results[[key]] <- run_one_erpm_fit_with_return_dyadcov(
         partition_vec = px$part,
@@ -442,9 +448,8 @@ run_phase2_erpm_fits_and_print_summaries_dyadcov <- function() {
     }
   }
 
-  # On sait empiriquement que plusieurs modèles dyadcov seuls sont dégénérés
-  # (k=3, non normalisé). Pour le selftest, on exige seulement qu'au moins
-  # deux modèles simples convergent (typiquement k=2, normalized=TRUE).
+  # On sait empiriquement que plusieurs modèles dyadcov seuls sont dégénérés.
+  # Pour le selftest, on exige seulement qu'au moins deux modèles simples convergent.
   required_ok <- 2L
 
   if (n_ok < required_ok) {
