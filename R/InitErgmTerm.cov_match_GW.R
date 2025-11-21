@@ -1,28 +1,319 @@
 # ==============================================================================
-# Fichier : R/InitErgmTerm.cov_match_GW.R
-# Terme   : cov_match_GW(cov, lambda = 2, category = NULL,
+# File    : R/InitErgmTerm.cov_match_GW.R
+# Term    : cov_match_GW(cov, lambda = 2, category = NULL,
 #                        normalized = c("none","by_group","global"))
-# Stat    : non normalisée :
-#             S_GW = sum_g sum_r  λ * (1 - r_λ^{ n_{g,r} })
-#           ciblée :
-#             S_GW^{(κ)} = sum_g  λ * (1 - r_λ^{ n_{g,κ} })
-#           by_group :
-#             sum_g [ Num(g) / Den(g) ] avec
-#               Num(g)=sum_r λ(1-r_λ^{n_{g,r}})  (ou λ(1-r_λ^{n_{g,κ}}) ciblé)
-#               Den(g)=λ(1-r_λ^{n_g})
-#           global :
-#             [ sum_g Num(g) ] / [ λ(1-r_λ^{N1}) ]
+# Project : ERPM / ERGM extensions
+# ==============================================================================
+# Statistic (informal summary)
+# ------------------------------------------------------------------------------
+# Non-normalized:
+#   S_GW(B; c, λ)       = sum_g sum_r λ * (1 - r_λ^{ n_{g,r} })
+# Targeted category (category = κ):
+#   S_GW^{(κ)}(B; c, λ) = sum_g λ * (1 - r_λ^{ n_{g,κ} })
+# By-group:
+#   sum_g [ Num(g) / Den(g) ] with
+#     Num(g) = sum_r λ(1 - r_λ^{n_{g,r}})    (or λ(1 - r_λ^{n_{g,κ}}) when targeted)
+#     Den(g) = λ(1 - r_λ^{n_g})
+# Global:
+#   [ sum_g Num(g) ] / [ λ(1 - r_λ^{N_A}) ]
+# where:
+#   - N_A is the number of actors in the actor mode,
+#   - n_{g,r} is the number of actors of category r in group g,
+#   - r_λ = (λ - 1) / λ with λ > 1.
 # ==============================================================================
 
-#' ERGM term: cov_match_GW
-#' @param cov character Nom d'un attribut acteur (factor/character).
-#' @param lambda numeric>1  Scalaire ou vecteur. Poids géométrique (r_λ=(λ-1)/λ).
-#' @param category character|NULL Modalité ciblée (facultatif).
-#' @param normalized character|logical "none"|"by_group"|"global".
+#' ERGM term: cov_match_GW (geometrically weighted monochromatic cliques)
+#'
+#' @file InitErgmTerm.cov_match_GW.R
+#'
+#' @description
+#' \code{cov_match_GW} is an ERGM term for bipartite networks that applies a
+#' geometrically weighted transform to the monochromatic clique counts produced
+#' by \code{cov_match}, based on a categorical actor-level covariate.
+#'
+#' The network is interpreted as:
+#' \itemize{
+#'   \item an \emph{actor mode} (the side identified by \code{nw \%n\% "bipartite"});
+#'   \item a \emph{group mode} (the complementary side of the bipartite graph).
+#' }
+#'
+#' For each group in the group mode and each category of the actor covariate, the
+#' term replaces raw counts of monochromatic cliques by a geometrically weighted
+#' function driven by \eqn{\lambda > 1}, with ratio
+#' \deqn{
+#'   r_\lambda = \frac{\lambda - 1}{\lambda} \in (0, 1).
+#' }
+#'
+#' Several normalization variants are supported (\code{"none"}, \code{"by_group"},
+#' \code{"global"}), as well as an optional targeted category.
+#'
+#' @details
+#' Let:
+#' \itemize{
+#'   \item \eqn{A} be the set of actor-mode nodes, with \eqn{|A| = N_A};
+#'   \item \eqn{G} be the set of group-mode nodes;
+#'   \item \eqn{B} be the actor–group incidence (bipartite) matrix;
+#'   \item \eqn{c : A \to \{1,\dots,R\}} be a categorical covariate assigning a
+#'         category \eqn{r} to each actor;
+#'   \item \eqn{n_{g,r}} be the number of actors of category \eqn{r} attached to
+#'         group \eqn{g};
+#'   \item \eqn{n_g = \sum_r n_{g,r}} be the size of group \eqn{g}.
+#' }
+#'
+#' For a fixed \eqn{\lambda > 1}, define:
+#' \deqn{
+#'   r_\lambda = \frac{\lambda - 1}{\lambda},
+#' }
+#' and for each group \eqn{g} and category \eqn{r},
+#' \deqn{
+#'   S_{g,r}^{\text{GW}}(B; c, \lambda)
+#'   = \lambda \cdot \left(1 - r_\lambda^{n_{g,r}}\right).
+#' }
+#'
+#' The non-normalized aggregate is:
+#' \deqn{
+#'   S_{\text{GW}}(B; c, \lambda)
+#'   = \sum_{g \in G} \sum_{r=1}^R S_{g,r}^{\text{GW}}(B; c, \lambda)
+#'   = \sum_{g \in G} \sum_{r=1}^R \lambda \cdot \left(1 - r_\lambda^{n_{g,r}}\right).
+#' }
+#'
+#' When a targeted category \eqn{\kappa} is specified, we restrict to:
+#' \deqn{
+#'   S_{\text{GW}}^{(\kappa)}(B; c, \lambda)
+#'   = \sum_{g \in G} \lambda \cdot \left(1 - r_\lambda^{n_{g,\kappa}}\right).
+#' }
+#'
+#' For the normalization modes, let:
+#' \itemize{
+#'   \item \eqn{\text{Num}(g)} be the non-normalized group-level contribution
+#'         (either \eqn{\sum_r \lambda(1 - r_\lambda^{n_{g,r}})} or
+#'         \eqn{\lambda(1 - r_\lambda^{n_{g,\kappa}})} for a targeted category);
+#'   \item \eqn{\text{Den}(g) = \lambda(1 - r_\lambda^{n_g})} be a group-size
+#'         denominator reminiscent of a geometrically weighted size term.
+#' }
+#'
+#' Then:
+#' \itemize{
+#'   \item \code{normalized = "none"}:
+#'     \deqn{
+#'       T(B; c, \lambda) =
+#'       \begin{cases}
+#'         S_{\text{GW}}(B; c, \lambda) & \text{if no category is targeted}, \\
+#'         S_{\text{GW}}^{(\kappa)}(B; c, \lambda) & \text{if category } \kappa \text{ is targeted};
+#'       \end{cases}
+#'     }
+#'   \item \code{normalized = "by_group"}:
+#'     \deqn{
+#'       T_{\text{by\_group}}(B; c, \lambda)
+#'       = \sum_{g \in G} \frac{\text{Num}(g)}{\text{Den}(g)};
+#'     }
+#'   \item \code{normalized = "global"}:
+#'     using \eqn{\text{Den}_{\text{glob}} = \lambda(1 - r_\lambda^{N_A})},
+#'     \deqn{
+#'       T_{\text{global}}(B; c, \lambda)
+#'       = \frac{\sum_{g \in G} \text{Num}(g)}{\text{Den}_{\text{glob}}}.
+#'     }
+#' }
+#'
+#' The term is vectorized in \code{lambda}: providing a vector of \eqn{\lambda}
+#' values produces one statistic (and one coefficient) per value.
+#'
+#' The term is implemented as a native ERGM C change-statistic
+#' \code{c_cov_match_GW}. The R initializer below:
+#' \itemize{
+#'   \item enforces that the network is bipartite and retrieves the actor-mode
+#'         size from \code{nw \%n\% "bipartite"};
+#'   \item validates that \code{cov} names a categorical actor attribute;
+#'   \item handles the optional targeted category by mapping it to a level index;
+#'   \item maps the normalization choice to an internal integer flag;
+#'   \item builds a compact \code{INPUT_PARAM} vector encoding the actor-mode
+#'         size, the \eqn{\lambda} values, normalization mode, and covariate
+#'         codes.
+#' }
+#'
+#' @section INPUT_PARAM layout (C side):
+#' The numeric input vector passed to \code{c_cov_match_GW} is:
+#'
+#' @code{
+#'   INPUT_PARAM = c(
+#'     n1,          # actor-mode size |A|
+#'     K,           # number of distinct lambda values
+#'     norm_mode,   # 0=none, 1=by_group, 2=global
+#'     has_kappa,   # 0/1: whether a targeted category is used
+#'     kappa_code,  # level index of the targeted category (0 if none)
+#'     lambdas[1:K],
+#'     z[1:n1]      # actor covariate codes (0=missing / undefined, 1..R for levels)
+#'   )
+#' }
+#'
+#' On each toggle of an actor–group edge, the C code recomputes the local
+#' contribution for the affected group (for each \eqn{\lambda}) and updates the
+#' statistics accordingly, respecting the chosen normalization and targeted
+#' category.
+#'
+#' @section User-facing term:
+#' The initializer is called internally by {ergm} and should not be invoked
+#' directly by users. The user-facing term is:
+#'
+#' @code{
+#'   cov_match_GW(cov,
+#'                lambda     = 2,
+#'                category   = NULL,
+#'                normalized = c("none","by_group","global"))
+#' }
+#'
+#' @param cov character  
+#'   Name of an actor-level vertex attribute (factor/character) defined on all
+#'   actors in the actor mode. The attribute is coerced to a factor and then
+#'   encoded as integer codes \eqn{1,\dots,R}; \code{NA} values are mapped to 0
+#'   (meaning "absent/undefined" and ignored in the counts).
+#'
+#' @param lambda numeric  
+#'   Scalar or numeric vector of \eqn{\lambda} values. Each \eqn{\lambda} must
+#'   be finite and strictly greater than 1. The internal ratio
+#'   \eqn{r_\lambda = (\lambda-1)/\lambda} drives the geometric weighting. A
+#'   vector of \eqn{\lambda} values yields one statistic per value.
+#'
+#' @param category character|NULL  
+#'   Optional targeted category. If \code{NULL}, all categories contribute to
+#'   the statistic. If a character string, the initializer ensures that the
+#'   category appears in the factor levels; if it does not, the level is added
+#'   with zero frequency so that the resulting statistic is structurally zero
+#'   without error.
+#'
+#' @param normalized character|logical  
+#'   Normalization mode, one of:
+#'   \itemize{
+#'     \item \code{"none"}: raw geometrically weighted contributions;
+#'     \item \code{"by_group"}: per-group normalization by a GW-size-like
+#'           denominator \eqn{\lambda(1 - r_\lambda^{n_g})};
+#'     \item \code{"global"}: normalization by \eqn{\lambda(1 - r_\lambda^{N_A})}.
+#'   }
+#'   Logical values are supported as shorthand:
+#'   \code{TRUE} is equivalent to \code{"by_group"} and \code{FALSE} to
+#'   \code{"none"}.
+#'
+#' @return
+#' A standard {ergm} term specification list with components:
+#' \itemize{
+#'   \item \code{name}         = \code{"cov_match_GW"};
+#'   \item \code{coef.names}   = coefficient names encoding the covariate label,
+#'         \eqn{\lambda} value and normalization mode;
+#'   \item \code{inputs}       = the \code{INPUT_PARAM} numeric vector described
+#'         above;
+#'   \item \code{dependence}   = \code{TRUE};
+#'   \item \code{emptynwstats} = \code{0}.
+#' }
+#'
+#' @note
+#' \itemize{
+#'   \item The network must be bipartite and interpreted as actors versus
+#'         groups. The actor mode is identified by \code{nw \%n\% "bipartite"}
+#'         and must be a strictly positive integer.
+#'   \item The covariate must be categorical (factor or character) and is
+#'         interpreted on the actor mode. Numeric attributes are not supported
+#'         here; for numeric covariates you should use terms such as
+#'         \code{cov_diff_GW} or related effects.
+#'   \item All \eqn{\lambda} values must be strictly greater than 1; when
+#'         \eqn{\lambda \to 1^+}, the ratio \eqn{r_\lambda} approaches 0 and the
+#'         weighting tends to emphasize small counts.
+#' }
+#'
+#' @examples
+#' \dontrun{
+#'   library(network)
+#'   library(ergm)
+#'
+#'   # -----------------------------------------------------------------------
+#'   # Build a small bipartite network: 5 actors, 2 groups
+#'   # -----------------------------------------------------------------------
+#'   n_actors <- 5
+#'   n_groups <- 2
+#'   n_total  <- n_actors + n_groups
+#'
+#'   adj <- matrix(0, n_total, n_total)
+#'
+#'   # Actors = 1..5, Groups = 6..7
+#'   # Group 6: actors 1, 2, 3
+#'   adj[1, 6] <- adj[6, 1] <- 1
+#'   adj[2, 6] <- adj[6, 2] <- 1
+#'   adj[3, 6] <- adj[6, 3] <- 1
+#'   # Group 7: actors 3, 4, 5
+#'   adj[3, 7] <- adj[7, 3] <- 1
+#'   adj[4, 7] <- adj[7, 4] <- 1
+#'   adj[5, 7] <- adj[7, 5] <- 1
+#'
+#'   nw <- network(adj, directed = FALSE, matrix.type = "adjacency")
+#'   nw %n% "bipartite" <- n_actors  # actor-mode size
+#'
+#'   # Actor covariate: two categories "A" / "B"
+#'   cov_vals <- c("A", "A", "B", "B", "A")
+#'   set.vertex.attribute(nw, "grp", c(cov_vals, rep(NA, n_groups)))
+#'
+#'   # -----------------------------------------------------------------------
+#'   # Example 1: single lambda, non-normalized
+#'   # -----------------------------------------------------------------------
+#'   summary(
+#'     nw ~ cov_match_GW("grp", lambda = 2, normalized = "none"),
+#'     constraints = ~ b1part
+#'   )
+#'
+#'   # -----------------------------------------------------------------------
+#'   # Example 2: by-group normalization, targeted category
+#'   # -----------------------------------------------------------------------
+#'   summary(
+#'     nw ~ cov_match_GW("grp", lambda = 2.5,
+#'                       category   = "A",
+#'                       normalized = "by_group"),
+#'     constraints = ~ b1part
+#'   )
+#'
+#'   # -----------------------------------------------------------------------
+#'   # Example 3: multiple lambda values, global normalization
+#'   # -----------------------------------------------------------------------
+#'   summary(
+#'     nw ~ cov_match_GW("grp",
+#'                       lambda     = c(1.5, 3),
+#'                       normalized = "global"),
+#'     constraints = ~ b1part
+#'   )
+#'
+#'   # Example ERGM fit combining different lambda values
+#'   fit <- ergm(
+#'     nw ~ cov_match_GW("grp",
+#'                       lambda     = c(1.5, 3),
+#'                       normalized = "by_group"),
+#'     constraints = ~ b1part
+#'   )
+#'   summary(fit)
+#' }
+#'
+#' @test
+#' Self-tests for \code{cov_match_GW} (not shown here) typically:
+#' \itemize{
+#'   \item construct small bipartite networks with a known actor partition
+#'         into groups and a categorical covariate on actors;
+#'   \item choose several \eqn{\lambda} values and compute, in pure R, the
+#'         reference quantities \eqn{S_{\text{GW}}(B; c, \lambda)} and their
+#'         by-group and global normalizations;
+#'   \item compare these reference values to
+#'         \code{summary(nw ~ cov_match_GW(...), constraints = ~ b1part)};
+#'   \item verify that toggling a single actor–group edge changes the statistic
+#'         by an increment consistent with the local recalculation of the
+#'         group-level contributions for the affected group, as implemented in
+#'         the C change-statistic \code{c_cov_match_GW}.
+#' }
+#'
+#' @keywords ERGM term bipartite categorical covariate geometrically weighted
+#' @md
+#'
 #' @export
 InitErgmTerm.cov_match_GW <- function(nw, arglist, ..., version = packageVersion("ergm")) {
   termname <- "cov_match_GW"
 
+  # ---------------------------------------------------------------------------
+  # Base ERGM term validation and argument parsing
+  # ---------------------------------------------------------------------------
   a <- check.ErgmTerm(
     nw, arglist,
     directed      = NULL,
@@ -33,18 +324,28 @@ InitErgmTerm.cov_match_GW <- function(nw, arglist, ..., version = packageVersion
     required      = c(TRUE,           FALSE,    FALSE,      FALSE)
   )
 
-  # -- biparti strict
+  # ---------------------------------------------------------------------------
+  # Strict bipartite guard and actor-mode size
+  #   - n1 is the size of the actor mode
+  # ---------------------------------------------------------------------------
   n1 <- tryCatch(nw %n% "bipartite", error = function(e) NA_integer_)
   if (!is.numeric(n1) || !is.finite(n1) || n1 <= 0)
     ergm_Init_stop(sQuote(termname), ": réseau non biparti ou attribut %n% 'bipartite' manquant/invalide.")
 
-  # -- normalized
+  # ---------------------------------------------------------------------------
+  # Normalization mode: map "none" / "by_group" / "global" to an integer flag
+  # ---------------------------------------------------------------------------
   normalized <- a$normalized
   if (is.logical(normalized)) normalized <- if (isTRUE(normalized)) "by_group" else "none"
   normalized <- match.arg(tolower(as.character(normalized)), c("none","by_group","global"))
-  norm_mode  <- switch(normalized, none=0L, by_group=1L, global=2L)
+  norm_mode  <- switch(normalized, none = 0L, by_group = 1L, global = 2L)
 
-  # -- lambda
+  # ---------------------------------------------------------------------------
+  # Lambda handling:
+  #   - default lambda = 2
+  #   - require all lambda > 1 and finite
+  #   - deduplicate to get K distinct values
+  # ---------------------------------------------------------------------------
   lambdas <- as.double(a$lambda)
   if (!length(lambdas)) lambdas <- 2
   if (any(!is.finite(lambdas)) || any(lambdas <= 1))
@@ -52,34 +353,62 @@ InitErgmTerm.cov_match_GW <- function(nw, arglist, ..., version = packageVersion
   lambdas <- as.double(unique(lambdas))
   K <- length(lambdas)
 
-  # -- attribut catégoriel et catégorie ciblée
+  # ---------------------------------------------------------------------------
+  # Categorical actor attribute and targeted category handling
+  #   - covname identifies an actor-level attribute
+  #   - transform to factor and encode as integer codes 1..R (0 for NA)
+  #   - category, if provided, is ensured to be among the levels
+  # ---------------------------------------------------------------------------
   covname   <- a$cov
-  if (!(is.character(covname) && length(covname)==1L))
+  if (!(is.character(covname) && length(covname) == 1L))
     ergm_Init_stop(sQuote(termname), ": 'cov' doit être le nom d'un attribut acteur (factor/character).")
 
+  # Indices for the actor mode (here simply 1..n1)
   ia <- seq_len(n1)
+
+  # Retrieve the actor-level covariate values
   vals <- network::get.vertex.attribute(nw, covname)
   if (is.null(vals))
     ergm_Init_stop(sQuote(termname), ": attribut inexistant: ", sQuote(covname), ".")
 
+  # Coerce to factor and restrict to actors
   f <- as.factor(vals[ia])
+
+  # Targeted category handling:
+  #   - if category is not NULL and not in levels, extend levels so that the
+  #     targeted category exists with zero frequency
   category <- a$category
   if (!is.null(category) && !(category %in% levels(f)))
     levels(f) <- c(levels(f), category)
 
-  z <- as.integer(f); z[!is.finite(z)] <- 0L  # 0 = NA/absent
+  # Encode categorical values to integer codes:
+  #   - 1..R for valid levels
+  #   - NA / non-finite mapped to 0 (ignored in C code)
+  z <- as.integer(f)
+  z[!is.finite(z)] <- 0L
+
+  # Targeted category code:
+  #   - 0 if no category is targeted
+  #   - otherwise, the integer level index of the targeted category
   kappa_code <- if (is.null(category)) 0L else as.integer(match(category, levels(f)))
   has_kappa  <- as.double(as.integer(kappa_code > 0))
-  cov_label  <- if (is.null(category)) covname else paste0(covname,"==",category)
 
-  # -- inputs packés pour le C
-  #   [0] = n1
-  #   [1] = K
-  #   [2] = norm_mode
-  #   [3] = has_kappa
-  #   [4] = kappa_code
-  #   [5..(5+K-1)]       = lambdas
-  #   [5+K .. 5+K+n1-1]  = z[1..n1]
+  # Label for coefficient names:
+  #   - covname when no targeted category
+  #   - "covname==category" when targeted
+  cov_label  <- if (is.null(category)) covname else paste0(covname, "==", category)
+
+  # ---------------------------------------------------------------------------
+  # Pack INPUT_PARAM for the C change-statistic
+  #   Layout:
+  #     [0] = n1
+  #     [1] = K
+  #     [2] = norm_mode
+  #     [3] = has_kappa
+  #     [4] = kappa_code
+  #     [5 .. 5+K-1]      = lambdas
+  #     [5+K .. 5+K+n1-1] = z[1..n1]
+  # ---------------------------------------------------------------------------
   inputs <- c(
     as.double(n1),
     as.double(K),
@@ -90,14 +419,35 @@ InitErgmTerm.cov_match_GW <- function(nw, arglist, ..., version = packageVersion
     as.double(z)
   )
 
-  # -- noms des coefficients
-  suffix_norm <- switch(normalized, none="", by_group="_bygrp", global="_glob")
-  fmt_lambda  <- function(x) sub("\\.?0+$", "", format(x, trim=TRUE))
-  coef.names  <- paste0("cov_match_GW[", cov_label, "]_l", vapply(lambdas, fmt_lambda, ""), suffix_norm)
+  # ---------------------------------------------------------------------------
+  # Coefficient names
+  #   Example patterns:
+  #     cov_match_GW[sex]_l2
+  #     cov_match_GW[sex==F]_l2.5_bygrp
+  #     cov_match_GW[group]_l3_glob
+  # ---------------------------------------------------------------------------
+  suffix_norm <- switch(normalized,
+                        none     = "",
+                        by_group = "_bygrp",
+                        global   = "_glob")
 
+  # Format lambda values compactly for coefficient names
+  fmt_lambda  <- function(x) sub("\\.?0+$", "", format(x, trim = TRUE))
+
+  coef.names  <- paste0(
+    "cov_match_GW[", cov_label, "]_l",
+    vapply(lambdas, fmt_lambda, ""),
+    suffix_norm
+  )
+
+  # ---------------------------------------------------------------------------
+  # Standard ERGM term specification
+  #   - name must match C_CHANGESTAT_FN(c_cov_match_GW)
+  #   - dependence = TRUE, scalar emptynwstats = 0
+  # ---------------------------------------------------------------------------
   list(
-    name         = "cov_match_GW",   # doit matcher C_CHANGESTAT_FN(c_cov_match_GW)
-    coef.names   = coef.names,       # longueur = K
+    name         = "cov_match_GW",   # must match C_CHANGESTAT_FN(c_cov_match_GW)
+    coef.names   = coef.names,       # length = K
     inputs       = inputs,
     dependence   = TRUE,
     emptynwstats = 0

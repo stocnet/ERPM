@@ -1,23 +1,222 @@
 # ==============================================================================
-# Fichier : R/InitErgmTerm.dyadcov_GW.R
-# Terme   : dyadcov_GW
-# Stat    :
-#   T_GW(p;Z, lambda)
-#     = sum_g sum_{k=2..n_g} a_k(lambda) * S_g^{(k)}(Z)
-#     = sum_g sum_{k=2..n_g} (-1/lambda)^{k-2}
-#                      * sum_{C∈C_k(g)} prod_{i<j∈C} z_{ij}
-#
-# INPUT_PARAM : c(n1, lambda, Z[n1*n1])  (Z en ordre colonne-major)
-# Debug      : options(ERPM.dyadcov_GW.debug = TRUE) pour activer les logs
+# File    : R/InitErgmTerm.dyadcov_GW.R
+# Term    : dyadcov_GW
+# Project : ERPM / ERGM extensions
 # ==============================================================================
 
+#' ERGM term: dyadcov_GW (geometrically weighted dyadic covariate)
+#'
+#' @file InitErgmTerm.dyadcov_GW.R
+#'
+#' @description
+#' \code{dyadcov_GW} is an ERGM term for bipartite networks that builds a
+#' geometrically weighted aggregation of a symmetric dyadic covariate
+#' \eqn{Z = (z_{ij})} over actor cliques within each group.
+#'
+#' The network is interpreted as:
+#' \itemize{
+#'   \item an \emph{actor mode} (the side identified by \code{nw \%n\% "bipartite"});
+#'   \item a \emph{group mode} (the complementary side of the bipartite graph).
+#' }
+#'
+#' For each group in the group mode, we consider its incident actors, all
+#' \eqn{k}-subsets of these actors, and the products of dyadic covariates
+#' \eqn{z_{ij}} over each subset. These clique contributions are then combined
+#' across clique sizes \eqn{k \ge 2} with a geometric weight controlled by
+#' \eqn{\lambda}.
+#'
+#' @details
+#' The core statistic for a given partition \eqn{p}, dyadic covariate \eqn{Z},
+#' and scalar \eqn{\lambda > 0} is:
+#'
+#' @code
+#'   T_GW(p; Z, lambda)
+#'     = sum_g sum_{k = 2..n_g} a_k(lambda) * S_g^{(k)}(Z)
+#'     = sum_g sum_{k = 2..n_g} (-1/lambda)^{k-2}
+#'                      * sum_{C in C_k(g)} prod_{i<j in C} z_{ij}
+#'
+#' where:
+#' \itemize{
+#'   \item \eqn{g} ranges over group-mode nodes (groups);
+#'   \item \eqn{n_g} is the number of actors attached to group \eqn{g};
+#'   \item \eqn{C_k(g)} is the set of all actor subsets \eqn{C} of size \eqn{k}
+#'         within group \eqn{g};
+#'   \item \eqn{S_g^{(k)}(Z)} is the raw \eqn{k}-clique sum
+#'         \eqn{\sum_{C \in C_k(g)} \prod_{i<j \in C} z_{ij}};
+#'   \item \eqn{a_k(\lambda) = (-1/\lambda)^{k-2}} is the geometric weight
+#'         applied to clique size \eqn{k}.
+#' }
+#'
+#' The dyadic covariate \eqn{Z} is a real, symmetric actor-by-actor matrix of
+#' size \eqn{n_A \times n_A}, where \eqn{n_A} is the size of the actor mode
+#' \code{n1 = nw \%n\% "bipartite"}. The initializer:
+#' \itemize{
+#'   \item enforces that the network is bipartite and retrieves the actor-mode size;
+#'   \item accepts \code{dyadcov} as either a literal matrix or the name of a
+#'         network-level attribute (\code{nw \%n\% "..."});
+#'   \item truncates \code{dyadcov} to its top-left \code{n1 x n1} block if
+#'         larger than required;
+#'   \item checks that \code{dyadcov} is numeric, free of \code{NA}, and symmetric
+#'         up to a small tolerance;
+#'   \item parses \code{lambda} into a positive real scalar.
+#' }
+#'
+#' @section Implementation and change-statistic:
+#' The term is implemented as a native ERGM C change-statistic, exposed under the
+#' symbol \code{c_dyadcov_GW}. The R initializer below:
+#' \itemize{
+#'   \item packages \code{n1}, \code{lambda} and the flattened \code{dyadcov}
+#'         matrix into \code{INPUT_PARAM};
+#'   \item declares the term as dependent (\code{dependence = TRUE}) with
+#'         unbounded support (\code{minval = -Inf}, \code{maxval = Inf});
+#'   \item sets the empty-network statistic to \code{0}.
+#' }
+#'
+#' On each toggle of an actor–group edge, the C change-statistic recomputes the
+#' local contribution for the unique group touched by the toggle, updating the
+#' geometrically weighted sum over clique contributions
+#' \eqn{\{S_g^{(k)}(Z)\}_{k \ge 2}}.
+#'
+#' @section Arguments:
+#' The initializer is not called directly by users; it is invoked automatically
+#' by {ergm} when the term \code{dyadcov_GW(...)} appears on the right-hand
+#' side of a model formula.
+#'
+#' @param dyadcov matrix or character. Either:
+#'   \itemize{
+#'     \item a numeric symmetric matrix of size at least \code{n1 x n1}, where
+#'           \code{n1 = nw \%n\% "bipartite"} is the actor-mode size; or
+#'     \item the name of a network-level attribute containing such a matrix
+#'           (retrieved as \code{nw \%n\% dyadcov}).
+#'   }
+#'   In both cases the matrix is truncated, if necessary, to its top-left
+#'   \code{n1 x n1} block.
+#' @param lambda numeric scalar. Geometric weight parameter \eqn{\lambda > 0}.
+#'   Typical usage sets \eqn{\lambda > 1} to ensure decaying weights in
+#'   \eqn{a_k(\lambda) = (-1/\lambda)^{k-2}}, but the initializer only requires
+#'   \eqn{\lambda > 0} and finiteness.
+#'
+#' @return
+#' A standard {ergm} term initialization list with components:
+#' \itemize{
+#'   \item \code{name}         = \code{"dyadcov_GW"};
+#'   \item \code{coef.names}   = a single coefficient name encoding the
+#'         dyadic covariate label and the value of \code{lambda};
+#'   \item \code{inputs}       = numeric vector
+#'         \code{c(n1, lambda, as.double(Z))};
+#'   \item \code{dependence}   = \code{TRUE};
+#'   \item \code{minval}       = \code{-Inf};
+#'   \item \code{maxval}       = \code{Inf};
+#'   \item \code{emptynwstats} = \code{0}.
+#' }
+#'
+#' @note
+#' \itemize{
+#'   \item The network must be bipartite and interpreted as actors versus groups.
+#'   \item The actor mode is identified by \code{nw \%n\% "bipartite"} and must
+#'         be a strictly positive integer.
+#'   \item The dyadic matrix must be numeric, symmetric (up to a small tolerance)
+#'         and free of \code{NA} values.
+#'   \item Debug logging is controlled by the global option
+#'         \code{options(ERPM.dyadcov_GW.debug = TRUE/FALSE)}. When \code{TRUE},
+#'         the initializer prints diagnostic messages prefixed by
+#'         \code{"[dyadcov_GW][DEBUG]"}.
+#' }
+#'
+#' @examples
+#' \dontrun{
+#'   library(network)
+#'   library(ergm)
+#'
+#'   # -------------------------------------------------------------------------
+#'   # Build a toy bipartite network: 4 actors, 2 groups
+#'   # -------------------------------------------------------------------------
+#'   n_actors <- 4
+#'   n_groups <- 2
+#'   n_total  <- n_actors + n_groups
+#'
+#'   adj <- matrix(0, n_total, n_total)
+#'
+#'   # Actors = 1..4, Groups = 5..6
+#'   # Group 5 has actors 1, 2, 3
+#'   adj[1, 5] <- adj[5, 1] <- 1
+#'   adj[2, 5] <- adj[5, 2] <- 1
+#'   adj[3, 5] <- adj[5, 3] <- 1
+#'   # Group 6 has actors 3, 4
+#'   adj[3, 6] <- adj[6, 3] <- 1
+#'   adj[4, 6] <- adj[6, 4] <- 1
+#'
+#'   nw <- network(adj, directed = FALSE, matrix.type = "adjacency")
+#'   nw %n% "bipartite" <- n_actors  # actor-mode size
+#'
+#'   # -------------------------------------------------------------------------
+#'   # Build a symmetric dyadic covariate on actors
+#'   # -------------------------------------------------------------------------
+#'   Z <- matrix(
+#'     c(
+#'       0, 1, 2, 3,
+#'       1, 0, 4, 5,
+#'       2, 4, 0, 6,
+#'       3, 5, 6, 0
+#'     ),
+#'     n_actors, n_actors, byrow = TRUE
+#'   )
+#'   nw %n% "Z_example" <- Z
+#'
+#'   # -------------------------------------------------------------------------
+#'   # Inspect the dyadcov_GW statistic
+#'   # -------------------------------------------------------------------------
+#'   # Geometrically weighted aggregation with lambda = 2
+#'   summary(
+#'     nw ~ dyadcov_GW("Z_example", lambda = 2),
+#'     constraints = ~ b1part
+#'   )
+#'
+#'   # Fit a simple ERGM with dyadcov_GW
+#'   fit <- ergm(
+#'     nw ~ dyadcov_GW("Z_example", lambda = 2),
+#'     constraints = ~ b1part
+#'   )
+#'   summary(fit)
+#'
+#'   # Example call through the ERPM wrapper (network already bipartite)
+#'   # erpm(nw ~ dyadcov_GW("Z_example", lambda = 2))
+#' }
+#'
+#' @test
+#' Self-tests for \code{dyadcov_GW} (not shown here) typically:
+#' \itemize{
+#'   \item construct small bipartite networks with a known partition of actors
+#'         into groups;
+#'   \item define simple symmetric dyadic matrices \code{Z} where clique
+#'         products and their geometric weights \eqn{(-1/\lambda)^{k-2}} can be
+#'         computed explicitly;
+#'   \item compare \code{summary(nw ~ dyadcov_GW(...), constraints = ~ b1part)}
+#'         with a direct R implementation of
+#'         \code{sum_g sum_{k >= 2} (-1/lambda)^{k-2} * S_g^{(k)}(Z)};
+#'   \item verify that toggling a single actor–group edge changes the statistic
+#'         by the local difference between the "before" and "after" weighted
+#'         clique sums, in agreement with the C change-statistic
+#'         \code{c_dyadcov_GW}.
+#' }
+#'
+#' @keywords ERGM term bipartite dyadic covariate geometrically-weighted cliques
+#' @md
 InitErgmTerm.dyadcov_GW <- function(nw, arglist, ...) {
   termname <- "dyadcov_GW"
 
-  # -- debug helpers ------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  # Debug helpers
+  # ---------------------------------------------------------------------------
+  # Global option:
+  #   options(ERPM.dyadcov_GW.debug = TRUE/FALSE)
+  # When TRUE, the initializer prints diagnostic messages to the console.
   dbg    <- isTRUE(getOption("ERPM.dyadcov_GW.debug", FALSE))
   dbgcat <- function(...) if (dbg) cat("[dyadcov_GW][DEBUG]", ..., "\n", sep = "")
 
+  # ---------------------------------------------------------------------------
+  # Base ERGM term validation and argument parsing
+  # ---------------------------------------------------------------------------
   a <- check.ErgmTerm(
     nw, arglist,
     directed      = NULL,
@@ -28,25 +227,29 @@ InitErgmTerm.dyadcov_GW <- function(nw, arglist, ...) {
     required      = c(TRUE,                   FALSE)
   )
 
-  # ----- n1 : taille du mode acteurs -----
+  # ---------------------------------------------------------------------------
+  # Actor-mode size (n1) from the bipartite attribute
+  # ---------------------------------------------------------------------------
   n1 <- as.integer(nw %n% "bipartite")
   if (is.na(n1) || n1 <= 0L)
     stop(termname, ": réseau non biparti strict (attribut %n% 'bipartite' manquant ou invalide).")
   dbgcat("n1 = ", n1)
 
-  # ----- récupérer la matrice dyadique (n1 x n1) -----
+  # ---------------------------------------------------------------------------
+  # Retrieve the dyadic matrix (n1 x n1)
+  # ---------------------------------------------------------------------------
   dyad_raw   <- a$dyadcov
   dyad_label <- NULL
 
   if (is.character(dyad_raw) && length(dyad_raw) == 1L) {
-    # cas : nom d'attribut %n% portant la matrice
-    dyad_mat <- nw %n% dyad_raw
+    # Case: name of a network-level attribute storing the matrix
+    dyad_mat   <- nw %n% dyad_raw
     dyad_label <- dyad_raw
     if (is.null(dyad_mat))
       stop(termname, ": attribut de niveau réseau inexistant: ", sQuote(dyad_raw), ".")
     dbgcat("dyadcov source = network attribute ", sQuote(dyad_label))
   } else {
-    # cas : matrice passée littéralement
+    # Case: matrix passed literally as an argument
     dyad_mat   <- dyad_raw
     dyad_label <- "dyadcov"
     dbgcat("dyadcov source = matrix literal")
@@ -62,20 +265,24 @@ InitErgmTerm.dyadcov_GW <- function(nw, arglist, ...) {
     stop(termname, ": dimensions de la matrice dyadique (", nr, "x", nc,
          ") insuffisantes pour n1 = ", n1, ".")
 
-  # On restreint, si besoin, au bloc supérieur gauche n1 x n1
+  # If larger than needed, restrict to the top-left n1 x n1 block
   if (nr > n1 || nc > n1) {
     dyad_mat <- dyad_mat[seq_len(n1), seq_len(n1), drop = FALSE]
     dbgcat("dyadcov truncated to ", n1, "x", n1)
   }
 
-  # ----- coercition numérique + FAIL-FAST NA -----------------------------------
+  # ---------------------------------------------------------------------------
+  # Numeric coercion and fail-fast on NA
+  # ---------------------------------------------------------------------------
   if (!is.numeric(dyad_mat))
     stop(termname, ": la matrice dyadique doit être numérique.")
 
   if (anyNA(dyad_mat))
     stop(termname, ": NA non autorisé dans la matrice dyadique.")
 
-  # ----- contrôle optionnel de symétrie ----------------------------------------
+  # ---------------------------------------------------------------------------
+  # Optional symmetry check
+  # ---------------------------------------------------------------------------
   tol <- 1e-8
   if (max(abs(dyad_mat - t(dyad_mat))) > tol) {
     stop(termname, ": la matrice dyadique doit être symétrique (différence > tolérance).")
@@ -85,7 +292,9 @@ InitErgmTerm.dyadcov_GW <- function(nw, arglist, ...) {
          " | sample = ",
          paste(utils::head(signif(as.numeric(dyad_mat), 5L), 6L), collapse = ","))
 
-  # ----- lambda ---------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  # lambda (geometric weight parameter)
+  # ---------------------------------------------------------------------------
   lambda_raw <- a$lambda
   if (is.null(lambda_raw) || length(lambda_raw) == 0L) {
     lambda <- 2
@@ -100,15 +309,25 @@ InitErgmTerm.dyadcov_GW <- function(nw, arglist, ...) {
 
   dbgcat("lambda = ", format(lambda, digits = 6L))
 
-  # ----- nom de coefficient ---------------------------------------------------
-  # On encode lambda de façon compacte dans le nom
+  # ---------------------------------------------------------------------------
+  # Coefficient name
+  # ---------------------------------------------------------------------------
+  # Encode lambda compactly into the coefficient label.
   lambda_tag <- gsub("[^0-9\\.eE\\-]+", "_", format(lambda, digits = 4L))
   base_label <- sprintf("dyadcov_GW[%s]_lambda%s", dyad_label, lambda_tag)
   coef.name  <- base_label
   dbgcat("coef.name = ", coef.name)
 
-  # ----- construire INPUT_PARAM -----------------------------------------------
-  # as.double(matrice) => ordre colonne-major compatible avec l'indexation C
+  # ---------------------------------------------------------------------------
+  # Build INPUT_PARAM for the C side
+  # ---------------------------------------------------------------------------
+  # Layout:
+  #   inputs = c(
+  #     as.double(n1),
+  #     as.double(lambda),
+  #     as.double(Z[1]), ..., as.double(Z[n1*n1])
+  #   )
+  # where as.double(matrix) uses column-major order, consistent with C indexing.
   inputs <- c(
     as.double(n1),
     as.double(lambda),
@@ -120,10 +339,13 @@ InitErgmTerm.dyadcov_GW <- function(nw, arglist, ...) {
          " | Z[1:6]=", paste(utils::head(signif(as.numeric(dyad_mat), 5L), 6L),
                              collapse = ","))
 
+  # ---------------------------------------------------------------------------
+  # Standard ERGM term initialization return value
+  # ---------------------------------------------------------------------------
   list(
     name         = "dyadcov_GW",
     coef.names   = coef.name,
-    inputs       = inputs,      # n1, lambda, Z[n1*n1]
+    inputs       = inputs,      # n1, lambda, then Z[n1*n1]
     dependence   = TRUE,
     minval       = -Inf,
     maxval       = Inf,
