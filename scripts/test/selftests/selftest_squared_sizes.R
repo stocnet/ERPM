@@ -293,9 +293,9 @@ if (!exists("build_bipartite_from_inputs", mode = "function"))
   lab <- utils::head(LETTERS, length(part))
   arglist <- list(
     formula     = f,
-    estimate    = "MLE",
+    # estimate    = "MLE",
+    # control     = ctrl,
     eval.loglik = TRUE,
-    control     = ctrl,
     verbose     = TRUE
   )
   if (has_labels)     arglist$labels     <- lab
@@ -429,3 +429,4 @@ run_all_tests_squared_sizes <- function() {
 }
 
 if (identical(environment(), globalenv())) run_all_tests_squared_sizes()
+ergm_patch_disable()

@@ -85,8 +85,7 @@ summary(dry[[2]], constraints = ~ b1part) # should be an error (!)
 # ======================================================================================
 # 2) FIT MODEL
 # ======================================================================================
-
-set.seed(1)  # stabilise l’estimation si on utilise une estimation CD dans ergm
+set.seed(1)  
 
 # create nw for ergm
 n <- 6
@@ -100,45 +99,57 @@ summary(fit_ergm)
 mcmc.diagnostics(fit_ergm)
 
 # fit_erpm <- erpm(partition_mix ~ groups) # should be around -0.4
-
-fit_erpm <- erpm( partition_mix ~ groups,
-                  estimate = "MLE",
+set.seed(1)  
+fit_erpm <- erpm( partition_mix ~ groups
+                  # estimate = "MLE",
 )
 summary(fit_erpm) 
-fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # should be close to 0
+# fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # should be close to 0
 mcmc.diagnostics(fit_ergm)
 
+cat("[ERPM vs ERGM | 1]\n\t", sprintf("fit_ergm - fit_erpm = %f", fit_ergm$coefficients[1] - fit_erpm$coefficients[1]), "\n")  # should be close to 0
+
 # baseline case #2
+set.seed(1)  
 nw <- network.initialize(n * 2, dir = FALSE, bip = n)
 nw[cbind(seq_along(partition_balanced), partition_balanced + n)] <- 1
 fit_ergm <- ergm(nw ~ b2degrange(1, Inf),
                  constraints = ~b1part)
 summary(fit_ergm)
 
+set.seed(1)  
 fit_erpm <- erpm(partition_balanced ~ groups) # should be around -0.4
 summary(fit_erpm)
-fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # should be close to 0
+# fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # should be close to 0
+cat("[ERPM vs ERGM | 1]\n\t", sprintf("fit_ergm - fit_erpm = %f", fit_ergm$coefficients[1] - fit_erpm$coefficients[1]), "\n")  # should be close to 0
 
 # with option size =2
+set.seed(1)  
 nw <- network.initialize(n * 2, dir = FALSE, bip = n)
 nw[cbind(seq_along(partition_mix), partition_mix + n)] <- 1
 fit_ergm <- ergm(nw ~ b2degrange(2,3),
                  constraints = ~b1part)
 summary(fit_ergm)
 
+set.seed(1)  
 fit_erpm <- erpm(partition_mix ~ groups(2)) # should be around -0.1
 summary(fit_erpm) 
-fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # should be close to 0
+# fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # should be close to 0
+
+cat("[ERPM vs ERGM | 2]\n\t", sprintf("fit_ergm - fit_erpm = %f", fit_ergm$coefficients[1] - fit_erpm$coefficients[1]), "\n")  # should be close to 0
 
 # with size range
+set.seed(1) 
+nw <- network.initialize(n * 2, dir = FALSE, bip = n)
 nw[cbind(seq_along(partition_mix), partition_mix + n)] <- 1
 fit_ergm <- ergm(nw ~ b2degrange(2,5),
                  constraints = ~b1part)
 summary(fit_ergm)
 
+set.seed(1) 
 fit_erpm <- erpm(partition_mix ~ groups(from=2,to=5)) # should be around 0.6
 summary(fit_erpm) 
-fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # should be close to 0
-
+# fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # should be close to 0
+cat("[ERPM vs ERGM | 1]\n\t", sprintf("fit_ergm - fit_erpm = %f", fit_ergm$coefficients[1] - fit_erpm$coefficients[1]), "\n")  # should be close to 0
 
 #ergm_patch_disable()

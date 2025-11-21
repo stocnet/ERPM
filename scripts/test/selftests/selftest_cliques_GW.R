@@ -159,9 +159,9 @@ run_summary_and_translation_panel_for_partition <- function(partition_vec, panel
 
 # Un fit erpm() explicite dans le nom
 run_one_erpm_fit <- function(partition_vec, rhs, fit_name,
-                             estimate = "CD",
+                            #  estimate = "CD",
                              eval.loglik = FALSE,
-                             control = list(MCMLE.maxit = 2, MCMC.samplesize = 500),
+                            #  control = list(MCMLE.maxit = 2, MCMC.samplesize = 500),
                              lhs_mode = c("partition","network")) {
   lhs_mode <- match.arg(lhs_mode)
   if (!exists("erpm", mode = "function")) {
@@ -186,7 +186,10 @@ run_one_erpm_fit <- function(partition_vec, rhs, fit_name,
               fit_name, paste(partition_vec, collapse=","), rhs, lhs_mode))
 
   fit <- try(
-    erpm(f, estimate = estimate, eval.loglik = eval.loglik, control = control, verbose = FALSE),
+    erpm(f, eval.loglik = eval.loglik, 
+            # estimate = estimate, 
+            # control = control, 
+            verbose = FALSE),
     silent = TRUE
   )
   if (inherits(fit, "try-error")) {
@@ -280,9 +283,9 @@ run_all_summary_translation_and_erpm_fit_tests <- function() {
     partition_vec = partitions$P1,
     rhs    = "cliques_GW()",
     fit_name   = "F1_P1_def",
-    estimate    = "MLE",
+    # estimate    = "MLE",
     eval.loglik = TRUE,
-    control     = ctrl,
+    # control     = ctrl,
     lhs_mode    = "partition"
   )
 
@@ -290,9 +293,9 @@ run_all_summary_translation_and_erpm_fit_tests <- function() {
     partition_vec = partitions$P2,
     rhs    = "cliques_GW(lambda=3)",
     fit_name   = "F2_P2_lam3",
-    estimate    = "MLE",
+    # estimate    = "MLE",
     eval.loglik = TRUE,
-    control     = ctrl,
+    # control     = ctrl,
     lhs_mode    = "partition"
   )
 
@@ -300,9 +303,9 @@ run_all_summary_translation_and_erpm_fit_tests <- function() {
     partition_vec = partitions$P3,
     rhs    = "cliques_GW(lambda=1.1)",
     fit_name   = "F3_P3_lam1.1",
-    estimate    = "MLE",
+    # estimate    = "MLE",
     eval.loglik = TRUE,
-    control     = ctrl,
+    # control     = ctrl,
     lhs_mode    = "partition"
   )
 

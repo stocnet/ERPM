@@ -41,11 +41,12 @@ cat("[summary] observé :", paste(obs, collapse=", "),
 stopifnot(isTRUE(all.equal(obs, exp, tol = 1e-10)))
 
 # ------------------------------------------------------------------------------
-# 2) FIT ERPM simple (MLE + logLik) pour λ = 2
+# 2) FIT ERPM simple (logLik) pour λ = 2
 # ------------------------------------------------------------------------------
 fit <- erpm(partition ~ cliques_GW(lambda = 2),
-            estimate    = "MLE",
+            # estimate    = "MLE",
             eval.loglik = TRUE,
             verbose     = TRUE)
 
 print(summary(fit))
+ergm_patch_disable()

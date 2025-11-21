@@ -11,7 +11,7 @@
 #   • `cliques(k)` (k ≥ 1 ; k=1 = nombre de groupes de taille 1).
 #   • `normalized=TRUE` divise par C(N1,k), N1 = nb d’acteurs.
 #   • Summary : formule directe `nw ~ cliques(...)`, contrainte `~ b1part`.
-#   • Fit : appel direct `erpm(partition ~ cliques(...), estimate="MLE", eval.loglik=TRUE)`.
+#   • Fit : appel direct `erpm(partition ~ cliques(...), eval.loglik=TRUE)`.
 # ==============================================================================
 
 # ----- Préambule locale/UTF-8 -------------------------------------------------
@@ -68,14 +68,14 @@ stopifnot(length(stat_summary_cliques_k2)      == 1L, is.finite(stat_summary_cli
 stopifnot(length(stat_summary_cliques_k2_norm) == 1L, is.finite(stat_summary_cliques_k2_norm))
 
 # ==============================================================================
-# 2) FIT ERPM MLE + logLik — appel direct et minimal
+# 2) FIT ERPM logLik — appel direct et minimal
 # ==============================================================================
 set.seed(1)
 
-# 3) demandé : estimate="MLE", eval.loglik=TRUE
+# 3) demandé :  eval.loglik=TRUE
 fit_cliques_k2 <- erpm(
   partition ~ cliques(clique_size = 2),
-  estimate    = "MLE",
+  # estimate    = "MLE",
   eval.loglik = TRUE,
   verbose     = TRUE
 )

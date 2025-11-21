@@ -511,8 +511,10 @@ run_phase3_erpm_fits <- function() {
 
     # Exécution avec capture des warnings
     res <- .with_warning_capture(
-      try(erpm(f, estimate = "MLE", eval.loglik = TRUE, control = ctrl_mle,
-               verbose = FALSE, nodes = nodes), silent = TRUE)
+      try(erpm(f, eval.loglik = TRUE, 
+                  # estimate = "MLE", 
+                  # control = ctrl_mle,
+                  verbose = FALSE, nodes = nodes), silent = TRUE)
     )
     fit <- res$value
     warns <- res$warnings

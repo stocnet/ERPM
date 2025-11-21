@@ -115,7 +115,10 @@ if (!exists(".__launcher_loaded", envir = .GlobalEnv)) {
       vn <- network::network.vertex.names(nw); if (is.null(vn)) vn <- seq_len(network::network.size(nw))
       actors <- vn[seq_len(n)]
       groups <- vn[seq.int(n + 1L, n + max(1L, length(vn) - n))]
-      A <- network::as.matrix(nw, matrix.type = "adjacency")
+      A <- as.matrix(nw, matrix.type = "adjacency")                 # recommandé
+
+    
+
       part <- vapply(seq_len(n), function(i) {
         gi <- which(A[actors[i], groups] > 0L)
         if (length(gi)) as.integer(sub("^G", "", groups[gi[1L]])) else NA_integer_
@@ -228,7 +231,7 @@ if (!exists(".__launcher_loaded", envir = .GlobalEnv)) {
       }
       out <- if (is.null(constraints)) summary(f) else summary(f, constraints = constraints)
       out_brief <- .brief_result(out, engine = "summary")
-      .log_info(paste("Résultat (summary):\n", out_brief))
+      # .log_info(paste("Résultat (summary):\n", out_brief))
       return(list(engine=engine, mode="summary", rhs=rhs, rhs_text=rhs_text,
                   constraints=constraints, constraints_text=constraints_text,
                   call=f, call_text=call_text, fit=NULL, result=out,

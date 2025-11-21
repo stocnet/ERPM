@@ -26,6 +26,7 @@ suppressPackageStartupMessages({
   library(ergm)      # summary(), ergm(), control.ergm(), etc.
 })
 
+options(ergm.loglik.warn_dyads=FALSE)
 # ----- Charge le package local ERPM ---------------------------------------------------
 devtools::load_all(".")
 
@@ -64,9 +65,9 @@ set.seed(1) # stabilise l’estimation si on utilise une estimation CD dans ergm
 fit <- erpm(partition ~ squared_sizes(),
             eval_call   = TRUE,
             verbose     = TRUE,
-            estimate    = "MLE",     # MCMLE pour obtenir SE/logLik
-            eval.loglik = TRUE,
-            control     = list(MCMLE.maxit = 20))
+            # estimate    = "MLE",     # MCMLE pour obtenir SE/logLik
+            # control     = list(MCMLE.maxit = 20),
+            eval.loglik = TRUE,)
 
 # Vérification rapide de cohérence sur la formule du fit
 obs_from_fit <- summary(fit$formula, constraints = ~ b1part)
@@ -76,3 +77,4 @@ cat("\n--- summary(fit) (style ergm) ---\n")
 print(summary(fit))
 
 cat("\n[OK] MWE squared_sizes: summary et fit vérifiés.\n")
+ergm_patch_disable()

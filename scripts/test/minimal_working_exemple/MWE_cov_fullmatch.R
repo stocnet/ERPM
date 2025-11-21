@@ -62,14 +62,14 @@ cat(sprintf("[summary] cov_fullmatch(dept, A, 2:3) : observé=%g | référence=%
             summary_obs_A_2to3, summary_ref_A_2to3))
 stopifnot(all.equal(summary_obs_A_2to3, summary_ref_A_2to3, tol = 0))
 
-# ------------------------------- Fit MLE court ---------------------------------
-# 3) demandé : estimate="MLE", eval.loglik=TRUE
+# ------------------------------- Fit court ---------------------------------
+# 3) demandé : eval.loglik=TRUE
 set.seed(1)
 nw <- build_bipartite_from_inputs(partition = partition, nodes = nodes)
 fit <- ergm(
   nw$network ~ cov_fullmatch("dept", category = "A", size = 1:3),
   constraints = ~ b1part,
-  estimate    = "MLE",
+  # estimate    = "MLE",
   eval.loglik = TRUE,
   verbose     = TRUE
 )
@@ -77,7 +77,7 @@ fit <- ergm(
 set.seed(1)
 fit_mle <- erpm(
   partition ~ cov_fullmatch("dept", category = "A", size = 1:3),
-  estimate    = "MLE",
+  # estimate    = "MLE",
   eval.loglik = TRUE,
   verbose     = TRUE,
   nodes       = nodes

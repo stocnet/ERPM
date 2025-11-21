@@ -21,13 +21,15 @@ if (!requireNamespace("Rglpk", quietly = TRUE)) {
   message("Avis: 'Rglpk' non installé. ergm utilisera 'lpSolveAPI'.")
 }
 
+options(ergm.loglik.warn_dyads=FALSE)
+
 # ----- Active le patch {ergm} ---------------------------------------------------------
 source("scripts/ergm_patch.R")
 ergm_patch_enable()
 
 # ----- Partitions de test -------------------------------------------------------------
 partition_mix <- c(1, 2, 2, 3, 3, 3)
-partition_balanced <- c(1, 1, 2, 2, 3, 3)
+partition_balanced <- c(1, 1, 2, 2, 2, 3, 4, 4, 5) 
 partition_full <- c(1, 1, 1, 1, 1, 1)
 partition_singleton <- c(1, 2, 3, 4, 5, 6)
 
@@ -66,36 +68,44 @@ make_nw_from_partition <- function(part) {
 # nw <- network.initialize(n * 2, dir = FALSE, bip = n)
 
 # baseline case #1
-ctrl_A <- control.ergm(
-  CD.maxit        = 0,        # saute la phase contrastive
-  MCMLE.maxit     = 10,
-  MCMC.burnin     = 5000,
-  MCMC.interval   = 1000,
-  MCMC.samplesize = 1e4,
-  force.main      = TRUE,
-  parallel        = 0
-)
-
+# ctrl_A <- control.ergm(
+#   CD.maxit        = 0,        # saute la phase contrastive
+#   MCMLE.maxit     = 10,
+#   MCMC.burnin     = 5000,
+#   MCMC.interval   = 1000,
+#   MCMC.samplesize = 1e4,
+#   force.main      = TRUE,
+#   parallel        = 0
+# )
+# nw[cbind(seq_along(partition_mix), partition_mix + n)] <- 1
+set.seed(1) 
 nw <- make_nw_from_partition(partition_mix)
 fit_ergm <- ergm( nw ~ log_factorial_sizes,
-                  constraints = ~b1part, 
-                  estimate="MLE", 
-                  control=ctrl_A)
+                  # estimate="MLE", 
+                  # control=ctrl_A,
+                  constraints = ~b1part
+                  )
 print(summary(fit_ergm))
 
+set.seed(1) 
 fit_erpm <- erpm(partition_mix ~ log_factorial_sizes) # should be around -0.1
 print(summary(fit_erpm))
-fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # should be close to 0
+cat("[ERPM vs ERGM | 1]\n\t", sprintf("fit_ergm - fit_erpm = %f", fit_ergm$coefficients[1] - fit_erpm$coefficients[1]), "\n")  # should be close to 0
 
 # baseline case #2
+set.seed(1) 
 nw <- make_nw_from_partition(partition_balanced)
 fit_ergm <- ergm( nw ~ log_factorial_sizes,
-                  estimate="MLE",
-                  constraints = ~b1part,
-                  control=ctrl_A)
+                  # estimate="MLE",
+                  # control=ctrl_A,
+                  constraints = ~b1part
+                  )
 print(summary(fit_ergm))
 
-fit_erpm <- erpm( partition_balanced ~ log_factorial_sizes, 
-                  control=ctrl_A) # should be around -5
+set.seed(1) 
+fit_erpm <- erpm( partition_balanced ~ log_factorial_sizes
+                  # control=ctrl_A
+                  ) # should be around 0.4
 print(summary(fit_erpm))
-fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # should be close to 0
+# fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # should be close to 0
+cat("[ERPM vs ERGM | 2]\n\t", sprintf("fit_ergm - fit_erpm = %f", fit_ergm$coefficients[1] - fit_erpm$coefficients[1]), "\n")  # should be close to 0
