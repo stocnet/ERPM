@@ -127,6 +127,15 @@ nodesC <- data.frame(
     stringsAsFactors = FALSE
 )
 
+## Cas déterministe dédié au fit B_k2_RHbg (évite stat == 0 et constance)
+partB_RHbg <- c(1,1,1, 2,2, 3,3)  # tailles: 3,2,2
+nodesB_RHbg <- data.frame(
+    label = paste0("BR", seq_along(partB_RHbg)),
+    sexe  = c("F","H","F",  "H","H",  "F","H"),
+    dept  = c("RH","RH","V",  "RH","V",  "V","V"),  # un seul groupe avec paires RH
+    stringsAsFactors = FALSE
+)
+
 # ======================================================================================
 # Helpers réseau biparti et summaries
 # ======================================================================================
@@ -139,15 +148,15 @@ nodesC <- data.frame(
         builder <- get("build_bipartite_from_inputs")
         out <- try(builder(partition = part, nodes = nodes), silent = TRUE)
         if (inherits(out, "try-error") || is.null(out)) {
-        out <- try(builder(partition = part, labels = nodes$label, attributes = attrs), silent = TRUE)
+            out <- try(builder(partition = part, labels = nodes$label, attributes = attrs), silent = TRUE)
         }
         if (!inherits(out, "try-error") && !is.null(out)) {
-        if (inherits(out, "network")) return(out)
-        if (is.list(out)) {
-            for (nm in c("network","nw","g","graph","bip","net")) {
-            if (!is.null(out[[nm]]) && inherits(out[[nm]], "network")) return(out[[nm]])
+            if (inherits(out, "network")) return(out)
+            if (is.list(out)) {
+                for (nm in c("network","nw","g","graph","bip","net")) {
+                    if (!is.null(out[[nm]]) && inherits(out[[nm]], "network")) return(out[[nm]])
+                }
             }
-        }
         }
     }
     if (exists("partition_to_bipartite_network", mode = "function")) {
@@ -202,22 +211,22 @@ expected_cov_match <- function(part, vals, k = 2L, category = NULL, normalized =
     stat_group <- function(ix) {
         v <- vals[ix]; n_g <- length(ix)
         if (!is.null(category)) {
-        n_k <- sum(v == category, na.rm = TRUE)
-        if (k == 1L && normalized == "by_group") {
-            # Cas spécial observé: somme_g 1_{n_{g,κ} >= 1}
-            return(as.numeric(n_k >= 1L))
-        }
-        clq <- .choose(n_k, k)
+            n_k <- sum(v == category, na.rm = TRUE)
+            if (k == 1L && normalized == "by_group") {
+                # Cas spécial observé: somme_g 1_{n_{g,κ} >= 1}
+                return(as.numeric(n_k >= 1L))
+            }
+            clq <- .choose(n_k, k)
         } else {
-        # somme des cliques homogènes toutes catégories
-        tbl <- table(v, useNA = "no")
-        clq <- sum(vapply(as.integer(tbl), .choose, numeric(1), k = k))
+            # somme des cliques homogènes toutes catégories
+            tbl <- table(v, useNA = "no")
+            clq <- sum(vapply(as.integer(tbl), .choose, numeric(1), k = k))
         }
         if (normalized == "none") return(clq)
         if (normalized == "by_group") {
-        den <- .choose(n_g, k)
-        if (den == 0) return(0)
-        return(clq / den)
+            den <- .choose(n_g, k)
+            if (den == 0) return(0)
+            return(clq / den)
         }
         # normalized == "global"
         den <- .choose(N1, k)
@@ -337,7 +346,7 @@ check_summary_equivalence <- function(part, nodes, rhs_vec) {
         if (length(s_net) != length(s_erpm)) stop("Longueur de statistique différente.")
         if (!all(is.finite(s_net)) || !all(is.finite(s_erpm))) stop("Stat non finie.")
         if (!isTRUE(all.equal(as.numeric(s_net), as.numeric(s_erpm)))) {
-        stop(sprintf("Mismatch summary net vs ERPM pour RHS=%s", rhs))
+            stop(sprintf("Mismatch summary net vs ERPM pour RHS=%s", rhs))
         }
     }
     TRUE
@@ -378,8 +387,8 @@ ctrl_mle <- control.ergm(
     val <- withCallingHandlers(
         expr,
         warning = function(w) {
-        warnings <<- c(warnings, conditionMessage(w))
-        invokeRestart("muffleWarning")
+            warnings <<- c(warnings, conditionMessage(w))
+            invokeRestart("muffleWarning")
         }
     )
     list(value = val, warnings = warnings)
@@ -401,18 +410,14 @@ run_fit <- function(part, nodes, rhs, tag) {
     } else {
         cat(sprintf("[ERPM-FIT %-12s] stat_observee=NA (%s)\n", tag, conditionMessage(attr(s_obs, "condition"))))
     }
-    obs_zero <- (!inherits(s_obs, "try-error") &&
-                all(is.finite(s_obs)) &&
-                length(s_obs) == 1L &&
-                as.numeric(s_obs) == 0)
 
     # Exécution avec capture des warnings
     res <- .with_warning_capture(
-        try(erpm(f, eval.loglik = TRUE, 
-                    # control = ctrl_mle,
-                    # estimate = "MLE",
-                    verbose = FALSE, 
-                    nodes = nodes), silent = TRUE)
+        try(erpm(f, eval.loglik = TRUE,
+                 # control = ctrl_mle,
+                 # estimate = "MLE",
+                 verbose = FALSE,
+                 nodes = nodes), silent = TRUE)
     )
     fit   <- res$value
     warns <- res$warnings
@@ -424,13 +429,6 @@ run_fit <- function(part, nodes, rhs, tag) {
     # Cas erreur d’exécution
     if (inherits(fit, "try-error")) {
         msg <- as.character(fit)
-
-        # Cas prévu: stat_observee = 0 + matrice avec diag négative
-        if (obs_zero && grepl("Matrix .* negative elements on the diagonal", msg)) {
-        cat(sprintf("[ERPM-FIT %-12s] ERREUR ATTENDUE (stat_observee=0): %s\n", tag, msg))
-        return(list(ok = TRUE, fit = NULL, coef = NA, expected_error = TRUE))
-        }
-
         cat(sprintf("[ERPM-FIT %-12s] ERREUR: %s\n", tag, msg))
         return(list(ok = FALSE, fit = NULL, coef = NA, expected_error = FALSE))
     }
@@ -449,11 +447,16 @@ run_phase3_erpm_fits <- function() {
     cat("\n=== PHASE 3 : Fits erpm() (MLE + loglik) ===\n")
 
     fits <- list(
-        A_k2       = run_fit(partA, nodesA, "cov_match('sexe', clique_size = 2)", "A_k2"),
-        A_k2F      = run_fit(partA, nodesA, "cov_match('sexe', clique_size = 2, category = 'F')", "A_k2F"),
-        A_k2_bg    = run_fit(partA, nodesA, "cov_match('sexe', clique_size = 2, normalized = 'by_group')", "A_k2_bg"),
-        B_k23_H    = run_fit(partitions$B, .make_nodes(partitions$B), "cov_match('sexe', clique_size = c(2,3), category = 'H')", "B_k23_H"),
-        B_k2_RHbg  = run_fit(partitions$B, .make_nodes(partitions$B), "cov_match('dept', clique_size = 2, category = 'RH', normalized = 'by_group')", "B_k2_RHbg")
+        A_k2       = run_fit(partA, nodesA,
+                             "cov_match('sexe', clique_size = 2)", "A_k2"),
+        A_k2F      = run_fit(partA, nodesA,
+                             "cov_match('sexe', clique_size = 2, category = 'F')", "A_k2F"),
+        A_k2_bg    = run_fit(partA, nodesA,
+                             "cov_match('sexe', clique_size = 2, normalized = 'by_group')", "A_k2_bg"),
+        B_k23_H    = run_fit(partitions$B, .make_nodes(partitions$B),
+                             "cov_match('sexe', clique_size = c(2,3), category = 'H')", "B_k23_H"),
+        B_k2_RHbg  = run_fit(partB_RHbg, nodesB_RHbg,
+                             "cov_match('dept', clique_size = 2, category = 'RH', normalized = 'by_group')", "B_k2_RHbg")
     )
 
     ok <- vapply(fits, function(x) isTRUE(x$ok), logical(1))
@@ -465,8 +468,8 @@ run_phase3_erpm_fits <- function() {
     for (nm in names(fits)) {
         fx <- fits[[nm]]
         if (isTRUE(fx$ok) && inherits(fx$fit, "ergm")) {
-        cat(sprintf("\n--- Résumé fit %s ---\n", nm))
-        print(summary(fx$fit))
+            cat(sprintf("\n--- Résumé fit %s ---\n", nm))
+            print(summary(fx$fit))
         }
     }
 

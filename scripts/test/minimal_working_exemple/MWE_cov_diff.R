@@ -111,7 +111,7 @@ cat(sprintf("[summary] cov_diff(score,k=3)           : obs=%g | ref=%g\n",
             obs_k3, ref_k3))
 stopifnot(all.equal(obs_k3, ref_k3, tol = 0))
 
-# ------------------------------- Fit MLE simple --------------------------------
+# ------------------------------- Fit simple --------------------------------
 # On ajoute squared_sizes() pour stabiliser la structure des groupes
 set.seed(1)
 nw2 <- build_bipartite_from_inputs(partition = partition, nodes = nodes)
@@ -124,18 +124,18 @@ ctrl_mle <- control.ergm(
 fit_ergm <- ergm(
   nw2$network ~ squared_sizes() + cov_diff("score", clique_size = 2),
   constraints = ~ b1part,
-  estimate    = "MLE",
-  control     = ctrl_mle,
+  # estimate    = "MLE",
+  # control     = ctrl_mle,
   eval.loglik = TRUE
 )
 
 set.seed(1)
 fit_erpm <- erpm(
   partition ~ squared_sizes() + cov_diff("score", clique_size = 2),
-  estimate    = "MLE",
+  # estimate    = "MLE",
   eval.loglik = TRUE,
   verbose     = TRUE,
-  control     = ctrl_mle,
+  # control     = ctrl_mle,
   nodes       = nodes
 )
 

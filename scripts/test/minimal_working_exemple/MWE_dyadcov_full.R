@@ -86,7 +86,7 @@ cat(sprintf("[summary] dyadcov_full('Z1', size=2:3) : observé=%g | référence=
             summary_obs_2to3, summary_ref_2to3))
 stopifnot(all.equal(summary_obs_2to3, summary_ref_2to3, tol = 0))
 
-# ------------------------------- Fit MLE court ---------------------------------
+# ------------------------------- Fit  court ---------------------------------
 set.seed(1)
 bld_fit <- build_bipartite_from_inputs(
   partition = partition,
@@ -98,7 +98,7 @@ nw_fit <- bld_fit$network
 fit_ref <- ergm(
   nw_fit ~ dyadcov_full("Z1", size = 2:3),
   constraints = ~ b1part,
-  estimate    = "MLE",
+  # estimate    = "MLE",
   eval.loglik = TRUE,
   verbose     = TRUE
 )
@@ -106,7 +106,7 @@ fit_ref <- ergm(
 set.seed(1)
 fit_erpm <- erpm(
   partition ~ dyadcov_full("Z1", size = 2:3),
-  estimate    = "MLE",
+  # estimate    = "MLE",
   eval.loglik = TRUE,
   verbose     = TRUE,
   nodes       = nodes,
