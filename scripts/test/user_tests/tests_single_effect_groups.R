@@ -25,8 +25,8 @@ if (!requireNamespace("Rglpk", quietly = TRUE)) {
 options(ergm.loglik.warn_dyads = FALSE)
 
 # ----- Active le patch {ergm} ---------------------------------------------------------
-source("scripts/ergm_patch.R")
-ergm_patch_enable()
+#source("scripts/ergm_patch.R")
+#ergm_patch_enable()
 
 # ----- Partitions de test -------------------------------------------------------------
 partition_mix <- c(1, 2, 2, 3, 3, 3)
@@ -94,7 +94,7 @@ nw <- network.initialize(n * 2, dir = FALSE, bip = n)
 # baseline case #1
 nw[cbind(seq_along(partition_mix), partition_mix + n)] <- 1
 fit_ergm <- ergm(nw ~ b2degrange(1, Inf),
-            constraints = ~b1part)
+                 constraints = ~b1part)
 summary(fit_ergm)
 mcmc.diagnostics(fit_ergm)
 
@@ -152,4 +152,4 @@ summary(fit_erpm)
 # fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # should be close to 0
 cat("[ERPM vs ERGM | 1]\n\t", sprintf("fit_ergm - fit_erpm = %f", fit_ergm$coefficients[1] - fit_erpm$coefficients[1]), "\n")  # should be close to 0
 
-ergm_patch_disable()
+#ergm_patch_disable()
