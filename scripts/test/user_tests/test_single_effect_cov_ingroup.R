@@ -1,5 +1,5 @@
 # ======================================================================================
-# Fichier : scripts/test/user_tests/tests_single_effect_log_factorial_sizes.R
+# Fichier : scripts/test/user_tests/tests_single_effect_cov_ingroup.R
 #
 # Objet   : Test single effect cov_ingroup with different options
 #
@@ -24,6 +24,7 @@ if (!requireNamespace("Rglpk", quietly = TRUE)) {
 # ----- Active le patch {ergm} ---------------------------------------------------------
 source("scripts/ergm_patch.R")
 ergm_patch_enable()
+options(ergm.loglik.warn_dyads=FALSE)
 
 # ----- Partitions de test -------------------------------------------------------------
 partition_mix <- c(1, 2, 2, 3, 3, 3)

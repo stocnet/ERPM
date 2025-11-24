@@ -127,10 +127,9 @@
  *         deg_old = OUT_DEG[v2] + IN_DEG[v2],
  *       which equals n_g before the toggle.
  *    3. Compute X = ∑_{i ∈ A(g)} x_i by traversing neighbours of v2
- *       in the actor mode. In the current implementation:
- *         - only outgoing edges from v2 are traversed, which is
- *           sufficient for undirected bipartite representations where
- *           group–actor memberships appear as out-edges from groups.
+ *       in the actor mode. In the implementation below, this is done by
+ *       summing both outgoing and incoming edges via a helper macro
+ *       that is agnostic to edge orientation.
  *    4. Build the "after" quantities:
  *         n_new = deg_old ± 1,
  *         X_new = X ± x_i,
@@ -196,6 +195,22 @@
 #include <math.h>
 #include "ergm_changestat.h"
 #include "ergm_storage.h"
+#include <R_ext/Print.h>
+
+/**
+ * @def DEBUG_COV_INGROUP
+ * @brief Enable or disable verbose debugging output for ::c_cov_ingroup.
+ *
+ * When set to 1, the change-statistic function prints diagnostic information
+ * to the R console for each toggle:
+ *  - actor and group vertex indices,
+ *  - degree and covariate sums before and after the toggle,
+ *  - size-filter flags and local Δ,
+ *  - the updated CHANGE_STAT[0].
+ *
+ * When set to 0, no debug output is produced.
+ */
+#define DEBUG_COV_INGROUP 0
 
 /* -------------------------------------------------------------------------- */
 /* Helper: membership size filter                                             */
@@ -219,12 +234,61 @@
  * @return 1 if @p n is in S, or if L <= 0; 0 otherwise.
  */
 static inline int in_sizes_set(int n, const double *in, int L){
-  if(L<=0) return 1; /* no filter: all sizes accepted */
+  if(L <= 0) return 1; /* no filter: all sizes accepted */
   /* in[0..L-1] stores allowed sizes as doubles, cast to int for comparison */
-  for(int k=0; k<L; ++k){
+  for(int k = 0; k < L; ++k){
     if((int)in[k] == n) return 1;
   }
   return 0;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Helper: sum covariate over neighbours of a group vertex                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * @brief Sum x over all actor neighbours of a group vertex v2.
+ *
+ * @details
+ *  This helper is orientation-agnostic: it traverses both outgoing and
+ *  incoming edges of v2 and accumulates the covariate x on actor-mode
+ *  vertices 1..n1. It assumes:
+ *
+ *    - actors have indices 1..n1,
+ *    - groups have indices n1+1..N_NODES.
+ *
+ *  It relies on {ergm}'s STEP_THROUGH_OUTEDGES and STEP_THROUGH_INEDGES
+ *  macros and the conventional Network* pointer named `nwp`.
+ *
+ * @param v2  Group vertex index (group mode).
+ * @param x   Pointer to covariate values x[0..n1-1] on actors.
+ * @param n1  Number of actors (size of actor mode).
+ * @param nwp Network workspace pointer (required by {ergm} macros).
+ *
+ * @return Sum of x_i over all actor neighbours i of v2.
+ */
+static inline double SAFE_SUM_GROUP(Vertex v2, const double *x, int n1, Network *nwp){
+  (void)nwp; /* silence unused warning in case macros don't reference it explicitly */
+
+  double X = 0.0;
+  Vertex h;
+  Edge e;
+
+  /* Outgoing edges from group vertex v2 */
+  STEP_THROUGH_OUTEDGES(v2, e, h){
+    if(h >= (Vertex)1 && h <= (Vertex)n1){
+      X += x[(int)h - 1];
+    }
+  }
+
+  /* Incoming edges to group vertex v2 */
+  STEP_THROUGH_INEDGES(v2, e, h){
+    if(h >= (Vertex)1 && h <= (Vertex)n1){
+      X += x[(int)h - 1];
+    }
+  }
+
+  return X;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -289,8 +353,8 @@ C_CHANGESTAT_FN(c_cov_ingroup){
   const int L  = (int)INPUT_PARAM[1];  /* length of size filter S */
 
   /* sizes[] points to the allowed size set S, if any; x[] to actor covariates. */
-  const double *sizes = (L>0) ? (&INPUT_PARAM[2])      : NULL;
-  const double *x     = (L>0) ? (&INPUT_PARAM[2+L])    : (&INPUT_PARAM[2]);
+  const double *sizes = (L > 0) ? (&INPUT_PARAM[2])      : NULL;
+  const double *x     = (L > 0) ? (&INPUT_PARAM[2+L])    : (&INPUT_PARAM[2]);
 
   /* 3) Identify the actor vertex v1 and the group vertex v2 for this toggle.
    *
@@ -313,42 +377,18 @@ C_CHANGESTAT_FN(c_cov_ingroup){
   /* 4) Compute the group size and the sum of x in the group BEFORE the toggle.
    *
    *  - deg_old: degree of v2, equals n_g before the toggle.
-   *  - X:       sum of x_i over all actors connected to v2 in the actor mode.
+   *  - X:       sum of x_i over all actors connected to v2.
    */
   int deg_old = (int)(OUT_DEG[v2] + IN_DEG[v2]);
 
-  double X = 0.0;
-  Vertex h;
-  Edge e;
-
-  /* Traverse outgoing edges from the group vertex v2.
-   *
-   * For undirected bipartite representations where memberships appear as
-   * edges from groups to actors, iterating over OUTEDGES is sufficient.
-   */
-  STEP_THROUGH_OUTEDGES(v2, e, h){
-    if(h >= (Vertex)1 && h <= (Vertex)n1){
-      /* x is stored as x[0..n1-1], vertex indices are 1-based. */
-      X += x[(int)h - 1];
-    }
-  }
-  /* If memberships could also appear as incoming edges to v2, one could
-   * add a symmetric pass over INEDGES here (currently not needed in the
-   * assumed representation).
-   *
-   * Example (commented out):
-   *
-   * STEP_THROUGH_INEDGES(v2, e, h){
-   *   if(h >= (Vertex)1 && h <= (Vertex)n1) X += x[(int)h - 1];
-   * }
-   */
+  double X = SAFE_SUM_GROUP(v2, x, n1, nwp);
 
   /* 5) Compute "after-toggle" quantities.
    *
    * edgestate = 0 → addition:  n_new = n + 1, X_new = X + x_i
    * edgestate = 1 → deletion:  n_new = n - 1, X_new = X - x_i
    */
-  const int is_add   = (edgestate==0);          /* 1 if addition, 0 if deletion */
+  const int is_add   = (edgestate == 0);          /* 1 if addition, 0 if deletion */
   const int n_new    = deg_old + (is_add ? +1 : -1);
   const double xi    = x[(int)v1 - 1];
   const double X_new = X + (is_add ? +xi : -xi);
@@ -362,8 +402,19 @@ C_CHANGESTAT_FN(c_cov_ingroup){
    *    Δ = (n_new * X_new * w_new) - (deg_old * X * w_old).
    */
   double d = 0.0;
-  d = (w_new ? ( (double)n_new * X_new ) : 0.0)
-    - (w_old ? ( (double)deg_old * X   ) : 0.0);
+  d = (w_new ? ((double)n_new * X_new) : 0.0)
+    - (w_old ? ((double)deg_old * X)   : 0.0);
 
   CHANGE_STAT[0] += d;
+
+#if DEBUG_COV_INGROUP
+  Rprintf(
+    "[c_cov_ingroup] v1=%d v2=%d is_add=%d "
+    "deg_old=%d n_new=%d xi=%.6f X=%.6f X_new=%.6f "
+    "w_old=%d w_new=%d d=%.6f stat=%.6f\n",
+    (int)v1, (int)v2, is_add,
+    deg_old, n_new, xi, X, X_new,
+    w_old, w_new, d, CHANGE_STAT[0]
+  );
+#endif
 }

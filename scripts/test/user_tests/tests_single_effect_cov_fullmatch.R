@@ -152,7 +152,6 @@ print(summary(dry[[2]], constraints = ~ b1part)) # should be 0
 # 2) FIT MODEL
 # ======================================================================================
 
-set.seed(1)  # stabilise l’estimation si on utilise une estimation CD dans ergm
 
 make_nw_from_partition <- function(part,nodes) {
   built <- build_bipartite_from_inputs(
@@ -172,12 +171,16 @@ ctrl_A <- control.ergm(
   parallel        = 0
 )
 
+set.seed(1)  # stabilise l’estimation si on utilise une estimation CD dans ergm
+
 nw <- make_nw_from_partition(partition_mix,nodes_df)
 fit_ergm <- ergm( nw ~ cov_fullmatch("bin_att"),
                   constraints = ~b1part, 
                   estimate="MLE", 
                   control=ctrl_A)
 print(summary(fit_ergm))
+
+set.seed(1)  # stabilise l’estimation si on utilise une estimation CD dans ergm
 
 fit_erpm <- erpm(partition_mix ~ cov_fullmatch("bin_att"),
                  nodes = nodes_df,
@@ -197,12 +200,16 @@ ctrl_A <- control.ergm(
   parallel        = 0
 )
 
+set.seed(1)  # stabilise l’estimation si on utilise une estimation CD dans ergm
+
 nw <- make_nw_from_partition(partition_balanced,nodes_df)
 fit_ergm <- ergm( nw ~ cov_fullmatch("bin_cat",size=2:6),
                   constraints = ~b1part, 
                   estimate="MLE", 
                   control=ctrl_A)
 print(summary(fit_ergm))
+
+set.seed(1)  # stabilise l’estimation si on utilise une estimation CD dans ergm
 
 fit_erpm <- erpm(partition_balanced ~ cov_fullmatch("bin_cat",size=2:6),
                  nodes = nodes_df,

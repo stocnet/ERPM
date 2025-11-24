@@ -198,7 +198,7 @@
  *
  * When set to 0, the compiled code does not emit any debug traces.
  */
-#define DEBUG_COV_FULLMATCH 0  /* set to 0 to disable debug output */
+#define DEBUG_COV_FULLMATCH 0  /* set to 0 to disable debug output. Should not be set to 1 in case of a fit */
 
 /**
  * @def UNUSED_WARNING
