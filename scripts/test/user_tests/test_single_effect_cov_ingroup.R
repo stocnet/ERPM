@@ -34,7 +34,7 @@ partition_singleton <- c(1, 2, 3, 4, 5, 6)
 # ----- Binary attributes --------------------------------------------------------------
 bin_att <- c(1, 1, 1, 0, 0, 0)
 cat_att <- c("A", "A", "B", "B", "C", "C")
-nodes_df <- data.frame(bin_att = bin_att, bin_cat = cat_att)
+nodes_df <- data.frame(label = 1:6, bin_att = bin_att, bin_cat = cat_att)
 
 # ======================================================================================
 # 1) STAT OBSERVÉE SANS FIT — simple cases + options
