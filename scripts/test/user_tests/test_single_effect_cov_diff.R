@@ -124,12 +124,16 @@ ctrl_A <- control.ergm(
 )
 
 # baseline case 
+set.seed(1)  # stabilise l’estimation si on utilise une estimation CD dans ergm
+
 nw <- make_nw_from_partition(partition_balanced,nodes_df)
 fit_ergm <- ergm( nw ~ cov_diff("bin_att"),
                   constraints = ~b1part, 
                   estimate="MLE", 
                   control=ctrl_A)
 print(summary(fit_ergm))
+
+set.seed(1)  # stabilise l’estimation si on utilise une estimation CD dans ergm
 
 fit_erpm <- erpm(partition_balanced ~ cov_diff("bin_att"),
                  nodes = nodes_df,
