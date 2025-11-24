@@ -1,7 +1,7 @@
 # ======================================================================================
 # Fichier : scripts/test/user_tests/tests_single_effect_log_factorial_sizes.R
 #
-# Objet   : Test single effects one by one with different options
+# Objet   : Test single effect "log_factorial_sizes" with different options
 #
 # ======================================================================================
 Sys.setenv(LANG="fr_FR.UTF-8")

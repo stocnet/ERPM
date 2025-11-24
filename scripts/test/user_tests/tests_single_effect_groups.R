@@ -1,7 +1,7 @@
 # ======================================================================================
-# Fichier : scripts/test/user_tests/tests_single_effects.R
+# Fichier : scripts/test/user_tests/tests_single_effect_groups.R
 #
-# Objet   : Test single effects one by one with different options
+# Objet   : Test single effect "groups" with different options
 #
 # ======================================================================================
 
