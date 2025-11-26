@@ -4,9 +4,9 @@
  *
  * @details
  *  This file implements the {ergm} change statistic for the ERPM effect
- *  `dyadcov_GW(lambda)`, which aggregates the dyadic covariate functional
- *  over all actor cliques inside each group, with a geometric weighting
- *  over the clique size.
+ *  `dyadcov_GW(lambda)`, which aggregates a symmetrised dyadic covariate
+ *  functional over all actor cliques inside each group, with a geometric
+ *  weighting over the clique size.
  *
  *  ------------------------------------------------------------
  *  Statistical principle (actor mode, group mode)
@@ -24,14 +24,23 @@
  *    - storage:   column-major order (R convention),
  *                 Z[(j-1)*n1 + (i-1)] = z_ij for actors i,j.
  *
+ *  The matrix Z is not required to be symmetric: in general z_ij != z_ji.
+ *  For each unordered actor pair {i,j} with i<j, the implementation uses
+ *  the symmetrised value
+ *
+ *      w_ij = z_ij + z_ji,
+ *
+ *  in line with the definition of `dyadcov_full`.
+ *
  *  For a given group g, let:
  *    - A(g) be the set of actors in group g,
  *    - n_g  = |A(g)| be the size of group g,
  *    - C_k(g) be the set of all k-subsets C ⊂ A(g).
  *
- *  For each clique C ∈ C_k(g), define the dyadic product:
+ *  For each clique C ∈ C_k(g), define the dyadic product based on w_ij:
  *
- *      P(C; Z) = ∏_{i<j ∈ C} z_ij.
+ *      P(C; Z) = ∏_{i<j ∈ C} w_ij
+ *              = ∏_{i<j ∈ C} (z_ij + z_ji).
  *
  *  The group-level k-clique covariate functional is:
  *
@@ -44,15 +53,12 @@
  *
  *  with weights:
  *
- *      a_k(λ) = (-1 / λ)^{k-2},   for k ≥ 2.
+ *      a_k(λ) = (-1 / λ)^{k-1},   for k ≥ 2.
  *
  *  The global statistic is:
  *
  *      T_GW(p; Z, λ)
- *        = ∑_g S_g^{GW}(Z, λ)
- *        = ∑_g ∑_{k=2}^{n_g} a_k(λ) * S_g^{(k)}(Z)
- *        = ∑_g ∑_{k=2}^{n_g} (-1/λ)^{k-2}
- *             * ∑_{C ∈ C_k(g)} ∏_{i<j ∈ C} z_ij.
+ *        = ∑_g S_g^{GW}(Z, λ).
  *
  *  For λ = 2, the weights are:
  *      a_2 = 1, a_3 = -1/2, a_4 = 1/4, ...
@@ -113,7 +119,8 @@
  *  For a group with n_g actors:
  *    - all clique sizes k = 2..n_g are considered,
  *    - the number of k-cliques is C(n_g, k),
- *    - each clique product involves k*(k-1)/2 dyads,
+ *    - each clique product involves k*(k-1)/2 unordered dyads, each mapped
+ *      to a symmetrised value w_ij = z_ij + z_ji,
  *    - S_g^{GW}(Z, λ) is a sum of S_g^{(k)}(Z) weighted by a_k(λ).
  *
  *  This leads to combinatorial cost in n_g and k. The term is therefore
@@ -139,20 +146,14 @@
  *  # Example: 4 actors in 2 groups
  *  part <- c(1, 1, 2, 2)  # actors 1,2 in group 1; 3,4 in group 2
  *
- *  # Symmetric dyadic covariate on the actor mode
+ *  # Possibly non-symmetric dyadic covariate on the actor mode
  *  set.seed(1)
  *  Z <- matrix(runif(4 * 4), nrow = 4, ncol = 4)
- *  Z <- (Z + t(Z)) / 2
  *  diag(Z) <- 0
  *
  *  # Geometrically weighted dyadic covariate effect
- *  fit <- erpm(partition ~ dyadcov_GW(lambda = 2, cov = Z))
+ *  fit <- erpm(partition ~ dyadcov_GW(lambda = 2, dyadcov = Z))
  *  summary(fit)
- *
- *  # Internally, each membership toggle between an actor and a group calls
- *  # c_dyadcov_GW(), which recomputes S_g^{GW}(Z, lambda) for the affected
- *  # group before and after a virtual toggle, and updates CHANGE_STAT[0]
- *  # by Δ = S_after - S_before.
  *  @endcode
  *
  *  @test
@@ -161,7 +162,8 @@
  *    - compute T_GW(p; Z, λ) directly in R by:
  *         * enumerating all groups g and actor sets A(g),
  *         * enumerating all k-cliques C ⊂ A(g) for k ≥ 2,
- *         * summing a_k(λ) * ∏_{i<j ∈ C} z_ij;
+ *         * computing w_ij = z_ij + z_ji and summing
+ *           a_k(λ) * ∏_{i<j ∈ C} w_ij;
  *    - compare these reference values to:
  *         summary( erpm(partition ~ dyadcov_GW(...)) )$statistics;
  *    - apply explicit edge toggles and check that observed changes match
@@ -209,9 +211,10 @@
  *    - enumerates all k-subsets C of the actors in the group,
  *    - for each C, computes:
  *
- *         P(C; Z) = ∏_{i<j ∈ C} z_ij,
+ *         P(C; Z) = ∏_{i<j ∈ C} w_ij,
  *
- *      using the dyadic covariate matrix Z on the actor mode,
+ *      where w_ij = z_ij + z_ji is the symmetrised dyadic covariate for
+ *      the unordered pair {i,j}, using the matrix Z on the actor mode,
  *    - accumulates the total value:
  *
  *         ∑_{C} P(C; Z).
@@ -244,7 +247,7 @@ static double sum_cliques_k(const int *actors,
   double total = 0.0;
 
   while(1){
-    /* Product over all actor dyads i<j in the current clique. */
+    /* Product over all unordered actor dyads {i,j} in the current clique. */
     double prod = 1.0;
     for(int p = 0; p < k; p++){
       int idx_i = actors[ comb[p] ];   /* actor vertex index 1..n1 */
@@ -253,8 +256,12 @@ static double sum_cliques_k(const int *actors,
       for(int q = p + 1; q < k; q++){
         int idx_j = actors[ comb[q] ];
         int col   = idx_j - 1;
-        int z_idx = col * n1 + row;    /* column-major indexing */
-        prod *= Z[z_idx];
+
+        int idx_ij = col * n1 + row;   /* z_ij   */
+        int idx_ji = row * n1 + col;   /* z_ji   */
+        double w_ij = Z[idx_ij] + Z[idx_ji];
+
+        prod *= w_ij;
       }
     }
     total += prod;
@@ -295,8 +302,9 @@ static double sum_cliques_k(const int *actors,
  *    4. Otherwise:
  *         - builds a list of actor vertex indices in the actor mode,
  *         - for each k from 2 to n_g:
- *             * computes S_g^{(k)}(Z) via ::sum_cliques_k(),
- *             * multiplies it by the weight a_k(λ) = (-1/λ)^{k-2},
+ *             * computes S_g^{(k)}(Z) via ::sum_cliques_k(), using
+ *               w_ij = z_ij + z_ji for each unordered pair {i,j},
+ *             * multiplies it by the weight a_k(λ) = (-1/λ)^{k-1},
  *             * accumulates the result into S_g^{GW}(Z, λ).
  *
  * @param g        Group vertex whose actor members define the group.
@@ -364,16 +372,16 @@ static double group_dyadcov_GW(Vertex g,
 
   /* Geometrically weighted sum over clique sizes k = 2..ng. */
   double sum_gw = 0.0;
-  double factor = 1.0;          /* a_2(λ) = 1 = (-1/λ)^{0} */
+  double factor = 1.0;          /* a_2(λ) = 1 = (-1/λ)^{1-1} */
 
   for(int k = 2; k <= ng; k++){
     double S_k = sum_cliques_k(actors, ng, k, n1, Z);
     sum_gw += factor * S_k;
-    factor *= (-1.0 / lambda); /* recurrence: a_{k+1} = a_k * (-1/λ) */
 #if DEBUG_DYADCOV_GW
     Rprintf("[dyadcov_GW][group_dyadcov_GW] g=%d ng=%d k=%d S_k=%g factor=%g\n",
             (int)g, ng, k, S_k, factor);
 #endif
+    factor *= (-1.0 / lambda); /* recurrence: a_{k+1} = a_k * (-1/λ) */
   }
 
   Free(actors);
@@ -398,7 +406,8 @@ static double group_dyadcov_GW(Vertex g,
  *  This is the {ergm} change-statistic function registered as
  *  ::c_dyadcov_GW via ::C_CHANGESTAT_FN. It implements the one-toggle
  *  update for the geometrically weighted dyadic covariate statistic on
- *  actor cliques inside each group.
+ *  actor cliques inside each group, based on the symmetrised covariate
+ *  w_ij = z_ij + z_ji for each unordered pair {i,j}.
  *
  *  For a membership toggle (actor, group):
  *

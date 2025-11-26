@@ -10,7 +10,7 @@
 #'
 #' @description
 #' \code{dyadcov_GW} is an ERGM term for bipartite networks that builds a
-#' geometrically weighted aggregation of a symmetric dyadic covariate
+#' geometrically weighted aggregation of a dyadic covariate
 #' \eqn{Z = (z_{ij})} over actor cliques within each group.
 #'
 #' The network is interpreted as:
@@ -20,10 +20,10 @@
 #' }
 #'
 #' For each group in the group mode, we consider its incident actors, all
-#' \eqn{k}-subsets of these actors, and the products of dyadic covariates
-#' \eqn{z_{ij}} over each subset. These clique contributions are then combined
-#' across clique sizes \eqn{k \ge 2} with a geometric weight controlled by
-#' \eqn{\lambda}.
+#' \eqn{k}-subsets of these actors, and the products of \emph{symmetrised}
+#' dyadic covariates \eqn{z_{ij} + z_{ji}} over each subset. These clique
+#' contributions are then combined across clique sizes \eqn{k \ge 2} with a
+#' geometric weight controlled by \eqn{\lambda}.
 #'
 #' @details
 #' The core statistic for a given partition \eqn{p}, dyadic covariate \eqn{Z},
@@ -32,8 +32,8 @@
 #' @code
 #'   T_GW(p; Z, lambda)
 #'     = sum_g sum_{k = 2..n_g} a_k(lambda) * S_g^{(k)}(Z)
-#'     = sum_g sum_{k = 2..n_g} (-1/lambda)^{k-2}
-#'                      * sum_{C in C_k(g)} prod_{i<j in C} z_{ij}
+#'     = sum_g sum_{k = 2..n_g} (-1/lambda)^{k-1}
+#'                      * sum_{C in C_k(g)} prod_{i<j in C} (z_{ij} + z_{ji})
 #'
 #' where:
 #' \itemize{
@@ -42,23 +42,25 @@
 #'   \item \eqn{C_k(g)} is the set of all actor subsets \eqn{C} of size \eqn{k}
 #'         within group \eqn{g};
 #'   \item \eqn{S_g^{(k)}(Z)} is the raw \eqn{k}-clique sum
-#'         \eqn{\sum_{C \in C_k(g)} \prod_{i<j \in C} z_{ij}};
-#'   \item \eqn{a_k(\lambda) = (-1/\lambda)^{k-2}} is the geometric weight
+#'         \eqn{\sum_{C \in C_k(g)} \prod_{i<j \in C} (z_{ij}+z_{ji})};
+#'   \item \eqn{a_k(\lambda) = (-1/\lambda)^{k-1}} is the geometric weight
 #'         applied to clique size \eqn{k}.
 #' }
 #'
-#' The dyadic covariate \eqn{Z} is a real, symmetric actor-by-actor matrix of
+#' The dyadic covariate \eqn{Z} is a real actor-by-actor matrix of
 #' size \eqn{n_A \times n_A}, where \eqn{n_A} is the size of the actor mode
-#' \code{n1 = nw \%n\% "bipartite"}. The initializer:
+#' \code{n1 = nw \%n\% "bipartite"}. Symmetry is \strong{not} required:
+#' both \eqn{z_{ij}} and \eqn{z_{ji}} are used for each unordered pair
+#' \eqn{\{i,j\}} when available. The initializer:
 #' \itemize{
 #'   \item enforces that the network is bipartite and retrieves the actor-mode size;
 #'   \item accepts \code{dyadcov} as either a literal matrix or the name of a
 #'         network-level attribute (\code{nw \%n\% "..."});
 #'   \item truncates \code{dyadcov} to its top-left \code{n1 x n1} block if
 #'         larger than required;
-#'   \item checks that \code{dyadcov} is numeric, free of \code{NA}, and symmetric
-#'         up to a small tolerance;
-#'   \item parses \code{lambda} into a positive real scalar.
+#'   \item checks that \code{dyadcov} is numeric and free of \code{NA};
+#'   \item optionally reports (in debug mode) how far the matrix is from being
+#'         symmetric, but does not require symmetry.
 #' }
 #'
 #' @section Implementation and change-statistic:
@@ -75,7 +77,8 @@
 #' On each toggle of an actor–group edge, the C change-statistic recomputes the
 #' local contribution for the unique group touched by the toggle, updating the
 #' geometrically weighted sum over clique contributions
-#' \eqn{\{S_g^{(k)}(Z)\}_{k \ge 2}}.
+#' \eqn{\{S_g^{(k)}(Z)\}_{k \ge 2}} based on the symmetrised dyadic covariate
+#' \eqn{z_{ij}+z_{ji}}.
 #'
 #' @section Arguments:
 #' The initializer is not called directly by users; it is invoked automatically
@@ -84,7 +87,7 @@
 #'
 #' @param dyadcov matrix or character. Either:
 #'   \itemize{
-#'     \item a numeric symmetric matrix of size at least \code{n1 x n1}, where
+#'     \item a numeric matrix of size at least \code{n1 x n1}, where
 #'           \code{n1 = nw \%n\% "bipartite"} is the actor-mode size; or
 #'     \item the name of a network-level attribute containing such a matrix
 #'           (retrieved as \code{nw \%n\% dyadcov}).
@@ -93,7 +96,7 @@
 #'   \code{n1 x n1} block.
 #' @param lambda numeric scalar. Geometric weight parameter \eqn{\lambda > 0}.
 #'   Typical usage sets \eqn{\lambda > 1} to ensure decaying weights in
-#'   \eqn{a_k(\lambda) = (-1/\lambda)^{k-2}}, but the initializer only requires
+#'   \eqn{a_k(\lambda) = (-1/\lambda)^{k-1}}, but the initializer only requires
 #'   \eqn{\lambda > 0} and finiteness.
 #'
 #' @return
@@ -115,12 +118,15 @@
 #'   \item The network must be bipartite and interpreted as actors versus groups.
 #'   \item The actor mode is identified by \code{nw \%n\% "bipartite"} and must
 #'         be a strictly positive integer.
-#'   \item The dyadic matrix must be numeric, symmetric (up to a small tolerance)
-#'         and free of \code{NA} values.
+#'   \item The dyadic matrix must be numeric and free of \code{NA} values.
+#'         Any \code{NA} triggers a fail-fast error. Symmetry is \emph{not}
+#'         required: the C code always uses the symmetrised combination
+#'         \code{z_ij + z_ji} for each unordered pair \code{\{i,j\}}.
 #'   \item Debug logging is controlled by the global option
 #'         \code{options(ERPM.dyadcov_GW.debug = TRUE/FALSE)}. When \code{TRUE},
 #'         the initializer prints diagnostic messages prefixed by
-#'         \code{"[dyadcov_GW][DEBUG]"}.
+#'         \code{"[dyadcov_GW][DEBUG]"} and may report how far the dyadic
+#'         matrix is from symmetry.
 #' }
 #'
 #' @examples
@@ -150,14 +156,14 @@
 #'   nw %n% "bipartite" <- n_actors  # actor-mode size
 #'
 #'   # -------------------------------------------------------------------------
-#'   # Build a symmetric dyadic covariate on actors
+#'   # Build a (possibly non-symmetric) dyadic covariate on actors
 #'   # -------------------------------------------------------------------------
 #'   Z <- matrix(
 #'     c(
 #'       0, 1, 2, 3,
-#'       1, 0, 4, 5,
-#'       2, 4, 0, 6,
-#'       3, 5, 6, 0
+#'       10, 0, 4, 5,
+#'       20, 40, 0, 6,
+#'       30, 50, 60, 0
 #'     ),
 #'     n_actors, n_actors, byrow = TRUE
 #'   )
@@ -171,16 +177,6 @@
 #'     nw ~ dyadcov_GW("Z_example", lambda = 2),
 #'     constraints = ~ b1part
 #'   )
-#'
-#'   # Fit a simple ERGM with dyadcov_GW
-#'   fit <- ergm(
-#'     nw ~ dyadcov_GW("Z_example", lambda = 2),
-#'     constraints = ~ b1part
-#'   )
-#'   summary(fit)
-#'
-#'   # Example call through the ERPM wrapper (network already bipartite)
-#'   # erpm(nw ~ dyadcov_GW("Z_example", lambda = 2))
 #' }
 #'
 #' @test
@@ -188,16 +184,14 @@
 #' \itemize{
 #'   \item construct small bipartite networks with a known partition of actors
 #'         into groups;
-#'   \item define simple symmetric dyadic matrices \code{Z} where clique
-#'         products and their geometric weights \eqn{(-1/\lambda)^{k-2}} can be
-#'         computed explicitly;
+#'   \item define dyadic matrices \code{Z} (symmetric or not) where clique
+#'         products based on \code{z_ij + z_ji} and their geometric weights
+#'         \eqn{(-1/\lambda)^{k-1}} can be computed explicitly;
 #'   \item compare \code{summary(nw ~ dyadcov_GW(...), constraints = ~ b1part)}
 #'         with a direct R implementation of
-#'         \code{sum_g sum_{k >= 2} (-1/lambda)^{k-2} * S_g^{(k)}(Z)};
-#'   \item verify that toggling a single actor–group edge changes the statistic
-#'         by the local difference between the "before" and "after" weighted
-#'         clique sums, in agreement with the C change-statistic
-#'         \code{c_dyadcov_GW}.
+#'         \code{sum_g sum_{k >= 2} (-1/lambda)^{k-1} * S_g^{(k)}(Z)};
+#'   \item apply explicit edge toggles and check that observed changes match
+#'         the Δ produced by \code{c_dyadcov_GW}.
 #' }
 #'
 #' @keywords ERGM term bipartite dyadic covariate geometrically-weighted cliques
@@ -281,11 +275,13 @@ InitErgmTerm.dyadcov_GW <- function(nw, arglist, ...) {
     stop(termname, ": NA non autorisé dans la matrice dyadique.")
 
   # ---------------------------------------------------------------------------
-  # Optional symmetry check
+  # Optional symmetry diagnostics (non-blocking)
   # ---------------------------------------------------------------------------
   tol <- 1e-8
-  if (max(abs(dyad_mat - t(dyad_mat))) > tol) {
-    stop(termname, ": la matrice dyadique doit être symétrique (différence > tolérance).")
+  max_asym <- max(abs(dyad_mat - t(dyad_mat)))
+  if (dbg && max_asym > tol) {
+    dbgcat("warning: dyadcov matrix is not symmetric, max |Z - t(Z)| = ",
+           signif(max_asym, 5L))
   }
 
   dbgcat("dyadcov dim = ", paste(dim(dyad_mat), collapse = "x"),

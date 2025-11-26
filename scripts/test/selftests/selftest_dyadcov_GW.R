@@ -84,26 +84,12 @@ cat("==> Log:", log_path, "\n")
 # Données de test
 # ======================================================================================
 
-# Partitions de test (tailles plus grandes et variées)
+# Partitions de test (tailles réduites)
 
 partitions <- list(
-  P1 = c(
-    rep(1L, 4),
-    rep(2L, 1),
-    rep(3L, 3),
-    rep(4L, 1)
-  ),
-  P2 = c(
-    rep(1L, 1),
-    rep(2L, 3),
-    rep(3L, 3),
-    rep(4L, 2)
-  ),
-  P3 = c(
-    rep(1L, 2),
-    rep(2L, 1),
-    rep(3L, 3)
-  )
+  P1 = c(1L, 1L, 2L, 2L, 3L),   # tailles groupes: 2,2,1
+  P2 = c(1L, 2L, 2L, 3L, 3L),   # tailles groupes: 1,2,2
+  P3 = c(1L, 1L, 2L, 3L)        # tailles groupes: 2,1,1
 )
 
 # Nodes "muets" pour satisfaire le builder
@@ -115,31 +101,73 @@ partitions <- list(
   )
 }
 
-# Matrices dyadiques déterministes à partir de la partition
-# - Z1 : valeurs intra-groupe modérées, inter-groupe faibles
-# - Z2 : valeurs intra plus dispersées
+# Matrices dyadiques totalement écrites en dur
+# - diagonales strictement nulles
+# - Z1 : symétrique
+# - Z2 : éventuellement non symétrique
 .make_dyads_for_partition <- function(part) {
   n <- length(part)
-  Z1 <- matrix(0, n, n)
-  Z2 <- matrix(0, n, n)
 
-  for (i in seq_len(n)) {
-    for (j in seq_len(n)) {
-      if (i == j) next
+  if (n == 5L) {
+    # -------------------------------------------------------------------------
+    # Cas n = 5 (P1 et P2)
+    # -------------------------------------------------------------------------
+    Z1 <- matrix(
+      c(
+        0.0, 1.0, 0.5, 0.3, 0.8,
+        1.0, 0.0, 1.2, 0.4, 0.2,
+        0.5, 1.2, 0.0, 0.9, 0.6,
+        0.3, 0.4, 0.9, 0.0, 1.1,
+        0.8, 0.2, 0.6, 1.1, 0.0
+      ),
+      nrow = 5L, ncol = 5L, byrow = TRUE
+    )
 
-      d_ij <- abs(i - j)
+    Z2 <- matrix(
+      c(
+        0.0, 0.3, 0.7, 1.2, 0.5,
+        0.4, 0.0, 0.6, 0.9, 1.5,
+        1.1, 0.2, 0.0, 0.8, 0.3,
+        0.9, 1.4, 0.5, 0.0, 1.0,
+        0.2, 0.6, 1.3, 0.7, 0.0
+      ),
+      nrow = 5L, ncol = 5L, byrow = TRUE
+    )
 
-      if (part[i] == part[j]) {
-        # Intra-groupe
-        Z1[i, j] <- 1.0 + 0.5 * d_ij
-        Z2[i, j] <- 0.5 * d_ij^2 + (i + j) / 10
-      } else {
-        # Inter-groupe
-        Z1[i, j] <- (d_ij %% 3) / 3
-        Z2[i, j] <- ((i * j) %% 7) / 4
-      }
-    }
+  } else if (n == 4L) {
+    # -------------------------------------------------------------------------
+    # Cas n = 4 (P3)
+    # -------------------------------------------------------------------------
+    Z1 <- matrix(
+      c(
+        0.0, 0.9, 0.4, 0.7,
+        0.9, 0.0, 1.0, 0.2,
+        0.4, 1.0, 0.0, 0.6,
+        0.7, 0.2, 0.6, 0.0
+      ),
+      nrow = 4L, ncol = 4L, byrow = TRUE
+    )
+
+    Z2 <- matrix(
+      c(
+        0.0, 0.5, 1.1, 0.3,
+        0.8, 0.0, 0.4, 1.0,
+        0.2, 1.3, 0.0, 0.9,
+        1.2, 0.7, 0.1, 0.0
+      ),
+      nrow = 4L, ncol = 4L, byrow = TRUE
+    )
+
+  } else {
+    stop("Taille de partition non supportée dans .make_dyads_for_partition(): n = ", n)
   }
+
+  # Forcer des diagonales strictement nulles (contrainte globale des effets ERPM)
+  diag(Z1) <- 0
+  diag(Z2) <- 0
+
+  # Garde-fous : on exige des diagonales nulles
+  stopifnot(all(diag(Z1) == 0), all(diag(Z2) == 0))
 
   list(Z1 = Z1, Z2 = Z2)
 }
@@ -161,6 +189,9 @@ print_debug_partition_nodes_dyads <- function(name, part, nodes_df, dyads_list) 
 
   cat("[DEBUG] Z2[1:", k, ", 1:", k, "] =\n", sep = "")
   print(round(Z2[seq_len(k), seq_len(k)], 3))
+
+  cat("[DEBUG] diag(Z1) =", paste(round(diag(Z1), 3), collapse = ","), "\n")
+  cat("[DEBUG] diag(Z2) =", paste(round(diag(Z2), 3), collapse = ","), "\n")
 }
 
 # ======================================================================================
@@ -376,7 +407,7 @@ run_phase2_erpm_fits_and_print_summaries_dyadcov_GW <- function() {
   #  - P1_R1 : P1 + Z1, lambda=2
   #  - P1_R2 : P1 + Z2, lambda=2
   #  - P2_R2 : P2 + Z2, lambda=2
-  #  - P3_R1 : P3 + Z1, lambda=2   (remplace l'ancien cas dégénéré P2_R1)
+  #  - P3_R1 : P3 + Z1, lambda=2
   fit_specs <- list(
     list(key = "P1_R1",
          part = partitions$P1,
@@ -450,77 +481,6 @@ run_phase2_erpm_fits_and_print_summaries_dyadcov_GW <- function() {
   if (n_ok < n_tot) stop(sprintf("Echec fits: %d KO", n_tot - n_ok))
   invisible(fit_results)
 }
-
-# run_phase2_erpm_fits_and_print_summaries_dyadcov_GW <- function() {
-#   cat("\n=== PHASE 2 : Fits erpm() ( + logLik ) [dyadcov_GW] ===\n")
-
-#   rhs_list <- list(
-#     R1 = "dyadcov_GW('Z1', lambda = 2)",
-#     R2 = "dyadcov_GW('Z2', lambda = 2)"
-#   )
-
-#   parts <- list(
-#     list(name = "P1", part = partitions$P1),
-#     list(name = "P2", part = partitions$P2)
-#   )
-
-#   fit_results <- list()
-#   for (px in parts) {
-#     nodes <- .make_nodes_df_for_partition(px$part)
-#     dyads <- .make_dyads_for_partition(px$part)
-#     for (nm in names(rhs_list)) {
-#       key <- paste0(px$name, "_", nm)
-#       fit_results[[key]] <- run_one_erpm_fit_with_return_dyadcov_GW(
-#         partition_vec = px$part,
-#         nodes_df      = nodes,
-#         dyads_list    = dyads,
-#         rhs_txt       = rhs_list[[nm]],
-#         fit_name      = key,
-#         # estimate      = "MLE",
-#         # control       = ctrl,
-#         eval.loglik   = TRUE
-#       )
-#     }
-#   }
-
-#   ok_raw  <- vapply(fit_results, function(x) x$ok,    logical(1))
-#   n_ok    <- sum(ok_raw, na.rm = TRUE)
-#   n_tot   <- sum(!is.na(ok_raw))
-
-#   cat(sprintf("\n=== Bilan fits erpm() [dyadcov_GW] : %d / %d OK ===\n", n_ok, n_tot))
-
-#   cat("\n=== Tableau AIC/BIC pour les fits ERPM (dyadcov_GW) ===\n")
-#   tab <- data.frame(
-#     fit   = character(0),
-#     ok    = logical(0),
-#     AIC   = numeric(0),
-#     BIC   = numeric(0),
-#     stringsAsFactors = FALSE
-#   )
-#   for (nm in names(fit_results)) {
-#     fr <- fit_results[[nm]]
-#     tab <- rbind(tab, data.frame(
-#       fit = nm,
-#       ok  = fr$ok,
-#       AIC = fr$aic,
-#       BIC = fr$bic,
-#       stringsAsFactors = FALSE
-#     ))
-#   }
-#   print(tab)
-
-#   cat("\n=== Résumés détaillés des fits ERPM réussis (dyadcov_GW) ===\n")
-#   for (nm in names(fit_results)) {
-#     fit_obj <- fit_results[[nm]]
-#     if (isTRUE(fit_obj$ok) && inherits(fit_obj$coef, "numeric") && !is.null(fit_obj$fit)) {
-#       cat(sprintf("\n--- Résumé fit %s ---\n", nm))
-#       print(summary(fit_obj$fit))
-#     }
-#   }
-
-#   if (n_ok < n_tot) stop(sprintf("Echec fits: %d KO", n_tot - n_ok))
-#   invisible(fit_results)
-# }
 
 # ======================================================================================
 # Exécution
