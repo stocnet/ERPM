@@ -7,7 +7,7 @@
 Sys.setenv(LANG="fr_FR.UTF-8")
 try(Sys.setlocale("LC_CTYPE","fr_FR.UTF-8"), silent=TRUE)
 options(encoding="UTF-8")
-
+options(ergm.loglik.warn_dyads=FALSE)
 # ----- packages -----------------------------------------------------------------------
 # ----- Dépendances minimales ----------------------------------------------------------
 suppressPackageStartupMessages({
@@ -80,7 +80,7 @@ print(summary(dry[[2]], constraints = ~ b1part)) # should be 2+0+1=3 -> error
 dry <- erpm(partition_full ~ dyadcov_full("mix_att"), 
             dyads = nets_df,
             eval_call = FALSE, verbose = TRUE)
-print(summary(dry[[2]], constraints = ~ b1part)) # should be 11 -> error
+print(summary(dry[[2]], constraints = ~ b1part)) # should be 12 -> error
 dry <- erpm(partition_singleton ~ dyadcov_full("mix_att"), 
             dyads = nets_df,
             eval_call = FALSE, verbose = TRUE)
@@ -93,8 +93,6 @@ print(summary(dry[[2]], constraints = ~ b1part)) # should be 0 -> error
 # ======================================================================================
 # 2) FIT MODEL
 # ======================================================================================
-
-set.seed(1)  # stabilise l’estimation si on utilise une estimation CD dans ergm
 
 make_nw_from_partition <- function(part,dyads) {
   built <- build_bipartite_from_inputs(
@@ -114,6 +112,7 @@ ctrl_A <- control.ergm(
 )
 
 # baseline case TODO
+set.seed(1)  
 nw <- make_nw_from_partition(partition_balanced,nets_df)
 fit_ergm <- ergm( nw ~ dyadcov_full("block_att"),
                   constraints = ~b1part, 
@@ -121,11 +120,12 @@ fit_ergm <- ergm( nw ~ dyadcov_full("block_att"),
                   control=ctrl_A)
 print(summary(fit_ergm))
 
+set.seed(1)  
 fit_erpm <- erpm(partition_balanced ~ dyadcov_full("block_att"),
                  dyads = nets_df,
                  estimate="MLE", 
                  control=ctrl_A) 
 print(summary(fit_erpm))
-fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # should be close to 0
+print(fit_ergm$coefficients[1] - fit_erpm$coefficients[1])  # should be 0 with the call of the same seed for each case
 
 # option case TODO

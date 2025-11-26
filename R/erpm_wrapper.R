@@ -677,7 +677,9 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   #' @param formula `lhs ~ <ERPM terms>`, where `lhs` is either a partition
   #'        vector or an already built bipartite `network` object.
   #' @param eval_call logical. If TRUE evaluate the {ergm} call, else return it.
-  #' @param verbose logical. Print translation log and options.
+  #' @param verbose logical. If TRUE print wrapper translation log and options.
+  #'        When explicitly set in the `erpm()` call, its value is also forwarded
+  #'        to \code{ergm()} as the \code{verbose=} argument.
   #' @param estimate character or NULL.
   #'        If non-NULL, its value is forwarded to \code{ergm()} as the
   #'        \code{estimate=} argument, after a light normalization that maps
@@ -730,6 +732,9 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
                    timeout     = NULL,
                    nodes       = NULL,
                    dyads       = list()) {
+
+    # TRUE si l'argument verbose n'a PAS été fourni explicitement dans l'appel
+    verbose_arg_missing <- missing(verbose)
 
     # --- 0) Normalize options ---------------------------------------------------
     if (!is.null(estimate)) {
@@ -889,7 +894,10 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
     )
     if (!is.null(estimate))    call_args$estimate    <- estimate
     if (!is.null(eval.loglik)) call_args$eval.loglik <- eval.loglik
-    if (!is.null(control))     call_args$control     <- ctrl_sym
+    if (!is.null(ctrl_sym))    call_args$control     <- ctrl_sym
+    # Propagation rétroactive : si verbose a été explicitement fourni à erpm(),
+    # on le transmet aussi à ergm(verbose = <valeur>).
+    if (!verbose_arg_missing)  call_args$verbose     <- verbose
 
     ergm_call <- as.call(call_args)
 
@@ -905,7 +913,7 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
           ", eval.loglik=",
           if (is.null(eval.loglik)) "NULL" else eval.loglik,
           ", control=",
-          if (is.null(control)) "NULL" else as.character(ctrl_sym),
+          if (is.null(ctrl_sym)) "NULL" else as.character(ctrl_sym),
           "\n", sep = "")
     }
 

@@ -7,7 +7,7 @@
 # ==============================================================================
 
 Sys.setenv(LANG = "fr_FR.UTF-8")
-invisible(try(Sys.setlocale("LC_CTYPE","fr_FR.UTF-8"), silent = TRUE))
+invisible(try(Sys.setlocale("LC_CTYPE", "fr_FR.UTF-8"), silent = TRUE))
 options(ergm.loglik.warn_dyads = FALSE)
 
 suppressPackageStartupMessages({
@@ -15,29 +15,38 @@ suppressPackageStartupMessages({
   library(ergm)
 })
 
+# ----------------------------------------------------------------------
 # Charge le package local ERPM
+# ----------------------------------------------------------------------
 devtools::load_all(".")
 
-# Patch {ergm} si présent
+# ----------------------------------------------------------------------
+# Patch {ergm} si présent (avec nettoyage à la sortie)
+# ----------------------------------------------------------------------
 if (file.exists("scripts/ergm_patch.R")) {
   source("scripts/ergm_patch.R")
   ergm_patch_enable()
 }
 
-# ----------------------------- Données fixes -----------------------------------
-# Partition P1 : 9 acteurs, groupes {1,1,1,1,2,3,3,3,4}
-partition <- c(1,1,1,1, 2, 3,3,3, 4)
+# ----------------------------------------------------------------------
+# Données fixes
+#   - Partition P1 : 9 acteurs, groupes {1,1,1,1,2,3,3,3,4}
+#   - Covariée numérique x -> matrice dyadique Z1 (9x9, symétrique)
+# ----------------------------------------------------------------------
+partition <- c(1, 1, 1, 1, 2, 3, 3, 3, 4)
 labels    <- paste0("N", seq_along(partition))
 nodes     <- data.frame(label = labels, stringsAsFactors = FALSE)
 
-# Covariée numérique -> matrice dyadique Z1 (9x9)
 x  <- c(0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0)
 Z1 <- abs(outer(x, x, "-"))  # symétrique, diag = 0
 
-cat("\nPartition : ", paste(partition, collapse = " "), "\n", sep = "")
-cat("Tailles groupes : ", paste(as.integer(table(partition)), collapse = " "), "\n\n", sep = "")
+cat("\nPartition     : ", paste(partition, collapse = " "), "\n", sep = "")
+cat("Tailles groupes : ",
+    paste(as.integer(table(partition)), collapse = " "), "\n\n", sep = "")
 
-# ---------------------- Biparti via builder (référence) ------------------------
+# ----------------------------------------------------------------------
+# Biparti de référence via builder
+# ----------------------------------------------------------------------
 bld_ref <- build_bipartite_from_inputs(
   partition = partition,
   nodes     = nodes,
@@ -45,7 +54,9 @@ bld_ref <- build_bipartite_from_inputs(
 )
 nw_ref <- bld_ref$network
 
-# -------------------------- Summary de référence (direct) ----------------------
+# ----------------------------------------------------------------------
+# Summary de référence (direct sur nw_ref)
+# ----------------------------------------------------------------------
 summary_ref_all <- as.numeric(
   summary(nw_ref ~ dyadcov_full("Z1"), constraints = ~ b1part)
 )
@@ -54,8 +65,10 @@ summary_ref_2to3 <- as.numeric(
   summary(nw_ref ~ dyadcov_full("Z1", size = 2:3), constraints = ~ b1part)
 )
 
-# ---------------------- Observés via dry-run erpm() ----------------------------
-# On laisse le wrapper reconstruire son biparti, mais on lui repasse Z1
+# ----------------------------------------------------------------------
+# Summary observé via dry-run erpm()
+#   Le wrapper reconstruit son biparti, on lui repasse Z1 dans dyads
+# ----------------------------------------------------------------------
 dry_all <- erpm(
   partition ~ dyadcov_full("Z1"),
   eval_call = FALSE,
@@ -86,7 +99,9 @@ cat(sprintf("[summary] dyadcov_full('Z1', size=2:3) : observé=%g | référence=
             summary_obs_2to3, summary_ref_2to3))
 stopifnot(all.equal(summary_obs_2to3, summary_ref_2to3, tol = 0))
 
-# ------------------------------- Fit  court ---------------------------------
+# ----------------------------------------------------------------------
+# Fit court : comparaison ergm direct vs erpm
+# ----------------------------------------------------------------------
 set.seed(1)
 bld_fit <- build_bipartite_from_inputs(
   partition = partition,
@@ -95,11 +110,22 @@ bld_fit <- build_bipartite_from_inputs(
 )
 nw_fit <- bld_fit$network
 
+ctrl_fit <- control.ergm(
+  CD.maxit        = 0,
+  MCMLE.maxit     = 10,
+  MCMC.burnin     = 5000,
+  MCMC.interval   = 1000,
+  MCMC.samplesize = 1e4,
+  force.main      = TRUE,
+  parallel        = 0
+)
+
 fit_ref <- ergm(
   nw_fit ~ dyadcov_full("Z1", size = 2:3),
   constraints = ~ b1part,
   # estimate    = "MLE",
   eval.loglik = TRUE,
+  # control     = ctrl_fit,
   verbose     = TRUE
 )
 
@@ -110,6 +136,7 @@ fit_erpm <- erpm(
   eval.loglik = TRUE,
   verbose     = TRUE,
   nodes       = nodes,
+  # control     = ctrl_fit,
   dyads       = list(Z1 = Z1)
 )
 
@@ -119,5 +146,12 @@ print(summary(fit_ref))
 cat("\n--- summary(fit_erpm) ---\n")
 print(summary(fit_erpm))
 
-# Nettoyage patch
+# Vérification de cohérence des coefficients (tolérance Monte Carlo)
+coef_ref  <- coef(fit_ref)[1]
+coef_erpm <- coef(fit_erpm)[1]
+delta     <- abs(coef_ref - coef_erpm)
+
+cat(sprintf("\n[fit] |coef_ref - coef_erpm| = %.4g\n", delta))
+stopifnot(delta < 1e-2)
+
 on.exit(try(ergm_patch_disable(), silent = TRUE), add = TRUE)

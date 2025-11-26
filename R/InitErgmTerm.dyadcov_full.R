@@ -4,7 +4,7 @@
 # Project : ERPM / ERGM extensions
 # ==============================================================================
 # Statistic:
-#   T = sum_g 1[n_g in S] * sum_{i<j, i,j in g} z_{ij}
+#   T = sum_g 1[n_g in S] * sum_{i != j, i,j in g} z_{ij}
 #
 # INPUT_PARAM layout (C side):
 #   c(n1, L, sizes[L], Z[n1*n1])  with Z in column-major order
@@ -19,17 +19,17 @@
 #'
 #' @description
 #' \code{dyadcov_full} is an ERGM term for bipartite networks that aggregates a
-#' symmetric dyadic covariate \eqn{Z = (z_{ij})} over pairs of actors within
+#' numeric dyadic covariate \eqn{Z = (z_{ij})} over pairs of actors within
 #' each group. The network is interpreted as:
 #' \itemize{
 #'   \item an \emph{actor mode} (the side identified by \code{nw \%n\% "bipartite"});
 #'   \item a \emph{group mode} (the complementary side of the bipartite graph).
 #' }
 #'
-#' For each group in the group mode, we consider all unordered pairs of actors
-#' attached to that group and sum the dyadic covariate values \eqn{z_{ij}}. An
-#' optional size filter restricts the sum to groups whose size belongs to a
-#' specified set \eqn{S}.
+#' For each group in the group mode, we consider all ordered pairs of distinct
+#' actors attached to that group and sum the dyadic covariate values
+#' \eqn{z_{ij}}. An optional size filter restricts the sum to groups whose size
+#' belongs to a specified set \eqn{S}.
 #'
 #' @details
 #' Let:
@@ -38,23 +38,26 @@
 #'   \item \eqn{G} be the set of group-mode nodes;
 #'   \item \eqn{y} be the bipartite adjacency between actors and groups;
 #'   \item \eqn{n_g} be the number of actors attached to group \eqn{g \in G};
-#'   \item \eqn{Z = (z_{ij})_{i,j \in A}} be a symmetric numeric matrix.
+#'   \item \eqn{Z = (z_{ij})_{i,j \in A}} be a numeric matrix of dyadic covariates.
 #' }
 #'
 #' The statistic implemented by \code{dyadcov_full} is:
 #'
 #' @code{
 #'   T(p; Z, S) =
-#'     sum_g 1[n_g in S] * sum_{i<j, i,j in g} z_{ij},
+#'     sum_g 1[n_g in S] * sum_{i != j, i,j in g} z_{ij},
 #' }
 #'
 #' where:
 #' \itemize{
 #'   \item \eqn{S} is a set of admissible group sizes (if \code{size = NULL},
 #'         \eqn{S} is implicitly "all positive sizes");
-#'   \item the inner sum runs over all unordered pairs of distinct actors
+#'   \item the inner sum runs over all ordered pairs of distinct actors
 #'         \eqn{i, j} that share group \eqn{g}.
 #' }
+#'
+#' If \eqn{Z} is symmetric, this is equal to
+#' \eqn{2 * \sum_{i<j, i,j \in g} z_{ij}} (no division by 2 is applied).
 #'
 #' The dyadic covariate \eqn{Z} is provided as an actor-by-actor matrix of size
 #' at least \code{n1 x n1}, where \code{n1 = nw \%n\% "bipartite"} is the size
@@ -65,10 +68,9 @@
 #'         network-level attribute containing the matrix;
 #'   \item truncates the matrix to its top-left \code{n1 x n1} block if it is
 #'         larger than required;
-#'   \item checks that the matrix is numeric, free of \code{NA}, and symmetric
-#'         up to a small tolerance;
-#'   \item parses \code{size} into a sorted vector of distinct positive integers,
-#'         or uses the convention "all sizes" when \code{size = NULL}.
+#'   \item checks that the matrix is numeric and free of \code{NA};
+#'   \item optionally reports (in debug mode) how far the matrix is from being
+#'         symmetric, but does not require symmetry.
 #' }
 #'
 #' @section Implementation and INPUT_PARAM:
@@ -96,7 +98,7 @@
 #'
 #' @param dyadcov matrix or character. Either:
 #'   \itemize{
-#'     \item a numeric symmetric matrix of size at least \code{n1 x n1}, where
+#'     \item a numeric matrix of size at least \code{n1 x n1}, where
 #'           \code{n1 = nw \%n\% "bipartite"} is the actor-mode size; or
 #'     \item the name of a network-level attribute containing such a matrix
 #'           (retrieved via \code{nw \%n\% dyadcov}).
@@ -128,16 +130,17 @@
 #'   \item The network must be bipartite and interpreted as actors versus groups.
 #'   \item The actor mode is identified by \code{nw \%n\% "bipartite"} and must
 #'         be a strictly positive integer.
-#'   \item The dyadic matrix must be numeric, symmetric (up to a small
-#'         tolerance) and free of \code{NA} values. Any \code{NA} triggers a
-#'         fail-fast error.
+#'   \item The dyadic matrix must be numeric and free of \code{NA} values.
+#'         Any \code{NA} triggers a fail-fast error. Symmetry is not required:
+#'         both \eqn{z_{ij}} and \eqn{z_{ji}} are used when available.
 #'   \item When \code{size = NULL}, no size filter is applied and all groups
 #'         contribute. When \code{size} is non-\code{NULL}, only groups with
 #'         size in the set \eqn{S} contribute.
 #'   \item Debug logging is controlled by the global option
 #'         \code{options(ERPM.dyadcov_full.debug = TRUE/FALSE)}. When
 #'         \code{TRUE}, the initializer prints diagnostic messages prefixed by
-#'         \code{"[dyadcov_full][DEBUG]"}.
+#'         \code{"[dyadcov_full][DEBUG]"} and may report how far the dyadic
+#'         matrix is from symmetry.
 #' }
 #'
 #' @examples
@@ -167,7 +170,7 @@
 #'   nw %n% "bipartite" <- n_actors  # actor-mode size
 #'
 #'   # -------------------------------------------------------------------------
-#'   # Define a symmetric dyadic covariate on actors
+#'   # Define a dyadic covariate on actors (symmetric or not)
 #'   # -------------------------------------------------------------------------
 #'   Z <- matrix(
 #'     c(
@@ -180,31 +183,11 @@
 #'   )
 #'   nw %n% "Z_example" <- Z
 #'
-#'   # -------------------------------------------------------------------------
-#'   # Example 1: all group sizes (size = NULL)
-#'   # -------------------------------------------------------------------------
+#'   # Example: all group sizes (size = NULL)
 #'   summary(
 #'     nw ~ dyadcov_full("Z_example"),
 #'     constraints = ~ b1part
 #'   )
-#'
-#'   # -------------------------------------------------------------------------
-#'   # Example 2: restrict to groups of size 3 only
-#'   # -------------------------------------------------------------------------
-#'   summary(
-#'     nw ~ dyadcov_full("Z_example", size = 3),
-#'     constraints = ~ b1part
-#'   )
-#'
-#'   # Fit a simple ERGM with dyadcov_full and a size filter
-#'   fit <- ergm(
-#'     nw ~ dyadcov_full("Z_example", size = c(2, 3)),
-#'     constraints = ~ b1part
-#'   )
-#'   summary(fit)
-#'
-#'   # Example call through the ERPM wrapper (network already bipartite)
-#'   # erpm(nw ~ dyadcov_full("Z_example", size = c(2, 3)))
 #' }
 #'
 #' @test
@@ -212,9 +195,9 @@
 #' \itemize{
 #'   \item construct small bipartite networks with a known partition of actors
 #'         into groups and specified size sets \eqn{S};
-#'   \item define simple symmetric dyadic matrices \code{Z} for which
-#'         \code{sum_g 1[n_g in S] * sum_{i<j, i,j in g} z_{ij}} can be computed
-#'         analytically in R;
+#'   \item define dyadic matrices \code{Z} for which
+#'         \code{sum_g 1[n_g in S] * sum_{i != j, i,j in g} z_{ij}} can be
+#'         computed analytically in R;
 #'   \item compare \code{summary(nw ~ dyadcov_full(...), constraints = ~ b1part)}
 #'         to a direct implementation of the formula above;
 #'   \item verify that toggling a single actor–group edge changes the statistic
@@ -304,12 +287,13 @@ InitErgmTerm.dyadcov_full <- function(nw, arglist, ...) {
     stop(termname, ": NA non autorisé dans la matrice dyadique.")
 
   # ---------------------------------------------------------------------------
-  # Optional symmetry check on the dyadic matrix
+  # Optional symmetry diagnostics (non-blocking)
   # ---------------------------------------------------------------------------
-  # Small numerical tolerance for symmetric check
   tol <- 1e-8
-  if (max(abs(dyad_mat - t(dyad_mat))) > tol) {
-    stop(termname, ": la matrice dyadique doit être symétrique (différence > tolérance).")
+  max_asym <- max(abs(dyad_mat - t(dyad_mat)))
+  if (dbg && max_asym > tol) {
+    dbgcat("warning: dyadcov matrix is not symmetric, max |Z - t(Z)| = ",
+           signif(max_asym, 5L))
   }
 
   dbgcat("dyadcov dim = ", paste(dim(dyad_mat), collapse = "x"),
@@ -352,14 +336,6 @@ InitErgmTerm.dyadcov_full <- function(nw, arglist, ...) {
   # ---------------------------------------------------------------------------
   # Build INPUT_PARAM for the C side
   # ---------------------------------------------------------------------------
-  # Layout:
-  #   inputs = c(
-  #     as.double(n1),
-  #     as.double(L),
-  #     sizes_vec[1:L],
-  #     as.double(Z[1]), ..., as.double(Z[n1*n1])
-  #   )
-  # where as.double(matrix) uses column-major order, consistent with C indexing.
   inputs <- c(
     as.double(n1),
     as.double(L),

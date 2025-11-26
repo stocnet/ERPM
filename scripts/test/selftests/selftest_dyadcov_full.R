@@ -9,7 +9,7 @@
 # --------------------------------------------------------------------------------------
 options(ergm.loglik.warn_dyads = FALSE)
 Sys.setenv(LANG = "fr_FR.UTF-8")
-invisible(try(Sys.setlocale("LC_CTYPE","fr_FR.UTF-8"), silent = TRUE))
+invisible(try(Sys.setlocale("LC_CTYPE", "fr_FR.UTF-8"), silent = TRUE))
 
 suppressPackageStartupMessages({
   if (!requireNamespace("network", quietly = TRUE)) stop("Package 'network' requis.")
@@ -36,41 +36,32 @@ if (requireNamespace("devtools", quietly = TRUE) && file.exists("DESCRIPTION")) 
 if (!exists("erpm", mode = "function")) {
   if (file.exists("R/erpm_wrapper.R")) {
     source("R/erpm_wrapper.R", local = FALSE)
-  } else stop("erpm_wrapper.R introuvable.")
+  } else {
+    stop("erpm_wrapper.R introuvable.")
+  }
 }
 if (!exists("build_bipartite_from_inputs", mode = "function")) {
   stop("build_bipartite_from_inputs() indisponible. Il doit être exporté par R/erpm_wrapper.R.")
 }
 
-options(ergm.loglik.warn_dyads = FALSE)
-
 # --------------------------------------------------------------------------------------
 # Logging local
 # --------------------------------------------------------------------------------------
-.get_script_dir <- function() {
-  a <- commandArgs(trailingOnly = FALSE)
-  i <- grep("^--file=", a)
-  if (length(i)) return(dirname(normalizePath(sub("^--file=", "", a[i[1]]))))
-  fs <- sys.frames()
-  ofiles <- vapply(fs, function(f) if (!is.null(f$ofile)) f$ofile else NA_character_, "")
-  if (any(!is.na(ofiles))) {
-    j <- which.max(nchar(ofiles))
-    return(dirname(normalizePath(ofiles[j])))
-  }
-  normalizePath(getwd())
-}
-
 root <- tryCatch(
   rprojroot::find_root(rprojroot::is_r_package),
   error = function(e) getwd()
 )
+
 log_path <- file.path(root, "scripts", "test", "selftests", "selftest_dyadcov_full.log")
 dir.create(dirname(log_path), recursive = TRUE, showWarnings = FALSE)
 if (file.exists(log_path)) unlink(log_path, force = TRUE)
+
 con_out <- file(log_path, open = "wt")
 con_err <- file(log_path, open = "at")
+
 sink(con_out, split = TRUE)
 sink(con_err, type = "message")
+
 on.exit({
   try(sink(type = "message"), silent = TRUE)
   try(close(con_err),        silent = TRUE)
@@ -78,14 +69,14 @@ on.exit({
   try(close(con_out),        silent = TRUE)
   flush.console()
 }, add = TRUE)
+
 cat("==> Log:", log_path, "\n")
 
 # ======================================================================================
 # Données de test
 # ======================================================================================
 
-# Partitions de test (tailles plus grandes et variées)
-
+# Partitions de test
 partitions <- list(
   P1 = c(
     rep(1L, 4),
@@ -106,7 +97,7 @@ partitions <- list(
   )
 )
 
-# Nodes "muets" pour satisfaire le builder (dyadcov_full ne lit pas d'attribut nodal)
+# Nodes "muets" pour satisfaire le builder
 .make_nodes_df_for_partition <- function(part) {
   n <- length(part)
   data.frame(
@@ -116,8 +107,8 @@ partitions <- list(
 }
 
 # Matrices dyadiques déterministes à partir de la partition
-# - Z1 : valeurs réelles modérées (plus grandes intra-groupe, faibles mais non nulles inter-groupe)
-# - Z2 : valeurs réelles plus dispersées (quadratique intra, motif modulo inter)
+# - Z1 : valeurs modérées, plus grandes intra-groupe
+# - Z2 : valeurs plus dispersées
 .make_dyads_for_partition <- function(part) {
   n <- length(part)
   Z1 <- matrix(0, n, n)
@@ -126,7 +117,6 @@ partitions <- list(
   for (i in seq_len(n)) {
     for (j in seq_len(n)) {
       if (i == j) next
-
       d_ij <- abs(i - j)
 
       if (part[i] == part[j]) {
@@ -167,7 +157,6 @@ print_debug_partition_nodes_dyads <- function(name, part, nodes_df, dyads_list) 
 # Helpers réseau via builder du wrapper
 # ======================================================================================
 
-# Construit le biparti via build_bipartite_from_inputs(partition=..., nodes=..., dyads=...)
 make_network_from_partition_and_dyads <- function(partition_vec, nodes_df, dyads_list) {
   stopifnot(is.atomic(partition_vec), nrow(nodes_df) == length(partition_vec))
   built <- build_bipartite_from_inputs(
@@ -180,7 +169,6 @@ make_network_from_partition_and_dyads <- function(partition_vec, nodes_df, dyads
   stop("Le builder n’a pas renvoyé un objet 'network'.")
 }
 
-# Construit une formule `nw ~ <rhs>` avec capture de nw
 make_formula_for_network_summary <- function(nw, rhs_txt) {
   f <- as.formula(paste0("nw ~ ", rhs_txt))
   environment(f) <- list2env(list(nw = nw), parent = parent.frame())
@@ -188,17 +176,15 @@ make_formula_for_network_summary <- function(nw, rhs_txt) {
 }
 
 # ======================================================================================
-# Fonctions explicitement nommées pour SUMMARY et ERPM
+# Fonctions pour SUMMARY et ERPM
 # ======================================================================================
 
-# Summary direct sur le réseau construit via le builder
 run_one_network_summary_case_for_dyadcov_full <- function(partition_vec, nodes_df, dyads_list, rhs_txt) {
   nw <- make_network_from_partition_and_dyads(partition_vec, nodes_df, dyads_list)
   f  <- make_formula_for_network_summary(nw, rhs_txt)
   as.numeric(suppressMessages(summary(f, constraints = ~ b1part)))
 }
 
-# Summary côté ERPM: traduction via erpm(eval_call=FALSE), exécution du summary sur réseau équivalent
 run_one_erpm_translated_summary_case_for_dyadcov_full <- function(partition_vec, nodes_df, dyads_list, rhs_txt) {
   partition <- partition_vec
   f <- as.formula(paste0("partition ~ ", rhs_txt))
@@ -212,16 +198,16 @@ run_one_erpm_translated_summary_case_for_dyadcov_full <- function(partition_vec,
     dyads     = dyads_list
   )
 
-  # Extraire RHS depuis la formule traduite
+  # RHS depuis la formule traduite
   ergm_form <- call_ergm[[2L]]
   rhs_expr  <- ergm_form[[3L]]
 
-  # Reconstruire le réseau via builder et exécuter summary avec la même RHS
+  # Réseau via builder et summary avec même RHS
   nw2 <- make_network_from_partition_and_dyads(partition_vec, nodes_df, dyads_list)
   f2  <- as.formula(bquote(nw2 ~ .(rhs_expr)))
   environment(f2) <- list2env(list(nw2 = nw2), parent = parent.frame())
 
-  # Contrainte: réutiliser celle de l'appel si fournie, sinon ~b1part
+  # Contrainte
   call_args <- as.list(call_ergm)[-1L]
   cons <- call_args$constraints
   if (is.null(cons)) cons <- as.formula(~ b1part)
@@ -229,16 +215,15 @@ run_one_erpm_translated_summary_case_for_dyadcov_full <- function(partition_vec,
   as.numeric(suppressMessages(summary(f2, constraints = cons)))
 }
 
-# Vérifie l'équivalence exacte des deux summary
 check_summary_equivalence_network_vs_erpm_dyadcov_full <- function(partition_vec, nodes_df, dyads_list,
                                                                    rhs_vec, tol = 0) {
   ok_all <- TRUE
   for (rhs in rhs_vec) {
     s_net  <- run_one_network_summary_case_for_dyadcov_full(partition_vec, nodes_df, dyads_list, rhs)
     s_erpm <- run_one_erpm_translated_summary_case_for_dyadcov_full(partition_vec, nodes_df, dyads_list, rhs)
-    cat(sprintf("[SUMMARY-CHECK] n=%-3d RHS=%-40s net=%s  erpm=%s\n",
+    cat(sprintf("[SUMMARY-CHECK] n=%-3d RHS=%-30s net=%s  erpm=%s\n",
                 length(partition_vec), rhs,
-                paste(s_net,  collapse=","), paste(s_erpm, collapse=",")))
+                paste(s_net,  collapse = ","), paste(s_erpm, collapse = ",")))
     if (any(!is.finite(s_net)) || any(!is.finite(s_erpm)) ||
         length(s_net) != length(s_erpm) ||
         !all(abs(s_net - s_erpm) <= tol)) {
@@ -265,27 +250,25 @@ cases_summary <- c(
 # Contrôles ERGM pour fitting
 # ======================================================================================
 
-ctrl <- control.ergm(
-  # MCMC.samplesize = 10000,
-  # MCMLE.maxit     = 10
-)
+ctrl <- control.ergm()
 
 # ======================================================================================
-# Phase 1: SUMMARY comparatifs (réseau explicite vs ERPM traduit)
+# Phase 1: SUMMARY comparatifs
 # ======================================================================================
 
 run_phase1_summary_equivalence_checks_dyadcov_full <- function() {
   cat("=== PHASE 1 : Summary(nw via builder) vs Summary(ERPM-traduit) [dyadcov_full] ===\n")
-  total <- 0L; ok <- 0L
+  total <- 0L
+  ok    <- 0L
+
   for (nm in names(partitions)) {
     part  <- partitions[[nm]]
     nodes <- .make_nodes_df_for_partition(part)
     dyads <- .make_dyads_for_partition(part)
 
     cat(sprintf("\n--- Partition %s ---  n=%d | groupes=%d | tailles: %s\n",
-                nm, length(part), length(unique(part)), paste(sort(table(part)), collapse=",")))
+                nm, length(part), length(unique(part)), paste(sort(table(part)), collapse = ",")))
 
-    # Debug: afficher partition/nodes/dyads avant les summary
     print_debug_partition_nodes_dyads(nm, part, nodes, dyads)
 
     res <- check_summary_equivalence_network_vs_erpm_dyadcov_full(
@@ -298,6 +281,7 @@ run_phase1_summary_equivalence_checks_dyadcov_full <- function() {
     total <- total + length(cases_summary)
     ok    <- ok + as.integer(res) * length(cases_summary)
   }
+
   cat(sprintf("\n=== Bilan Phase 1 (dyadcov_full) : %d / %d checks OK ===\n", ok, total))
   if (ok < total) stop(sprintf("Summary mismatch sur %d cas.", total - ok))
   invisible(NULL)
@@ -309,30 +293,29 @@ run_phase1_summary_equivalence_checks_dyadcov_full <- function() {
 
 run_one_erpm_fit_with_return_dyadcov_full <- function(partition_vec, nodes_df, dyads_list,
                                                       rhs_txt, fit_name,
-                                                      estimate = NULL,
+                                                      estimate   = NULL,
                                                       eval.loglik = TRUE,
-                                                      control = ctrl) {
+                                                      control     = ctrl) {
   if (!exists("erpm", mode = "function")) {
     cat(sprintf("[ERPM-FIT %-20s] SKIP (erpm() indisponible)\n", fit_name))
     return(list(ok = NA, error = TRUE, coef = NA, fit = NULL, aic = NA, bic = NA))
   }
+
   set.seed(42)
   f <- as.formula(paste0("partition ~ ", rhs_txt))
   environment(f) <- list2env(list(partition = partition_vec, nodes = nodes_df), parent = parent.frame())
 
   cat(sprintf("[ERPM-FIT %-20s] n=%-3d RHS=%s  | estimate=%s eval.loglik=%s\n",
-              fit_name, length(partition_vec), rhs_txt, estimate, as.character(eval.loglik)))
+              fit_name, length(partition_vec), rhs_txt,
+              as.character(estimate), as.character(eval.loglik)))
 
-  # Debug: loguer aussi les données de ce cas avant l'appel erpm
   print_debug_partition_nodes_dyads(paste0("FIT_", fit_name), partition_vec, nodes_df, dyads_list)
 
   fit <- try(
     erpm(
       f,
-      # estimate    = estimate,
       eval.loglik = eval.loglik,
-      # control     = control,
-      verbose     = FALSE,
+      verbose     = TRUE,
       nodes       = nodes_df,
       dyads       = dyads_list
     ),
@@ -341,7 +324,6 @@ run_one_erpm_fit_with_return_dyadcov_full <- function(partition_vec, nodes_df, d
   if (inherits(fit, "try-error")) {
     msg <- paste(as.character(fit), collapse = "\n")
     cat("  -> ERREUR fit:", msg, "\n")
-    # Toute erreur ici est comptée comme KO réel (pas de SKIP sur 'data are essentially constant')
     return(list(ok = FALSE, error = TRUE, coef = NA, fit = NULL, aic = NA, bic = NA))
   }
 
@@ -349,7 +331,6 @@ run_one_erpm_fit_with_return_dyadcov_full <- function(partition_vec, nodes_df, d
   cf <- try(stats::coef(fit), silent = TRUE)
   ok_coef <- !inherits(cf, "try-error") && all(is.finite(cf))
 
-  # Tenter de calculer logLik + AIC/BIC
   aic_val <- NA_real_
   bic_val <- NA_real_
   ll <- try(logLik(fit, add = TRUE), silent = TRUE)
@@ -365,7 +346,7 @@ run_one_erpm_fit_with_return_dyadcov_full <- function(partition_vec, nodes_df, d
   cat(sprintf("  -> class(ergm)? %s | coef finies? %s | coef: %s | AIC=%s | BIC=%s\n",
               if (ok_class) "OK" else "KO",
               if (ok_coef) "OK" else "KO",
-              if (ok_coef) paste(format(as.numeric(cf)), collapse=", ") else "NA",
+              if (ok_coef) paste(format(as.numeric(cf)), collapse = ", ") else "NA",
               if (is.finite(aic_val)) format(aic_val, digits = 6) else "NA",
               if (is.finite(bic_val)) format(bic_val, digits = 6) else "NA"))
 
@@ -382,8 +363,6 @@ run_one_erpm_fit_with_return_dyadcov_full <- function(partition_vec, nodes_df, d
 run_phase2_erpm_fits_and_print_summaries_dyadcov_full <- function() {
   cat("\n=== PHASE 2 : Fits erpm() ( + logLik ) [dyadcov_full] ===\n")
 
-  # On ne garde que les variantes avec filtre de taille,
-  # qui mixent correctement en MLE avec ~b1part.
   rhs_list <- list(
     R1 = "dyadcov_full('Z1', size = 2:3)",
     R2 = "dyadcov_full('Z2', size = 3)"
@@ -406,25 +385,23 @@ run_phase2_erpm_fits_and_print_summaries_dyadcov_full <- function() {
         dyads_list    = dyads,
         rhs_txt       = rhs_list[[nm]],
         fit_name      = key,
-        # estimate      = "MLE",
-        # control       = ctrl,
         eval.loglik   = TRUE
       )
     }
   }
 
-  ok_raw  <- vapply(fit_results, function(x) x$ok,    logical(1))
-  n_ok    <- sum(ok_raw, na.rm = TRUE)
-  n_tot   <- sum(!is.na(ok_raw))
+  ok_raw <- vapply(fit_results, function(x) x$ok, logical(1))
+  n_ok   <- sum(ok_raw, na.rm = TRUE)
+  n_tot  <- sum(!is.na(ok_raw))
 
   cat(sprintf("\n=== Bilan fits erpm() [dyadcov_full] : %d / %d OK ===\n", n_ok, n_tot))
 
   cat("\n=== Tableau AIC/BIC pour les fits ERPM (dyadcov_full) ===\n")
   tab <- data.frame(
-    fit   = character(0),
-    ok    = logical(0),
-    AIC   = numeric(0),
-    BIC   = numeric(0),
+    fit = character(0),
+    ok  = logical(0),
+    AIC = numeric(0),
+    BIC = numeric(0),
     stringsAsFactors = FALSE
   )
   for (nm in names(fit_results)) {

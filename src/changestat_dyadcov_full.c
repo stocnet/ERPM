@@ -29,14 +29,17 @@
  *
  *      F_g(Z)
  *        = 1[ n_g ∈ S, n_g ≥ 2 ]
- *          * ∑_{i<j, i,j ∈ A(g)} z_ij.
+ *          * ∑_{i != j, i,j ∈ A(g)} z_ij.
  *
  *  The global statistic is:
  *
  *      T(p; Z)
  *        = ∑_g F_g(Z)
  *        = ∑_g 1[ n_g ∈ S, n_g ≥ 2 ]
- *            * ∑_{i<j, i,j ∈ A(g)} z_ij.
+ *            * ∑_{i != j, i,j ∈ A(g)} z_ij.
+ *
+ *  If Z is symmetric, this is equal to 2 × ∑_{i<j} z_ij: no division by 2 is
+ *  applied in the implementation.
  *
  *  If S is empty (no size filter), all groups with n_g ≥ 2 contribute.
  *
@@ -96,8 +99,8 @@
  *  ------------------------------------------------------------
  *
  *  For a group with n_g actors:
- *    - all actor dyads i<j inside the group are considered,
- *    - the number of dyads is n_g * (n_g - 1) / 2,
+ *    - all actor pairs i,j distinct inside the group are considered,
+ *    - the number of ordered pairs (i,j), i!=j, is n_g * (n_g - 1),
  *    - the cost per group is O(n_g^2).
  *
  *  The overall complexity per toggle is proportional to the number of
@@ -106,54 +109,6 @@
  *
  *  This term is intended for moderate group sizes and not for extremely
  *  large or dense bipartite components.
- *
- *  ------------------------------------------------------------
- *  R interface
- *  ------------------------------------------------------------
- *
- *  The R initialiser (InitErgmTerm.dyadcov_full):
- *    - validates `sizes`, `n1` and the dimensions of Z,
- *    - normalises the size filter (possibly empty),
- *    - flattens Z in column-major order,
- *    - sets N_CHANGE_STATS = 1 and emptynwstats = 0,
- *    - builds INPUT_PARAM as c(n1, L, sizes, as.vector(Z)).
- *
- *  ------------------------------------------------------------
- *  @example Usage (R)
- *  ------------------------------------------------------------
- *  @code{.r}
- *  library(ERPM)
- *
- *  # Example: 5 actors in 2 groups
- *  part <- c(1, 1, 1, 2, 2)  # actors 1,2,3 in group 1; 4,5 in group 2
- *
- *  # Symmetric dyadic covariate on the actor mode
- *  set.seed(1)
- *  Z <- matrix(runif(5 * 5), nrow = 5, ncol = 5)
- *  Z <- (Z + t(Z)) / 2
- *  diag(Z) <- 0
- *
- *  # Full dyadic covariate effect, restricted to groups of size >= 3
- *  fit <- erpm(partition ~ dyadcov_full(sizes = c(3, 4, 5), cov = Z))
- *  summary(fit)
- *
- *  # Internally, each membership toggle between an actor and a group calls
- *  # c_dyadcov_full(), which recomputes the group-level sum of z_ij inside
- *  # the affected group before and after a virtual toggle, and updates
- *  # CHANGE_STAT[0] by Δ = F_after - F_before.
- *  @endcode
- *
- *  @test
- *  A self-test for this change statistic can:
- *    - construct small bipartite networks from known partitions;
- *    - for each group g, compute the reference quantity in R by:
- *         * reconstructing A(g),
- *         * checking n_g against the allowed size set S,
- *         * summing z_ij over all i<j in A(g);
- *    - compare these reference values to:
- *         summary( erpm(partition ~ dyadcov_full(...)) )$statistics;
- *    - apply explicit membership edge toggles and check that observed
- *      changes match the Δ produced by ::c_dyadcov_full.
  */
 
 #include "ergm_changestat.h"
@@ -236,9 +191,12 @@ static inline int in_sizes(int n, int L, const double *sizes){
  *    4. Otherwise, collects the actor vertex indices in an array and
  *       computes:
  *
- *         ∑_{i<j, i,j ∈ A(g)} z_ij,
+ *         ∑_{i != j, i,j ∈ A(g)} z_ij,
  *
  *       where Z is a n1 × n1 dyadic covariate matrix in column-major order.
+ *
+ *    For symmetric Z, this is equal to 2 × ∑_{i<j} z_ij. No division by 2 is
+ *    applied.
  *
  * @param g       Group vertex whose actor members define the group.
  * @param n1      Number of actors (dimension of the actor mode).
@@ -247,8 +205,9 @@ static inline int in_sizes(int n, int L, const double *sizes){
  * @param Z       Pointer to the dyadic covariate matrix (n1*n1, column-major).
  * @param nwp     Pointer to the {ergm} Network structure (provides edges).
  *
- * @return The sum of z_ij over all actor dyads inside group @p g that satisfy
- *         the size filter, or 0.0 if n_g <= 1 or n_g is not allowed.
+ * @return The sum of z_ij over all ordered actor pairs i != j inside group
+ *         @p g that satisfy the size filter, or 0.0 if n_g <= 1 or n_g is not
+ *         allowed.
  */
 static double group_dyadcov(Vertex g,
                             int n1, int L, const double *sizes,
@@ -304,7 +263,7 @@ static double group_dyadcov(Vertex g,
 
   double sum = 0.0;
 
-  /* Sum over all actor dyads i<j inside group g. */
+  /* Sum over all ordered actor pairs i != j inside group g. */
   for(int p = 0; p < ng; p++){
     int i = actors[p];             /* 1..n1 */
     int row = i - 1;               /* 0..n1-1 */
@@ -313,9 +272,11 @@ static double group_dyadcov(Vertex g,
       int j = actors[q];           /* 1..n1 */
       int col = j - 1;             /* 0..n1-1 */
 
-      /* Z in column-major order (R style): Z[(j-1)*n1 + (i-1)] = z_ij. */
-      int idx = col * n1 + row;
-      sum += Z[idx];
+      /* Z in column-major order (R style). */
+      int idx_ij = col * n1 + row; /* z_ij */
+      int idx_ji = row * n1 + col; /* z_ji */
+
+      sum += Z[idx_ij] + Z[idx_ji];
     }
   }
 
@@ -383,11 +344,7 @@ static double group_dyadcov(Vertex g,
  *    relies on virtual toggling to obtain “before” and “after” values.
  */
 C_CHANGESTAT_FN(c_dyadcov_full){
-  /* 1) Reset the output buffer for THIS toggle.
-   *
-   * {ergm} accumulates contributions from multiple calls; here we only
-   * report the local Δ for the current membership toggle.
-   */
+  /* 1) Reset the output buffer for THIS toggle. */
   ZERO_ALL_CHANGESTATS(0);
   UNUSED_WARNING(edgestate);
 
@@ -407,12 +364,7 @@ C_CHANGESTAT_FN(c_dyadcov_full){
   Rprintf("[dyadcov_full] n1=%d L=%d\n", n1, L);
 #endif
 
-  /* 3) Identify the actor and group vertices for this toggle.
-   *
-   * By construction:
-   *   - exactly one endpoint has index ≤ n1 (actor),
-   *   - the other endpoint has index > n1 (group).
-   */
+  /* 3) Identify the actor and group vertices for this toggle. */
   Vertex a = tail, b = head;
   Vertex actor = (a <= (Vertex)n1) ? a : b;
   Vertex group = (a <= (Vertex)n1) ? b : a;
