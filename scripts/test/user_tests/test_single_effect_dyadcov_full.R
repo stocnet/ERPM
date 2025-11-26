@@ -128,4 +128,3 @@ fit_erpm <- erpm(partition_balanced ~ dyadcov_full("block_att"),
 print(summary(fit_erpm))
 print(fit_ergm$coefficients[1] - fit_erpm$coefficients[1])  # should be 0 with the call of the same seed for each case
 
-# option case TODO
