@@ -10,7 +10,7 @@
 #'
 #' @description
 #' \code{dyadcov} is an ERGM term for bipartite networks that aggregates a
-#' symmetric dyadic covariate \eqn{Z = (z_{ij})} over cliques of actors within
+#' numeric dyadic covariate \eqn{Z = (z_{ij})} over cliques of actors within
 #' each group. The network is interpreted as:
 #' \itemize{
 #'   \item an \emph{actor mode} (the side identified by \code{nw \%n\% "bipartite"});
@@ -20,10 +20,12 @@
 #' For each group node in the group mode, we consider the set of adjacent actors
 #' and all \eqn{k}-cliques of actors within that group. For a given clique
 #' \eqn{C} of size \eqn{k}, the contribution is the product of dyadic covariates
-#' over all actor pairs in the clique:
+#' over all actor pairs in the clique. For each unordered pair \(\{i,j\}\) with
+#' \(i<j\), the term uses the sum of both orientations:
 #' \deqn{
-#'   \prod_{i<j,\, i,j \in C} z_{ij}.
+#'   \prod_{i<j,\, i,j \in C} (z_{ij} + z_{ji}).
 #' }
+#' If \eqn{Z} is symmetric, each factor reduces to \eqn{2 z_{ij}}.
 #'
 #' Two variants are supported:
 #' \itemize{
@@ -33,16 +35,19 @@
 #' }
 #'
 #' @details
-#' The dyadic covariate \eqn{Z} is a real, symmetric, actor-by-actor matrix
-#' of size \eqn{n_A \times n_A}, where \eqn{n_A} is the size of the actor mode
-#' (\code{n1 = nw \%n\% "bipartite"}). The initializer:
+#' The dyadic covariate \eqn{Z} is a real actor-by-actor matrix of size
+#' \eqn{n_A \times n_A}, where \eqn{n_A} is the size of the actor mode
+#' (\code{n1 = nw \%n\% "bipartite"}). The matrix is allowed to be non-symmetric;
+#' both \eqn{z_{ij}} and \eqn{z_{ji}} are read whenever available, through the
+#' symmetric combination \eqn{z_{ij} + z_{ji}}. The initializer:
 #' \itemize{
 #'   \item enforces bipartiteness and retrieves the actor-mode size \eqn{n_A};
 #'   \item accepts \code{dyadcov} either as a literal matrix or as the name of a
 #'         network-level attribute (\code{nw \%n\% "..."});
 #'   \item truncates \code{dyadcov} to its top-left \code{n1 x n1} block if larger;
-#'   \item checks that \code{dyadcov} is numeric, free of \code{NA}, and symmetric
-#'         up to a small tolerance;
+#'   \item checks that \code{dyadcov} is numeric and free of \code{NA};
+#'   \item optionally reports (in debug mode) how far the matrix is from being
+#'         symmetric, but does not require symmetry;
 #'   \item parses \code{clique_size} into an integer \eqn{k \ge 2};
 #'   \item parses \code{normalized} into a logical flag.
 #' }
@@ -53,12 +58,12 @@
 #' @code
 #'   - normalized = FALSE :
 #'       T^{(k)}(p; Z)
-#'         = sum_g sum_{C in C_k(g)} prod_{i<j in C} z_{ij}
+#'         = sum_g sum_{C in C_k(g)} prod_{i<j in C} (z_{ij} + z_{ji})
 #'
 #'   - normalized = TRUE :
 #'       T^{(k)}_norm(p; Z)
 #'         = sum_g 1[n_g >= k] * (1 / choose(n_g, k)) *
-#'             sum_{C in C_k(g)} prod_{i<j in C} z_{ij}
+#'             sum_{C in C_k(g)} prod_{i<j in C} (z_{ij} + z_{ji})
 #'
 #' where:
 #' \itemize{
@@ -67,6 +72,14 @@
 #'   \item \eqn{C_k(g)} is the set of all subsets \eqn{C \subseteq A(g)} of size
 #'         \eqn{k}, where \eqn{A(g)} is the actor set attached to group \eqn{g}.
 #' }
+#'
+#' For \eqn{k = 2} and \code{normalized = FALSE}, this reduces to:
+#' \deqn{
+#'   T^{(2)}(p; Z)
+#'     = \sum_g \sum_{i<j,\, i,j \in A(g)} (z_{ij} + z_{ji}),
+#' }
+#' which matches the definition of \code{dyadcov_full(dyadcov, size = NULL)}
+#' aggregating the dyadic covariate over all ordered pairs of co-grouped actors.
 #'
 #' @section Implementation and change-statistic:
 #' The term is implemented as a native ERGM C change-statistic, exposed under the
@@ -90,7 +103,7 @@
 #'
 #' @param dyadcov matrix or character. Either:
 #'   \itemize{
-#'     \item a numeric symmetric matrix of size at least \code{n1 x n1}, where
+#'     \item a numeric matrix of size at least \code{n1 x n1}, where
 #'           \code{n1 = nw \%n\% "bipartite"} is the actor-mode size; or
 #'     \item the name of a network-level attribute containing such a matrix
 #'           (retrieved as \code{nw \%n\% dyadcov}).
@@ -124,12 +137,15 @@
 #'   \item The network must be bipartite and interpreted as actors versus groups.
 #'   \item The actor mode is identified by \code{nw \%n\% "bipartite"} and must
 #'         be a positive integer.
-#'   \item The dyadic matrix must be numeric, symmetric (up to a small tolerance)
-#'         and free of \code{NA} values.
+#'   \item The dyadic matrix must be numeric and free of \code{NA} values.
+#'         Any \code{NA} triggers a fail-fast error. Symmetry is not required;
+#'         when the matrix is not symmetric, both \eqn{z_{ij}} and \eqn{z_{ji}}
+#'         are used through the sum \eqn{z_{ij} + z_{ji}}.
 #'   \item Debug logging is controlled by the global option
 #'         \code{options(ERPM.dyadcov.debug = TRUE/FALSE)}. When \code{TRUE},
 #'         the initializer prints diagnostic messages prefixed by
-#'         \code{"[dyadcov][DEBUG]"}.
+#'         \code{"[dyadcov][DEBUG]"} and may report how far the dyadic matrix
+#'         is from symmetry.
 #' }
 #'
 #' @examples
@@ -159,14 +175,14 @@
 #'   nw %n% "bipartite" <- n_actors  # actor-mode size
 #'
 #'   # -------------------------------------------------------------------------
-#'   # Build a symmetric dyadic covariate on actors
+#'   # Build a dyadic covariate on actors (symmetric or not)
 #'   # -------------------------------------------------------------------------
 #'   Z <- matrix(
 #'     c(
-#'       0, 1, 2, 3,
-#'       1, 0, 4, 5,
-#'       2, 4, 0, 6,
-#'       3, 5, 6, 0
+#'       0, 1,  2,  3,
+#'       10, 0, 4,  5,
+#'       20, 40, 0, 6,
+#'       30, 50, 60, 0
 #'     ),
 #'     n_actors, n_actors, byrow = TRUE
 #'   )
@@ -175,7 +191,8 @@
 #'   # -------------------------------------------------------------------------
 #'   # Inspect the dyadcov statistic
 #'   # -------------------------------------------------------------------------
-#'   # k = 2, raw sum over all cliques of size 2 (i.e. pairs) within groups
+#'   # k = 2, raw sum over all cliques of size 2 (pairs) within groups,
+#'   # using (z_ij + z_ji) for each pair {i,j}
 #'   summary(nw ~ dyadcov("Z_example", clique_size = 2, normalized = FALSE),
 #'           constraints = ~ b1part)
 #'
@@ -194,11 +211,12 @@
 #' \itemize{
 #'   \item build small bipartite networks with a known partition of actors into
 #'         groups;
-#'   \item define simple symmetric dyadic matrices \code{Z} so that clique
-#'         products can be computed analytically;
+#'   \item define dyadic matrices \code{Z} (symmetric or not) so that clique
+#'         products can be computed analytically using \code{z_ij + z_ji};
 #'   \item compare \code{summary(nw ~ dyadcov(...), constraints = ~ b1part)} with
 #'         a direct implementation of
-#'         \code{sum_g sum_{C in C_k(g)} prod_{i<j in C} Z[i,j]} (raw or normalized);
+#'         \code{sum_g sum_{C in C_k(g)} prod_{i<j in C} (Z[i,j] + Z[j,i])}
+#'         (raw or normalized);
 #'   \item verify that toggling a single actor–group edge changes the statistic
 #'         by the local difference between the "before" and "after" clique sums,
 #'         in agreement with the C change-statistic \code{c_dyadcov}.
@@ -285,11 +303,13 @@ InitErgmTerm.dyadcov <- function(nw, arglist, ...) {
     stop(termname, ": NA non autorisé dans la matrice dyadique.")
 
   # ---------------------------------------------------------------------------
-  # Optional symmetry check
+  # Optional symmetry diagnostics (non-blocking)
   # ---------------------------------------------------------------------------
   tol <- 1e-8
-  if (max(abs(dyad_mat - t(dyad_mat))) > tol) {
-    stop(termname, ": la matrice dyadique doit être symétrique (différence > tolérance).")
+  max_asym <- max(abs(dyad_mat - t(dyad_mat)))
+  if (dbg && max_asym > tol) {
+    dbgcat("warning: dyadcov matrix is not symmetric, max |Z - t(Z)| = ",
+           signif(max_asym, 5L))
   }
 
   dbgcat("dyadcov dim = ", paste(dim(dyad_mat), collapse = "x"),

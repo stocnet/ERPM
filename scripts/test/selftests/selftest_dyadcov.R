@@ -112,8 +112,8 @@ partitions <- list(
 }
 
 # Matrices dyadiques déterministes à partir de la partition
-# - Z1 : valeurs réelles modérées (plus grandes intra-groupe, faibles mais non nulles inter-groupe)
-# - Z2 : valeurs réelles plus dispersées (quadratique intra, motif modulo inter)
+# - Z1 : valeurs réelles modérées (plus grandes intra-groupe, faibles mais non nulles inter-groupe), symétrique, diag=0
+# - Z2 : mêmes ordres de grandeur mais rendue explicitement non symétrique, diag=0
 .make_dyads_for_partition <- function(part) {
   n <- length(part)
   Z1 <- matrix(0, n, n)
@@ -137,6 +137,15 @@ partitions <- list(
     }
   }
 
+  # Pour dyadcov, on impose des diagonales nulles
+  diag(Z1) <- 0
+  diag(Z2) <- 0
+
+  # Et on casse explicitement la symétrie de Z2 pour tester la convention (z_ij + z_ji)
+  if (n > 1L) {
+    Z2[lower.tri(Z2)] <- 2 * Z2[lower.tri(Z2)]
+  }
+
   list(Z1 = Z1, Z2 = Z2)
 }
 
@@ -157,6 +166,9 @@ print_debug_partition_nodes_dyads <- function(name, part, nodes_df, dyads_list) 
 
   cat("[DEBUG] Z2[1:", k, ", 1:", k, "] =\n", sep = "")
   print(round(Z2[seq_len(k), seq_len(k)], 3))
+
+  # Sanity check diagonales nulles
+  stopifnot(all(diag(Z1) == 0), all(diag(Z2) == 0))
 }
 
 # ======================================================================================
@@ -254,8 +266,8 @@ cases_summary <- c(
   "dyadcov('Z1', clique_size = 2, normalized = TRUE)",
   "dyadcov('Z1', clique_size = 3, normalized = FALSE)",
   "dyadcov('Z1', clique_size = 3, normalized = TRUE)",
-  "dyadcov('Z2', clique_size = 2, normalized = FALSE)",
-  "dyadcov('Z2', clique_size = 2, normalized = TRUE)"
+  "dyadcov('Z2', clique_size = 2, normalized = FALSE)",  # Z2 non symétrique
+  "dyadcov('Z2', clique_size = 2, normalized = TRUE)"    # Z2 non symétrique
 )
 
 # ======================================================================================

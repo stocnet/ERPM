@@ -17,12 +17,20 @@
  *    - indexing:  column-major order as in R,
  *      Z[(j-1)*n1 + (i-1)] = z_ij for actors i,j.
  *
+ *  The matrix Z is allowed to be non-symmetric. For each unordered actor pair
+ *  {i,j} with i<j, the effect uses the symmetric combination:
+ *
+ *      z_ij + z_ji
+ *
+ *  whenever both entries are available in the n1 × n1 block. If Z happens to
+ *  be symmetric, this reduces to 2*z_ij for each pair {i,j}.
+ *
  *  For a fixed clique size k ≥ 2, and for each group g, let:
  *    - A(g) be the set of actors in group g,
  *    - C_k(g) be the set of all k-subsets C ⊂ A(g),
  *    - for a given clique C, define:
  *
- *        P(C; Z) = ∏_{i<j ∈ C} z_ij
+ *        P(C; Z) = ∏_{i<j ∈ C} (z_ij + z_ji)
  *
  *  Then the group-level dyadic covariate functional is:
  *
@@ -37,10 +45,10 @@
  *  The non-normalised statistic is:
  *
  *      T^{(k)}(p; Z) = ∑_g S_g^{(k)}(Z)
- *                    = ∑_g ∑_{C ∈ C_k(g)} ∏_{i<j ∈ C} z_ij.
+ *                    = ∑_g ∑_{C ∈ C_k(g)} ∏_{i<j ∈ C} (z_ij + z_ji).
  *
  *  All k-cliques of actors inside each group are enumerated, and their
- *  dyadic products are summed.
+ *  dyadic products (based on z_ij + z_ji) are summed.
  *
  *  ------------------------------------------------------------
  *  Normalised statistic
@@ -136,8 +144,12 @@
  *
  *  For a given group of size n_g:
  *    - The number of k-cliques is C(n_g, k),
- *    - For each clique, the product involves k*(k-1)/2 dyads,
- *    - Therefore the complexity is roughly O(C(n_g, k) * k^2).
+ *    - For each clique, the product involves k*(k-1)/2 unordered pairs,
+ *      and for each pair {i,j} the implementation reads z_ij and z_ji
+ *      and uses their sum (z_ij + z_ji).
+ *    - Therefore the complexity is roughly
+ *      O(C(n_g, k) * k^2) with a constant factor reflecting two accesses
+ *      per pair instead of one.
  *
  *  Since the implementation recomputes S_g^{(k)}(Z) from scratch before and
  *  after each toggle, this effect is not intended for very large groups
@@ -165,10 +177,10 @@
  *  # Dyadic covariate matrix on the actor mode (4 x 4)
  *  set.seed(1)
  *  Z <- matrix(runif(4 * 4), nrow = 4, ncol = 4)
- *  Z <- (Z + t(Z)) / 2      # symmetrise for convenience
  *  diag(Z) <- 0
  *
- *  # Non-normalised dyadic covariate statistic on 3-cliques
+ *  # Non-normalised dyadic covariate statistic on 3-cliques,
+ *  # using (z_ij + z_ji) for each unordered pair {i,j}
  *  fit_raw <- erpm(partition ~ dyadcov(k = 3, cov = Z, normalized = FALSE))
  *  summary(fit_raw)
  *
@@ -188,7 +200,7 @@
  *    - compute T^{(k)}(p; Z) and T_norm^{(k)}(p; Z) directly in R by:
  *         - enumerating actor sets A(g) per group,
  *         - enumerating all k-subsets C ⊂ A(g),
- *         - forming products ∏_{i<j ∈ C} z_ij,
+ *         - forming products ∏_{i<j ∈ C} (z_ij + z_ji),
  *    - compare these reference values to:
  *         - summary( erpm(partition ~ dyadcov(...)) )$statistics,
  *    - apply single-edge toggles and check that observed changes match
@@ -272,7 +284,7 @@ static double choose_double(int n, int k){
  *    - enumerates all k-subsets C of these actors,
  *    - for each subset C, computes the product:
  *
- *          P(C; Z) = ∏_{i<j ∈ C} z_ij,
+ *          P(C; Z) = ∏_{i<j ∈ C} (z_ij + z_ji),
  *
  *      using the dyadic covariate matrix Z,
  *    - accumulates the total:
@@ -306,7 +318,8 @@ static double sum_cliques_k(const int *actors,
   double total = 0.0;
 
   while(1){
-    /* Product over all dyads i<j within the current clique. */
+    /* Product over all unordered pairs i<j within the current clique,
+     * using (z_ij + z_ji) for each pair {i,j}. */
     double prod = 1.0;
     for(int p = 0; p < k; p++){
       int idx_i = actors[ comb[p] ];   /* actor vertex index in 1..n1 */
@@ -315,8 +328,11 @@ static double sum_cliques_k(const int *actors,
       for(int q = p + 1; q < k; q++){
         int idx_j = actors[ comb[q] ];
         int col   = idx_j - 1;
-        int z_idx = col * n1 + row;    /* column-major indexing */
-        prod *= Z[z_idx];
+        int idx_ij = col * n1 + row;   /* z_ij, column-major */
+        int idx_ji = row * n1 + col;   /* z_ji, column-major */
+        double zij = Z[idx_ij];
+        double zji = Z[idx_ji];
+        prod *= (zij + zji);
       }
     }
     total += prod;
@@ -358,7 +374,7 @@ static double sum_cliques_k(const int *actors,
  *         - builds the list of actor indices (1..n1) belonging to the group,
  *         - calls ::sum_cliques_k() to compute:
  *
- *              S_g^{(k)}(Z) = ∑_{C ∈ C_k(g)} ∏_{i<j ∈ C} z_ij.
+ *              S_g^{(k)}(Z) = ∑_{C ∈ C_k(g)} ∏_{i<j ∈ C} (z_ij + z_ji).
  *
  * @param g        Group vertex whose actor members define the group.
  * @param n1       Number of actors (dimension of the actor mode).
