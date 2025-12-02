@@ -202,14 +202,19 @@ summary_on_erpm_translation <- function(part, nodes, rhs_txt) {
 
 .choose <- function(n, k) if (n >= k) choose(n, k) else 0
 
-expected_cov_match <- function(part, vals, k = 2L, category = NULL, normalized = c("none","by_group","global")) {
+# normalized = "global" : nouvelle définition
+#   T_k(B; c) = sum_g S_k(g) / n_g  (ou C(n_{g,κ},k) / n_g en ciblé)
+#   avec les groupes de taille n_g = 0 contribuant 0.
+expected_cov_match <- function(part, vals, k = 2L, category = NULL,
+                               normalized = c("none","by_group","global")) {
     normalized <- match.arg(normalized)
     gid <- as.integer(part)
     split_idx <- split(seq_along(gid), gid)
-    N1 <- length(vals)
 
     stat_group <- function(ix) {
-        v <- vals[ix]; n_g <- length(ix)
+        v   <- vals[ix]
+        n_g <- length(ix)
+
         if (!is.null(category)) {
             n_k <- sum(v == category, na.rm = TRUE)
             if (k == 1L && normalized == "by_group") {
@@ -222,14 +227,17 @@ expected_cov_match <- function(part, vals, k = 2L, category = NULL, normalized =
             tbl <- table(v, useNA = "no")
             clq <- sum(vapply(as.integer(tbl), .choose, numeric(1), k = k))
         }
+
         if (normalized == "none") return(clq)
+
         if (normalized == "by_group") {
             den <- .choose(n_g, k)
             if (den == 0) return(0)
             return(clq / den)
         }
-        # normalized == "global"
-        den <- .choose(N1, k)
+
+        # normalized == "global" : normalisation par taille de groupe
+        den <- n_g
         if (den == 0) return(0)
         return(clq / den)
     }
@@ -269,7 +277,7 @@ run_phase1_summary_expected <- function() {
     cat(sprintf("[A] cov_match('sexe',k=2,by_group)   obtenu=%.6f  attendu=%.6f\n", s_A_bg2, exp_A_bg2))
     stopifnot(isTRUE(all.equal(as.numeric(s_A_bg2), as.numeric(exp_A_bg2))))
 
-    # - normalisation globale, k=2
+    # - normalisation globale (par taille de groupe), k=2
     exp_A_gl2 <- expected_cov_match(partA, nodesA$sexe, k = 2, normalized = "global")
     s_A_gl2   <- summary_on_bipartite_network(partA, nodesA, "cov_match('sexe', clique_size = 2, normalized = 'global')")
     cat(sprintf("[A] cov_match('sexe',k=2,global)     obtenu=%.7f  attendu=%.7f\n", s_A_gl2, exp_A_gl2))
@@ -310,7 +318,7 @@ run_phase1_summary_expected <- function() {
         cat("[OK] Erreur attendue pour k=1, normalized='none':\n     ", err, "\n")
     }
 
-    # 2) k=1, normalized = 'global' -> doit ERREUR
+    # 2) k=1, normalized = 'global' -> doit ERREUR (stat constante)
     err <- NULL
     tryCatch({
         summary_on_bipartite_network(partC, nodesC, "cov_match('sexe', clique_size = 1, normalized = 'global')")

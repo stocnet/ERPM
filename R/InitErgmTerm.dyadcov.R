@@ -30,8 +30,9 @@
 #' Two variants are supported:
 #' \itemize{
 #'   \item \code{normalized = FALSE} (raw sum over cliques);
-#'   \item \code{normalized = TRUE} (average over all actor subsets of size
-#'         \eqn{k} within each group).
+#'   \item \code{normalized = TRUE} (per-group scaling of the clique sum by
+#'         the group size \eqn{n_g}, i.e. a factor \eqn{1 / n_g} whenever
+#'         \eqn{n_g \ge k}).
 #' }
 #'
 #' @details
@@ -62,7 +63,7 @@
 #'
 #'   - normalized = TRUE :
 #'       T^{(k)}_norm(p; Z)
-#'         = sum_g 1[n_g >= k] * (1 / choose(n_g, k)) *
+#'         = sum_g 1[n_g >= k] * (1 / n_g) *
 #'             sum_{C in C_k(g)} prod_{i<j in C} (z_{ij} + z_{ji})
 #'
 #' where:
@@ -80,6 +81,8 @@
 #' }
 #' which matches the definition of \code{dyadcov_full(dyadcov, size = NULL)}
 #' aggregating the dyadic covariate over all ordered pairs of co-grouped actors.
+#' For \eqn{k = 2} and \code{normalized = TRUE}, each group contribution is
+#' additionally scaled by \eqn{1 / n_g}.
 #'
 #' @section Implementation and change-statistic:
 #' The term is implemented as a native ERGM C change-statistic, exposed under the
@@ -94,7 +97,9 @@
 #'
 #' On each toggle of an actor–group edge, the C change-statistic recomputes the
 #' local contribution for the unique group affected by the toggle, by updating
-#' the clique-based sums according to the new set of actors in that group.
+#' the clique-based sums according to the new set of actors in that group and,
+#' when \code{normalized = TRUE}, dividing by the current group size \eqn{n_g}
+#' (if \eqn{n_g \ge k}).
 #'
 #' @section Arguments:
 #' The initializer is not called directly by users; it is invoked automatically
@@ -115,8 +120,9 @@
 #'   Defaults to \code{2}.
 #' @param normalized logical scalar. When \code{FALSE}, the statistic is a raw
 #'   sum over all \eqn{k}-cliques per group. When \code{TRUE}, each group's
-#'   contribution is normalized by \code{choose(n_g, k)} (and groups with
-#'   \eqn{n_g < k} contribute \code{0}). Defaults to \code{FALSE}.
+#'   clique-based sum \eqn{S_g^{(k)}(Z)} is multiplied by \eqn{1 / n_g} (and
+#'   groups with \eqn{n_g < k} contribute \code{0} since they have no
+#'   \eqn{k}-cliques). Defaults to \code{FALSE}.
 #'
 #' @return
 #' A standard {ergm} term initialization list with components:
@@ -196,7 +202,7 @@
 #'   summary(nw ~ dyadcov("Z_example", clique_size = 2, normalized = FALSE),
 #'           constraints = ~ b1part)
 #'
-#'   # k = 3, normalized by the number of 3-actor subsets in each group
+#'   # k = 3, per-group normalisation by 1 / n_g on 3-cliques
 #'   summary(nw ~ dyadcov("Z_example", clique_size = 3, normalized = TRUE),
 #'           constraints = ~ b1part)
 #'
@@ -215,11 +221,12 @@
 #'         products can be computed analytically using \code{z_ij + z_ji};
 #'   \item compare \code{summary(nw ~ dyadcov(...), constraints = ~ b1part)} with
 #'         a direct implementation of
-#'         \code{sum_g sum_{C in C_k(g)} prod_{i<j in C} (Z[i,j] + Z[j,i])}
+#'         \code{sum_g 1[n_g >= k] / n_g * sum_{C in C_k(g)} prod_{i<j in C}(Z[i,j]+Z[j,i])}
 #'         (raw or normalized);
 #'   \item verify that toggling a single actor–group edge changes the statistic
-#'         by the local difference between the "before" and "after" clique sums,
-#'         in agreement with the C change-statistic \code{c_dyadcov}.
+#'         by the local difference between the "before" and "after" clique sums
+#'         (with or without the 1 / n_g factor), in agreement with the C
+#'         change-statistic \code{c_dyadcov}.
 #' }
 #'
 #' @keywords ERGM term bipartite dyadic covariate cliques

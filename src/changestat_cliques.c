@@ -20,47 +20,74 @@
  *
  *  Statistic at the group level:
  *
- *  - For k >= 2:
+ *  - Raw (non-normalized) statistic, for k >= 2:
  *
- *      cliques_k = sum_g C(n_g, k)
+ *      cliques_k(y) = \sum_g C(n_g, k)
  *
  *    where C(n, k) is the binomial coefficient. Each group g contributes
  *    the number of k-size subsets of its actors, which correspond to
  *    k-cliques in the actor-mode projection.
  *
- *  - For k == 1:
+ *  - Raw (non-normalized) statistic, for k == 1:
  *
- *      cliques_1 = #{ g : n_g == 1 }
+ *      cliques_1(y) = #{ g : n_g == 1 }
  *
  *    i.e. the number of groups of size exactly 1 (singleton groups).
  *
- *  Change statistic for a single membership toggle:
+ *  Group-size-normalized statistic:
+ *
+ *  - For k >= 2:
+ *
+ *      cliques_k^{grp}(y) = \sum_g C(n_g, k) / n_g,
+ *
+ *    with the convention that groups with n_g < k or n_g == 0 contribute 0.
+ *    Each group contribution is normalized by its own size.
+ *
+ *  - For k == 1:
+ *
+ *      cliques_1^{grp}(y) = cliques_1(y),
+ *
+ *    since n_g = 1 for contributing groups.
+ *
+ *  Change statistic for a single membership toggle (raw version):
  *
  *  - For k >= 2 and a toggle that changes the size of a single group from
  *    n_g to n_g ± 1:
  *      - addition (is_add = 1):
- *          Δ =  C(n_g,   k-1)
+ *          Δ_raw =  C(n_g,   k-1)
  *      - deletion (is_add = 0):
- *          Δ = -C(n_g-1, k-1)
+ *          Δ_raw = -C(n_g-1, k-1)
  *
  *  - For k == 1, using n_g = group size before the toggle:
  *      - addition:
- *          n_g == 0  →  Δ = +1
- *          n_g == 1  →  Δ = -1
- *          else      →  Δ =  0
+ *          n_g == 0  →  Δ_raw = +1
+ *          n_g == 1  →  Δ_raw = -1
+ *          else      →  Δ_raw =  0
  *      - deletion:
- *          n_g == 2  →  Δ = +1
- *          n_g == 1  →  Δ = -1
- *          else      →  Δ =  0
+ *          n_g == 2  →  Δ_raw = +1
+ *          n_g == 1  →  Δ_raw = -1
+ *          else      →  Δ_raw =  0
+ *
+ *  Change statistic for a single membership toggle (group-size-normalized):
+ *
+ *  - For k >= 2 and a toggle that changes n_g to n_g' = n_g ± 1:
+ *
+ *      old_contrib = (n_g >= k && n_g > 0)   ? C(n_g,  k) / n_g   : 0
+ *      new_contrib = (n_g' >= k && n_g' > 0) ? C(n_g', k) / n_g'  : 0
+ *      Δ_grp       = new_contrib - old_contrib
+ *
+ *  - For k == 1, we have Δ_grp = Δ_raw.
  *
  *  Scaling:
  *  - Each component j uses a scalar `scale_j` provided via INPUT_PARAM.
- *  - Typical choices:
- *      scale_j = 1
- *      scale_j = 1 / C(N_actors, k)   (global normalisation, valid also for k=1)
- *  - The final change for component j is:
+ *  - The sign of `scale_j` selects the mode:
+ *      * scale_j > 0: raw statistic (Δ = Δ_raw),
+ *      * scale_j < 0: group-size-normalized statistic (Δ = Δ_grp).
+ *  - The absolute value |scale_j| is an additional multiplicative factor:
  *
- *      CHANGE_STAT[j] += scale_j * Δ_j
+ *      CHANGE_STAT[j] += |scale_j| * Δ_j,
+ *
+ *    where Δ_j is Δ_raw or Δ_grp depending on the sign of scale_j.
  *
  *  Implementation outline:
  *  - The actor mode occupies vertex indices 1..BIPARTITE.
@@ -70,19 +97,19 @@
  *      2) Read its current size n_g from OUT_DEG + IN_DEG.
  *      3) Determine whether the toggle is an addition or a deletion
  *         from `edgestate`.
- *      4) For each (k_j, scale_j) pair in INPUT_PARAM, compute Δ_j as
- *         above and accumulate it into CHANGE_STAT[j].
+ *      4) For each (k_j, scale_j) pair in INPUT_PARAM, compute either
+ *         Δ_raw or Δ_grp and accumulate it into CHANGE_STAT[j].
  *
  *  Complexity:
  *  - O(#stats) per toggle:
  *      - the group size is read once,
- *      - for k >= 2 we use CHOOSE(n_g, k-1) or CHOOSE(n_g-1, k-1),
+ *      - we use CHOOSE(n, k) and CHOOSE(n, k-1) locally as needed,
  *      - no traversal of adjacency lists and no explicit clique enumeration.
  *
  *  R interface:
  *  - The corresponding R initialiser (InitErgmTerm.cliques) prepares:
  *      - a vector of (k_j, scale_j) pairs in INPUT_PARAM,
- *      - one statistic per requested k and normalisation,
+ *      - one statistic per requested k and normalization mode,
  *      - emptynwstats = 0.
  *
  *  @note
@@ -103,12 +130,9 @@
  *  fit <- erpm(partition ~ cliques(k = 2, normalized = FALSE))
  *  summary(fit)
  *
- *  # Interpretation of a single toggle:
- *  # - Suppose a sampler proposes to add an actor to a group of size n_g = 2
- *  #   with k = 2.
- *  # - The change in the 2-clique count is:
- *  #       Δ = C(2, 1) = 2
- *  #   and this value is multiplied by the associated scale factor.
+ *  # Group-size-normalized 2-cliques
+ *  fit_norm <- erpm(partition ~ cliques(k = 2, normalized = TRUE))
+ *  summary(fit_norm)
  *  @endcode
  *
  *  @test
@@ -116,10 +140,9 @@
  *  - construct small bipartite networks from known partitions,
  *  - evaluate the statistic by:
  *      (i) calling `summary` on the ERGM with `cliques(k, normalized)` and
- *      (ii) computing the reference value from the group sizes `n_g`,
- *  - verify that single-edge toggles produce Δ consistent with the formulas:
- *      - k >= 2:  +C(n_g, k-1) for additions, -C(n_g-1, k-1) for deletions,
- *      - k == 1:  piecewise rules on n_g.
+ *      (ii) computing the reference values from the group sizes `n_g`,
+ *  - verify that single-edge toggles produce Δ consistent with the formulas
+ *    above for both the raw and group-size-normalized variants.
  */
 
 #include "ergm_changestat.h"
@@ -134,7 +157,9 @@
  * to the R console for each toggle:
  *  - the group vertex index and its degree before the toggle,
  *  - the current k value and whether the toggle is an addition or deletion,
- *  - the raw Δ before scaling and the final accumulated CHANGE_STAT[j].
+ *  - the mode (raw vs group-size-normalized),
+ *  - the raw and/or normalized Δ before scaling and the final accumulated
+ *    CHANGE_STAT[j].
  *
  * When set to 0, no debug output is produced.
  */
@@ -161,38 +186,15 @@
  *  - It determines whether the toggle is an addition or a deletion from
  *    the `edgestate` flag.
  *  - For each statistic j, it reads:
- *      - k_j     = INPUT_PARAM[2*j + 0] (target clique size),
- *      - scale_j = INPUT_PARAM[2*j + 1] (scaling factor),
- *    and computes the local change Δ_j using the un-toggle formulas:
+ *      - k_j        = INPUT_PARAM[2*j + 0] (target clique size),
+ *      - scale_raw  = INPUT_PARAM[2*j + 1] (signed scale / mode flag),
+ *    and computes the local change Δ_j:
  *
- *      * k_j == 1:
- *          - addition:
- *              n_g == 0  →  Δ = +1
- *              n_g == 1  →  Δ = -1
- *              else      →  Δ =  0
- *          - deletion:
- *              n_g == 2  →  Δ = +1
- *              n_g == 1  →  Δ = -1
- *              else      →  Δ =  0
+ *      * if scale_raw > 0: raw statistic (Δ_j = Δ_raw),
+ *      * if scale_raw < 0: group-size-normalized statistic (Δ_j = Δ_grp),
  *
- *      * k_j >= 2:
- *          - addition:
- *              if n_g >= k_j - 1:
- *                 Δ =  C(n_g,   k_j - 1)
- *          - deletion:
- *              if n_g - 1 >= k_j - 1 and n_g >= 1:
- *                 Δ = -C(n_g-1, k_j - 1)
- *              else:
- *                 Δ = 0
- *
- *    It then multiplies Δ_j by scale_j and accumulates the result in
+ *    then multiplies Δ_j by |scale_raw| and accumulates the result in
  *    CHANGE_STAT[j].
- *
- * @note
- *  - The macro ::C_CHANGESTAT_FN injects the full signature, including
- *    access to CHANGE_STAT, INPUT_PARAM and N_CHANGE_STATS.
- *  - The term is designed for a bipartite representation of the partition
- *    where each actor belongs to exactly one group.
  */
 C_CHANGESTAT_FN(c_cliques){
   /* 1) Reset the output buffer for this toggle.
@@ -206,8 +208,11 @@ C_CHANGESTAT_FN(c_cliques){
    *
    * In a bipartite ERGM, BIPARTITE holds the number of vertices in the
    * actor mode. All vertices with index > BIPARTITE are in the group mode.
+   * (We keep this for clarity, even though the value is not used directly
+   *  in the computations below.)
    */
   const int n1 = BIPARTITE; // number of actors (actor mode)
+  (void)n1;                 // suppress unused-variable warnings
 
   /* 3) Identify the group-mode vertex.
    *
@@ -235,18 +240,26 @@ C_CHANGESTAT_FN(c_cliques){
   /* 6) Loop over all statistics (possibly several k, scale pairs).
    *
    * INPUT_PARAM is organised as [k_0, scale_0, k_1, scale_1, ...].
+   * The sign of scale_j selects the mode:
+   *  - scale_j > 0: raw statistic;
+   *  - scale_j < 0: group-size-normalized statistic.
+   * The absolute value |scale_j| is used as a multiplicative factor.
    */
   for(int j = 0; j < N_CHANGE_STATS; ++j){
-    int    k     = (int)   INPUT_PARAM[2*j + 0];  // target clique size
-    double scale = (double)INPUT_PARAM[2*j + 1];  // scaling factor
+    int    k          = (int)   INPUT_PARAM[2*j + 0];  // target clique size
+    double scale_raw  = (double)INPUT_PARAM[2*j + 1];  // signed scale / mode flag
+    int    use_grp    = (scale_raw < 0.0);             // mode selector
+    double scale_abs  = use_grp ? -scale_raw : scale_raw; // >= 0
 
-    double delta = 0.0;  // raw change for this (k, scale) before scaling
+    double delta = 0.0;  // local change before applying |scale_raw|
 
     if(k == 1){
       /* Special case k == 1:
        *
        * We are counting groups of size exactly 1. Only transitions that
-       * cross the threshold n_g ∈ {0,1,2} contribute.
+       * cross the threshold n_g ∈ {0,1,2} contribute. In the
+       * group-size-normalized variant, the value is identical, since the
+       * contribution of a singleton group is 1 / n_g = 1.
        */
       if(is_add){
         // Addition: 0 -> 1 : +1 ; 1 -> 2 : -1 ; otherwise 0
@@ -258,37 +271,61 @@ C_CHANGESTAT_FN(c_cliques){
         else if(deg_old == 1) delta = -1.0;
       }
     }else{
-      /* Case k >= 2:
+      /* Case k >= 2. Two possible modes:
        *
-       * We use the combinatorial identities for the number of k-cliques
-       * induced by a group of size n_g:
+       *  - Raw statistic:
+       *      cliques_k(y) = Σ_g C(n_g, k)
+       *      with un-toggle change:
+       *        addition: Δ_raw =  C(n_g,   k-1)
+       *        deletion: Δ_raw = -C(n_g-1, k-1)
        *
-       *   cliques_k(g) = C(n_g, k).
-       *
-       * Adding or removing one actor in that group changes the count
-       * according to:
-       *
-       *   addition: Δ = C(n_g,   k-1)
-       *   deletion: Δ = -C(n_g-1, k-1)
+       *  - Group-size-normalized statistic:
+       *      cliques_k^{grp}(y) = Σ_g C(n_g, k) / n_g
+       *      with un-toggle change:
+       *        old_contrib = (n_g  >= k && n_g  > 0) ? C(n_g,  k) / n_g  : 0
+       *        new_contrib = (n_g' >= k && n_g' > 0) ? C(n_g', k) / n_g' : 0
+       *        Δ_grp       = new_contrib - old_contrib
        */
-      if(is_add){
-        if(deg_old >= k-1)
-          delta = CHOOSE(deg_old, k-1);
+      if(!use_grp){
+        /* Raw (non-normalized) mode. */
+        if(is_add){
+          if(deg_old >= k-1)
+            delta = CHOOSE(deg_old, k-1);
+        }else{
+          if(deg_old-1 >= k-1 && deg_old >= 1)
+            delta = -CHOOSE(deg_old - 1, k-1);
+          else
+            delta = 0.0;
+        }
       }else{
-        if(deg_old-1 >= k-1 && deg_old >= 1)
-          delta = -CHOOSE(deg_old - 1, k-1);
-        else
-          delta = 0.0;
+        /* Group-size-normalized mode. */
+        int n_old = deg_old;
+        int n_new = is_add ? (n_old + 1) : (n_old - 1);
+
+        double old_contrib = 0.0;
+        double new_contrib = 0.0;
+
+        if(n_old >= k && n_old > 0){
+          old_contrib = CHOOSE(n_old, k) / (double)n_old;
+        }
+
+        if(n_new >= k && n_new > 0){
+          new_contrib = CHOOSE(n_new, k) / (double)n_new;
+        }
+
+        delta = new_contrib - old_contrib;
       }
     }
 
-    // Apply scaling and accumulate in the j-th statistic.
-    CHANGE_STAT[j] += scale * delta;
+    // Apply scaling factor (absolute value of scale_raw) and accumulate.
+    CHANGE_STAT[j] += scale_abs * delta;
 
     #if DEBUG_CLIQUES
       Rprintf("[c_cliques] group=%d, deg_old=%d, k=%d, add=%d, "
-              "delta_raw=%.6f, scale=%g, stat_j=%.6f\n",
-              (int)v2, deg_old, k, is_add, delta, scale, CHANGE_STAT[j]);
+              "mode=%s, delta=%.6f, scale_abs=%g, stat_j=%.6f\n",
+              (int)v2, deg_old, k, is_add,
+              use_grp ? "grp" : "raw",
+              delta, scale_abs, CHANGE_STAT[j]);
     #endif
   }
 }

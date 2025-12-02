@@ -101,19 +101,23 @@ group_sizes_from_partition <- function(part) as.integer(table(part))
 # Valeur de référence analytique de la stat `cliques` pour une partition donnée
 # - k == 1 : nombre de groupes de taille 1
 # - k >= 2 : sum_g choose(n_g, k)
-# - normalized : division par choose(N1, k) (k=1 ⇒ denom = N1)
+# - normalized :
+#     * k == 1 : identique au cas brut (groupes de taille 1),
+#     * k >= 2 : somme_g choose(n_g, k) / n_g (normalisation par taille de groupe).
 expected_cliques_from_partition <- function(part, k = 2L, normalized = FALSE) {
   sz <- group_sizes_from_partition(part)
   if (k == 1L) {
     num <- sum(sz == 1L)
+    if (!normalized) return(num)
+    # Pour k=1, la normalisation par taille de groupe laisse la valeur inchangée.
+    return(num)
   } else {
-    num <- sum(choose(sz, k))
+    num_raw <- sum(choose(sz, k))
+    if (!normalized) return(num_raw)
+    # Nouvelle normalisation par taille de groupe : ∑_g C(n_g, k) / n_g
+    contrib <- ifelse(sz > 0L, choose(sz, k) / sz, 0)
+    sum(contrib)
   }
-  if (!normalized) return(num)
-  N1 <- length(part)
-  denom <- choose(N1, k)
-  if (denom == 0 || is.na(denom)) return(0)
-  num / denom
 }
 
 # Normaliser la signature de cliques(...) pour pilotage summary/erpm
