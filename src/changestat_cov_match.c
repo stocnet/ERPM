@@ -1,5 +1,5 @@
 /**
- * @file
+ * @file changestat_cov_match.c
  * @brief  Change statistic for the ERPM term `cov_match` (one-toggle form).
  *
  * @details
@@ -46,11 +46,11 @@
  *
  *   - "global" (norm_mode = 2):
  *        non-target:
- *          (1 / C(N_actors, k)) * S_k(B; c),
+ *          ∑_g [ ( ∑_r C(n_{g,r}, k) ) / n_g ],
  *        targeted:
- *          (1 / C(N_actors, k)) * S_k^{(κ)}(B; c),
+ *          ∑_g [ C(n_{g,κ}, k) / n_g ],
  *
- *  where N_actors = n1 is the number of actors.
+ *  with the convention that groups with n_g = 0 contribute 0.
  *
  *  Special case for k = 1, "by_group", targeted:
  *    The statistic reduces to:
@@ -87,9 +87,17 @@
  *           with new = old - 1.
  *
  *    5. Apply the requested normalisation:
- *         - none:        Δ = Δ_non_norm,
- *         - by_group:    Δ = (N_plus/D_plus) - (N_minus/D_minus),
- *         - global:      Δ = Δ_non_norm / C(N_actors, k).
+ *         - none:
+ *             Δ = Δ_non_norm;
+ *         - by_group:
+ *             Δ = (N_plus/D_plus) - (N_minus/D_minus),
+ *             where N_· are S_k(g) (or C(n_{g,κ},k)) and
+ *             D_· = C(n_g, k) before / after the toggle;
+ *         - global:
+ *             Δ = (S_k^+(g)/n_g^+) - (S_k^-(g)/n_g^-),
+ *             i.e. difference of the group contribution S_k(g)/n_g
+ *             before and after the toggle (group-level normalisation
+ *             by n_g and sum over groups).
  *
  *    6. Update:
  *
@@ -387,7 +395,8 @@ static int histogram_codes(const Vertex *actors, int na, const double *z_codes, 
  *       Δ_non_norm using binomial identities, then applies:
  *         - no normalisation (norm_mode = 0),
  *         - group-level normalisation (norm_mode = 1),
- *         - global normalisation (norm_mode = 2).
+ *         - group-size-based global normalisation (norm_mode = 2),
+ *           where each group contribution is S_k(g)/n_g.
  *
  *    6. The result is accumulated in CHANGE_STAT[j].
  *
@@ -603,15 +612,40 @@ C_CHANGESTAT_FN(c_cov_match){
       #endif
     }
     else if(norm_mode==2){
-      /* global normalisation:
+      /* global normalisation by group size:
        *
-       *   Δ = Δ_non_norm / C(N_actors, k).
+       *   For each group g:
+       *     contrib(g) = S_k(g) / n_g
+       *   (or C(n_{g,κ},k)/n_g in the targeted case),
+       *   with groups of size 0 contributing 0.
+       *
+       *   The local Δ is contrib_new(g) - contrib_old(g).
        */
-      double Cglob = CHOOSE(n1, k);
-      delta = (Cglob>0.0) ? (delta_non_norm / Cglob) : 0.0;
+      double N_minus = 0.0;
+      if(has_kappa){
+        int n_gk_old = 0;
+        if(kappa_code>0){
+          for(int u=0; u<m; ++u) if(codes_buf[u]==kappa_code){ n_gk_old = counts_buf[u]; break; }
+        }
+        N_minus = CHOOSE(n_gk_old, k);
+      }else{
+        for(int u=0; u<m; ++u) N_minus += CHOOSE(counts_buf[u], k);
+      }
+
+      int n_g_new = n_g_old + (is_add ? +1 : -1);
+      if(n_g_new < 0) n_g_new = 0;
+
+      double N_plus       = N_minus + delta_non_norm;
+      double denom_minus  = (double)n_g_old;
+      double denom_plus   = (double)n_g_new;
+      double contrib_old  = (denom_minus > 0.0) ? (N_minus / denom_minus) : 0.0;
+      double contrib_new  = (denom_plus  > 0.0) ? (N_plus  / denom_plus ) : 0.0;
+
+      delta = contrib_new - contrib_old;
+
       #if DEBUG_COV_MATCH
-        Rprintf("[cov_match:k=%d][global] Cglob=%g delta_non_norm=%.6f -> delta=%.6f\n",
-                k, Cglob, delta_non_norm, delta);
+        Rprintf("[cov_match:k=%d][global] N-=%g n_g_old=%d | N+=%g n_g_new=%d | delta=%.6f\n",
+                k, N_minus, n_g_old, N_plus, n_g_new, delta);
       #endif
     }
 

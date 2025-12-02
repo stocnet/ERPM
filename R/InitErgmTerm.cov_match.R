@@ -12,10 +12,11 @@
 #   by_group:
 #     sum_g [ S_k(g) / C(n_g, k) ]   (or C(n_{g,κ}, k) / C(n_g, k) when targeted)
 #   global:
-#     (1 / C(N_A, k)) * S_k(·)
+#     sum_g [ S_k(g) / n_g ]         (or C(n_{g,κ}, k) / n_g when targeted),
+#   with groups of size n_g = 0 contributing 0.
 # where:
-#   - N_A is the number of actors in the actor mode,
-#   - n_{g,r} is the number of actors of category r in group g.
+#   - n_{g,r} is the number of actors of category r in group g,
+#   - n_g     is the size of group g.
 # ==============================================================================
 
 #' ERGM term: cov_match (monochromatic cliques by actor covariate)
@@ -39,8 +40,9 @@
 #'   \item \code{normalized = "none"}: raw counts of monochromatic cliques;
 #'   \item \code{normalized = "by_group"}: per-group normalization by
 #'         \eqn{\binom{n_g}{k}}, where \eqn{n_g} is group size;
-#'   \item \code{normalized = "global"}: global normalization by
-#'         \eqn{\binom{N_A}{k}}, where \eqn{N_A} is the size of the actor mode.
+#'   \item \code{normalized = "global"}: per-group normalization by
+#'         \eqn{n_g}, i.e. each group contribution is divided by its size
+#'         and the resulting terms are summed over groups.
 #' }
 #' An optional targeted category \eqn{\kappa} focuses the statistic on cliques
 #' whose actors all share that specific category.
@@ -81,22 +83,28 @@
 #'     \deqn{
 #'       T_k(B; c) =
 #'       \begin{cases}
-#'         S_k(B; c)       & \text{if no category is targeted}, \\
-#'         S_k^{(\kappa)}(B; c) & \text{if category } \kappa \text{ is targeted};
+#'         S_k(B; c)             & \text{if no category is targeted}, \\
+#'         S_k^{(\kappa)}(B; c)  & \text{if category } \kappa \text{ is targeted};
 #'       \end{cases}
 #'     }
 #'   \item \code{"by_group"}: for each group \eqn{g} we form the ratio
 #'         \eqn{\frac{S_k(g)}{\binom{n_g}{k}}} (or
 #'         \eqn{\frac{C(n_{g,\kappa}, k)}{\binom{n_g}{k}}} when a category is
 #'         targeted), and sum these ratios over groups;
-#'   \item \code{"global"}: we normalize by \eqn{\binom{N_A}{k}}:
+#'   \item \code{"global"}: for each group \eqn{g} we form
+#'     \deqn{
+#'       \frac{S_k(g)}{n_g}
+#'       \quad\text{or}\quad
+#'       \frac{C(n_{g,\kappa}, k)}{n_g}
+#'     }
+#'     (with the convention that groups of size \eqn{n_g = 0} contribute 0),
+#'     and sum these contributions over groups:
 #'     \deqn{
 #'       T_k^{\text{global}}(B; c) =
-#'       \frac{1}{\binom{N_A}{k}}
-#'       \times
+#'       \sum_{g \in G}
 #'       \begin{cases}
-#'         S_k(B; c)       & \text{if no category is targeted}, \\
-#'         S_k^{(\kappa)}(B; c) & \text{if category } \kappa \text{ is targeted}.
+#'         \dfrac{S_k(g)}{n_g}            & \text{if no category is targeted}, \\
+#'         \dfrac{C(n_{g,\kappa}, k)}{n_g}& \text{if category } \kappa \text{ is targeted}.
 #'       \end{cases}
 #'     }
 #' }
@@ -180,7 +188,10 @@
 #'   \itemize{
 #'     \item \code{"none"}: raw counts of monochromatic cliques;
 #'     \item \code{"by_group"}: per-group normalization by \eqn{\binom{n_g}{k}};
-#'     \item \code{"global"}: normalization by \eqn{\binom{N_A}{k}}.
+#'     \item \code{"global"}: per-group normalization by \eqn{n_g}, i.e.
+#'           each group contribution is divided by its size and the resulting
+#'           contributions are summed over groups. Groups with \eqn{n_g = 0}
+#'           contribute 0.
 #'   }
 #'   Logical values are supported as shorthand:
 #'   \code{TRUE} is equivalent to \code{"by_group"} and \code{FALSE} to
@@ -208,7 +219,7 @@
 #'         category frequencies, not continuous values.
 #'   \item By default, \code{clique_size = 1} with \code{normalized = "none"} or
 #'         \code{"global"} is disallowed, because the statistic is then constant
-#'         under edge toggles and uninformative for ERGM fitting. This behavior
+#'         under edge toggles in the typical ERPM partition setting. This behavior
 #'         can be overridden (for advanced use) by setting:
 #'         \code{options(ERPM.allow.k1.nonnormalized = TRUE)}.
 #'   \item Debug logging for the initializer can be enabled via:
@@ -265,7 +276,7 @@
 #'   )
 #'
 #'   # -----------------------------------------------------------------------
-#'   # Example 3: targeted category, k=3, global normalization
+#'   # Example 3: targeted category, k=3, global normalization (by group size)
 #'   # -----------------------------------------------------------------------
 #'   summary(
 #'     nw ~ cov_match("grp", clique_size = 3,
@@ -360,7 +371,7 @@ InitErgmTerm.cov_match <- function(nw, arglist, ..., version = packageVersion("e
         ergm_Init_abort(
             sQuote(termname),
             ": cov_match(..., clique_size=1) avec normalized='", normalized,
-            "' est constant pour les fits ERGM. ",
+            "' est constant pour les fits ERGM dans le cadre partition. ",
             "Utilisez k>=2, normalized='by_group', ou offset(...). ",
             "Pour forcer: options(ERPM.allow.k1.nonnormalized=TRUE)."
         )
