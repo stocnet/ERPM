@@ -1,5 +1,5 @@
 /**
- * @file
+ * @file changestat_dyadcov.c
  * @brief Change statistic for the ERPM term `dyadcov` (one-toggle form).
  *
  * @details
@@ -51,17 +51,18 @@
  *  dyadic products (based on z_ij + z_ji) are summed.
  *
  *  ------------------------------------------------------------
- *  Normalised statistic
+ *  Normalised statistic (group-size normalisation)
  *  ------------------------------------------------------------
  *
- *  Let n_g = |A(g)| be the size of group g and let C(n_g, k) denote the
- *  binomial coefficient “n_g choose k”. The normalised version is:
+ *  Let n_g = |A(g)| be the size of group g. The normalised version now uses
+ *  a per-group factor 1 / n_g (rather than 1 / C(n_g, k)):
  *
  *      T_norm^{(k)}(p; Z) =
- *        ∑_g 1[n_g ≥ k] * (1 / C(n_g, k)) * S_g^{(k)}(Z).
+ *        ∑_g 1[n_g ≥ k] * (1 / n_g) * S_g^{(k)}(Z).
  *
- *  In other words, each group contribution is the average of the dyadic
- *  products over all k-cliques of actors in that group.
+ *  In other words, each group contribution is the clique-based sum S_g^{(k)}(Z)
+ *  divided by the size n_g of the group (and groups with n_g < k contribute 0
+ *  because S_g^{(k)}(Z) = 0 in that case).
  *
  *  ------------------------------------------------------------
  *  Implementation outline (one-toggle)
@@ -95,15 +96,16 @@
  *
  *              Δ = S_after − S_before.
  *
- *         - If normalised:
- *              - define C_before = C(n_g_before, k) if n_g_before ≥ k,
- *                                 0 otherwise,
- *                and  C_after  = C(n_g_after,  k) if n_g_after  ≥ k,
- *                                 0 otherwise,
- *              - define group-level averages:
+ *         - If normalised (group-size normalisation):
+ *              - define n_g_before and n_g_after as the actor counts before
+ *                and after the toggle,
+ *              - define group-level normalised values:
  *
- *                  T_before = S_before / C_before  if C_before > 0, else 0,
- *                  T_after  = S_after  / C_after   if C_after  > 0, else 0,
+ *                  T_before = (1[n_g_before ≥ k] / n_g_before) * S_before
+ *                  T_after  = (1[n_g_after  ≥ k] / n_g_after)  * S_after
+ *
+ *                with the convention that T_before/T_after are 0 if
+ *                n_g_before or n_g_after is 0 or < k,
  *
  *              - and the local change is:
  *
@@ -128,7 +130,7 @@
  *  where:
  *    - n1          = number of actors (size of actor mode),
  *    - k           = clique size (integer ≥ 2),
- *    - normalized  = 0 for raw sum, 1 for per-group normalisation,
+ *    - normalized  = 0 for raw sum, 1 for per-group normalisation 1/n_g,
  *    - Z           = numeric vector of length n1*n1 in column-major order.
  *
  *  At the C level the layout is:
@@ -184,7 +186,7 @@
  *  fit_raw <- erpm(partition ~ dyadcov(k = 3, cov = Z, normalized = FALSE))
  *  summary(fit_raw)
  *
- *  # Normalised version (per-group average over 3-cliques)
+ *  # Normalised version (per-group scaling by 1 / n_g on 3-cliques)
  *  fit_norm <- erpm(partition ~ dyadcov(k = 3, cov = Z, normalized = TRUE))
  *  summary(fit_norm)
  *
@@ -238,42 +240,8 @@
 #define UNUSED_WARNING(x) (void)x
 
 /* -------------------------------------------------------------------------- */
-/* Combinatorial helper: choose_double                                       */
-/* -------------------------------------------------------------------------- */
-
-/**
- * @brief Compute the binomial coefficient C(n, k) in double precision.
- *
- * @details
- *  Returns the binomial coefficient “n choose k” as a double:
- *
- *      C(n, k) = n! / (k! (n − k)!)
- *
- *  for integer arguments satisfying 0 ≤ k ≤ n. The implementation:
- *    - uses symmetry C(n, k) = C(n, n − k) to reduce k when k > n − k,
- *    - performs a stable multiplicative loop, suitable for moderate n.
- *
- * @param n Non-negative integer (size).
- * @param k Integer between 0 and n (inclusive).
- * @return C(n, k) as a double, or 0.0 if k < 0 or k > n.
- */
-static double choose_double(int n, int k){
-  if(k < 0 || k > n) return 0.0;
-  if(k == 0 || k == n) return 1.0;
-  if(k > n - k) k = n - k; /* symmetry: C(n, k) == C(n, n-k) */
-
-  double res = 1.0;
-  for(int i = 1; i <= k; i++){
-    res *= (double)(n - k + i);
-    res /= (double)i;
-  }
-  return res;
-}
-
-/* -------------------------------------------------------------------------- */
 /* Clique enumeration: sum_cliques_k                                         */
 /* -------------------------------------------------------------------------- */
-
 /**
  * @brief Sum over all k-cliques of actors inside a given group.
  *
@@ -475,9 +443,9 @@ static double group_dyadcov_k(Vertex g,
  *
  *  The local change Δ is then either:
  *    - S_after − S_before for the non-normalised statistic, or
- *    - (S_after / C_after) − (S_before / C_before) for the normalised statistic,
- *      where C_before and C_after are the appropriate binomial coefficients
- *      C(n_g_before, k) and C(n_g_after, k).
+ *    - (S_after / n_g_after) − (S_before / n_g_before) for the normalised
+ *      statistic, with both terms set to 0 when n_g_before or n_g_after is 0
+ *      or < k.
  *
  *  The result is accumulated into the single scalar statistic:
  *
@@ -515,7 +483,7 @@ C_CHANGESTAT_FN(c_dyadcov){
   const double *ip         = INPUT_PARAM;
   const int     n1         = (int)ip[0];  /* number of actors */
   int           k          = (int)ip[1];  /* clique size      */
-  const int     normalized = (int)ip[2];  /* 0 = raw, 1 = normalised */
+  const int     normalized = (int)ip[2];  /* 0 = raw, 1 = normalised (1/n_g) */
   const double *Z          = ip + 3;      /* dyadic covariate matrix */
 
 #if DEBUG_DYADCOV
@@ -559,12 +527,17 @@ C_CHANGESTAT_FN(c_dyadcov){
     /* Raw version: sum of clique products. */
     delta = S_after - S_before;
   } else {
-    /* Normalised version: average over k-cliques in the group. */
-    double C_before = (ng_before >= k) ? choose_double(ng_before, k) : 0.0;
-    double C_after  = (ng_after  >= k) ? choose_double(ng_after,  k) : 0.0;
+    /* Normalised version: group-size normalisation 1 / n_g. */
+    double T_before = 0.0;
+    double T_after  = 0.0;
 
-    double T_before = (C_before > 0.0) ? (S_before / C_before) : 0.0;
-    double T_after  = (C_after  > 0.0) ? (S_after  / C_after)  : 0.0;
+    if(ng_before >= k && ng_before > 0){
+      T_before = S_before / (double)ng_before;
+    }
+    if(ng_after >= k && ng_after > 0){
+      T_after = S_after / (double)ng_after;
+    }
+
     delta = T_after - T_before;
   }
 
