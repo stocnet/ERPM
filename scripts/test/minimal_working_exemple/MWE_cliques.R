@@ -9,7 +9,8 @@
 #
 # Résumé technique :
 #   • `cliques(k)` (k ≥ 1 ; k=1 = nombre de groupes de taille 1).
-#   • `normalized=TRUE` divise par C(N1,k), N1 = nb d’acteurs.
+#   • `normalized=TRUE` applique une normalisation par taille de groupe :
+#       somme_g C(n_g, k) / n_g (pour k=1, identique au cas brut).
 #   • Summary : formule directe `nw ~ cliques(...)`, contrainte `~ b1part`.
 #   • Fit : appel direct `erpm(partition ~ cliques(...), eval.loglik=TRUE)`.
 # ==============================================================================
@@ -53,8 +54,21 @@ expected_cliques_k1 <- function(part) {
   sum(sz == 1L)
 }
 expected_cliques_k1_norm <- function(part) {
-  num <- expected_cliques_k1(part)
-  num / length(part)
+  # Normalisation par taille de groupe : pour k=1, identique au cas brut
+  expected_cliques_k1(part)
+}
+
+# (optionnel) Référence analytique pour k = 2 :
+#   brut       : ∑_g C(n_g, 2)
+#   normalisé  : ∑_g C(n_g, 2) / n_g
+expected_cliques_k2 <- function(part) {
+  sz <- as.integer(table(part))
+  sum(choose(sz, 2))
+}
+expected_cliques_k2_norm <- function(part) {
+  sz <- as.integer(table(part))
+  contrib <- ifelse(sz > 0L, choose(sz, 2) / sz, 0)
+  sum(contrib)
 }
 
 # ==============================================================================
@@ -106,7 +120,7 @@ stopifnot(
                    tolerance = 1e-10))
 )
 
-# ----- Cas k = 2 : comme avant ------------------------------------------------
+# ----- Cas k = 2 : comme avant pour la version brute, normalisation modifiée --
 k <- 2L
 
 # Summary non normalisé
@@ -117,7 +131,7 @@ stat_summary_cliques_k2 <- summary(
 cat(sprintf("[summary] cliques(k=%d) = %s\n",
             k, paste0(as.numeric(stat_summary_cliques_k2), collapse = ", ")))
 
-# Summary normalisé
+# Summary normalisé (par taille de groupe : ∑_g C(n_g, 2) / n_g)
 stat_summary_cliques_k2_norm <- summary(
   nw ~ cliques(clique_size = k, normalized = TRUE),
   constraints = ~ b1part
@@ -128,6 +142,12 @@ cat(sprintf("[summary] cliques(k=%d, normalized=TRUE) = %s\n\n",
 # Garde-fous simples
 stopifnot(length(stat_summary_cliques_k2)      == 1L, is.finite(stat_summary_cliques_k2))
 stopifnot(length(stat_summary_cliques_k2_norm) == 1L, is.finite(stat_summary_cliques_k2_norm))
+
+# (optionnel) Vérification analytique de k = 2 (brut et normalisé)
+truth_k2      <- expected_cliques_k2(partition)
+truth_k2_norm <- expected_cliques_k2_norm(partition)
+cat(sprintf("[check] cliques(k=%d) brut attendu       = %s\n", k, truth_k2))
+cat(sprintf("[check] cliques(k=%d) normalisé attendu = %s\n\n", k, format(truth_k2_norm)))
 
 # ==============================================================================
 # 2) FIT ERPM logLik — appel direct et minimal

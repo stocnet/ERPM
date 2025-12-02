@@ -7,7 +7,7 @@
 #' k-actor cliques induced by group memberships. The bipartite network is
 #' interpreted as:
 #' \itemize{
-#'   \item an \emph{actor mode}, whose size is given by \code{nw %n% "bipartite"};
+#'   \item an \emph{actor mode}, whose size is given by \code{nw \%n\% "bipartite"};
 #'   \item a \emph{group mode}, consisting of the remaining nodes that represent
 #'         groups.
 #' }
@@ -32,9 +32,8 @@
 #'             (equivalently, the number of actors that belong to exactly one
 #'             singleton group in the projection semantics).
 #'     }
-#'   \item an optional normalization factor that scales \eqn{T_k(y)} by the
-#'         maximum possible \eqn{\binom{N_A}{k}}, where \eqn{N_A} is the
-#'         actor-mode size.
+#'   \item an optional group-size-based normalization that rescales \eqn{T_k(y)}
+#'         by the group sizes \eqn{n_g}.
 #' }
 #'
 #' @details
@@ -42,14 +41,14 @@
 #' compiled code under a symbol compatible with \code{name = "cliques"}. The R
 #' initializer:
 #' \itemize{
-#'   \item enforces that the network is bipartite via \code{nw %n% "bipartite"};
+#'   \item enforces that the network is bipartite via \code{nw \%n\% "bipartite"};
 #'   \item accepts one or several values of \code{k} (vectorized interface);
-#'   \item optionally applies a global normalization by \eqn{\binom{N_A}{k}};
-#'   \item packs \code{k} and the associated scaling factors into a compact
+#'   \item optionally applies a group-size-based normalization;
+#'   \item packs \code{k} and an internal scaling/flag parameter into a compact
 #'         \code{INPUT_PARAM} layout for the C layer.
 #' }
 #'
-#' Internally, the actor mode is identified by \code{nw %n% "bipartite"} and the
+#' Internally, the actor mode is identified by \code{nw \%n\% "bipartite"} and the
 #' group mode is defined as the complementary set of nodes. The C
 #' change-statistic only updates the group node(s) whose membership changes
 #' after a toggle, using an un-toggle computation on the degree of the affected
@@ -68,8 +67,14 @@
 #' where:
 #' \itemize{
 #'   \item \eqn{k_j} are the requested clique sizes;
-#'   \item \eqn{\text{scale}_j} is either 1 (non-normalized case) or
-#'         \eqn{1 / \binom{N_A}{k_j}} in the normalized case.
+#'   \item \eqn{\text{scale}_j} is a scalar used internally by the C layer:
+#'         \itemize{
+#'           \item \eqn{\text{scale}_j > 0} selects the raw statistic
+#'                 \eqn{T_k(y)};
+#'           \item \eqn{\text{scale}_j < 0} selects the group-size-normalized
+#'                 statistic described below (the C layer uses \eqn{|\text{scale}_j|}
+#'                 as an additional multiplicative factor).
+#'         }
 #' }
 #'
 #' @section Mathematical definition:
@@ -83,7 +88,7 @@
 #'         \eqn{g};
 #'   \item \eqn{n_g = |A_g|} the size of group \eqn{g}.
 #' }
-#' For a given integer \eqn{k \ge 1}, define
+#' For a given integer \eqn{k \ge 1}, define the raw statistic
 #' \deqn{
 #'   T_k(y)
 #'   =
@@ -92,15 +97,22 @@
 #' When \code{normalized = FALSE}, the ERGM term returns the vector
 #' \eqn{(T_{k_1}(y),\dots,T_{k_J}(y))} for all requested values \eqn{k_1,\dots,k_J}.
 #'
-#' When \code{normalized = TRUE}, let \eqn{N_A = |A|} be the actor-mode size and
-#' define the normalized statistic
+#' When \code{normalized = TRUE} and \eqn{k \ge 2}, the ERGM term returns the
+#' group-size-normalized statistic
 #' \deqn{
-#'   T_k^{\mathrm{norm}}(y)
+#'   T_k^{\mathrm{grp}}(y)
 #'   =
-#'   \frac{T_k(y)}{\binom{N_A}{k}}
+#'   \sum_{g \in G}
+#'   \frac{\binom{n_g}{k}}{n_g},
 #' }
-#' with the convention that \eqn{1 / \binom{N_A}{k} = 0} whenever
-#' \eqn{\binom{N_A}{k} = 0}, so that the corresponding contribution is zero.
+#' with the convention that the contribution of a group is zero whenever
+#' \eqn{n_g < k} or \eqn{n_g = 0}. For \eqn{k = 1}, we have
+#' \eqn{T_1^{\mathrm{grp}}(y) = T_1(y)}, since \eqn{n_g = 1} for contributing
+#' groups.
+#'
+#' Internally, the C implementation uses the sign of \code{scale_j} to select
+#' between the raw and group-size-normalized definitions, and the absolute value
+#' of \code{scale_j} as an additional multiplicative factor.
 #'
 #' @section Usage:
 #' Typical usage with {ergm} on a bipartite network \code{nw}:
@@ -108,7 +120,7 @@
 #'   # Count 2-actor cliques induced by groups
 #'   summary(nw ~ cliques(k = 2))
 #'
-#'   # Count 3-actor cliques, normalized by the maximum possible number
+#'   # Group-size-normalized 3-actor cliques
 #'   summary(nw ~ cliques(k = 3, normalized = TRUE))
 #'
 #'   # Vectorized k: 2-, 3- and 4-actor cliques in a single term
@@ -127,7 +139,7 @@
 #' @note
 #' The network must be strictly bipartite:
 #' \itemize{
-#'   \item the actor mode size is given by \code{nw %n% "bipartite"} and must be
+#'   \item the actor mode size is given by \code{nw \%n\% "bipartite"} and must be
 #'         a strictly positive integer;
 #'   \item the group mode consists of the remaining nodes and represents groups;
 #'   \item the \code{cliques} term only depends on degrees of group-mode nodes
@@ -165,12 +177,12 @@
 #'   adj[1, 7] <- adj[7, 1] <- 1
 #'
 #'   nw <- network(adj, directed = FALSE, matrix.type = "adjacency")
-#'   nw %n% "bipartite" <- n_actors  # actor mode size
+#'   nw \%n\% "bipartite" <- n_actors  # actor mode size
 #'
 #'   # Inspect the number of 2-actor and 3-actor cliques
 #'   summary(nw ~ cliques(k = c(2, 3)))
 #'
-#'   # Normalized version for k = 2
+#'   # Group-size-normalized version for k = 2
 #'   summary(nw ~ cliques(k = 2, normalized = TRUE))
 #'
 #'   # Fit a simple ERGM with the term
@@ -190,7 +202,7 @@
 #' Additional checks verify that:
 #' \itemize{
 #'   \item the normalized version matches
-#'         \eqn{\sum_{g} \binom{n_g}{k} / \binom{N_A}{k}} for each \eqn{k};
+#'         \eqn{\sum_{g} \binom{n_g}{k} / n_g} for each \eqn{k \ge 2};
 #'   \item toggling an actor–group tie changes the statistic by exactly the
 #'         increment implied by the local change in the size of the affected
 #'         group(s);
@@ -259,21 +271,21 @@ InitErgmTerm.cliques <- function(nw, arglist, ..., version = packageVersion("erg
   if (length(nz) != 1L || is.na(nz))
     ergm_Init_stop(sQuote(termname), ": 'normalized' must be a scalar boolean.")
 
-  # Compute normalization factors:
-  # - if normalized = FALSE: scale = 1;
-  # - if normalized = TRUE : scale = 1 / choose(N_A, k),
-  #   with protection against zero denominators (for k = 1, denom = N_A).
+  # Prepare scaling / mode flags for the C layer:
+  # - if normalized = FALSE: scale_j > 0 (raw T_k statistic);
+  # - if normalized = TRUE : scale_j < 0 (group-size-normalized statistic),
+  #   with the absolute value used as an extra multiplicative factor.
   scale <- rep(1, length(k))
   if (isTRUE(nz)) {
-    denom <- choose(n1, k)              # also valid for k = 1 (denom = N_A)
-    denom[denom == 0 | is.na(denom)] <- Inf
-    scale <- 1 / denom
+    # Here we simply encode the "normalized by group size" mode via a negative
+    # scale, with |scale| = 1. This keeps the INPUT_PARAM layout unchanged.
+    scale <- rep(-1, length(k))
   }
 
   # Build coefficient names and INPUT_PARAM for the C layer:
   # - one coefficient per k;
   # - INPUT_PARAM = (k_1, scale_1, k_2, scale_2, ...).
-  coef.names <- if (isTRUE(nz)) paste0("cliques_k", k, "_norm") else paste0("cliques_k", k)
+  coef.names <- if (isTRUE(nz)) paste0("cliques_k", k, "_grp") else paste0("cliques_k", k)
   inputs <- c(rbind(as.integer(k), as.double(scale)))
 
   # Return the ERGM term specification expected by {ergm}.
