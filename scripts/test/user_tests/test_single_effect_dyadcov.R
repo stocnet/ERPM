@@ -34,12 +34,12 @@ partition_singleton <- c(1, 2, 3, 4, 5, 6)
 
 # ----- Dyadic covariates (6 x 6) ------------------------------------------------------
 block_att <- matrix(
-  c(0, 1, 1, 0, 0, 0,
-    1, 0, 1, 0, 0, 0,
-    1, 1, 0, 0, 0, 0,
-    0, 0, 0, 0, 1, 1,
-    0, 0, 0, 1, 0, 1,
-    0, 0, 0, 1, 1, 0),
+  c(1, 1, 1, 0, 0, 0,
+    1, 1, 1, 0, 0, 0,
+    1, 1, 1, 0, 0, 0,
+    0, 0, 0, 1, 1, 1,
+    0, 0, 0, 1, 1, 1,
+    0, 0, 0, 1, 1, 1),
   nrow = 6, byrow = TRUE
 )
 
@@ -136,6 +136,42 @@ print(summary(dry[[2]], constraints = ~ b1part))
 # attendu: 0
 
 
+# option test - clique_size=3
+dry <- erpm(partition_mix ~ dyadcov("block_att", clique_size=3), 
+            dyads = nets_df,
+            eval_call = FALSE, verbose = TRUE)
+print(summary(dry[[2]], constraints = ~ b1part)) # should be 1x2^3=8 
+dry <- erpm(partition_balanced ~ dyadcov("block_att", clique_size=3), 
+            dyads = nets_df,
+            eval_call = FALSE, verbose = TRUE)
+print(summary(dry[[2]], constraints = ~ b1part)) # should be 0 
+dry <- erpm(partition_full ~ dyadcov("block_att", clique_size=3), 
+            dyads = nets_df,
+            eval_call = FALSE, verbose = TRUE)
+print(summary(dry[[2]], constraints = ~ b1part)) # should be 2x2^3=16
+dry <- erpm(partition_singleton ~ dyadcov("block_att", clique_size=3), 
+            dyads = nets_df,
+            eval_call = FALSE, verbose = TRUE)
+print(summary(dry[[2]], constraints = ~ b1part)) # should be 0 
+
+# option test - clique_size=3
+dry <- erpm(partition_mix ~ dyadcov("block_att", clique_size=2, normalized=T), 
+            dyads = nets_df,
+            eval_call = FALSE, verbose = TRUE)
+print(summary(dry[[2]], constraints = ~ b1part)) # should be 2/2+6/3=2
+dry <- erpm(partition_balanced ~ dyadcov("block_att", clique_size=2, normalized=T), 
+            dyads = nets_df,
+            eval_call = FALSE, verbose = TRUE)
+print(summary(dry[[2]], constraints = ~ b1part)) # should be 2/2+0+2/2=2 -> error??
+dry <- erpm(partition_full ~ dyadcov("block_att", clique_size=2, normalized=T), 
+            dyads = nets_df,
+            eval_call = FALSE, verbose = TRUE)
+print(summary(dry[[2]], constraints = ~ b1part)) # should be 12/6=2
+dry <- erpm(partition_singleton ~ dyadcov("block_att", clique_size=2, normalized=T), 
+            dyads = nets_df,
+            eval_call = FALSE, verbose = TRUE)
+print(summary(dry[[2]], constraints = ~ b1part)) # should be 0 
+
 # ======================================================================================
 # 2) FIT MODEL — comparaison ergm vs erpm
 # ======================================================================================
@@ -178,6 +214,33 @@ fit_erpm <- erpm(
   partition_balanced ~ dyadcov("block_att", clique_size = 2, normalized = FALSE),
 #   estimate = "MLE",
 #   control  = ctrl_A,
+  verbose = TRUE,
+  dyads    = nets_df
+)
+print(summary(fit_erpm))
+
+cat("Différence des coefficients (ergm - erpm) :\n")
+print(fit_ergm$coefficients[1] - fit_erpm$coefficients[1])
+# attendu: ≈ 0 si les chemins d'estimation et la définition de la stat coïncident
+
+# option case
+set.seed(1)
+nw <- make_nw_from_partition(partition_balanced, nets_df)
+
+fit_ergm <- ergm(
+  nw ~ dyadcov("block_att", clique_size = 3, normalized = FALSE),
+     estimate    = "MLE",
+     control     = ctrl_A,
+  verbose = TRUE,
+  constraints = ~ b1part
+)
+print(summary(fit_ergm))
+
+set.seed(1)
+fit_erpm <- erpm(
+  partition_balanced ~ dyadcov("block_att", clique_size =3, normalized = FALSE),
+     estimate = "MLE",
+     control  = ctrl_A,
   verbose = TRUE,
   dyads    = nets_df
 )
