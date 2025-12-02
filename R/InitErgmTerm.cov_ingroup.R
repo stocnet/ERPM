@@ -23,7 +23,7 @@
 
 #' ERGM term: cov_ingroup (group-size weighted covariate sums)
 #'
-#' @file InitErgmTerm.cov_ingroup.R
+#' @note InitErgmTerm.cov_ingroup.R
 #'
 #' @description
 #' \code{cov_ingroup} is an ERGM term for bipartite networks that aggregates
@@ -105,7 +105,7 @@
 #' @section INPUT_PARAM layout (C side):
 #' The numeric vector passed to \code{c_cov_ingroup} has the following layout:
 #'
-#' @code{
+#' \preformatted{
 #'   INPUT_PARAM = c(
 #'     n1,          # actor-mode size |A|
 #'     L,           # number of sizes in S (length(size))
@@ -115,7 +115,7 @@
 #' }
 #'
 #' The C code reconstructs:
-
+#'
 #' \itemize{
 #'   \item the actor-mode size \eqn{n_1};
 #'   \item the set \eqn{S} of admissible group sizes;
@@ -127,7 +127,7 @@
 #' @section Usage:
 #' The user-facing term is:
 #'
-#' @code{
+#' \preformatted{
 #'   cov_ingroup(cov,
 #'               size     = NULL,
 #'               category = NULL)
@@ -231,7 +231,7 @@
 #'   adj[4, 6] <- adj[6, 4] <- 1
 #'
 #'   nw <- network(adj, directed = FALSE, matrix.type = "adjacency")
-#'   nw %n% "bipartite" <- n_actors  # actor-mode size
+#'   nw \%n\% "bipartite" <- n_actors  # actor-mode size
 #'
 #'   # Numeric actor covariate (e.g. age)
 #'   age <- c(25, 30, 28, 40)
@@ -269,7 +269,7 @@
 #'   summary(fit)
 #' }
 #'
-#' @test
+#' @section Tests:
 #' Self-tests for \code{cov_ingroup} (not shown here) typically:
 #' \itemize{
 #'   \item build small bipartite networks with a known partition of actors into

@@ -1,13 +1,13 @@
 #' ERGM term: cov_fullmatch (group-level unanimity)
 #'
-#' @file InitErgmTerm.cov_fullmatch.R
+#' @note InitErgmTerm.cov_fullmatch.R
 #'
 #' @description
 #' \code{cov_fullmatch} is an ERGM term for bipartite networks that counts
 #' groups whose actors are unanimously homogeneous on a categorical covariate.
 #' The bipartite network is interpreted as:
 #' \itemize{
-#'   \item an \emph{actor mode} (the side identified by \code{nw %n% "bipartite"});
+#'   \item an \emph{actor mode} (the side identified by \code{nw \%n\% "bipartite"});
 #'   \item a \emph{group mode} (the complementary side that represents groups).
 #' }
 #'
@@ -23,7 +23,7 @@
 #' compiled code under a symbol compatible with \code{name = "cov_fullmatch"}.
 #' The R initializer below:
 #' \itemize{
-#'   \item enforces that the network is bipartite via \code{nw %n% "bipartite"};
+#'   \item enforces that the network is bipartite via \code{nw \%n\% "bipartite"};
 #'   \item extracts and encodes a covariate on the actor mode as integer
 #'         categories \eqn{1,\dots,K}, failing fast on \code{NA};
 #'   \item normalizes the optional \code{size} filter into a sorted set
@@ -104,7 +104,7 @@
 #' @note
 #' The network must be strictly bipartite:
 #' \itemize{
-#'   \item the actor mode size is identified by \code{nw %n% "bipartite"} and
+#'   \item the actor mode size is identified by \code{nw \%n\% "bipartite"} and
 #'         must be a positive integer;
 #'   \item the group mode is the complementary set of nodes;
 #'   \item the term assumes that the bipartite structure encodes actor–group
@@ -141,7 +141,7 @@
 #'   # Group 7 is empty
 #'
 #'   nw <- network(adj, directed = FALSE, matrix.type = "adjacency")
-#'   nw %n% "bipartite" <- n_actors  # actor mode size
+#'   nw \%n\% "bipartite" <- n_actors  # actor mode size
 #'
 #'   # Add a categorical covariate on the actor mode
 #'   cov_attr <- c("A", "A", "B", "B")
@@ -151,7 +151,7 @@
 #'   summary(nw ~ cov_fullmatch(cov = "cov_attr"))
 #'
 #'   # Only count groups unanimously "A"
-' *   summary(nw ~ cov_fullmatch(cov = "cov_attr", category = "A"))
+#'   summary(nw ~ cov_fullmatch(cov = "cov_attr", category = "A"))
 #'
 #'   # Only count groups of size exactly 2
 #'   summary(nw ~ cov_fullmatch(cov = "cov_attr", size = 2))
@@ -161,7 +161,7 @@
 #'   summary(fit)
 #' }
 #'
-#' @test
+#' @section Tests:
 #' Self-tests for \code{cov_fullmatch} construct small bipartite networks with
 #' known group memberships and covariate patterns, and compare:
 #' \itemize{

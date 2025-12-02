@@ -15,7 +15,7 @@
 
 #' ERGM term: dyadcov_full (within-group dyadic covariate sums)
 #'
-#' @file InitErgmTerm.dyadcov_full.R
+#' @note InitErgmTerm.dyadcov_full.R
 #'
 #' @description
 #' \code{dyadcov_full} is an ERGM term for bipartite networks that aggregates a
@@ -43,7 +43,7 @@
 #'
 #' The statistic implemented by \code{dyadcov_full} is:
 #'
-#' @code{
+#' \preformatted{
 #'   T(p; Z, S) =
 #'     sum_g 1[n_g in S] * sum_{i != j, i,j in g} z_{ij},
 #' }
@@ -78,7 +78,7 @@
 #' \code{c_dyadcov_full}. The R initializer below packages the following into
 #' the numeric \code{INPUT_PARAM} vector:
 #'
-#' @code{
+#' \preformatted{
 #'   INPUT_PARAM = c(
 #'     n1,             # actor-mode size
 #'     L,              # number of targeted group sizes (length of S)
@@ -190,7 +190,7 @@
 #'   )
 #' }
 #'
-#' @test
+#' @note
 #' Self-tests for \code{dyadcov_full} (not shown here) typically:
 #' \itemize{
 #'   \item construct small bipartite networks with a known partition of actors
@@ -207,7 +207,6 @@
 #' }
 #'
 #' @keywords ERGM term bipartite dyadic covariate group-sum
-#' @md
 InitErgmTerm.dyadcov_full <- function(nw, arglist, ...) {
   termname <- "dyadcov_full"
 

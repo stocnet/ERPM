@@ -1,6 +1,6 @@
 #' ERGM term: cov_diff_GW (geometrically weighted range over k-actor subsets)
 #'
-#' @file InitErgmTerm.cov_diff_GW.R
+#' @note InitErgmTerm.cov_diff_GW.R
 #'
 #' @description
 #' \code{cov_diff_GW} is an ERGM term for bipartite networks that builds a
@@ -8,7 +8,7 @@
 #' all subset sizes \eqn{k \ge 2} inside each group. The bipartite network is
 #' interpreted as:
 #' \itemize{
-#'   \item an \emph{actor mode} (the side identified by \code{nw %n% "bipartite"});
+#'   \item an \emph{actor mode} (the side identified by \code{nw \%n\% "bipartite"});
 #'   \item a \emph{group mode} (the complementary side, representing groups).
 #' }
 #'
@@ -36,7 +36,7 @@
 #' compiled code under a symbol compatible with \code{name = "cov_diff_GW"}.
 #' The R initializer below:
 #' \itemize{
-#'   \item enforces that the network is bipartite via \code{nw %n% "bipartite"};
+#'   \item enforces that the network is bipartite via \code{nw \%n\% "bipartite"};
 #'   \item extracts an actor-level covariate from a vertex attribute or from a
 #'         literal vector, coercing it to numeric and failing fast on \code{NA};
 #'   \item normalizes the \code{lambda} argument into a numeric vector with all
@@ -136,7 +136,7 @@
 #' @note
 #' The network must be strictly bipartite:
 #' \itemize{
-#'   \item the actor mode size is given by \code{nw %n% "bipartite"} and must be
+#'   \item the actor mode size is given by \code{nw \%n\% "bipartite"} and must be
 #'         a positive integer;
 #'   \item the group mode is the complementary set of nodes;
 #'   \item the covariate is read on the actor mode only.
@@ -178,7 +178,7 @@
 #'   adj[4, 6] <- adj[6, 4] <- 1
 #'
 #'   nw <- network(adj, directed = FALSE, matrix.type = "adjacency")
-#'   nw %n% "bipartite" <- n_actors  # actor mode size
+#'   nw \%n\% "bipartite" <- n_actors  # actor mode size
 #'
 #'   # Numeric covariate on the actor mode
 #'   x_attr <- c(1.0, 3.0, 5.0, 10.0)
@@ -195,7 +195,7 @@
 #'   summary(fit)
 #' }
 #'
-#' @test
+#' @section Tests:
 #' Self-tests for \code{cov_diff_GW} construct small bipartite networks with
 #' known groups and numeric covariates and compare, for each \code{lambda},
 #' \itemize{

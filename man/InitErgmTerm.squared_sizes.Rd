@@ -2,38 +2,184 @@
 % Please edit documentation in R/InitErgmTerm.squared_sizes.R
 \name{InitErgmTerm.squared_sizes}
 \alias{InitErgmTerm.squared_sizes}
-\title{Somme des puissances des tailles de groupes}
+\title{ERGM term: squared_sizes (group-mode degrees raised to a power)}
 \usage{
 InitErgmTerm.squared_sizes(nw, arglist, ..., version = packageVersion("ergm"))
 }
 \arguments{
-\item{from}{\code{numeric} entier(s) ≥ 0, borne(s) inférieure(s) incluse(s). Défaut : \code{1}.}
+\item{sizes}{numeric, integer(s) \eqn{\ge 1}. Admissible group sizes.
+If \code{sizes} is \code{NULL} or missing, it defaults to
+\code{1:network.bipartite(nw)}, i.e. all non-empty group sizes up to the
+number of actors. Can be a scalar or a vector; all values are aggregated
+into a \emph{single} statistic.}
 
-\item{to}{\code{numeric} entier(s), borne(s) supérieure(s) exclusive(s). \code{Inf} autorisé. Défaut : \code{Inf}.}
-
-\item{pow}{\code{numeric} entier(s) ≥ 1, puissance(s) appliquée(s) au degré. Défaut : \code{2}.}
+\item{pow}{numeric, integer \eqn{\ge 1}. Power applied to the group
+degrees. Defaults to \code{2}. Must be of length 1; the same exponent is
+applied to all sizes in \code{sizes}.}
 }
 \value{
-Liste d'initialisation pour {ergm}.
+A standard {ergm} term initialization list with components:
+\itemize{
+\item \code{name}         = \code{"squared_sizes"};
+\item \code{coef.names}   = a single character string encoding the set
+of sizes and the power;
+\item \code{inputs}       = numeric vector
+\code{c(pow, length(sizes), sizes)};
+\item \code{dependence}   = \code{TRUE};
+\item \code{emptynwstats} = scalar \code{0}.
+}
 }
 \description{
-Calcule la somme, sur les nœuds du \strong{mode 2} (groupes) uniquement,
-de \code{deg^pow} pour les nœuds dont le degré \code{deg} appartient à l'intervalle
-\code{[from, to)}. Par défaut, tous les groupes sont inclus avec \code{pow = 2}.
+\code{squared_sizes} is an ERGM term for bipartite networks that aggregates
+powers of group sizes. The network is interpreted as:
+\itemize{
+\item an \emph{actor mode} (the side identified by \code{nw \%n\% "bipartite"});
+\item a \emph{group mode} (the complementary side of the bipartite graph).
+}
+
+For each node in the group mode with degree \eqn{\deg(g)} (number of adjacent
+actors), the term can accumulate contributions of the form
+\deqn{
+  \deg(g)^{\text{pow}},
+}
+restricted to a set of admissible group sizes. The argument \code{sizes}
+specifies a (possibly multi-valued) set of group sizes over which the
+contributions are aggregated into a single statistic.
 }
 \details{
-ERGM term: squared_sizes
-
-Le réseau doit être biparti \{mode1=acteurs\}–\{mode2=groupes\}. La taille d'un groupe
-est le degré du nœud correspondant dans le mode 2. Le terme est vectorisable :
-on peut fournir plusieurs intervalles \code{from/to} et puissances \code{pow}.
+The term is implemented as a native ERGM C change-statistic, declared in the
+compiled code under the name \code{c_squared_sizes}. The R initializer:
+\itemize{
+\item enforces that the network is bipartite (actor mode vs group mode);
+\item parses the user arguments \code{sizes} and \code{pow};
+\item checks that \code{sizes} are integer group sizes \eqn{\ge 1};
+\item checks that \code{pow} is a single integer and at least 1;
+\item builds a compact \code{inputs} vector for the C code encoding:
+\code{pow}, the number of admissible sizes, then the list of sizes.
 }
+
+The ERGM infrastructure will call the C change-statistic whenever a toggle
+affects an actor–group edge. On the C side, the code is responsible for
+updating the scalar statistic based on how the degrees of group-mode
+nodes change.
+}
+\note{
+InitErgmTerm.squared_sizes.R
+
+\itemize{
+\item The network must be bipartite and interpreted as actors versus groups.
+\item The actor mode is identified by \code{nw \%n\% "bipartite"}.
+\item The group mode is the complement of the actor mode.
+\item The initializer enforces bipartiteness via \code{check.ErgmTerm(..., bipartite = TRUE)}.
+\item The term is declared as dependent (\code{dependence = TRUE}), since it
+depends on the current pattern of actor–group memberships.
+}
+
+Self-tests for \code{squared_sizes} construct small bipartite networks with
+known group degrees and compare:
+\itemize{
+\item the ERGM summary \code{summary(nw ~ squared_sizes(...), constraints = ~ b1part)};
+\item a direct computation of
+\code{sum( (deg_g \%in\% sizes) * deg_g^pow )};
+}
+They also verify that toggling a single actor–group edge changes the
+statistic \eqn{T(y)} by the expected local increment, in agreement with
+the C change-statistic \code{c_squared_sizes}.
+}
+\section{Mathematical definition}{
+
+Let:
+\itemize{
+\item \eqn{A} denote the set of actor-mode nodes;
+\item \eqn{G} denote the set of group-mode nodes;
+\item \eqn{y} the adjacency matrix between actors and groups;
+\item \eqn{\deg(g)} the degree of group node \eqn{g \in G}, i.e. the number
+of actors in that group;
+\item \eqn{S} the set of admissible group sizes specified by \code{sizes}.
+}
+For a given pair \code{(sizes, pow)}, the statistic is
+\deqn{
+  T(y)
+  =
+  \sum_{g \in G}
+    \mathbf{1}\big[\deg(g) \in S\big]\,
+    \deg(g)^{\text{pow}}.
+}
+When \code{sizes} is left unspecified, it defaults to all admissible
+group sizes \eqn{1, 2, \dots, n_1}, where \eqn{n_1} is the actor-mode size,
+so that \eqn{T(y) = \sum_{g \in G} \deg(g)^{\text{pow}}}.
+}
+
+\section{Usage}{
+
+Typical usage with {ergm} (constraints explicit):
+\preformatted{
+  # Sum of squared group sizes over all non-empty groups
+  summary(nw ~ squared_sizes, constraints = ~ b1part)
+
+  # Sum of cubic sizes over groups of size 2 only
+  summary(
+    nw ~ squared_sizes(sizes = 2, pow = 3),
+    constraints = ~ b1part
+  )
+
+  # Single statistic aggregating groups of size 1 or 5 (squared sizes)
+  summary(
+    nw ~ squared_sizes(sizes = c(1, 5), pow = 2),
+    constraints = ~ b1part
+  )
+}
+
+When using the ERPM wrapper:
+\preformatted{
+  # On an explicit bipartite network
+  erpm(nw ~ squared_sizes)
+
+  # From a partition vector (actor -> group id)
+  erpm(partition ~ squared_sizes)
+}
+}
+
 \examples{
 \dontrun{
-  # Tous les groupes, somme des carrés des tailles
-  summary(nw ~ squared_sizes + b1part)
+  library(network)
+  library(ergm)
 
-  # Groupes de taille 2 à 4, puissance 3
-  summary(nw ~ squared_sizes(from=2, to=5, pow=3) + b1part)
+  # Build a small bipartite network: 4 actors, 3 groups
+  n_actors <- 4
+  n_groups <- 3
+  n_total  <- n_actors + n_groups
+
+  adj <- matrix(0, n_total, n_total)
+  # Actors = 1..4, Groups = 5..7
+  adj[1, 5] <- adj[5, 1] <- 1
+  adj[2, 5] <- adj[5, 2] <- 1
+  adj[3, 6] <- adj[6, 3] <- 1
+  adj[4, 6] <- adj[6, 4] <- 1
+  # Group 7 remains empty
+
+  nw <- network(adj, directed = FALSE, matrix.type = "adjacency")
+  nw \%n\% "bipartite" <- n_actors  # actor-mode size
+
+  # Sum of squared group sizes over all non-empty groups
+  summary(nw ~ squared_sizes, constraints = ~ b1part)
+
+  # Single statistic: squared sizes for groups of size 1 or 3
+  summary(
+    nw ~ squared_sizes(sizes = c(1, 3),
+                       pow   = 2),
+    constraints = ~ b1part
+  )
+
+  # ERGM fit using squared_sizes
+  fit <- ergm(nw ~ squared_sizes, constraints = ~ b1part)
+  summary(fit)
 }
+
 }
+\keyword{ERGM}
+\keyword{bipartite}
+\keyword{degree}
+\keyword{groups}
+\keyword{power}
+\keyword{term}

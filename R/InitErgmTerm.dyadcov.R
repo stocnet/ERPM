@@ -6,7 +6,7 @@
 
 #' ERGM term: dyadcov (clique-based dyadic covariate)
 #'
-#' @file InitErgmTerm.dyadcov.R
+#' @note InitErgmTerm.dyadcov.R
 #'
 #' @description
 #' \code{dyadcov} is an ERGM term for bipartite networks that aggregates a
@@ -20,8 +20,8 @@
 #' For each group node in the group mode, we consider the set of adjacent actors
 #' and all \eqn{k}-cliques of actors within that group. For a given clique
 #' \eqn{C} of size \eqn{k}, the contribution is the product of dyadic covariates
-#' over all actor pairs in the clique. For each unordered pair \(\{i,j\}\) with
-#' \(i<j\), the term uses the sum of both orientations:
+#' over all actor pairs in the clique. For each unordered pair \eqn{\{i,j\}} with
+#' \eqn{i<j}, the term uses the sum of both orientations:
 #' \deqn{
 #'   \prod_{i<j,\, i,j \in C} (z_{ij} + z_{ji}).
 #' }
@@ -53,17 +53,17 @@
 #'   \item parses \code{normalized} into a logical flag.
 #' }
 #'
+#' @section Core statistic:
 #' The core statistic (for a fixed \eqn{k} and scalar \code{normalized}) can be
 #' written in terms of the partition \eqn{p} and the dyadic covariate \eqn{Z}:
 #'
-#' @code
 #'   - normalized = FALSE :
 #'       T^{(k)}(p; Z)
 #'         = sum_g sum_{C in C_k(g)} prod_{i<j in C} (z_{ij} + z_{ji})
 #'
 #'   - normalized = TRUE :
 #'       T^{(k)}_norm(p; Z)
-#'         = sum_g 1[n_g >= k] * (1 / n_g) *
+#'         = sum_g 1(n_g >= k) * (1 / n_g) *
 #'             sum_{C in C_k(g)} prod_{i<j in C} (z_{ij} + z_{ji})
 #'
 #' where:
@@ -212,7 +212,7 @@
 #'   # erpm(nw ~ dyadcov("Z_example", clique_size = 2))
 #' }
 #'
-#' @test
+#' @section Tests:
 #' Self-tests for \code{dyadcov} (not shown here) typically:
 #' \itemize{
 #'   \item build small bipartite networks with a known partition of actors into
@@ -221,7 +221,7 @@
 #'         products can be computed analytically using \code{z_ij + z_ji};
 #'   \item compare \code{summary(nw ~ dyadcov(...), constraints = ~ b1part)} with
 #'         a direct implementation of
-#'         \code{sum_g 1[n_g >= k] / n_g * sum_{C in C_k(g)} prod_{i<j in C}(Z[i,j]+Z[j,i])}
+#'         \code{sum_g 1(n_g >= k) / n_g * sum_{C in C_k(g)} prod_{i<j in C}(Z[i,j]+Z[j,i])}
 #'         (raw or normalized);
 #'   \item verify that toggling a single actor–group edge changes the statistic
 #'         by the local difference between the "before" and "after" clique sums
@@ -231,6 +231,7 @@
 #'
 #' @keywords ERGM term bipartite dyadic covariate cliques
 #' @md
+
 InitErgmTerm.dyadcov <- function(nw, arglist, ...) {
   termname <- "dyadcov"
 

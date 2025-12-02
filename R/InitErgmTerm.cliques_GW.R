@@ -1,6 +1,6 @@
 #' ERGM term: cliques_GW (geometrically weighted group sizes)
 #'
-#' @file InitErgmTerm.cliques_GW.R
+#' @note InitErgmTerm.cliques_GW.R
 #'
 #' @description
 #' \code{cliques_GW} is an ERGM term for bipartite actor–group networks that
@@ -167,7 +167,7 @@
 #'   summary(fit)
 #' }
 #'
-#' @test
+#' @section Tests:
 #' Self-tests for \code{cliques_GW} construct small bipartite actor–group
 #' networks with known group sizes, then:
 #' \itemize{

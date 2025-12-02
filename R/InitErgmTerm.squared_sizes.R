@@ -7,7 +7,7 @@
 
 #' ERGM term: squared_sizes (group-mode degrees raised to a power)
 #'
-#' @file InitErgmTerm.squared_sizes.R
+#' @note InitErgmTerm.squared_sizes.R
 #'
 #' @description
 #' \code{squared_sizes} is an ERGM term for bipartite networks that aggregates
@@ -160,7 +160,7 @@
 #'   summary(fit)
 #' }
 #'
-#' @test
+#' @note
 #' Self-tests for \code{squared_sizes} construct small bipartite networks with
 #' known group degrees and compare:
 #' \itemize{

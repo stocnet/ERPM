@@ -24,7 +24,7 @@
 
 #' ERGM term: cov_match_GW (geometrically weighted monochromatic cliques)
 #'
-#' @file InitErgmTerm.cov_match_GW.R
+#' @note InitErgmTerm.cov_match_GW.R
 #'
 #' @description
 #' \code{cov_match_GW} is an ERGM term for bipartite networks that applies a
@@ -134,7 +134,7 @@
 #' @section INPUT_PARAM layout (C side):
 #' The numeric input vector passed to \code{c_cov_match_GW} is:
 #'
-#' @code{
+#' \preformatted{
 #'   INPUT_PARAM = c(
 #'     n1,          # actor-mode size |A|
 #'     K,           # number of distinct lambda values
@@ -155,7 +155,7 @@
 #' The initializer is called internally by {ergm} and should not be invoked
 #' directly by users. The user-facing term is:
 #'
-#' @code{
+#' \preformatted{
 #'   cov_match_GW(cov,
 #'                lambda     = 2,
 #'                category   = NULL,
@@ -288,7 +288,7 @@
 #'   summary(fit)
 #' }
 #'
-#' @test
+#' @section Tests:
 #' Self-tests for \code{cov_match_GW} (not shown here) typically:
 #' \itemize{
 #'   \item construct small bipartite networks with a known actor partition

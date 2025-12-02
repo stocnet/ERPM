@@ -1,6 +1,6 @@
 #' ERPM wrapper: translate ERPM formulas to {ergm} calls and optionally fit
-#'
-#' @file erpm_wrapper.R
+#' @name erpm_wrapper
+#' @note erpm_wrapper.R
 #' @description
 #' This module provides a thin wrapper around {ergm} to:
 #' \enumerate{
@@ -37,12 +37,12 @@
 #'   print(call_only)
 #' }
 #'
-#' @test
+#' @note
 #' The main wrapper is exercised in self-tests and MWEs under \code{scripts/test}
 #' by comparing ERPM-based fits to direct {ergm} calls on constructed bipartite networks.
 #'
 #' @keywords ERPM ERGM wrapper bipartite translation
-#' @md
+
 if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
 
   # ============================================================================
@@ -65,7 +65,7 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   #' This is a small utility for readability; it does not introduce any new
   #' semantics beyond a standard `if (is.null(a)) b else a`.
   #'
-  #' @test
+  #' @note
   #' See tests where wrapper options are normalized using `%||%`.
   #' @keywords internal
   `%||%` <- function(a, b) if (!is.null(a)) a else b
@@ -83,7 +83,7 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   #' @note
   #' Width cutoff is fixed at 500L to reduce line breaks when deparsing formulas.
   #'
-  #' @test
+  #' @note
   #' Used in logging inside \code{erpm()} for user-facing messages.
   #' @keywords internal
   .oneline <- function(x) paste(deparse(x, width.cutoff = 500L), collapse = " ")
@@ -102,7 +102,7 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   #' Unlike a simple trimming, this removes \emph{all} whitespace tokens.
   #' This matches the current behavior of the ERPM logging format.
   #'
-  #' @test
+  #' @note
   #' Checked implicitly by tests that compare log messages in error paths.
   #' @keywords internal
   .tight <- function(s) gsub("\\s+", "", s)
@@ -123,7 +123,7 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   #' This helper is currently not used inside this file but kept for potential
   #' future sanity checks on user-supplied networks.
   #'
-  #' @test
+  #' @note
   #' May be exercised in higher-level tests that inspect pre-built networks.
   #' @keywords internal
   # is_bipartite_network <- function(x) {
@@ -152,7 +152,7 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   #' The aliases include "label", "nom", "name", and "id" to be robust
   #' to typical naming patterns in user data.
   #'
-  #' @test
+  #' @note
   #' `build_bipartite_from_inputs()` indirectly tests this helper by using
   #' various node input configurations.
   #' @keywords internal
@@ -183,7 +183,7 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   #' The label column is chosen using \code{.get_label_col()} and may be NULL
   #' if no reasonable candidate is found.
   #'
-  #' @test
+  #' @note
   #' Used by \code{build_bipartite_from_inputs()} when validating node inputs.
   #' @keywords internal
   .check_nodes_df <- function(nodes) {
@@ -217,7 +217,7 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   #' This helper does not attach the matrices; it only validates their shape
   #' and naming. Attachment is performed in \code{build_bipartite_from_inputs()}.
   #'
-  #' @test
+  #' @note
   #' Tested indirectly by ERPM self-tests using dyadic covariates.
   #' @keywords internal
   .check_dyads <- function(dyads, n, labels) {
@@ -256,7 +256,7 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   #' This function is not exported. It is used internally by
   #' \code{build_bipartite_from_inputs()}.
   #'
-  #' @test
+  #' @note
   #' The content of the usage message is not asserted, but calls from
   #' invalid inputs should raise an error including the provided \code{msg}.
   #' @keywords internal
@@ -331,7 +331,7 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   #' The bipartite attribute is set to \code{n} so that \code{constraints = ~ b1part}
   #' is meaningful for {ergm}.
   #'
-  #' @test
+  #' @note
   #' Self-tests construct bipartite networks from partitions and compare their
   #' summaries to reference partitions.
   #' @keywords internal
@@ -465,7 +465,7 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   #' This normalizer is used exclusively by \code{.translate_one_term()} for
   #' the special-case translation of \code{groups(...)} into \code{b2degrange}.
   #'
-  #' @test
+  #' @note
   #' Covered indirectly by tests that exercise ERPM formulas with \code{groups()}.
   #' @keywords internal
   .normalize_groups_args <- function(args_list) {
@@ -553,7 +553,7 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   #' This is a syntactic splitter. It does not interpret the meaning of the
   #' underlying terms; it only follows the binary \code{+} structure.
   #'
-  #' @test
+  #' @note
   #' Used by \code{erpm()} to translate each term independently.
   #' @keywords internal
   .split_sum_terms <- function(expr) {
@@ -595,7 +595,7 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   #' are typically empty, but they are kept for forward compatibility with other
   #' ERPM terms that may be translated into standard ERGM effects.
   #'
-  #' @test
+  #' @note
   #' Indirectly tested by ERPM self-tests that use `groups()` and `cliques()`
   #' in ERPM formulas.
   #' @keywords internal
@@ -662,7 +662,7 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   # 6. Main ERPM → {ergm} wrapper
   # ============================================================================
 
-    #' ERPM main wrapper: translate and optionally fit with {ergm}
+  #' ERPM main wrapper: translate and optionally fit with {ergm}
   #'
   #' This function:
   #' \enumerate{
@@ -719,7 +719,7 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   #' be extended by populating \code{effect_rename_map}, \code{wrap_with_proj1},
   #' and \code{wrap_with_B}.
   #'
-  #' @test
+  #' @note
   #' The behavior of \code{erpm()} is exercised in self-tests that compare
   #' ERPM-based fits to direct {ergm} calls on constructed bipartite networks.
   #' @export

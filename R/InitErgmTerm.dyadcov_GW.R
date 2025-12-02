@@ -6,7 +6,7 @@
 
 #' ERGM term: dyadcov_GW (geometrically weighted dyadic covariate)
 #'
-#' @file InitErgmTerm.dyadcov_GW.R
+#' @note InitErgmTerm.dyadcov_GW.R
 #'
 #' @description
 #' \code{dyadcov_GW} is an ERGM term for bipartite networks that builds a
@@ -29,7 +29,7 @@
 #' The core statistic for a given partition \eqn{p}, dyadic covariate \eqn{Z},
 #' and scalar \eqn{\lambda > 0} is:
 #'
-#' @code
+#' @section Definition:
 #'   T_GW(p; Z, lambda)
 #'     = sum_g sum_{k = 2..n_g} a_k(lambda) * S_g^{(k)}(Z)
 #'     = sum_g sum_{k = 2..n_g} (-1/lambda)^{k-1}
@@ -179,7 +179,7 @@
 #'   )
 #' }
 #'
-#' @test
+#' @section Tests:
 #' Self-tests for \code{dyadcov_GW} (not shown here) typically:
 #' \itemize{
 #'   \item construct small bipartite networks with a known partition of actors

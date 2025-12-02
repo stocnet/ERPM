@@ -21,7 +21,7 @@
 
 #' ERGM term: cov_match (monochromatic cliques by actor covariate)
 #'
-#' @file InitErgmTerm.cov_match.R
+#' @note InitErgmTerm.cov_match.R
 #'
 #' @description
 #' \code{cov_match} is an ERGM term for bipartite networks that counts
@@ -129,7 +129,7 @@
 #' @section INPUT_PARAM layout (C side):
 #' The numeric input vector passed to \code{c_cov_match} is:
 #'
-#' @code{
+#' \code{
 #'   INPUT_PARAM = c(
 #'     n1,          # actor-mode size |A|
 #'     K,           # number of distinct clique sizes
@@ -149,7 +149,7 @@
 #' The initializer is called internally by {ergm} and should not be invoked
 #' directly by users. The user-facing term is:
 #'
-#' @code{
+#' \code{
 #'   cov_match(cov,
 #'             clique_size = 2,
 #'             category    = NULL,
@@ -296,7 +296,7 @@
 #'   # erpm(nw ~ cov_match("grp", clique_size = 2, normalized = "by_group"))
 #' }
 #'
-#' @test
+#' @section Tests:
 #' Self-tests for \code{cov_match} (not shown here) typically:
 #' \itemize{
 #'   \item construct small bipartite networks with an explicit partition of

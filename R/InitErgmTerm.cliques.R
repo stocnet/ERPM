@@ -1,6 +1,6 @@
 #' ERGM term: cliques (k-actor cliques via group sizes)
 #'
-#' @file InitErgmTerm.cliques.R
+#' @note InitErgmTerm.cliques.R
 #'
 #' @description
 #' \code{cliques} is an ERGM term for bipartite actor–group networks that counts
@@ -190,7 +190,7 @@
 #'   summary(fit)
 #' }
 #'
-#' @test
+#' @section Tests:
 #' Self-tests for \code{cliques} construct small bipartite networks with known
 #' group sizes and compare:
 #' \itemize{

@@ -1,6 +1,6 @@
 #' ERGM term: cov_fulldiff (within-group range of a numeric covariate)
 #'
-#' @file InitErgmTerm.cov_fulldiff.R
+#' @note InitErgmTerm.cov_fulldiff.R
 #'
 #' @description
 #' \code{cov_fulldiff} is an ERGM term for bipartite networks that measures,
@@ -9,7 +9,7 @@
 #'
 #' The bipartite network is interpreted as:
 #' \itemize{
-#'   \item an \emph{actor mode} (the side identified by \code{nw %n% "bipartite"});
+#'   \item an \emph{actor mode} (the side identified by \code{nw \%n\% "bipartite"});
 #'   \item a \emph{group mode} (the complementary side, representing groups).
 #' }
 #'
@@ -23,7 +23,7 @@
 #' compiled code under a symbol compatible with \code{name = "cov_fulldiff"}.
 #' The R initializer below:
 #' \itemize{
-#'   \item enforces that the network is bipartite via \code{nw %n% "bipartite"};
+#'   \item enforces that the network is bipartite via \code{nw \%n\% "bipartite"};
 #'   \item extracts an actor-level covariate from a vertex attribute or from a
 #'         literal vector, coercing it to numeric and failing fast on \code{NA};
 #'   \item normalizes the optional \code{size} argument into a sorted set of
@@ -90,7 +90,7 @@
 #' @note
 #' The network must be strictly bipartite:
 #' \itemize{
-#'   \item the actor mode size is given by \code{nw %n% "bipartite"} and must be
+#'   \item the actor mode size is given by \code{nw \%n\% "bipartite"} and must be
 #'         a positive integer;
 #'   \item the group mode is the complementary set of nodes;
 #'   \item the covariate is read on the actor mode only.
@@ -127,7 +127,7 @@
 #'   # Group 7 is empty
 #'
 #'   nw <- network(adj, directed = FALSE, matrix.type = "adjacency")
-#'   nw %n% "bipartite" <- n_actors  # actor mode size
+#'   nw \%n\% "bipartite" <- n_actors  # actor mode size
 #'
 #'   # Numeric covariate on the actor mode
 #'   x_attr <- c(1.0, 2.0, 10.0, 11.0)
@@ -146,7 +146,7 @@
 #'   summary(fit)
 #' }
 #'
-#' @test
+#' @section Tests:
 #' Self-tests for \code{cov_fulldiff} construct small bipartite networks with
 #' known group memberships and numeric covariates, and compare:
 #' \itemize{

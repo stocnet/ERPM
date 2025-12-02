@@ -1,12 +1,12 @@
 #' ERGM term: log_factorial_sizes (group-mode degrees)
 #'
-#' @file InitErgmTerm.log_factorial_sizes.R
+#' @note InitErgmTerm.log_factorial_sizes.R
 #'
 #' @description
 #' \code{log_factorial_sizes} is an ERGM term for bipartite networks that sums
 #' the log-factorial of group sizes. The network is interpreted as:
 #' \itemize{
-#'   \item an \emph{actor mode} (the side used as \code{%n% "bipartite"});
+#'   \item an \emph{actor mode} (the side used as \code{\%n\% "bipartite"});
 #'   \item a \emph{group mode} (the complementary side of the bipartite graph).
 #' }
 #'
@@ -65,9 +65,9 @@
 #' @note
 #' The network must be strictly bipartite and undirected:
 #' \itemize{
-#'   \item the actor mode is identified by \code{nw %n% "bipartite"};
+#'   \item the actor mode is identified by \code{nw \%n\% "bipartite"};
 #'   \item the group mode is the complement of the actor mode;
-#'   \item \code{nw %n% "directed"} must not be \code{TRUE}.
+#'   \item \code{nw \%n\% "directed"} must not be \code{TRUE}.
 #' }
 #' If these conditions are not met, the initializer will fail fast via
 #' \code{ergm_Init_stop()}.
@@ -91,7 +91,7 @@
 #'   # Group 7 remains empty
 #'
 #'   nw <- network(adj, directed = FALSE, matrix.type = "adjacency")
-#'   nw %n% "bipartite" <- n_actors  # actor mode size
+#'   nw \%n\% "bipartite" <- n_actors  # actor mode size
 #'
 #'   # Inspect the statistic
 #'   summary(nw ~ log_factorial_sizes)
@@ -101,7 +101,7 @@
 #'   summary(fit)
 #' }
 #'
-#' @test
+#' @section Tests:
 #' Self-tests for \code{log_factorial_sizes} construct small bipartite networks
 #' with known group sizes and compare:
 #' \itemize{
