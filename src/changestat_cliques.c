@@ -1,5 +1,5 @@
 /**
- * @file
+ * @file changestat_cliques.c
  * @brief  Change statistic for the ERPM term `cliques(k, normalized)`.
  *
  * @details

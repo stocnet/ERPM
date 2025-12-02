@@ -47,19 +47,81 @@ cat("Nombre d'acteurs (N1):", length(partition), " | Nombre de groupes:", length
 bld <- build_bipartite_from_inputs(partition = partition)
 nw  <- bld$network
 
+# Petites fonctions de référence analytiques pour contrôle
+expected_cliques_k1 <- function(part) {
+  sz <- as.integer(table(part))
+  sum(sz == 1L)
+}
+expected_cliques_k1_norm <- function(part) {
+  num <- expected_cliques_k1(part)
+  num / length(part)
+}
+
 # ==============================================================================
-# 1) SUMMARY DIRECT — formule simple sur le biparti
+# 1) SUMMARY DIRECT — cas k = 1 et k = 2
 # ==============================================================================
-# 2) demandé : noms explicites, appels directs et visuels simples
-k <- 2
+
+# ----- Cas k = 1 : doit renvoyer le nombre de groupes de taille 1 -------------
+k1 <- 1L
+
+stat_summary_cliques_k1 <- summary(
+  nw ~ cliques(clique_size = k1),
+  constraints = ~ b1part
+)
+stat_summary_cliques_k1_norm <- summary(
+  nw ~ cliques(clique_size = k1, normalized = TRUE),
+  constraints = ~ b1part
+)
+
+truth_k1      <- expected_cliques_k1(partition)
+truth_k1_norm <- expected_cliques_k1_norm(partition)
+
+cat(sprintf(
+  "[summary] cliques(k=%d) (brut)       = %s | attendu = %s\n",
+  k1,
+  paste0(as.numeric(stat_summary_cliques_k1), collapse = ", "),
+  truth_k1
+))
+cat(sprintf(
+  "[summary] cliques(k=%d, normalized) = %s | attendu = %s\n\n",
+  k1,
+  paste0(as.numeric(stat_summary_cliques_k1_norm), collapse = ", "),
+  format(truth_k1_norm)
+))
+
+stopifnot(
+  length(stat_summary_cliques_k1)      == 1L,
+  is.finite(stat_summary_cliques_k1),
+  length(stat_summary_cliques_k1_norm) == 1L,
+  is.finite(stat_summary_cliques_k1_norm)
+)
+stopifnot(
+  isTRUE(all.equal(as.numeric(stat_summary_cliques_k1),
+                   as.numeric(truth_k1),
+                   tolerance = 1e-10))
+)
+stopifnot(
+  isTRUE(all.equal(as.numeric(stat_summary_cliques_k1_norm),
+                   as.numeric(truth_k1_norm),
+                   tolerance = 1e-10))
+)
+
+# ----- Cas k = 2 : comme avant ------------------------------------------------
+k <- 2L
 
 # Summary non normalisé
-stat_summary_cliques_k2 <- summary(nw ~ cliques(clique_size = k), constraints = ~ b1part)
+stat_summary_cliques_k2 <- summary(
+  nw ~ cliques(clique_size = k),
+  constraints = ~ b1part
+)
 cat(sprintf("[summary] cliques(k=%d) = %s\n",
             k, paste0(as.numeric(stat_summary_cliques_k2), collapse = ", ")))
 
 # Summary normalisé
-stat_summary_cliques_k2_norm <- summary(nw ~ cliques(clique_size = k, normalized = TRUE), constraints = ~ b1part)
+stat_summary_cliques_k2_norm <- summary(
+  nw ~ cliques(clique_size = k, normalized = TRUE),
+  constraints = ~ b1part
+)
 cat(sprintf("[summary] cliques(k=%d, normalized=TRUE) = %s\n\n",
             k, paste0(as.numeric(stat_summary_cliques_k2_norm), collapse = ", ")))
 

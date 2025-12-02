@@ -112,16 +112,18 @@ make_nw_from_partition <- function(part, nodes) {
 set.seed(1)  # stabilise l’estimation si on utilise une estimation CD dans ergm
 nw <- make_nw_from_partition(partition_mix, nodes_df)
 fit_ergm <- ergm(nw ~ cliques,
-                 constraints = ~ b1part,
-                 estimate    = "MLE",
-                 control     = ctrl_A)
+                #  estimate    = "MLE",
+                #  control     = ctrl_A,
+                 constraints = ~ b1part
+                 )
 print(summary(fit_ergm))
 
 set.seed(1)
 fit_erpm <- erpm(partition_mix ~ cliques,
-                 nodes    = nodes_df,
-                 estimate = "MLE",
-                 control  = ctrl_A)
+                #  estimate = "MLE",
+                #  control  = ctrl_A,
+                 nodes    = nodes_df
+                 )
 print(summary(fit_erpm))
 fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # devrait être ≈ 0
 
@@ -129,15 +131,16 @@ fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # devrait être ≈ 0
 set.seed(1)
 nw <- make_nw_from_partition(partition_mix, nodes_df)
 fit_ergm <- ergm(nw ~ cliques(clique_size = 3),
-                 constraints = ~ b1part,
-                 estimate    = "MLE",
-                 control     = ctrl_A)
+                #  estimate    = "MLE",
+                #  control     = ctrl_A,
+                 constraints = ~ b1part)
 print(summary(fit_ergm))
 
 set.seed(1)
 fit_erpm <- erpm(partition_mix ~ cliques(clique_size = 3),
-                 nodes    = nodes_df,
-                 estimate = "MLE",
-                 control  = ctrl_A)
+                #  estimate = "MLE",
+                #  control  = ctrl_A,
+                 nodes    = nodes_df
+                 )
 print(summary(fit_erpm))
 fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # devrait être ≈ 0

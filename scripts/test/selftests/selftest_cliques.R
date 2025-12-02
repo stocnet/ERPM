@@ -26,7 +26,8 @@ if (file.exists("scripts/ergm_patch.R")) {
   ergm_patch_enable()
 }
 
-options(ergm.loglik.warn_dyads = FALSE); 
+options(ergm.loglik.warn_dyads = FALSE)
+
 # --------------------------------------------------------------------------------------
 # Helpers généraux (chemin script + logging)
 # --------------------------------------------------------------------------------------
@@ -209,9 +210,7 @@ run_summary_and_translation_panel_for_partition <- function(partition_vec, panel
 # ERPM FIT : un cas
 # --------------------------------------------------------------------------------------
 run_one_erpm_fit <- function(partition_vec, rhs, fit_name,
-                            #  estimate = "MLE",
                              eval.loglik = TRUE,
-                            #  control = list(MCMLE.maxit = 2, MCMC.samplesize = 500),
                              lhs_mode = c("partition","network")) {
   lhs_mode <- match.arg(lhs_mode)
   if (!exists("erpm", mode = "function")) {
@@ -236,10 +235,7 @@ run_one_erpm_fit <- function(partition_vec, rhs, fit_name,
               fit_name, paste(partition_vec, collapse=","), rhs, lhs_mode))
 
   fit <- try(
-    erpm(f, eval.loglik = eval.loglik, 
-            # estimate = estimate,  
-            # control = control, 
-            verbose = FALSE),
+    erpm(f, eval.loglik = eval.loglik, verbose = FALSE),
     silent = TRUE
   )
   if (inherits(fit, "try-error")) {
@@ -262,11 +258,11 @@ run_one_erpm_fit <- function(partition_vec, rhs, fit_name,
 # Jeu de tests
 # ======================================================================================
 partitions <- list(
-  P1 = c(1, 2, 2, 3, 3, 3),
-  P2 = c(1, 1, 2, 3, 3, 4, 4, 4),
-  P3 = c(1, 1, 1, 2, 2, 3),
-  P4 = c(1, 2, 3, 4, 5),
-  P5 = rep(1, 6)
+  P1 = c(1, 2, 2, 3, 3, 3),           # tailles (1,2,3)
+  P2 = c(1, 1, 2, 3, 3, 4, 4, 4),     # tailles (2,1,3)
+  P3 = c(1, 1, 1, 2, 2, 3),           # tailles (3,2,1)
+  P4 = c(1, 2, 3, 4, 5),              # toutes tailles 1 (P4: 5 singletons)
+  P5 = rep(1, 6)                      # un seul groupe de taille 6
 )
 
 cases <- list(
@@ -334,39 +330,32 @@ run_all_summary_translation_and_erpm_fit_tests <- function() {
 
   fit_results[["F1_P1_k2"]] <- run_one_erpm_fit(
     partition_vec = partitions$P1,
-    rhs    = "cliques()",            # k=2 défaut
-    fit_name   = "F1_P1_k2",
-    # estimate    = "MLE",
+    rhs       = "cliques()",            # k=2 défaut
+    fit_name  = "F1_P1_k2",
     eval.loglik = TRUE,
-    # control     = ctrl,
-    lhs_mode    = "partition"
+    lhs_mode  = "partition"
   )
 
   fit_results[["F2_P2_k3"]] <- run_one_erpm_fit(
     partition_vec = partitions$P2,
-    rhs    = "cliques(k=3)",
-    fit_name   = "F2_P2_k3",
-    # estimate    = "MLE",
+    rhs       = "cliques(k=3)",
+    fit_name  = "F2_P2_k3",
     eval.loglik = TRUE,
-    # control     = ctrl,
-    lhs_mode    = "partition"
+    lhs_mode  = "partition"
   )
 
   fit_results[["F3_P3_k1n"]] <- run_one_erpm_fit(
     partition_vec = partitions$P3,
-    rhs    = "cliques(k=1, normalized=TRUE)",
-    fit_name   = "F3_P3_k1n",
-    # estimate    = "MLE",
+    rhs       = "cliques(k=1, normalized=TRUE)",
+    fit_name  = "F3_P3_k1n",
     eval.loglik = TRUE,
-    # control     = ctrl,
-    lhs_mode    = "partition"
+    lhs_mode  = "partition"
   )
 
   ok <- vapply(fit_results, function(x) isTRUE(x$ok), logical(1))
   n_ok <- sum(ok, na.rm = TRUE); n_tot <- sum(!is.na(ok))
   cat(sprintf("\n=== Bilan fits erpm() : %d / %d OK ===\n", n_ok, n_tot))
 
-  # Affichage détaillé des fits réussis
   cat("\n=== Résumés détaillés des fits ERPM réussis ===\n")
   for (nm in names(fit_results)) {
     fit_obj <- fit_results[[nm]]

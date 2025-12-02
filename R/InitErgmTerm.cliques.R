@@ -18,6 +18,8 @@
 #' \deqn{
 #'   T_k(y) = \sum_{g \in \text{group mode}} \binom{n_g}{k}.
 #' }
+#' For k = 1 this reduces to the number of groups of size 1.
+#'
 #' The term \code{cliques} computes this statistic directly from group sizes,
 #' without explicitly materializing the actor–actor projection.
 #'
@@ -260,7 +262,7 @@ InitErgmTerm.cliques <- function(nw, arglist, ..., version = packageVersion("erg
   # Compute normalization factors:
   # - if normalized = FALSE: scale = 1;
   # - if normalized = TRUE : scale = 1 / choose(N_A, k),
-  #   with protection against zero denominators.
+  #   with protection against zero denominators (for k = 1, denom = N_A).
   scale <- rep(1, length(k))
   if (isTRUE(nz)) {
     denom <- choose(n1, k)              # also valid for k = 1 (denom = N_A)
