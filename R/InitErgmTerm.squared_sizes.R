@@ -3,7 +3,7 @@
 # Purpose : Declare the ERGM term 'squared_sizes' for bipartite networks
 #           (aggregation over the group mode).
 # Project : ERPM / ERGM extensions
-# ==============================================================================
+# ============================================================================
 
 #' ERGM term: squared_sizes (group-mode degrees raised to a power)
 #'
@@ -22,26 +22,25 @@
 #' \deqn{
 #'   \deg(g)^{\text{pow}},
 #' }
-#' restricted to degree intervals \eqn{[\text{from}, \text{to})}. The term is
-#' vectorized: providing vectors \code{from}, \code{to} and \code{pow} yields
-#' one statistic component per triplet \eqn{(\text{from}_k, \text{to}_k, \text{pow}_k)}.
+#' restricted to a set of admissible group sizes. The argument \code{sizes}
+#' specifies a (possibly multi-valued) set of group sizes over which the
+#' contributions are aggregated into a single statistic.
 #'
 #' @details
 #' The term is implemented as a native ERGM C change-statistic, declared in the
 #' compiled code under the name \code{c_squared_sizes}. The R initializer:
 #' \itemize{
 #'   \item enforces that the network is bipartite (actor mode vs group mode);
-#'   \item parses and recycles the user arguments \code{from}, \code{to} and \code{pow};
-#'   \item checks that \code{pow} is integer and at least 1;
-#'   \item replaces infinite upper bounds \code{to = Inf} by a finite value
-#'         while preserving the \eqn{[\text{from}, \text{to})} semantics;
-#'   \item builds a compact \code{inputs} vector for the C code:
-#'         \code{c(from_1, to_1, pow_1, ..., from_K, to_K, pow_K)}.
+#'   \item parses the user arguments \code{sizes} and \code{pow};
+#'   \item checks that \code{sizes} are integer group sizes \eqn{\ge 1};
+#'   \item checks that \code{pow} is a single integer and at least 1;
+#'   \item builds a compact \code{inputs} vector for the C code encoding:
+#'         \code{pow}, the number of admissible sizes, then the list of sizes.
 #' }
 #'
 #' The ERGM infrastructure will call the C change-statistic whenever a toggle
 #' affects an actor–group edge. On the C side, the code is responsible for
-#' updating each component \eqn{T_k(y)} based on how the degrees of group-mode
+#' updating the scalar statistic based on how the degrees of group-mode
 #' nodes change.
 #'
 #' @section Mathematical definition:
@@ -51,28 +50,36 @@
 #'   \item \eqn{G} denote the set of group-mode nodes;
 #'   \item \eqn{y} the adjacency matrix between actors and groups;
 #'   \item \eqn{\deg(g)} the degree of group node \eqn{g \in G}, i.e. the number
-#'         of actors in that group.
+#'         of actors in that group;
+#'   \item \eqn{S} the set of admissible group sizes specified by \code{sizes}.
 #' }
-#' For each component \eqn{k} (corresponding to \code{from[k]}, \code{to[k]},
-#' \code{pow[k]}), the statistic is
+#' For a given pair \code{(sizes, pow)}, the statistic is
 #' \deqn{
-#'   T_k(y)
+#'   T(y)
 #'   =
 #'   \sum_{g \in G}
-#'     \mathbf{1}\big[\deg(g) \in [\text{from}_k, \text{to}_k)\big]\,
-#'     \deg(g)^{\text{pow}_k}.
+#'     \mathbf{1}\big[\deg(g) \in S\big]\,
+#'     \deg(g)^{\text{pow}}.
 #' }
-#' The overall statistic is the vector \eqn{(T_1(y), \dots, T_K(y))}.
+#' When \code{sizes} is left unspecified, it defaults to all admissible
+#' group sizes \eqn{1, 2, \dots, n_1}, where \eqn{n_1} is the actor-mode size,
+#' so that \eqn{T(y) = \sum_{g \in G} \deg(g)^{\text{pow}}}.
 #'
 #' @section Usage:
 #' Typical usage with {ergm} (constraints explicit):
 #' \preformatted{
-#'   # Sum of squared group sizes over all groups
+#'   # Sum of squared group sizes over all non-empty groups
 #'   summary(nw ~ squared_sizes, constraints = ~ b1part)
 #'
-#'   # Groups with size in [2, 5), cubic power
+#'   # Sum of cubic sizes over groups of size 2 only
 #'   summary(
-#'     nw ~ squared_sizes(from = 2, to = 5, pow = 3),
+#'     nw ~ squared_sizes(sizes = 2, pow = 3),
+#'     constraints = ~ b1part
+#'   )
+#'
+#'   # Single statistic aggregating groups of size 1 or 5 (squared sizes)
+#'   summary(
+#'     nw ~ squared_sizes(sizes = c(1, 5), pow = 2),
 #'     constraints = ~ b1part
 #'   )
 #' }
@@ -86,22 +93,25 @@
 #'   erpm(partition ~ squared_sizes)
 #' }
 #'
-#' @param from numeric, integer(s) \eqn{\ge 0}. Lower bounds of the degree
-#'   intervals, inclusive. Defaults to \code{1}. Can be a scalar or a vector.
-#' @param to numeric, integer(s). Upper bounds of the degree intervals,
-#'   exclusive. \code{Inf} is allowed to represent "no upper bound".
-#'   Defaults to \code{Inf}. Can be a scalar or a vector.
-#' @param pow numeric, integer(s) \eqn{\ge 1}. Powers applied to the group
-#'   degrees. Defaults to \code{2}. Can be a scalar or a vector.
+#' @param sizes numeric, integer(s) \eqn{\ge 1}. Admissible group sizes.
+#'   If \code{sizes} is \code{NULL} or missing, it defaults to
+#'   \code{1:network.bipartite(nw)}, i.e. all non-empty group sizes up to the
+#'   number of actors. Can be a scalar or a vector; all values are aggregated
+#'   into a \emph{single} statistic.
+#' @param pow numeric, integer \eqn{\ge 1}. Power applied to the group
+#'   degrees. Defaults to \code{2}. Must be of length 1; the same exponent is
+#'   applied to all sizes in \code{sizes}.
 #'
 #' @return
 #' A standard {ergm} term initialization list with components:
 #' \itemize{
 #'   \item \code{name}         = \code{"squared_sizes"};
-#'   \item \code{coef.names}   = character vector, one name per (from,to,pow) triplet;
-#'   \item \code{inputs}       = integer vector \code{c(from_1, to_1, pow_1, ..., from_K, to_K, pow_K)};
+#'   \item \code{coef.names}   = a single character string encoding the set
+#'         of sizes and the power;
+#'   \item \code{inputs}       = numeric vector
+#'         \code{c(pow, length(sizes), sizes)};
 #'   \item \code{dependence}   = \code{TRUE};
-#'   \item \code{emptynwstats} = numeric vector of zeros (one per component).
+#'   \item \code{emptynwstats} = scalar \code{0}.
 #' }
 #'
 #' @note
@@ -135,16 +145,13 @@
 #'   nw <- network(adj, directed = FALSE, matrix.type = "adjacency")
 #'   nw %n% "bipartite" <- n_actors  # actor-mode size
 #'
-#'   # Sum of squared group sizes over all groups
+#'   # Sum of squared group sizes over all non-empty groups
 #'   summary(nw ~ squared_sizes, constraints = ~ b1part)
 #'
-#'   # Vectorized example: two components
-#'   #  - squared sizes for groups of size in [1, +Inf)
-#'   #  - cubic sizes for groups of size in [3, 6)
+#'   # Single statistic: squared sizes for groups of size 1 or 3
 #'   summary(
-#'     nw ~ squared_sizes(from = c(1, 3),
-#'                        to   = c(Inf, 6),
-#'                        pow  = c(2, 3)),
+#'     nw ~ squared_sizes(sizes = c(1, 3),
+#'                        pow   = 2),
 #'     constraints = ~ b1part
 #'   )
 #'
@@ -159,10 +166,10 @@
 #' \itemize{
 #'   \item the ERGM summary \code{summary(nw ~ squared_sizes(...), constraints = ~ b1part)};
 #'   \item a direct computation of
-#'         \code{colSums( (deg_g %in% [from_k, to_k)) * deg_g^pow_k )} for each component;
+#'         \code{sum( (deg_g \%in\% sizes) * deg_g^pow )};
 #' }
-#' They also verify that toggling a single actor–group edge changes each
-#' component \eqn{T_k(y)} by the expected local increment, in agreement with
+#' They also verify that toggling a single actor–group edge changes the
+#' statistic \eqn{T(y)} by the expected local increment, in agreement with
 #' the C change-statistic \code{c_squared_sizes}.
 #'
 #' @keywords ERGM term bipartite groups degree power
@@ -173,117 +180,156 @@ InitErgmTerm.squared_sizes <- function(nw, arglist, ..., version = packageVersio
   termname <- "squared_sizes"
 
   # ---------------------------------------------------------------------------
+  # Debug helpers
+  # ---------------------------------------------------------------------------
+  # Global option:
+  #   options(ERPM.squared_sizes.debug = TRUE/FALSE)
+  # When TRUE, the initializer prints diagnostic messages to the console.
+  dbg    <- isTRUE(getOption("ERPM.squared_sizes.debug", FALSE))
+  dbgcat <- function(...) if (dbg) cat("[squared_sizes][DEBUG]", ..., "\n", sep = "")
+
+  dbgcat("InitErgmTerm.squared_sizes called with args: ",
+         paste(names(arglist), collapse = ", "))
+
+  # Guard:  typo 'size' instead of 'sizes'
+  if ("size" %in% names(arglist) && !"sizes" %in% names(arglist)) {
+    ergm_Init_stop(
+      sQuote(termname),
+      ": argument 'size' is not supported; did you mean 'sizes'?"
+    )
+  }
+
+  # ---------------------------------------------------------------------------
   # Base validation and structural requirements
   # ---------------------------------------------------------------------------
   # - Enforce a bipartite network (actor mode / group mode).
-  # - Declare the allowed arguments: from, to, pow.
-  # - Provide default values: from = 1, to = Inf, pow = 2.
+  # - Declare the allowed arguments: sizes, pow.
+  # - Provide default values: sizes = NULL (all sizes), pow = 2.
   a <- check.ErgmTerm(
     nw, arglist,
-    directed   = NULL,
-    bipartite  = TRUE,                     # require a bipartite actor–group representation
-    varnames   =    c("from",   "to",      "pow"),
-    vartypes   =    c("numeric","numeric", "numeric"),
-    defaultvalues = list(1,      Inf,      2),   # default: all groups, squared sizes
-    required   =    c(FALSE,    FALSE,     FALSE)
+    directed      = NULL,
+    bipartite     = TRUE,                     # require a bipartite actor–group representation
+    varnames      =    c("sizes",  "pow"),
+    vartypes      =    c("numeric","numeric"),
+    defaultvalues = list(NULL,     2),        # default: all non-empty groups, squared sizes
+    required      =    c(FALSE,    FALSE)
   )
 
-  from <- a$from
-  to   <- a$to
-  pow  <- a$pow
+  sizes <- a$sizes
+  pow   <- a$pow
 
   # ---------------------------------------------------------------------------
-  # Vector length harmonization
+  # Default sizes: all non-empty group sizes up to the actor-mode size
   # ---------------------------------------------------------------------------
-  # Recycle scalar arguments so that from, to and pow have the same length.
-  # Examples:
-  #   squared_sizes(from = c(1, 2, 4), to = 5,      pow = 2)
-  #   squared_sizes(from = 1,          to = c(5, 2), pow = 2)
-  #   squared_sizes(from = c(1, 2, 4), to = c(5, 2, 4), pow = 2)
-  if (length(to)   == 1L && length(from) > 1L) to   <- rep(to,   length(from))
-  if (length(from) == 1L && length(to)   > 1L) from <- rep(from, length(to))
-  if (length(pow)  == 1L && length(from) > 1L) pow  <- rep(pow,  length(from))
-
-  if (length(from) != length(to) || length(pow) != length(from)) {
-    ergm_Init_stop(sQuote(termname), ": incompatible lengths for from/to/pow.")
+  # If sizes is NULL or empty, we take all possible sizes 1..n1.
+  if (is.null(sizes) || length(sizes) == 0L) {
+    # On lit explicitement l'attribut "bipartite" du network, pour éviter tout
+    # masquage éventuel d'une fonction network.bipartite() dans l'environnement.
+    n1 <- network::get.network.attribute(nw, "bipartite")
+    if (is.null(n1) || is.na(n1)) {
+      ergm_Init_stop(
+        sQuote(termname),
+        ": network must have a valid 'bipartite' attribute (actor-mode size)."
+      )
+    }
+    n1 <- as.integer(n1)
+    if (!is.finite(n1) || n1 < 1L) {
+      ergm_Init_stop(
+        sQuote(termname),
+        ": 'bipartite' attribute must be a positive finite integer."
+      )
+    }
+    dbgcat("bipartite attribute (n1) =", n1,
+           " | using default sizes = 1:", n1)
+    sizes <- seq_len(n1)
+  } else {
+    dbgcat("user-specified sizes (raw) = ",
+           paste(sizes, collapse = ","))
   }
 
   # ---------------------------------------------------------------------------
-  # Constraints on pow
+  # Constraints and normalization on sizes
   # ---------------------------------------------------------------------------
-  # Require pow >= 1 and integer-valued.
+  sizes <- as.numeric(sizes)
+  if (any(is.na(sizes))) {
+    ergm_Init_stop(sQuote(termname), ": 'sizes' must not contain NA.")
+  }
+  if (any(sizes < 1 | sizes != as.integer(sizes))) {
+    ergm_Init_stop(sQuote(termname), ": 'sizes' must be integer >= 1.")
+  }
+  sizes <- as.integer(sizes)
+  dbgcat("sizes (validated) = ", paste(sizes, collapse = ","))
+
+  # ---------------------------------------------------------------------------
+  # Constraints on pow (scalar)
+  # ---------------------------------------------------------------------------
+  if (length(pow) == 0L) {
+    pow <- 2L
+  }
+  if (length(pow) > 1L) {
+    ergm_Init_stop(sQuote(termname), ": 'pow' must be of length 1.")
+  }
   if (any(pow < 1 | pow != as.integer(pow))) {
     ergm_Init_stop(sQuote(termname), ": 'pow' must be an integer >= 1.")
   }
+  pow <- as.integer(pow[1L])
+  dbgcat("pow (validated)   = ", pow)
 
   # ---------------------------------------------------------------------------
-  # Replace Inf in 'to' with a finite upper bound
+  # Trivial case: no sizes => no statistic
   # ---------------------------------------------------------------------------
-  # To keep the [from, to) semantics while providing a finite upper bound to the
-  # C code, replace Inf with:
-  #   max(from, network.size(nw)) + 1
-  # so that degrees smaller than this value behave as "no upper limit" in
-  # practice.
-  to <- ifelse(
-    is.infinite(to),
-    pmax(from, network.size(nw)) + 1L,
-    to
-  )
-  # Historical alternative (commented out, not used anymore):
-  # n1 <- network.bipartite(nw)  # number of actor-mode vertices
-  # to <- ifelse(is.infinite(to), pmax(from, n1) + 1, to)
-
-  # ---------------------------------------------------------------------------
-  # Interval sanity checks
-  # ---------------------------------------------------------------------------
-  # Each component must define a valid interval [from_k, to_k) with from_k < to_k.
-  if (any(from >= to)) {
-    ergm_Init_stop(sQuote(termname), ": from < to is required for all components.")
+  if (length(sizes) == 0L) {
+    dbgcat("no sizes after validation -> returning NULL term")
+    return(NULL)
   }
 
   # ---------------------------------------------------------------------------
-  # Trivial case: no intervals => no statistic
+  # Coefficient name
   # ---------------------------------------------------------------------------
-  if (length(from) == 0L) return(NULL)
-
-  # ---------------------------------------------------------------------------
-  # Coefficient names
-  # ---------------------------------------------------------------------------
-  # Build readable coefficient names, encoding:
-  # - the degree interval [from, to) or [from, +Inf);
-  # - the power pow, when pow != 1.
-  coef.names <- ifelse(
-    to >= network.size(nw) + 1L,
-    paste0(
-      "squared_sizes_", from, "+",
-      ifelse(pow != 1, paste0("_pow", pow), "")
-    ),
-    paste0(
-      "squared_sizes_", from, "to", to,
-      ifelse(pow != 1, paste0("_pow", pow), "")
-    )
+  # Build a readable coefficient name encoding:
+  # - the set of group sizes 'sizes';
+  # - the power 'pow', when pow != 1.
+  if (length(sizes) == 1L) {
+    size_tag <- paste0("size", sizes)
+  } else {
+    size_tag <- paste0("sizes", paste(sizes, collapse = "_"))
+  }
+  coef.name <- paste0(
+    "squared_", size_tag,
+    ifelse(pow != 1L, paste0("_pow", pow), "")
   )
+  dbgcat("coef.names = ", coef.name)
 
   # ---------------------------------------------------------------------------
   # Compact INPUT_PARAM vector for the C change-statistic
   # ---------------------------------------------------------------------------
-  # Pack (from_k, to_k, pow_k) by rows, then flatten:
-  #   inputs = c(from_1, to_1, pow_1, from_2, to_2, pow_2, ...)
-  inputs <- c(rbind(as.integer(from), as.integer(to), as.integer(pow)))
+  # Layout:
+  #   inputs = c(
+  #     pow,
+  #     length(sizes),
+  #     sizes[1], ..., sizes[length(sizes)]
+  #   )
+  inputs <- c(
+    as.double(pow),
+    as.double(length(sizes)),
+    as.double(sizes)
+  )
+  dbgcat("inputs length = ", length(inputs),
+         " (1 aggregated stat over ", length(sizes), " sizes)")
 
   # ---------------------------------------------------------------------------
   # Standard ERGM term initialization return value
   # ---------------------------------------------------------------------------
   # - name         : must match the C symbol (without the 'c_' prefix parsed by {ergm}).
-  # - coef.names   : one label per (from,to,pow) triplet.
+  # - coef.names   : single label for the aggregated statistic.
   # - inputs       : numeric vector passed to the C change-statistic as INPUT_PARAM.
   # - dependence   : TRUE since the term depends on the network configuration.
-  # - emptynwstats : empty network -> all components equal to 0.
+  # - emptynwstats : empty network -> scalar 0.
   list(
     name         = "squared_sizes",          # must match CHANGESTAT_FN(c_squared_sizes) (without 'c_')
-    coef.names   = coef.names,
+    coef.names   = coef.name,
     inputs       = inputs,
     dependence   = TRUE,
-    emptynwstats = numeric(length(from))     # empty network => 0 for each component
+    emptynwstats = 0                         # empty network => 0
   )
 }

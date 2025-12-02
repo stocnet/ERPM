@@ -108,7 +108,7 @@ if (!exists("build_bipartite_from_inputs", mode = "function"))
 
   try_sigs <- list(
     list(expr = quote(builder(partition = part, nodes = nodes)),                                   tag = "partition+nodes"),
-    list(expr = quote(builder(partition = part, labels = nodes$label, attributes = list())),        tag = "partition+labels+attributes"),
+    list(expr = quote(builder(partition = part, labels = nodes$label, attributes = list())),       tag = "partition+labels+attributes"),
     list(expr = quote(builder(partition = part)),                                                   tag = "partition seul"),
     list(expr = quote(builder(partition = part, labels = nodes$label)),                             tag = "partition+labels")
   )
@@ -147,11 +147,28 @@ if (!exists("build_bipartite_from_inputs", mode = "function"))
 # Tailles de groupes depuis partition
 .group_sizes_from_partition <- function(part) as.integer(table(part))
 
-# Attendue: somme des tailles^pow filtrées par [from,to)
-.expected_summary_squared_sizes_from_partition <- function(part, from = 1, to = Inf, pow = 2) {
-  sz  <- .group_sizes_from_partition(part)
-  idx <- (sz >= from) & (sz < to)
-  sum((sz[idx])^pow)
+# Attendue: T = sum_{g : size(g) ∈ sizes} size(g)^pow (scalaire agrégé)
+.expected_summary_squared_sizes_from_partition <- function(part, sizes = NULL, pow = 2) {
+  sz <- .group_sizes_from_partition(part)
+
+  # pow doit être scalaire dans la nouvelle définition de l'effet
+  if (length(pow) != 1L) {
+    stop(".expected_summary_squared_sizes_from_partition: 'pow' doit être scalaire (longueur 1).")
+  }
+  pow <- as.numeric(pow)
+
+  # tailles possibles par défaut : 1..n_actors
+  n1 <- length(part)
+  if (is.null(sizes) || length(sizes) == 0L) {
+    sizes_eff <- seq_len(as.integer(n1))
+  } else {
+    sizes_eff <- as.integer(sizes)
+  }
+
+  idx <- sz %in% sizes_eff
+  if (!any(idx)) return(0)
+
+  sum(sz[idx]^pow)
 }
 
 # Identité pow2 sur réseau (contrôle)
@@ -161,46 +178,68 @@ if (!exists("build_bipartite_from_inputs", mode = "function"))
   if (is.null(n1) || is.na(n1)) stop("Réseau non biparti.")
   n  <- network::network.size(nw)
   v2 <- seq.int(as.integer(n1) + 1L, n)
-  deg2 <- vapply(v2, function(v) length(network::get.neighborhood(nw, v, type = "combined")), integer(1L))
+  deg2 <- vapply(
+    v2,
+    function(v) length(network::get.neighborhood(nw, v, type = "combined")),
+    integer(1L)
+  )
   ecount <- network::network.edgecount(nw)
+  # Identité : sum_g deg(g)^2 = ecount + 2 * sum_g C(deg(g), 2)
   ecount + 2L * sum(choose(deg2, 2))
 }
 
-# Normalisation de la signature
+# Normalisation de la signature (mode sizes/pow)
 .normalize_squared_sizes_signature <- function(args = list()) {
-  out <- list(from = 1, to = Inf, pow = 2, text = "squared_sizes(from=1,to=Inf,pow=2)")
+  out <- list(
+    sizes = NULL,
+    pow   = 2,
+    text  = "squared_sizes"
+  )
+
   if (length(args)) {
     nm <- names(args)
     if (!is.null(nm) && length(nm)) {
-      if ("from" %in% nm) out$from <- as.numeric(args[["from"]])
-      if ("to"   %in% nm) out$to   <- as.numeric(args[["to"]])
-      if ("pow"  %in% nm) out$pow  <- as.numeric(args[["pow"]])
+      if ("sizes" %in% nm) out$sizes <- args[["sizes"]]
+      if ("pow"   %in% nm) out$pow   <- args[["pow"]]
     }
   }
-  out$text <- sprintf("squared_sizes(from=%s,to=%s,pow=%s)",
-                      if (is.infinite(out$from)) "Inf" else as.character(out$from),
-                      if (is.infinite(out$to))   "Inf" else as.character(out$to),
-                      as.character(out$pow))
+
+  pieces <- character(0)
+  if (!is.null(out$sizes)) {
+    pieces <- c(pieces, sprintf("sizes=c(%s)", paste(out$sizes, collapse = ",")))
+  }
+  if (!identical(as.numeric(out$pow), 2)) {
+    pieces <- c(pieces, sprintf("pow=%s", paste(out$pow, collapse = ",")))
+  }
+
+  if (length(pieces)) {
+    out$text <- sprintf("squared_sizes(%s)", paste(pieces, collapse = ","))
+  } else {
+    out$text <- "squared_sizes"
+  }
+
   out
 }
 
-# Vérification que l'appel erpm traduit contient la bonne signature
+# Vérification que l'appel erpm traduit contient la bonne signature (sizes/pow)
 .check_translation_ok_erpm <- function(call_ergm, term = "squared_sizes", args = list()) {
-  line <- paste(deparse(call_ergm, width.cutoff = 500L), collapse = " ")
+  line    <- paste(deparse(call_ergm, width.cutoff = 500L), collapse = " ")
   compact <- gsub("\\s+", "", line)
-  def <- list(from = 1, to = Inf, pow = 2)
+
   if (!grepl(paste0("\\b", term, "\\("), compact)) return(FALSE)
+
   checks <- logical(0)
-  if (!is.null(args$from) && !identical(as.numeric(args$from), def$from)) {
-    checks <- c(checks, grepl(paste0("from=", gsub("\\s+", "", as.character(args$from))), compact, fixed = TRUE))
+
+  # Si on a demandé explicitement des sizes, on s'assure que "sizes=" apparaît
+  if (!is.null(args$sizes)) {
+    checks <- c(checks, grepl("sizes=", compact, fixed = TRUE))
   }
-  if (!is.null(args$to) && !(is.infinite(args$to) && is.infinite(def$to)) &&
-      !identical(as.numeric(args$to), def$to)) {
-    checks <- c(checks, grepl(paste0("to=", gsub("\\s+", "", as.character(args$to))), compact, fixed = TRUE))
+
+  # Si pow différent de la valeur par défaut, on demande "pow="
+  if (!is.null(args$pow) && !identical(as.numeric(args$pow), 2)) {
+    checks <- c(checks, grepl("pow=", compact, fixed = TRUE))
   }
-  if (!is.null(args$pow) && !identical(as.numeric(args$pow), def$pow)) {
-    checks <- c(checks, grepl(paste0("pow=", gsub("\\s+", "", as.character(args$pow))), compact, fixed = TRUE))
-  }
+
   if (!length(checks)) return(TRUE)
   all(checks)
 }
@@ -210,7 +249,11 @@ if (!exists("build_bipartite_from_inputs", mode = "function"))
   nw <- .build_bipartite_nw_via_wrapper(part)
   sg <- .normalize_squared_sizes_signature(args)
 
-  expected_val <- .expected_summary_squared_sizes_from_partition(part, from = sg$from, to = sg$to, pow = sg$pow)
+  expected_val <- .expected_summary_squared_sizes_from_partition(
+    part,
+    sizes = sg$sizes,
+    pow   = sg$pow
+  )
 
   f <- as.formula(paste0("nw ~ ", call_txt))
   environment(f) <- list2env(list(nw = nw), parent = parent.frame())
@@ -223,21 +266,29 @@ if (!exists("build_bipartite_from_inputs", mode = "function"))
   }
 
   ok_identity <- NA
-  if (isTRUE(sg$pow == 2 && sg$from == 1 && isTRUE(is.infinite(sg$to)))) {
+  # Cas identitaire : pow=2, sizes=NULL -> toutes tailles 1..n1, donc somme size^2
+  if (isTRUE(as.numeric(sg$pow) == 2) &&
+      (is.null(sg$sizes) || length(sg$sizes) == 0L)) {
     id_val <- .identity_pow2_all_summary_on_network(nw)
-    ok_identity <- identical(unname(as.integer(stat_val)), unname(as.integer(id_val)))
+    ok_identity <- identical(
+      unname(as.integer(sum(stat_val))),
+      unname(as.integer(id_val))
+    )
   }
 
   cat(sprintf("\n[SUMMARY CAS %-18s] part={%s}", name, paste(part, collapse=",")))
   cat(sprintf("\tappel=%s", sg$text))
-  cat(sprintf("\tsummary(.)=%s", format(stat_val)))
-  cat(sprintf("\tattendu(part)=%s", format(expected_val)))
+  cat(sprintf("\tsummary(.)=%s", paste(format(stat_val), collapse=" ")))
+  cat(sprintf("\tattendu(part)=%s", paste(format(expected_val), collapse=" ")))
   if (!is.na(ok_identity)) cat(sprintf("\tidentité pow2=%s", if (ok_identity) "OK" else "KO"))
   if (!is.na(ok_trad))     cat(sprintf("\ttrad erpm=%s",    if (ok_trad) "OK" else "KO"))
   cat("\n")
 
   list(
-    ok_stat   = identical(unname(as.integer(stat_val)), unname(as.integer(expected_val))),
+    ok_stat   = identical(
+      unname(as.integer(stat_val)),
+      unname(as.integer(expected_val))
+    ),
     ok_trad   = ok_trad,
     ok_ident  = ok_identity,
     stat      = stat_val,
@@ -293,8 +344,6 @@ if (!exists("build_bipartite_from_inputs", mode = "function"))
   lab <- utils::head(LETTERS, length(part))
   arglist <- list(
     formula     = f,
-    # estimate    = "MLE",
-    # control     = ctrl,
     eval.loglik = TRUE,
     verbose     = TRUE
   )
@@ -348,11 +397,31 @@ partitions <- list(
 )
 
 cases <- list(
-  list(name="sq_all_pow2",    call_txt="squared_sizes",                   args=list(from=1, to=Inf, pow=2)),
-  list(name="sq_2to5_pow2",   call_txt="squared_sizes(from=2,to=5)",      args=list(from=2, to=5,   pow=2)),
-  list(name="sq_all_pow3",    call_txt="squared_sizes(pow=3)",            args=list(from=1, to=Inf, pow=3)),
-  list(name="sq_1to2_pow2",   call_txt="squared_sizes(from=1,to=2)",      args=list(from=1, to=2,   pow=2)),
-  list(name="sq_3toInf_pow2", call_txt="squared_sizes(from=3,to=Inf)",    args=list(from=3, to=Inf, pow=2))
+  list(
+    name     = "sq_all_pow2",
+    call_txt = "squared_sizes",
+    args     = list(sizes = NULL,       pow = 2)
+  ),
+  list(
+    name     = "sq_2to5_pow2",
+    call_txt = "squared_sizes(sizes=c(2,3,4))",
+    args     = list(sizes = c(2,3,4),   pow = 2)
+  ),
+  list(
+    name     = "sq_all_pow3",
+    call_txt = "squared_sizes(pow=3)",
+    args     = list(sizes = NULL,       pow = 3)
+  ),
+  list(
+    name     = "sq_1to2_pow2",
+    call_txt = "squared_sizes(sizes=1:2)",
+    args     = list(sizes = 1:2,        pow = 2)
+  ),
+  list(
+    name     = "sq_3_pow2",
+    call_txt = "squared_sizes(sizes=3)",
+    args     = list(sizes = 3,          pow = 2)
+  )
 )
 
 # Contrôle MCMLE commun
@@ -406,9 +475,9 @@ run_all_tests_squared_sizes <- function() {
   # ---------- Phase ERPM FIT sur quelques cas représentatifs ----------
   cat("\n=== PHASE ERPM FIT: estimation MLE + loglik ===\n")
   part_ref <- partitions$P1
-  fit_results[["FIT_sq_all_pow2"]]  <- .run_one_case_erpm_fit_squared_sizes(part_ref, "sq_all_pow2",  "squared_sizes", ctrl_fit)
-  fit_results[["FIT_sq_2to5_pow2"]] <- .run_one_case_erpm_fit_squared_sizes(part_ref, "sq_2to5_pow2", "squared_sizes(from=2,to=5)", ctrl_fit)
-  fit_results[["FIT_sq_all_pow3"]]  <- .run_one_case_erpm_fit_squared_sizes(part_ref, "sq_all_pow3",  "squared_sizes(pow=3)", ctrl_fit)
+  fit_results[["FIT_sq_all_pow2"]]  <- .run_one_case_erpm_fit_squared_sizes(part_ref, "sq_all_pow2",  "squared_sizes",              ctrl_fit)
+  fit_results[["FIT_sq_2to5_pow2"]] <- .run_one_case_erpm_fit_squared_sizes(part_ref, "sq_2to5_pow2", "squared_sizes(sizes=2:4)",   ctrl_fit)
+  fit_results[["FIT_sq_all_pow3"]]  <- .run_one_case_erpm_fit_squared_sizes(part_ref, "sq_all_pow3",  "squared_sizes(pow=3)",       ctrl_fit)
 
   ok <- vapply(fit_results, function(x) isTRUE(x$ok), logical(1))
   n_ok <- sum(ok, na.rm = TRUE); n_tot <- sum(!is.na(ok))

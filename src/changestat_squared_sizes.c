@@ -1,10 +1,10 @@
 /**
- * @file
+ * @file changestat_squared_sizes.c
  * @brief Change statistic for the ERPM term `squared_sizes` (one-toggle form).
  *
  * @details
  *  This file implements the {ergm} change statistic for the ERPM effect
- *  `squared_sizes(from, to, pow)` on a bipartite network encoded as:
+ *  `squared_sizes(sizes, pow)` on a bipartite network encoded as:
  *    - actor mode  = actor vertices,
  *    - group mode  = group vertices.
  *
@@ -18,26 +18,27 @@
  *
  *  For each group vertex g, let:
  *    - deg_g be its total degree (its group size, i.e. number of members),
- *    - [from_j, to_j) and pow_j be the parameters of sub-term j.
+ *    - S be the set of admissible sizes (argument `sizes`),
+ *    - pow be the scalar exponent (argument `pow`).
  *
- *  The contribution of group g to sub-term j is:
+ *  The contribution of group g to the statistic is:
  *
- *      f_j(deg_g) =
- *        { deg_g^{pow_j}  if deg_g ∈ [from_j, to_j)
- *        { 0              otherwise.
+ *      f(deg_g) =
+ *        { deg_g^{pow}  if deg_g ∈ S
+ *        { 0            otherwise.
  *
- *  The full statistic for sub-term j is:
+ *  The full statistic is:
  *
- *      Stat_j = sum_over_groups f_j(deg_g).
+ *      Stat = sum_over_groups f(deg_g).
  *
  *  A single membership toggle affects exactly one group g and changes its
- *  size from deg_old to deg_new = deg_old ± 1. The local change for sub-term j
- *  is therefore:
+ *  size from deg_old to deg_new = deg_old ± 1. The local change in the
+ *  statistic is therefore:
  *
- *      Δ_j = f_j(deg_new) − f_j(deg_old).
+ *      Δ = f(deg_new) − f(deg_old).
  *
- *  The function implemented here computes this Δ_j for all j and accumulates
- *  it in CHANGE_STAT[j].
+ *  The function implemented here computes this Δ and accumulates it
+ *  in CHANGE_STAT[0].
  *
  *  ------------------------------------------------------------
  *  Implementation in {ergm} (one-toggle)
@@ -52,39 +53,46 @@
  *      1. Identifies the group-mode vertex affected by the toggle.
  *      2. Reads its current size deg_old from OUT_DEG + IN_DEG.
  *      3. Derives deg_new = deg_old ± 1 from the @p edgestate flag.
- *      4. For each sub-term j with parameters (from_j, to_j, pow_j), computes:
+ *      4. Reads the parameters:
+ *           - pow     = INPUT_PARAM[0]        (scalar exponent),
+ *           - K       = INPUT_PARAM[1]        (number of admissible sizes),
+ *           - sizes_k = INPUT_PARAM[2 + k]    (k = 0..K-1).
+ *      5. Computes:
  *
- *            Δ_j = [deg_new ∈ [from_j, to_j)] * deg_new^{pow_j}
- *                − [deg_old ∈ [from_j, to_j)] * deg_old^{pow_j},
+ *           Δ = f(deg_new) − f(deg_old),
  *
- *         and adds Δ_j to CHANGE_STAT[j].
+ *         where
+ *
+ *           f(d) = d^pow if d == sizes_k for some k, and 0 otherwise.
+ *
+ *         This Δ is then added to CHANGE_STAT[0].
  *
  *  - The macro ::C_CHANGESTAT_FN declares the function with the signature
  *    required by {ergm} and exposes:
- *      - N_CHANGE_STATS  (number of sub-terms),
+ *      - N_CHANGE_STATS  (number of statistics, expected to be 1 here),
  *      - INPUT_PARAM     (packed parameters),
  *      - CHANGE_STAT     (output buffer).
  *
  *  Parameter packing:
  *  - The R-side initialiser (InitErgmTerm.squared_sizes) constructs:
  *
- *        INPUT_PARAM = c(rbind(from, to, pow))
+ *        INPUT_PARAM = c(pow, K, sizes_1, ..., sizes_K)
  *
- *    so that for sub-term j:
+ *    so that:
  *
- *        INPUT_PARAM[3*j + 0] = from_j  (inclusive lower bound)
- *        INPUT_PARAM[3*j + 1] = to_j    (exclusive upper bound)
- *        INPUT_PARAM[3*j + 2] = pow_j   (integer >= 1).
+ *        INPUT_PARAM[0] = pow        (integer >= 1)
+ *        INPUT_PARAM[1] = K          (number of admissible sizes)
+ *        INPUT_PARAM[2 + k] = sizes_{k+1} (k = 0..K-1).
  *
  *  ------------------------------------------------------------
  *  Complexity
  *  ------------------------------------------------------------
  *
- *  - O(N_CHANGE_STATS) per toggle:
- *      - one degree lookup for the affected group,
- *      - two range tests and up to two exponentiations (for deg_old, deg_new)
- *        per sub-term.
- *  - No adjacency traversal, no scanning of other groups.
+ *  - O(K) par toggle:
+ *      - un lookup de degré pour le groupe touché,
+ *      - au plus deux scans du vecteur des tailles admissibles (deg_old / deg_new),
+ *        avec au plus deux exponentiations (pour deg_old, deg_new).
+ *  - Pas de parcours d’adjacence, pas de scan sur les autres groupes.
  *
  *  ------------------------------------------------------------
  *  R interface and usage
@@ -99,10 +107,9 @@
  *  # Example: partition of 6 actors into 3 groups
  *  part <- c(1, 1, 2, 2, 3, 3)
  *
- *  # Model with a squared_sizes term on group sizes in [2, Inf)
- *  # (in practice, 'to' is finite and handled by the initialiser)
+ *  # Model with a squared_sizes term on group sizes equal to 2 or 3
  *  fit <- erpm(
- *    partition ~ squared_sizes(from = 2L, to = Inf, pow = 2L)
+ *    partition ~ squared_sizes(sizes = c(2L, 3L), pow = 2L)
  *  )
  *  summary(fit)
  *
@@ -111,7 +118,7 @@
  *  #   deg_old = 2
  *  #   deg_new = 3
  *  #
- *  # For from = 2, to = 4, pow = 2:
+ *  # For sizes ∈ {2,3}, pow = 2:
  *  #   f(deg_old) = 2^2 = 4
  *  #   f(deg_new) = 3^2 = 9
  *  #
@@ -124,27 +131,17 @@
  *  A self-test can:
  *    - build small bipartite networks from known partitions,
  *    - compute the reference statistic by summing d^pow over group sizes
- *      in [from, to),
+ *      belonging to the target set of sizes,
  *    - call `summary()` on an ERGM/ERPM model with `squared_sizes`,
  *    - compare the reported statistic to the reference value,
  *    - apply a series of single-edge toggles and verify that the incremental
- *      changes match Δ_j = f_j(deg_new) − f_j(deg_old) for each sub-term j.
+ *      changes match Δ = f(deg_new) − f(deg_old).
  */
 
 #include <math.h>
 #include <R_ext/Print.h>        // Rprintf
 #include "ergm_changestat.h"
 #include "ergm_storage.h"
-
-/**
- * @def IN_RANGE
- * @brief Test if a value lies in a half-open interval [a, b).
- *
- * @param x Value to test.
- * @param a Inclusive lower bound.
- * @param b Exclusive upper bound.
- */
-#define IN_RANGE(x,a,b) ((x) >= (a) && (x) < (b))
 
 /**
  * @def DEBUG_SQUARED_SIZES
@@ -154,7 +151,7 @@
  * for each toggle:
  *  - endpoints of the toggled edge,
  *  - index and degrees of the affected group vertex,
- *  - parameters (from, to, pow) and per-sub-statistic Δ and cumulative values.
+ *  - parameters (pow, K, sizes_k) and Δ value.
  *
  * When set to 0, no debug traces are emitted.
  */
@@ -168,10 +165,9 @@
  * @brief Fast exponentiation for integer base and non-negative exponent.
  *
  * @details
- *  Computes \f$\text{base}^{\text{exp}}\f$ using exponentiation by squaring.
- *  This runs in \f$O(\log(\text{exp}))\f$, which is typically faster and more
- *  numerically stable than a naive loop in \f$O(\text{exp})\f$ for larger
- *  exponents.
+ *  Computes base^exp using exponentiation by squaring.
+ *  This runs in O(log(exp)), which is typically faster and more
+ *  numerically stable than a naive loop in O(exp) for larger exponents.
  *
  *  For convenience, if @p exp <= 0 the function returns 1.0, so in
  *  particular base^0 = 1.0 for any base.
@@ -196,57 +192,47 @@ static inline double ipow_int(int base, int exp){
 /* -------------------------------------------------------------------------- */
 
 /**
- * @brief Change statistic for the ERPM term `squared_sizes(from, to, pow)`.
+ * @brief Change statistic for the ERPM term `squared_sizes(sizes, pow)`.
  *
  * @details
  *  This function is registered via ::C_CHANGESTAT_FN as ::c_squared_sizes.
  *  It processes a single membership toggle between an actor-mode vertex and
  *  a group-mode vertex in a bipartite network and computes the local change
- *  in the `squared_sizes` statistic for each sub-term.
+ *  in the aggregated `squared_sizes` statistic:
+ *
+ *      T(y) = sum_{g in G} 1[deg(g) in sizes] * deg(g)^pow.
  *
  *  Actor / group modes:
  *  - The actor mode is represented by the first BIPARTITE vertices.
  *  - The group mode is represented by all remaining vertices.
  *
- *  For each call:
+ *  Parameter packing (R side):
+ *  - The R-side initializer constructs
+ *
+ *        INPUT_PARAM = c(pow, K, sizes_1, ..., sizes_K)
+ *
+ *    where:
+ *      - pow       = common exponent (integer >= 1),
+ *      - K         = number of admissible group sizes,
+ *      - sizes_i   = i-th admissible group size (integer >= 1).
+ *
+ *  For each toggle:
  *  - The function:
- *      1. Zeros the CHANGE_STAT buffer.
- *      2. Identifies the group-mode vertex @c v2 affected by the toggle.
+ *      1. Zeros the CHANGE_STAT buffer (single component).
+ *      2. Identifies the group-mode vertex affected by the toggle.
  *      3. Reads the group size before the toggle:
  *           deg_old = OUT_DEG[v2] + IN_DEG[v2].
  *      4. Determines if the toggle is an addition or a deletion via @p edgestate
  *         and sets:
  *           deg_new = deg_old + 1  (addition),
  *           deg_new = deg_old - 1  (deletion).
- *      5. For each sub-term j, it reads:
- *           from_j = INPUT_PARAM[3*j + 0],
- *           to_j   = INPUT_PARAM[3*j + 1],
- *           pow_j  = INPUT_PARAM[3*j + 2],
- *         and computes:
+ *      5. Checks whether deg_old and deg_new belong to the set `sizes`.
+ *      6. Computes:
  *
- *           Δ_j = [deg_new ∈ [from_j, to_j)] * deg_new^{pow_j}
- *               − [deg_old ∈ [from_j, to_j)] * deg_old^{pow_j}.
+ *           Δ = 1[deg_new in sizes] * deg_new^pow
+ *             − 1[deg_old in sizes] * deg_old^pow,
  *
- *         This Δ_j is then added to CHANGE_STAT[j].
- *
- *  The global statistic is obtained by {ergm} by accumulating the contributions
- *  from all calls to this function over all toggles.
- *
- * @param tail       Tail vertex of the toggled edge (actor or group).
- * @param head       Head vertex of the toggled edge (actor or group).
- * @param mtp        Pointer to the model term structure (contains INPUT_PARAM,
- *                   number of statistics, etc.).
- * @param nwp        Pointer to the network-plus workspace (provides degrees,
- *                   adjacency, and other internal structures).
- * @param edgestate  Current state of the edge:
- *                   - 0 if the edge is absent (toggle = addition),
- *                   - 1 if the edge is present (toggle = deletion).
- *
- * @note
- *  - This function assumes a bipartite representation where each membership
- *    connects one actor-mode vertex and one group-mode vertex.
- *  - The group size is inferred from the degree of the group vertex without
- *    explicitly toggling the edge inside this function (un-toggle form).
+ *         and adds Δ to CHANGE_STAT[0].
  */
 C_CHANGESTAT_FN(c_squared_sizes){
 
@@ -255,7 +241,7 @@ C_CHANGESTAT_FN(c_squared_sizes){
    * {ergm} sums the vectors returned by successive calls. Here we only
    * compute the local contribution of the current toggle.
    */
-  ZERO_ALL_CHANGESTATS(0);  // memset(CHANGE_STAT, 0, N_CHANGE_STATS * sizeof(double))
+  ZERO_ALL_CHANGESTATS();
 
   /* 2) Number of vertices in the actor mode.
    *
@@ -265,7 +251,8 @@ C_CHANGESTAT_FN(c_squared_sizes){
   const int n1 = BIPARTITE;
 
   /* 3) Read the endpoints of the current toggle. */
-  Vertex t = tail, h = head;
+  Vertex t = tail;
+  Vertex h = head;
 
   /* 4) Identify the group-mode vertex.
    *
@@ -290,36 +277,42 @@ C_CHANGESTAT_FN(c_squared_sizes){
    * the internal network representation.
    */
 
-  /* 6) Optional debug logging. */
-  #if DEBUG_SQUARED_SIZES
-    Rprintf("[C:c_squared_sizes] tail=%d head=%d | group=%d | edgestate=%d | "
-            "deg_old=%d -> deg_new=%d | N_STATS=%d\n",
-            (int)t, (int)h, (int)v2, (int)edgestate, deg_old, deg_new, N_CHANGE_STATS);
-  #endif
+  /* 6) Aggregated statistic over a set of admissible sizes.
+   *
+   * INPUT_PARAM layout (length = K + 2):
+   *   INPUT_PARAM[0]         = pow        (exponent, integer >= 1)
+   *   INPUT_PARAM[1]         = K          (number of admissible sizes)
+   *   INPUT_PARAM[2..(K+1)]  = sizes_1..K (admissible group sizes)
+   *
+   * There is a single ERGM statistic component (N_CHANGE_STATS == 1),
+   * which aggregates the contributions of all admissible sizes.
+   */
+  const int power = (int)INPUT_PARAM[0];
+  const int K     = (int)INPUT_PARAM[1];
 
-  /* 7) For each sub-term j, read (from, to, pow) and accumulate Δ_j. */
-  for(int j = 0; j < N_CHANGE_STATS; ++j){
-    // Parameters for sub-term j: [from_j, to_j, pow_j].
-    int from  = (int)INPUT_PARAM[3*j + 0];
-    int to    = (int)INPUT_PARAM[3*j + 1];
-    int power = (int)INPUT_PARAM[3*j + 2];
+  int match_old = 0;
+  int match_new = 0;
 
-    double d = 0.0;
-
-    // Contribution of the new degree.
-    if(IN_RANGE(deg_new, from, to))
-      d += ipow_int(deg_new, power);
-
-    // Remove the contribution of the old degree.
-    if(IN_RANGE(deg_old, from, to))
-      d -= ipow_int(deg_old, power);
-
-    // Accumulate local change for this j.
-    CHANGE_STAT[j] += d;
-
-    #if DEBUG_SQUARED_SIZES
-      Rprintf("  stat[%d]: from=%d to=%d pow=%d | Δ=%.2f | cumul=%.2f\n",
-              j, from, to, power, d, CHANGE_STAT[j]);
-    #endif
+  for(int i = 0; i < K; ++i){
+    int size_i = (int)INPUT_PARAM[2 + i];
+    if(deg_old == size_i) match_old = 1;
+    if(deg_new == size_i) match_new = 1;
   }
+
+  double d = 0.0;
+
+  if(match_new)
+    d += ipow_int(deg_new, power);
+
+  if(match_old)
+    d -= ipow_int(deg_old, power);
+
+  CHANGE_STAT[0] += d;
+
+#if DEBUG_SQUARED_SIZES
+  Rprintf("[C:c_squared_sizes] tail=%d head=%d | group=%d | edgestate=%d | "
+          "deg_old=%d -> deg_new=%d | K=%d pow=%d | Δ=%.2f | cumul=%.2f\n",
+          (int)t, (int)h, (int)v2, (int)edgestate,
+          deg_old, deg_new, K, power, d, CHANGE_STAT[0]);
+#endif
 }
