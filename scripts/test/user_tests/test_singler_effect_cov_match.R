@@ -41,10 +41,10 @@ nodes_df <- data.frame(label = 1:6, bin_att = bin_att, bin_cat = cat_att)
 # ======================================================================================
 
 # baseline test - binary attribute
-# dry <- erpm(partition_mix ~ cov_match("bin_att"), 
-#             nodes = nodes_df,
-#             eval_call = FALSE, verbose = TRUE)
-# print(summary(dry[[2]], constraints = ~ b1part)) # should be 4
+dry <- erpm(partition_mix ~ cov_match("bin_att"), 
+            nodes = nodes_df,
+            eval_call = FALSE, verbose = TRUE)
+print(summary(dry[[2]], constraints = ~ b1part)) # should be 4
 dry <- erpm(partition_balanced ~ cov_match("bin_att"), 
             nodes = nodes_df,
             eval_call = FALSE, verbose = TRUE)
@@ -63,54 +63,54 @@ dry <- erpm(partition_mix ~ cov_match("bin_cat"),
             nodes = nodes_df,
             eval_call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 1
-# dry <- erpm(partition_balanced ~ cov_match("bin_cat"),
-#             nodes = nodes_df,
-#             eval_call = FALSE, verbose = TRUE)
-# print(summary(dry[[2]], constraints = ~ b1part)) # should be 3
-# dry <- erpm(partition_full ~ cov_match("bin_cat"), 
-#             nodes = nodes_df,
-#             eval_call = FALSE, verbose = TRUE)
-# print(summary(dry[[2]], constraints = ~ b1part)) # should be 3
+dry <- erpm(partition_balanced ~ cov_match("bin_cat"),
+            nodes = nodes_df,
+            eval_call = FALSE, verbose = TRUE)
+print(summary(dry[[2]], constraints = ~ b1part)) # should be 3
+dry <- erpm(partition_full ~ cov_match("bin_cat"), 
+            nodes = nodes_df,
+            eval_call = FALSE, verbose = TRUE)
+print(summary(dry[[2]], constraints = ~ b1part)) # should be 3
 dry <- erpm(partition_singleton ~ cov_match("bin_cat"), 
             nodes = nodes_df,
             eval_call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 0
 
 # option test - clique size = 3 -> error
-# dry <- erpm(partition_mix ~ cov_match("bin_att", clique_size=3), 
-#             nodes = nodes_df,
-#             eval_call = FALSE, verbose = TRUE)
-# print(summary(dry[[2]], constraints = ~ b1part)) # should be 1 -> error
+dry <- erpm(partition_mix ~ cov_match("bin_att", clique_size=3), 
+            nodes = nodes_df,
+            eval_call = FALSE, verbose = TRUE)
+print(summary(dry[[2]], constraints = ~ b1part)) # should be 1 
 dry <- erpm(partition_balanced ~ cov_match("bin_att", clique_size=3), 
             nodes = nodes_df,
             eval_call = FALSE, verbose = TRUE)
-print(summary(dry[[2]], constraints = ~ b1part)) # should be 0 -> error
+print(summary(dry[[2]], constraints = ~ b1part)) # should be 0 
 dry <- erpm(partition_full ~ cov_match("bin_att", clique_size=3), 
             nodes = nodes_df,
             eval_call = FALSE, verbose = TRUE)
-print(summary(dry[[2]], constraints = ~ b1part)) # should be 2 -> error
-# dry <- erpm(partition_singleton ~ cov_match("bin_att", clique_size=3),
-#             nodes = nodes_df,
-#             eval_call = FALSE, verbose = TRUE)
-# print(summary(dry[[2]], constraints = ~ b1part)) # should be 0 -> error
+print(summary(dry[[2]], constraints = ~ b1part)) # should be 2
+dry <- erpm(partition_singleton ~ cov_match("bin_att", clique_size=3),
+            nodes = nodes_df,
+            eval_call = FALSE, verbose = TRUE)
+print(summary(dry[[2]], constraints = ~ b1part)) # should be 0 
 
-# option test - normalized = T -> error
+# option test - normalized = T -> error?
 dry <- erpm(partition_mix ~ cov_match("bin_att", normalized=TRUE), 
             nodes = nodes_df,
             eval_call = FALSE, verbose = TRUE)
-# print(summary(dry[[2]], constraints = ~ b1part)) # should be 4 -> error
-# dry <- erpm(partition_balanced ~ cov_match("bin_att", normalized=TRUE), 
-#             nodes = nodes_df,
-#             eval_call = FALSE, verbose = TRUE)
-print(summary(dry[[2]], constraints = ~ b1part)) # should be 2 -> error
+print(summary(dry[[2]], constraints = ~ b1part)) # should be 1/1 + 3/3 = 2
+dry <- erpm(partition_balanced ~ cov_match("bin_att", normalized=TRUE), 
+            nodes = nodes_df,
+            eval_call = FALSE, verbose = TRUE)
+print(summary(dry[[2]], constraints = ~ b1part)) # should be 1/1 + 0 + 1/1 = 2
 dry <- erpm(partition_full ~ cov_match("bin_att", normalized=TRUE), 
             nodes = nodes_df,
             eval_call = FALSE, verbose = TRUE)
-print(summary(dry[[2]], constraints = ~ b1part)) # should be 6 -> error
-# dry <- erpm(partition_singleton ~ cov_match("bin_att", normalized=TRUE),
-#             nodes = nodes_df,
-#             eval_call = FALSE, verbose = TRUE)
-# print(summary(dry[[2]], constraints = ~ b1part)) # should be 0 -> error
+print(summary(dry[[2]], constraints = ~ b1part)) # should be 6/15 = 0.4
+dry <- erpm(partition_singleton ~ cov_match("bin_att", normalized=TRUE),
+            nodes = nodes_df,
+            eval_call = FALSE, verbose = TRUE)
+print(summary(dry[[2]], constraints = ~ b1part)) # should be 0
 
 # ======================================================================================
 # 2) FIT MODEL
@@ -125,7 +125,6 @@ make_nw_from_partition <- function(part,nodes) {
   built$network
 }
 
-# baseline case 
 ctrl_A <- control.ergm(
   CD.maxit        = 0,        # saute la phase contrastive
   MCMLE.maxit     = 10,
@@ -136,6 +135,7 @@ ctrl_A <- control.ergm(
   parallel        = 0
 )
 
+# baseline case
 nw <- make_nw_from_partition(partition_mix,nodes_df)
 fit_ergm <- ergm( nw ~ cov_match("bin_att"),
                   constraints = ~b1part, 
@@ -150,4 +150,17 @@ fit_erpm <- erpm(partition_mix ~ cov_match("bin_att"),
 print(summary(fit_erpm))
 fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # should be close to 0
 
-# option case -> TODO
+# option case 
+nw <- make_nw_from_partition(partition_mix,nodes_df)
+fit_ergm <- ergm( nw ~ cov_match("bin_att", clique_size=3),
+                  constraints = ~b1part, 
+                  estimate="MLE", 
+                  control=ctrl_A)
+print(summary(fit_ergm))
+
+fit_erpm <- erpm(partition_mix ~ cov_match("bin_att", clique_size=3),
+                 nodes = nodes_df,
+                 estimate="MLE", 
+                 control=ctrl_A) 
+print(summary(fit_erpm))
+fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # should be close to 0

@@ -53,7 +53,14 @@ mix_att <- matrix(
   nrow = 6, byrow = TRUE
 )
 
-nets_df <- list(block_att = block_att, mix_att = mix_att)
+cont_att <- matrix(c(0 , 0.8, 0.5, 0  , 0  , 0  ,
+                     0.2, 0  , 1  , 0  , 0  , 0 ,
+                     0  , 0.5, 0  , 0  , 1  , 0 ,
+                     0  , 0  , 0  , 0  , 0.1, 1 ,
+                     0  , 0  , 0  , 0.1, 0  , 1 ,
+                     0  , 1  , 0  , 0  , 0  , 0), nrow=6, byrow=TRUE)
+
+nets_df <- list(block_att = block_att, mix_att = mix_att, cont_att = cont_att)
 
 # ======================================================================================
 # 1) STAT OBSERVÉE SANS FIT — cas simples + options
@@ -128,6 +135,43 @@ print(summary(dry[[2]], constraints = ~ b1part))
 
 dry <- erpm(
   partition_singleton ~ dyadcov("mix_att", clique_size = 2, normalized = FALSE),
+  dyads     = nets_df,
+  eval_call = FALSE,
+  verbose   = TRUE
+)
+print(summary(dry[[2]], constraints = ~ b1part))
+# attendu: 0
+
+# ---- baseline test - çont matrix ------------------
+dry <- erpm(
+  partition_mix ~ dyadcov("cont_att", clique_size = 2, normalized = FALSE),
+  dyads     = nets_df,
+  eval_call = FALSE,
+  verbose   = TRUE
+)
+print(summary(dry[[2]], constraints = ~ b1part))
+# attendu (comme dyadcov_full): 3.7
+
+dry <- erpm(
+  partition_balanced ~ dyadcov("cont_att", clique_size = 2, normalized = FALSE),
+  dyads     = nets_df,
+  eval_call = FALSE,
+  verbose   = TRUE
+)
+print(summary(dry[[2]], constraints = ~ b1part))
+# attendu: 2
+
+dry <- erpm(
+  partition_full ~ dyadcov("cont_att", clique_size = 2, normalized = FALSE),
+  dyads     = nets_df,
+  eval_call = FALSE,
+  verbose   = TRUE
+)
+print(summary(dry[[2]], constraints = ~ b1part))
+# attendu: 7.2
+
+dry <- erpm(
+  partition_singleton ~ dyadcov("cont_att", clique_size = 2, normalized = FALSE),
   dyads     = nets_df,
   eval_call = FALSE,
   verbose   = TRUE

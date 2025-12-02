@@ -44,13 +44,19 @@ mix_att <- matrix(c(0, 1, 1, 0, 0, 1,
                     0, 0, 0, 0, 1, 1,
                     0, 0, 0, 1, 0, 1,
                     0, 1, 0, 0, 0, 0), nrow=6, byrow=TRUE)
-nets_df <- list(block_att = block_att, mix_att = mix_att)
+cont_att <- matrix(c(0 , 0.8, 0.5, 0  , 0  , 0  ,
+                    0.2, 0  , 1  , 0  , 0  , 0 ,
+                    0  , 0.5, 0  , 0  , 1  , 0 ,
+                    0  , 0  , 0  , 0  , 0.1, 1 ,
+                    0  , 0  , 0  , 0.1, 0  , 1 ,
+                    0  , 1  , 0  , 0  , 0  , 0), nrow=6, byrow=TRUE)
+nets_df <- list(block_att = block_att, mix_att = mix_att, cont_att = cont_att)
 
 # ======================================================================================
 # 1) STAT OBSERVÉE SANS FIT — simple cases + options
 # ======================================================================================
 
-# baseline test - block matrix -> error
+# baseline test - block matrix 
 dry <- erpm(partition_mix ~ dyadcov_full("block_att"), 
             dyads = nets_df,
             eval_call = FALSE, verbose = TRUE)
@@ -68,7 +74,7 @@ dry <- erpm(partition_singleton ~ dyadcov_full("block_att"),
             eval_call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 0
 
-# baseline test - mixed matrix -> error (the matrix does not have to be symmetric)
+# baseline test - mixed matrix 
 dry <- erpm(partition_mix ~ dyadcov_full("mix_att"), 
             dyads = nets_df,
             eval_call = FALSE, verbose = TRUE)
@@ -86,7 +92,25 @@ dry <- erpm(partition_singleton ~ dyadcov_full("mix_att"),
             eval_call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 0 
 
-# option test - size = 2 TODO
+# baseline test - cont matrix 
+dry <- erpm(partition_mix ~ dyadcov_full("cont_att"), 
+            dyads = nets_df,
+            eval_call = FALSE, verbose = TRUE)
+print(summary(dry[[2]], constraints = ~ b1part)) # should be 3.7
+dry <- erpm(partition_balanced ~ dyadcov_full("cont_att"), 
+            dyads = nets_df,
+            eval_call = FALSE, verbose = TRUE)
+print(summary(dry[[2]], constraints = ~ b1part)) # should be 2
+dry <- erpm(partition_full ~ dyadcov_full("cont_att"), 
+            dyads = nets_df,
+            eval_call = FALSE, verbose = TRUE)
+print(summary(dry[[2]], constraints = ~ b1part)) # should be 7.2
+dry <- erpm(partition_singleton ~ dyadcov_full("cont_att"), 
+            dyads = nets_df,
+            eval_call = FALSE, verbose = TRUE)
+print(summary(dry[[2]], constraints = ~ b1part)) # should be 0 
+
+# option test - size = 2
 dry <- erpm(partition_mix ~ dyadcov_full("block_att", size=2), 
             dyads = nets_df,
             eval_call = FALSE, verbose = TRUE)
@@ -104,7 +128,7 @@ dry <- erpm(partition_singleton ~ dyadcov_full("block_att", size=2),
             eval_call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 0
 
-# option test - size = 2:6 TODO
+# option test - size = 2:6 
 dry <- erpm(partition_mix ~ dyadcov_full("mix_att", size=3:6), 
             dyads = nets_df,
             eval_call = FALSE, verbose = TRUE)
