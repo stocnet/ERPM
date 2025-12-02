@@ -1,6 +1,7 @@
 #' ERPM wrapper: translate ERPM formulas to {ergm} calls and optionally fit
 #' @name erpm_wrapper
 #' @note erpm_wrapper.R
+#'
 #' @description
 #' This module provides a thin wrapper around {ergm} to:
 #' \enumerate{
@@ -26,24 +27,13 @@
 #' (or that they are available in the search path) and that the \code{b1part}
 #' constraint is meaningful for the constructed network.
 #'
-#' @examples
-#' \dontrun{
-#'   # Basic usage from a partition vector
-#'   partition <- c(1, 1, 2, 2, 3)
-#'   fit <- erpm(partition ~ groups + cliques(3), estimate = "MLE")
-#'
-#'   # Dry-run: only inspect the translated {ergm} call
-#'   call_only <- erpm(partition ~ groups(2), eval_call = FALSE)
-#'   print(call_only)
-#' }
-#'
 #' @note
 #' The main wrapper is exercised in self-tests and MWEs under \code{scripts/test}
 #' by comparing ERPM-based fits to direct {ergm} calls on constructed bipartite networks.
 #'
 #' @keywords ERPM ERGM wrapper bipartite translation
 
-if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
+# if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
 
   # ============================================================================
   # 1. Small generic helpers
@@ -54,6 +44,7 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   #' Return `a` if it is not `NULL`, otherwise return `b`.
   #' Used throughout the wrapper to avoid nested `if` / `else` for default values.
   #'
+  #' @noRd
   #' @param a any R object, possibly `NULL`
   #' @param b any R object used as fallback
   #' @return `a` if not `NULL`, otherwise `b`
@@ -74,7 +65,8 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   #'
   #' Convert an object to a single-line string suitable for compact logging
   #' and error messages.
-  #'
+  #'  
+  #' @noRd
   #' @param x an R object
   #' @return character scalar
   #' @examples
@@ -92,7 +84,8 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   #'
   #' Replace every run of whitespace (spaces, tabs, newlines) by nothing.
   #' This is used to compactify formulas and calls for logging.
-  #'
+  #'  
+  #' @noRd
   #' @param s character scalar
   #' @return character scalar without whitespace
   #' @examples
@@ -147,7 +140,8 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   #' @examples
   #' df <- data.frame(id = 1:3, name = c("A","B","C"))
   #' .get_label_col(df)
-  #'
+  #'  
+  #' @noRd
   #' @note
   #' The aliases include "label", "nom", "name", and "id" to be robust
   #' to typical naming patterns in user data.
@@ -172,7 +166,8 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   #'   \item `nodes` must be a data.frame;
   #'   \item if a label-like column exists, it must not contain duplicates.
   #' }
-  #'
+  #'  
+  #' @noRd
   #' @param nodes a data.frame of node attributes
   #' @return invisibly `TRUE` on success; otherwise raises an error
   #' @examples
@@ -204,7 +199,8 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   #' }
   #'
   #' These matrices are later stored on the network as `%n%` attributes.
-  #'
+  #'  
+  #' @noRd
   #' @param dyads named list of matrices
   #' @param n integer number of actors (mode 1)
   #' @param labels character vector of actor labels, used for name checks
@@ -251,7 +247,8 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   #' \dontrun{
   #'   .stop_build_bipartite("partition must be non-empty")
   #' }
-  #'
+  #'  
+  #' @noRd
   #' @note
   #' This function is not exported. It is used internally by
   #' \code{build_bipartite_from_inputs()}.
@@ -291,7 +288,7 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   }
 
   #' Build a padded bipartite network from a partition
-  #'
+  #' 
   #' Construct a bipartite {network} object from:
   #' \itemize{
   #'   \item a partition vector of length \eqn{n} (mode-1 actors),
@@ -335,6 +332,7 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   #' Self-tests construct bipartite networks from partitions and compare their
   #' summaries to reference partitions.
   #' @keywords internal
+  #' @export
   build_bipartite_from_inputs <- function(partition = NULL,
                                           nodes     = NULL,
                                           dyads     = list()) {
@@ -460,7 +458,8 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   #' .normalize_groups_args(list())
   #' .normalize_groups_args(list(3))
   #' .normalize_groups_args(list(from = 2, to = 5))
-  #'
+  #'  
+  #' @noRd
   #' @note
   #' This normalizer is used exclusively by \code{.translate_one_term()} for
   #' the special-case translation of \code{groups(...)} into \code{b2degrange}.
@@ -542,7 +541,8 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   #' Decompose a RHS expression of the form
   #' \code{edges + triangles + nodematch("grp")} into a list of call objects,
   #' each representing a single term.
-  #'
+  #'  
+  #' @noRd
   #' @param expr a language object representing the RHS expression
   #' @return list of call objects (each element is either a call or an atomic term)
   #' @examples
@@ -589,7 +589,8 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   #' @examples
   #' .translate_one_term(quote(groups(3)), rename_map = c())
   #' .translate_one_term(quote(cliques(k = 3, normalized = TRUE)), rename_map = c())
-  #'
+  #'  
+  #' @noRd
   #' @note
   #' In the current version, \code{rename_map}, \code{wrap_proj1}, and \code{wrap_B}
   #' are typically empty, but they are kept for forward compatibility with other
@@ -956,10 +957,10 @@ if (!exists(".__erpm_wrapper_loaded", envir = .GlobalEnv)) {
   # 7. Export functions to the global environment
   # ============================================================================
 
-  assign("build_bipartite_from_inputs", build_bipartite_from_inputs,  envir = .GlobalEnv)
-  assign(".normalize_groups_args",      .normalize_groups_args,       envir = .GlobalEnv)
-  assign(".split_sum_terms",            .split_sum_terms,             envir = .GlobalEnv)
-  assign(".translate_one_term",         .translate_one_term,          envir = .GlobalEnv)
-  assign("erpm",                        erpm,                         envir = .GlobalEnv)
-  assign(".__erpm_wrapper_loaded",      TRUE,                         envir = .GlobalEnv)
-}
+  # assign("build_bipartite_from_inputs", build_bipartite_from_inputs,  envir = .GlobalEnv)
+  # assign(".normalize_groups_args",      .normalize_groups_args,       envir = .GlobalEnv)
+  # assign(".split_sum_terms",            .split_sum_terms,             envir = .GlobalEnv)
+  # assign(".translate_one_term",         .translate_one_term,          envir = .GlobalEnv)
+  # assign("erpm",                        erpm,                         envir = .GlobalEnv)
+  # assign(".__erpm_wrapper_loaded",      TRUE,                         envir = .GlobalEnv)
+# }
