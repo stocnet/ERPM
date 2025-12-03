@@ -15,9 +15,14 @@
 #' Each actor in the actor mode carries a numeric covariate value \eqn{x_i}.
 #' For a fixed integer \eqn{k \ge 2}, and for each group, the term considers all
 #' \eqn{k}-actor subsets of that group and computes, on each subset, the
-#' max–min range of the covariate. The statistic can be used either in its raw
-#' form (sum over all subsets in all groups) or in a by-group normalized form
-#' (average range per group), controlled by the \code{normalized} argument.
+#' max–min range of the covariate. The statistic can be used either:
+#' \itemize{
+#'   \item in its raw form (sum over all subsets in all groups);
+#'   \item in a by-group normalized form (average range per \eqn{k}-subset in each group);
+#'   \item in a global, size-normalized form (average range per actor in each group).
+#' }
+#' The choice is controlled by the \code{normalize} argument (with aliases
+#' \code{normalized} and \code{norm}).
 #'
 #' @details
 #' The term is implemented as a native ERGM C change-statistic, declared in the
@@ -29,11 +34,15 @@
 #'         literal vector, coercing it to numeric and failing fast on \code{NA};
 #'   \item normalizes the \code{clique_size} argument into a single integer
 #'         \eqn{k \ge 2};
-#'   \item interprets \code{normalized} as either:
+#'   \item interprets the normalisation argument (\code{normalize}, with aliases
+#'         \code{normalized} and \code{norm}) as:
 #'         \itemize{
-#'           \item \code{FALSE}/\code{"none"}: raw sum over all \eqn{k}-subsets;
-#'           \item \code{TRUE}/\code{"by_group"}: group-wise average over
-#'                 \eqn{k}-subsets;
+#'           \item missing / \code{NULL} or \code{FALSE}: raw sum over all
+#'                 \eqn{k}-subsets (no normalization);
+#'           \item \code{TRUE} or \code{"by_group"}: group-wise average over
+#'                 \eqn{k}-subsets, i.e. division by \eqn{\binom{n_g}{k}};
+#'           \item \code{"global"}: group-wise average per actor, i.e. division
+#'                 by \eqn{n_g};
 #'         }
 #'   \item packs the covariate and scalar parameters into a compact
 #'         \code{INPUT_PARAM} vector for the C layer.
@@ -70,7 +79,9 @@
 #'   \sum_{S \in \mathcal{C}_k(g)} R(S),
 #' }
 #' where groups with \eqn{n_g < k} contribute zero (they have no
-#' \eqn{k}-subsets). The \emph{by-group normalized} statistic divides each group
+#' \eqn{k}-subsets).
+#'
+#' The \emph{by-group normalized} statistic divides each group
 #' contribution by the number of \eqn{k}-subsets in that group, i.e.
 #' \deqn{
 #'   T_k^{\text{by-group}}(B;x)
@@ -81,22 +92,41 @@
 #'     \sum_{S \in \mathcal{C}_k(g)} R(S).
 #' }
 #'
-#' The argument \code{normalized} selects between these two variants.
+#' The \emph{global} size-normalized statistic divides each group
+#' contribution by the group size \eqn{n_g}:
+#' \deqn{
+#'   T_k^{\text{global}}(B;x)
+#'   =
+#'   \sum_{g \in G}
+#'     \mathbf{1}[\,n_g \ge k\,]
+#'     \frac{1}{n_g}
+#'     \sum_{S \in \mathcal{C}_k(g)} R(S),
+#' }
+#' with the convention that groups with \eqn{n_g = 0} contribute 0.
+#'
+#' The argument \code{normalize} (or its aliases) selects between these
+#' three variants.
 #'
 #' @section Usage:
 #' Typical usage with {ergm} on a bipartite network \code{nw}:
 #' \preformatted{
 #'   # Raw (non-normalized) cov_diff on actor covariate "x_attr" with k = 2
-#'   summary(nw ~ cov_diff(cov = "x_attr", clique_size = 2, normalized = FALSE))
+#'   summary(nw ~ cov_diff(cov = "x_attr", clique_size = 2))
 #'
-#'   # By-group normalized variant
-#'   summary(nw ~ cov_diff(cov = "x_attr", clique_size = 3, normalized = TRUE))
+#'   # By-group normalized variant (average per k-subset in each group)
+#'   summary(nw ~ cov_diff(cov = "x_attr", clique_size = 3,
+#'                         normalize = "by_group"))
+#'
+#'   # Global normalized variant (average per actor in each group)
+#'   summary(nw ~ cov_diff(cov = "x_attr", clique_size = 3,
+#'                         normalize = "global"))
 #' }
 #'
 #' When using the ERPM wrapper on a partition-based workflow, the term can be
 #' invoked indirectly as:
 #' \preformatted{
-#'   erpm(partition ~ cov_diff(cov = "x_attr", clique_size = 2, normalized = TRUE))
+#'   erpm(partition ~ cov_diff(cov = "x_attr", clique_size = 2,
+#'                             normalize = "by_group"))
 #' }
 #' provided that the wrapper translates the partition into a bipartite network
 #' with a consistent actor mode and group mode.
@@ -114,17 +144,23 @@
 #' are accepted), and any \code{NA} on the actor mode is rejected in a
 #' fail-fast manner. The \code{clique_size} argument must be a single finite
 #' numeric value that is rounded to an integer \eqn{k \ge 2}. The
-#' \code{normalized} argument accepts logical values, the character strings
-#' \code{"none"} and \code{"by_group"}, or a scalar numeric flag interpreted as
-#' zero (raw) versus non-zero (by-group).
+#' \code{normalize} argument accepts logical values, or the character strings
+#' \code{"by_group"} and \code{"global"}:
+#' \itemize{
+#'   \item \code{NULL} or \code{FALSE}: raw (no normalization);
+#'   \item \code{TRUE} or \code{"by_group"}: divide by \eqn{\binom{n_g}{k}};
+#'   \item \code{"global"}: divide by \eqn{n_g}.
+#' }
+#' Numeric flags 0, 1, 2 are also accepted as shorthand for raw, by-group,
+#' and global normalization, respectively.
 #'
 #' Internally, \code{cov_diff} passes its parameters and covariate to the C
 #' layer through \code{INPUT_PARAM} with layout
-#' \code{c(n1, k, norm_flag, x[1:n1])}, where:
+#' \code{c(n1, k, norm_mode, x[1:n1])}, where:
 #' \itemize{
 #'   \item \code{n1} is the actor-mode size;
 #'   \item \code{k} is the subset size \eqn{k};
-#'   \item \code{norm_flag} equals \code{0} for raw, \code{1} for by-group;
+#'   \item \code{norm_mode} equals \code{0} for raw, \code{1} for by-group, \code{2} for global;
 #'   \item \code{x} is the numeric actor covariate restricted to the actor mode.
 #' }
 #'
@@ -157,11 +193,16 @@
 #'   x_attr <- c(1.0, 3.0, 5.0, 10.0)
 #'   set.vertex.attribute(nw, "x_attr", c(x_attr, rep(NA_real_, n_groups)))
 #'
-#'   # Example: k = 2 (all 2-actor subsets inside each group)
+#'   # Example: k = 2 (all 2-actor subsets inside each group), raw
 #'   summary(nw ~ cov_diff(cov = "x_attr", clique_size = 2))
 #'
 #'   # By-group normalized variant
-#'   summary(nw ~ cov_diff(cov = "x_attr", clique_size = 2, normalized = TRUE))
+#'   summary(nw ~ cov_diff(cov = "x_attr", clique_size = 2,
+#'                         normalize = "by_group"))
+#'
+#'   # Global normalized variant
+#'   summary(nw ~ cov_diff(cov = "x_attr", clique_size = 2,
+#'                         normalize = "global"))
 #'
 #'   # Fit a simple ERGM including the term
 #'   fit <- ergm(nw ~ cov_diff(cov = "x_attr", clique_size = 2))
@@ -175,11 +216,15 @@
 #'   \item the ERGM summary \code{summary(nw ~ cov_diff(...))};
 #'   \item direct evaluations of
 #'         \eqn{\sum_g \sum_{S \in \mathcal{C}_k(g)} (\max_{i \in S} x_i - \min_{i \in S} x_i)}
-#'         (raw case);
+#'         (raw case, \code{normalize} missing or \code{FALSE});
 #'   \item direct evaluations of
 #'         \eqn{\sum_g \mathbf{1}[n_g \ge k] \binom{n_g}{k}^{-1}
 #'               \sum_{S \in \mathcal{C}_k(g)} (\max_{i \in S} x_i - \min_{i \in S} x_i)}
-#'         (by-group normalized case).
+#'         (by-group normalized case, \code{normalize = "by_group"});
+#'   \item direct evaluations of
+#'         \eqn{\sum_g \mathbf{1}[n_g \ge k] n_g^{-1}
+#'               \sum_{S \in \mathcal{C}_k(g)} (\max_{i \in S} x_i - \min_{i \in S} x_i)}
+#'         (global normalized case, \code{normalize = "global"}).
 #' }
 #' Additional checks verify that toggling an actor–group tie updates the
 #' statistic by the expected local change in the range over all \eqn{k}-subsets
@@ -201,16 +246,33 @@ InitErgmTerm.cov_diff <- function(nw, arglist, ..., version = packageVersion("er
 
   # Run standard ERGM term checks and parse user arguments:
   # - enforce bipartite network;
-  # - accept 'cov', 'clique_size', 'normalized' with flexible types;
+  # - accept 'cov', 'clique_size', and a normalization argument
+  #   ('normalize', 'normalized', or 'norm') with flexible types;
   # - let {ergm} handle generic validations (missing args, etc.).
   a <- check.ErgmTerm(
     nw, arglist,
     directed      = NULL,
     bipartite     = TRUE,
-    varnames      = c("cov",                              "clique_size",            "normalized"),
-    vartypes      = c("character,numeric,logical,vector", "numeric,integer",        "logical,character,numeric"),
-    defaultvalues = list(NULL,                             2,                         FALSE),
-    required      = c(TRUE,                                FALSE,                     FALSE)
+    varnames      = c("cov",
+                      "clique_size",
+                      "normalize",
+                      "normalized",
+                      "norm"),
+    vartypes      = c("character,numeric,logical,vector",
+                      "numeric,integer",
+                      "logical,character,numeric",
+                      "logical,character,numeric",
+                      "logical,character,numeric"),
+    defaultvalues = list(NULL,
+                         2,
+                         NULL,
+                         NULL,
+                         NULL),
+    required      = c(TRUE,
+                      FALSE,
+                      FALSE,
+                      FALSE,
+                      FALSE)
   )
 
   # ----- 1) Actor-mode size n1 -----------------------------------------------
@@ -267,43 +329,59 @@ InitErgmTerm.cov_diff <- function(nw, arglist, ..., version = packageVersion("er
     stop(termname, ": 'clique_size' doit être un entier >= 2.")
   dbgcat("clique_size k = ", k)
 
-  # ----- 5) Normalization flag (raw vs by_group) -----------------------------
-  # The 'normalized' argument can take several forms:
-  # - NULL: treated as non-normalized (raw);
-  # - logical: TRUE => by-group, FALSE => raw;
-  # - character: "none" or "by_group";
-  # - numeric: 0 => raw, non-zero => by-group.
-  norm_raw   <- a$normalized
-  norm_flag  <- 0L
-  norm_label <- "raw"
+  # ----- 5) Normalization mode (raw / by_group / global) ---------------------
+  # The normalization argument can be provided under the names:
+  # - normalize
+  # - normalized
+  # - norm
+  #
+  # Its semantics:
+  # - NULL / FALSE (or missing): raw statistic (no normalisation);
+  # - TRUE or "by_group"       : per-group average over k-subsets;
+  # - "global"                 : per-group average per actor;
+  # - numeric 0,1,2            : raw, by-group, global.
+  norm_raw <- a$normalize
+  if (is.null(norm_raw)) norm_raw <- a$normalized
+  if (is.null(norm_raw)) norm_raw <- a$norm
 
   if (is.null(norm_raw)) {
-    norm_flag  <- 0L
-    norm_label <- "raw"
+    normalized <- "none"
   } else if (is.logical(norm_raw)) {
-    norm_flag  <- if (isTRUE(norm_raw)) 1L else 0L
-    norm_label <- if (norm_flag == 1L) "by_group" else "raw"
+    normalized <- if (isTRUE(norm_raw)) "by_group" else "none"
   } else if (is.character(norm_raw) && length(norm_raw) == 1L) {
-    nr <- match.arg(norm_raw, c("none", "by_group"))
-    norm_flag  <- if (nr == "by_group") 1L else 0L
-    norm_label <- nr
+    normalized <- match.arg(tolower(norm_raw), c("by_group", "global"))
   } else if (is.numeric(norm_raw) && length(norm_raw) == 1L) {
-    norm_flag  <- if (norm_raw != 0) 1L else 0L
-    norm_label <- if (norm_flag == 1L) "by_group" else "raw"
+    if (norm_raw == 0) {
+      normalized <- "none"
+    } else if (norm_raw == 1) {
+      normalized <- "by_group"
+    } else if (norm_raw == 2) {
+      normalized <- "global"
+    } else {
+      stop(termname, ": 'normalize' numérique doit être 0 (raw), 1 ('by_group') ou 2 ('global').")
+    }
   } else {
-    stop(termname, ": 'normalized' doit être logique, numérique ou 'none'/'by_group'.")
+    stop(termname, ": 'normalize'/'normalized'/'norm' doit être numérique ou 'by_group'/'global'.")
   }
 
-  dbgcat("normalized = ", norm_label, " (flag=", norm_flag, ")")
+  norm_mode <- switch(normalized,
+                      none     = 0L,
+                      by_group = 1L,
+                      global   = 2L)
+  norm_label <- normalized
+
+  dbgcat("normalized = ", norm_label, " (mode=", norm_mode, ")")
 
   # ----- 6) Coefficient name --------------------------------------------------
   # The coefficient name encodes the covariate label, the subset size k and
-  # whether a by-group normalization is in use, for interpretability in model
-  # summaries.
+  # the normalization mode, for interpretability in model summaries.
+  suffix_norm <- switch(norm_label,
+                        none     = "",
+                        by_group = "_bygrp",
+                        global   = "_glob")
   coef.name <- sprintf(
     "cov_diff[%s]_k%d%s",
-    cov_label, k,
-    if (norm_flag == 1L) "_norm" else ""
+    cov_label, k, suffix_norm
   )
   dbgcat("coef.name = ", coef.name)
 
@@ -311,24 +389,24 @@ InitErgmTerm.cov_diff <- function(nw, arglist, ..., version = packageVersion("er
   # Layout of INPUT_PARAM:
   #   [1]   = n1            (actor-mode size)
   #   [2]   = k             (subset size)
-  #   [3]   = norm_flag     (0 raw, 1 by-group)
+  #   [3]   = norm_mode     (0 raw, 1 by-group, 2 global)
   #   [4..] = cov_vec[1:n1] (numeric covariate on the actor mode)
   inputs <- c(
     as.double(n1),
     as.double(k),
-    as.double(norm_flag),
+    as.double(norm_mode),
     as.double(cov_vec)
   )
 
   dbgcat("inputs summary: len=", length(inputs),
-         " | n1=", n1, " k=", k, " norm_flag=", norm_flag,
+         " | n1=", n1, " k=", k, " norm_mode=", norm_mode,
          " | cov[1:6]=", paste(utils::head(signif(cov_vec, 5L), 6L), collapse = ","))
 
   # ----- 8) Return ERGM term specification -----------------------------------
   list(
     name         = "cov_diff",
     coef.names   = coef.name,
-    inputs       = inputs,      # n1, k, norm_flag, x[n1]
+    inputs       = inputs,      # n1, k, norm_mode, x[n1]
     dependence   = TRUE,
     minval       = 0,
     maxval       = Inf,

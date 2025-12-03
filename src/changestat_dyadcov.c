@@ -36,7 +36,8 @@
  *
  *      S_g^{(k)}(Z) = ∑_{C ∈ C_k(g)} P(C; Z).
  *
- *  Two variants of the global statistic are supported.
+ *  Two families of global statistics are supported, controlled by a
+ *  normalisation mode.
  *
  *  ------------------------------------------------------------
  *  Non-normalised statistic
@@ -51,18 +52,27 @@
  *  dyadic products (based on z_ij + z_ji) are summed.
  *
  *  ------------------------------------------------------------
- *  Normalised statistic (group-size normalisation)
+ *  Normalised statistics
  *  ------------------------------------------------------------
  *
- *  Let n_g = |A(g)| be the size of group g. The normalised version now uses
- *  a per-group factor 1 / n_g (rather than 1 / C(n_g, k)):
+ *  Let n_g = |A(g)| be the size of group g. Two normalised versions are
+ *  implemented, controlled by a normalisation mode:
  *
- *      T_norm^{(k)}(p; Z) =
- *        ∑_g 1[n_g ≥ k] * (1 / n_g) * S_g^{(k)}(Z).
+ *    - "global" normalisation: per-group factor 1 / n_g
  *
- *  In other words, each group contribution is the clique-based sum S_g^{(k)}(Z)
- *  divided by the size n_g of the group (and groups with n_g < k contribute 0
- *  because S_g^{(k)}(Z) = 0 in that case).
+ *        T_global^{(k)}(p; Z) =
+ *          ∑_g 1[n_g ≥ k] * (1 / n_g) * S_g^{(k)}(Z),
+ *
+ *    - "by_group" normalisation: per-group factor 1 / C(n_g, k)
+ *
+ *        T_by_group^{(k)}(p; Z) =
+ *          ∑_g 1[n_g ≥ k] * (1 / C(n_g, k)) * S_g^{(k)}(Z).
+ *
+ *  In other words, each group contribution is either the clique-based sum
+ *  S_g^{(k)}(Z) divided by the size n_g of the group ("global" mode), or
+ *  divided by the total number of k-cliques C(n_g, k) ("by_group" mode),
+ *  with groups of size n_g < k contributing 0 because S_g^{(k)}(Z) = 0 in
+ *  that case.
  *
  *  ------------------------------------------------------------
  *  Implementation outline (one-toggle)
@@ -91,12 +101,12 @@
  *    4. Undo the virtual toggle (::TOGGLE again) to restore the original
  *       network state.
  *
- *    5. Depending on the normalisation flag:
- *         - If not normalised:
+ *    5. Depending on the normalisation mode:
+ *         - If no normalisation:
  *
  *              Δ = S_after − S_before.
  *
- *         - If normalised (group-size normalisation):
+ *         - If "global" normalisation (mode 1):
  *              - define n_g_before and n_g_after as the actor counts before
  *                and after the toggle,
  *              - define group-level normalised values:
@@ -110,6 +120,11 @@
  *              - and the local change is:
  *
  *                  Δ = T_after − T_before.
+ *
+ *         - If "by_group" normalisation (mode 2):
+ *              - define C(n_g, k) using the CHOOSE() macro,
+ *              - normalise S_before and S_after by 1 / C(n_g, k) when
+ *                n_g ≥ k, and 0 otherwise.
  *
  *    6. Update the scalar statistic:
  *
@@ -125,19 +140,21 @@
  *
  *  The R-side initialiser (InitErgmTerm.dyadcov) passes parameters as:
  *
- *      INPUT_PARAM = c(n1, k, normalized, as.vector(Z))
+ *      INPUT_PARAM = c(n1, k, norm_mode, as.vector(Z))
  *
  *  where:
  *    - n1          = number of actors (size of actor mode),
  *    - k           = clique size (integer ≥ 2),
- *    - normalized  = 0 for raw sum, 1 for per-group normalisation 1/n_g,
+ *    - norm_mode   = 0 for raw sum,
+ *                    1 for "global" normalisation 1/n_g,
+ *                    2 for "by_group" normalisation 1/C(n_g, k),
  *    - Z           = numeric vector of length n1*n1 in column-major order.
  *
  *  At the C level the layout is:
  *
  *      ip[0]   = n1
  *      ip[1]   = k
- *      ip[2]   = normalized
+ *      ip[2]   = norm_mode
  *      ip[3+]  = Z[0 .. n1*n1-1] (column-major)
  *
  *  ------------------------------------------------------------
@@ -162,51 +179,10 @@
  *  ------------------------------------------------------------
  *
  *  The R-side term constructor:
- *    - validates n1, k, normalized, and the dimensions of Z,
+ *    - validates n1, k, normalize/normalized/norm, and the dimensions of Z,
  *    - flattens Z in column-major order,
  *    - sets N_CHANGE_STATS = 1 and emptynwstats = 0,
  *    - builds INPUT_PARAM as described above.
- *
- *  ------------------------------------------------------------
- *  @example Usage (R)
- *  ------------------------------------------------------------
- *  @code{.r}
- *  library(ERPM)
- *
- *  # Example: 4 actors, 2 groups (bipartite partition representation)
- *  part <- c(1, 1, 2, 2)  # actors 1,2 in group 1; actors 3,4 in group 2
- *
- *  # Dyadic covariate matrix on the actor mode (4 x 4)
- *  set.seed(1)
- *  Z <- matrix(runif(4 * 4), nrow = 4, ncol = 4)
- *  diag(Z) <- 0
- *
- *  # Non-normalised dyadic covariate statistic on 3-cliques,
- *  # using (z_ij + z_ji) for each unordered pair {i,j}
- *  fit_raw <- erpm(partition ~ dyadcov(k = 3, cov = Z, normalized = FALSE))
- *  summary(fit_raw)
- *
- *  # Normalised version (per-group scaling by 1 / n_g on 3-cliques)
- *  fit_norm <- erpm(partition ~ dyadcov(k = 3, cov = Z, normalized = TRUE))
- *  summary(fit_norm)
- *
- *  # Internally, each sampler toggle between an actor and a group calls
- *  # c_dyadcov(), which recomputes S_g^{(k)}(Z) for the affected group
- *  # before and after the virtual toggle, and updates CHANGE_STAT[0]
- *  # by Δ = (T_after - T_before).
- *  @endcode
- *
- *  @test
- *  A self-test for this change statistic can:
- *    - build small bipartite networks from known partitions,
- *    - compute T^{(k)}(p; Z) and T_norm^{(k)}(p; Z) directly in R by:
- *         - enumerating actor sets A(g) per group,
- *         - enumerating all k-subsets C ⊂ A(g),
- *         - forming products ∏_{i<j ∈ C} (z_ij + z_ji),
- *    - compare these reference values to:
- *         - summary( erpm(partition ~ dyadcov(...)) )$statistics,
- *    - apply single-edge toggles and check that observed changes match
- *      the local Δ reported by ::c_dyadcov.
  */
 
 #include "ergm_changestat.h"
@@ -436,16 +412,16 @@ static double group_dyadcov_k(Vertex g,
  *    - receives:
  *        - n1        = number of actors (actor mode),
  *        - k         = clique size (k ≥ 2),
- *        - normalized= 0 or 1,
+ *        - norm_mode = normalisation mode (0 = raw, 1 = size, 2 = cliques),
  *        - Z         = n1 × n1 dyadic covariate matrix on the actor mode,
  *    - recomputes the group-level sums S_g^{(k)}(Z) before and after a virtual
  *      toggle of the membership edge, for the unique affected group.
  *
  *  The local change Δ is then either:
  *    - S_after − S_before for the non-normalised statistic, or
- *    - (S_after / n_g_after) − (S_before / n_g_before) for the normalised
- *      statistic, with both terms set to 0 when n_g_before or n_g_after is 0
- *      or < k.
+ *    - a difference of normalised values for the size or clique-count
+ *      normalisations, with both terms set to 0 when n_g_before or n_g_after is
+ *      0 or < k.
  *
  *  The result is accumulated into the single scalar statistic:
  *
@@ -479,15 +455,15 @@ C_CHANGESTAT_FN(c_dyadcov){
   ZERO_ALL_CHANGESTATS(0);
   UNUSED_WARNING(edgestate);  /* edgestate is implicit in TOGGLE, but kept for signature consistency. */
 
-  /* 2) Decode INPUT_PARAM layout: [n1, k, normalized, Z...]. */
+  /* 2) Decode INPUT_PARAM layout: [n1, k, norm_mode, Z...]. */
   const double *ip         = INPUT_PARAM;
   const int     n1         = (int)ip[0];  /* number of actors */
   int           k          = (int)ip[1];  /* clique size      */
-  const int     normalized = (int)ip[2];  /* 0 = raw, 1 = normalised (1/n_g) */
+  const int     norm_mode  = (int)ip[2];  /* 0 = raw, 1 = 1/n_g, 2 = 1/C(n_g,k) */
   const double *Z          = ip + 3;      /* dyadic covariate matrix */
 
 #if DEBUG_DYADCOV
-  Rprintf("[dyadcov] n1=%d k=%d normalized=%d\n", n1, k, normalized);
+  Rprintf("[dyadcov] n1=%d k=%d norm_mode=%d\n", n1, k, norm_mode);
 #endif
 
   /* Safety: k < 2 yields a degenerate statistic (no proper k-cliques). */
@@ -521,12 +497,14 @@ C_CHANGESTAT_FN(c_dyadcov){
   /* 7) Undo the virtual toggle to restore the original network state. */
   TOGGLE(a, b);
 
-  /* 8) Compute the local change Δ depending on the normalisation flag. */
-  double delta;
-  if(!normalized){
+  /* 8) Compute the local change Δ depending on the normalisation mode. */
+  double delta = 0.0;
+
+  if(norm_mode == 0){
     /* Raw version: sum of clique products. */
     delta = S_after - S_before;
-  } else {
+
+  } else if(norm_mode == 1){
     /* Normalised version: group-size normalisation 1 / n_g. */
     double T_before = 0.0;
     double T_after  = 0.0;
@@ -539,6 +517,30 @@ C_CHANGESTAT_FN(c_dyadcov){
     }
 
     delta = T_after - T_before;
+
+  } else if(norm_mode == 2){
+    /* Normalised version: clique-count normalisation 1 / C(n_g, k). */
+    double T_before = 0.0;
+    double T_after  = 0.0;
+
+    if(ng_before >= k){
+      double denom_before = CHOOSE(ng_before, k);
+      if(denom_before > 0.0){
+        T_before = S_before / denom_before;
+      }
+    }
+    if(ng_after >= k){
+      double denom_after = CHOOSE(ng_after, k);
+      if(denom_after > 0.0){
+        T_after = S_after / denom_after;
+      }
+    }
+
+    delta = T_after - T_before;
+
+  } else {
+    /* Unknown mode: fall back to raw change as a safety net. */
+    delta = S_after - S_before;
   }
 
   /* 9) Accumulate the scalar change statistic. */
@@ -546,8 +548,8 @@ C_CHANGESTAT_FN(c_dyadcov){
 
 #if DEBUG_DYADCOV
   Rprintf("[dyadcov] a=%d b=%d group=%d ng_before=%d ng_after=%d "
-          "S_before=%g S_after=%g delta=%g\n",
+          "S_before=%g S_after=%g delta=%g (mode=%d)\n",
           (int)a, (int)b, (int)group,
-          ng_before, ng_after, S_before, S_after, delta);
+          ng_before, ng_after, S_before, S_after, delta, norm_mode);
 #endif
 }

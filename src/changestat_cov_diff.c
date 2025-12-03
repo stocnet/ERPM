@@ -36,15 +36,20 @@
  *      T_k(p; x)
  *        = ∑_g T_k(g),
  *
- *  where p encodes the bipartite membership structure. An optional
- *  per-group normalisation divides T_k(g) by C(n_g, k), the number
- *  of k-subsets of A(g):
+ *  where p encodes the bipartite membership structure.
  *
- *      T_k^norm(g) = T_k(g) / C(n_g, k),
+ *  Two normalisation modes are supported:
  *
- *  so that:
+ *    - by-group normalisation by the number of k-subsets:
  *
- *      T_k^norm(p; x) = ∑_g T_k^norm(g).
+ *        T_k^{by\_group}(g) = T_k(g) / C(n_g, k),
+ *
+ *    - global normalisation by the group size:
+ *
+ *        T_k^{global}(g)   = T_k(g) / n_g.
+ *
+ *  The top-level statistic is then obtained by summing T_k(g),
+ *  T_k^{by\_group}(g) or T_k^{global}(g) over all groups g.
  *
  *  ------------------------------------------------------------
  *  Bipartite structure (actor mode, group mode)
@@ -74,22 +79,23 @@
  *    INPUT_PARAM = c(
  *      n1,
  *      k,
- *      norm_flag,
+ *      norm_mode,
  *      x[1:n1]
  *    )
  *
  *  where:
  *    - n1        = number of actors (size of the actor mode),
  *    - k         = size of subsets used in D(S),
- *    - norm_flag = 0 for raw sum T_k(g),
+ *    - norm_mode = 0 for raw T_k(g),
  *                  1 for per-group normalisation T_k(g)/C(n_g, k),
+ *                  2 for global normalisation T_k(g)/n_g,
  *    - x[ ]      = numeric covariate on actors, length n1.
  *
  *  In C, this becomes:
  *
  *    INPUT_PARAM[0]     = n1
  *    INPUT_PARAM[1]     = k
- *    INPUT_PARAM[2]     = norm_flag
+ *    INPUT_PARAM[2]     = norm_mode
  *    INPUT_PARAM[3..]   = x[0..n1-1]
  *
  *  The term returns a single scalar statistic:
@@ -109,14 +115,16 @@
  *
  *      Δ = T_after(g) - T_before(g),
  *
- *  where T(g) is either T_k(g) or its normalised version, depending
- *  on norm_flag. The helper function group_covdiff() recomputes the
+ *  where T(g) is either T_k(g), its per-group normalised version,
+ *  or its global size-normalised version, depending on norm_mode.
+ *  The helper function group_covdiff() recomputes the
  *  contribution for group g by:
  *
  *    1. reconstructing its membership in the actor mode (deduplicated),
  *    2. enumerating all k-subsets of its actors,
  *    3. computing D(S) = max(x_i) - min(x_i) for each subset S,
- *    4. summing over all subsets and optionally dividing by C(n_g, k).
+ *    4. summing over all subsets and optionally dividing by C(n_g, k)
+ *       or by n_g.
  *
  *  ------------------------------------------------------------
  *  Complexity
@@ -136,8 +144,8 @@
  *
  *  The R initialiser (InitErgmTerm.cov_diff):
  *    - validates the numeric covariate on the actor mode,
- *    - sets k ≥ 2 and norm_flag ∈ {0,1},
- *    - packs n1, k, norm_flag and x into INPUT_PARAM,
+ *    - sets k ≥ 2 and norm_mode ∈ {0,1,2},
+ *    - packs n1, k, norm_mode and x into INPUT_PARAM,
  *    - sets emptynwstats and a single coef.name.
  *
  *  ------------------------------------------------------------
@@ -157,14 +165,18 @@
  *  summary(fit1)
  *
  *  # Normalised version: average D(S) over all k-subsets per group
- *  fit2 <- erpm(partition ~ cov_diff(attr = x, k = 2, normalized = TRUE))
+ *  fit2 <- erpm(partition ~ cov_diff(attr = x, k = 2, normalized = "by_group"))
  *  summary(fit2)
+ *
+ *  # Global version: average D(S) per actor in each group
+ *  fit3 <- erpm(partition ~ cov_diff(attr = x, k = 2, normalized = "global"))
+ *  summary(fit3)
  *
  *  # Internally, each membership toggle between an actor and a group
  *  # calls c_cov_diff(), which:
  *  #   - recomputes the cov_diff contribution of the affected group
  *  #     before and after a virtual toggle,
- *  #   - applies the optional group-level normalisation,
+ *  #   - applies the chosen normalisation,
  *  #   - updates CHANGE_STAT[0] by the difference.
  *  @endcode
  */
@@ -181,7 +193,7 @@
  * Set this macro to 1 to print diagnostic information to the R console
  * during `summary()` or MCMC runs:
  *  - group sizes for cov_diff,
- *  - values of k and norm_flag,
+ *  - values of k and norm_mode,
  *  - local contribution of the affected group.
  *
  * When set to 0, the compiled code does not emit any debug traces.
@@ -284,10 +296,15 @@ static void sum_D_rec(int pos, int start,
  *
  *       where D(S) = max_{i∈S} x_i - min_{i∈S} x_i.
  *
- *    4. If norm_flag == 1, divides T_k(g) by C(n_g, k) to obtain the
+ *    4. If norm_mode == 1, divides T_k(g) by C(n_g, k) to obtain the
  *       group-level average over all k-subsets:
  *
- *           T_k^norm(g) = T_k(g) / C(n_g, k).
+ *           T_k^{by\_group}(g) = T_k(g) / C(n_g, k).
+ *
+ *       If norm_mode == 2, divides T_k(g) by n_g to obtain the group-level
+ *       average per actor:
+ *
+ *           T_k^{global}(g) = T_k(g) / n_g.
  *
  *  The actor covariate x is indexed as:
  *    - x[idx] is the covariate of actor (idx + 1) in the actor mode,
@@ -296,19 +313,22 @@ static void sum_D_rec(int pos, int start,
  * @param g          Group vertex in the group mode.
  * @param n1         Number of actors (size of the actor mode).
  * @param k          Subset size used in cov_diff.
- * @param norm_flag  0 for raw T_k(g), 1 for per-group normalisation.
+ * @param norm_mode  0 for raw T_k(g),
+ *                   1 for by-group normalisation T_k(g)/C(n_g, k),
+ *                   2 for global normalisation T_k(g)/n_g.
  * @param x          Pointer to numeric covariate values (length ≥ n1).
  * @param nwp        Pointer to the network-plus workspace.
  *
  * @return The contribution of group g:
- *         - T_k(g) if norm_flag == 0,
- *         - T_k(g)/C(n_g, k) if norm_flag == 1,
+ *         - T_k(g)                  if norm_mode == 0,
+ *         - T_k(g)/C(n_g, k)        if norm_mode == 1,
+ *         - T_k(g)/n_g              if norm_mode == 2,
  *         - 0 if n_g < k.
  */
 static double group_covdiff(Vertex g,
                             int n1,
                             int k,
-                            int norm_flag,
+                            int norm_mode,
                             const double *x,
                             Network *nwp){
 
@@ -369,9 +389,18 @@ static double group_covdiff(Vertex g,
 
   double res = sumD;
 
-  /* Optional per-group normalisation by C(n_g, k). */
-  if(norm_flag){
+  /* Normalisation, if requested. */
+  if(norm_mode == 1){
+    /* By-group normalisation by C(n_g, k). */
     double denom = CHOOSE(ng, k);
+    if(denom > 0.0){
+      res /= denom;
+    }else{
+      res = 0.0;
+    }
+  }else if(norm_mode == 2){
+    /* Global normalisation by group size n_g. */
+    double denom = (double)ng;
     if(denom > 0.0){
       res /= denom;
     }else{
@@ -380,8 +409,8 @@ static double group_covdiff(Vertex g,
   }
 
   #if DEBUG_COV_DIFF
-    Rprintf("[cov_diff][group_covdiff] g=%d ng=%d k=%d norm_flag=%d -> res=%g\n",
-            (int)g, ng, k, norm_flag, res);
+    Rprintf("[cov_diff][group_covdiff] g=%d ng=%d k=%d norm_mode=%d -> res=%g\n",
+            (int)g, ng, k, norm_mode, res);
   #endif
 
   Free(idxs);
@@ -405,7 +434,7 @@ static double group_covdiff(Vertex g,
  *
  *    INPUT_PARAM[0]     = n1         (number of actors)
  *    INPUT_PARAM[1]     = k          (subset size)
- *    INPUT_PARAM[2]     = norm_flag  (0 raw, 1 per-group normalisation)
+ *    INPUT_PARAM[2]     = norm_mode  (0 raw, 1 by-group, 2 global)
  *    INPUT_PARAM[3..]   = x[0..n1-1] (numeric covariate on actors)
  *
  *  For each toggle:
@@ -440,11 +469,11 @@ C_CHANGESTAT_FN(c_cov_diff){
   const double *ip       = INPUT_PARAM;
   const int n1           = (int)ip[0];   /* number of actors (actor mode) */
   const int k            = (int)ip[1];   /* subset size for cov_diff */
-  const int norm_flag    = (int)ip[2];   /* 0 raw, 1 per-group normalisation */
+  const int norm_mode    = (int)ip[2];   /* 0 raw, 1 by-group, 2 global */
   const double *x        = ip + 3;       /* actor covariate values */
 
   #if DEBUG_COV_DIFF
-    Rprintf("[cov_diff] n1=%d k=%d norm_flag=%d\n", n1, k, norm_flag);
+    Rprintf("[cov_diff] n1=%d k=%d norm_mode=%d\n", n1, k, norm_mode);
   #endif
 
   /* 3) Identify actor and group vertices for the current toggle.
@@ -458,12 +487,12 @@ C_CHANGESTAT_FN(c_cov_diff){
   UNUSED_WARNING(actor);
 
   /* 4) Evaluate group contribution before and after a virtual toggle. */
-  double F_before = group_covdiff(group, n1, k, norm_flag, x, nwp);
+  double F_before = group_covdiff(group, n1, k, norm_mode, x, nwp);
 
   /* Apply a virtual toggle (single-edge API). */
   TOGGLE(a, b);
 
-  double F_after  = group_covdiff(group, n1, k, norm_flag, x, nwp);
+  double F_after  = group_covdiff(group, n1, k, norm_mode, x, nwp);
 
   /* Undo the virtual toggle to restore the original state. */
   TOGGLE(a, b);
