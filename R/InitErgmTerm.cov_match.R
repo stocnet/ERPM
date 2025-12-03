@@ -21,6 +21,8 @@
 
 #' ERGM term: cov_match (monochromatic cliques by actor covariate)
 #'
+#' @name InitErgmTerm.cov_match
+#' @aliases cov_match
 #' @note InitErgmTerm.cov_match.R
 #'
 #' @description

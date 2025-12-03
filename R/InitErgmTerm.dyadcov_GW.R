@@ -6,6 +6,8 @@
 
 #' ERGM term: dyadcov_GW (geometrically weighted dyadic covariate)
 #'
+#' @name InitErgmTerm.dyadcov_GW
+#' @aliases dyadcov_GW
 #' @note InitErgmTerm.dyadcov_GW.R
 #'
 #' @description

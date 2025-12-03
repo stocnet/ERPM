@@ -2,6 +2,7 @@
 % Please edit documentation in R/InitErgmTerm.cov_match.R
 \name{InitErgmTerm.cov_match}
 \alias{InitErgmTerm.cov_match}
+\alias{cov_match}
 \title{ERGM term: cov_match (monochromatic cliques by actor covariate)}
 \usage{
 InitErgmTerm.cov_match(nw, arglist, ..., version = packageVersion("ergm"))

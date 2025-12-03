@@ -22,7 +22,8 @@
 # ==============================================================================
 
 #' ERGM term: cov_ingroup (group-size weighted covariate sums)
-#'
+#' @name InitErgmTerm.cov_ingroup
+#' @aliases cov_ingroup
 #' @note InitErgmTerm.cov_ingroup.R
 #'
 #' @description

@@ -2,6 +2,7 @@
 % Please edit documentation in R/InitErgmTerm.cov_fullmatch.R
 \name{InitErgmTerm.cov_fullmatch}
 \alias{InitErgmTerm.cov_fullmatch}
+\alias{cov_fullmatch}
 \title{ERGM term: cov_fullmatch (group-level unanimity)}
 \usage{
 InitErgmTerm.cov_fullmatch(nw, arglist, ..., version = packageVersion("ergm"))

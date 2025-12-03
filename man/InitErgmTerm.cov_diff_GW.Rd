@@ -2,6 +2,7 @@
 % Please edit documentation in R/InitErgmTerm.cov_diff_GW.R
 \name{InitErgmTerm.cov_diff_GW}
 \alias{InitErgmTerm.cov_diff_GW}
+\alias{cov_diff_GW}
 \title{ERGM term: cov_diff_GW (geometrically weighted range over k-actor subsets)}
 \usage{
 InitErgmTerm.cov_diff_GW(nw, arglist, ..., version = packageVersion("ergm"))

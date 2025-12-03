@@ -15,6 +15,8 @@
 
 #' ERGM term: dyadcov_full (within-group dyadic covariate sums)
 #'
+#' @name InitErgmTerm.dyadcov_full
+#' @aliases dyadcov_full
 #' @note InitErgmTerm.dyadcov_full.R
 #'
 #' @description

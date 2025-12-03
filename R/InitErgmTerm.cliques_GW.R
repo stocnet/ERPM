@@ -1,5 +1,6 @@
 #' ERGM term: cliques_GW (geometrically weighted group sizes)
-#'
+#' @name InitErgmTerm.cliques_GW
+#' @aliases cliques_GW
 #' @note InitErgmTerm.cliques_GW.R
 #'
 #' @description

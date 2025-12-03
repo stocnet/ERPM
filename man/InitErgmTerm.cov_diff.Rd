@@ -2,6 +2,7 @@
 % Please edit documentation in R/InitErgmTerm.cov_diff.R
 \name{InitErgmTerm.cov_diff}
 \alias{InitErgmTerm.cov_diff}
+\alias{cov_diff}
 \title{ERGM term: cov_diff (range over k-actor subsets within groups)}
 \usage{
 InitErgmTerm.cov_diff(nw, arglist, ..., version = packageVersion("ergm"))

@@ -2,6 +2,7 @@
 % Please edit documentation in R/InitErgmTerm.cov_ingroup.R
 \name{InitErgmTerm.cov_ingroup}
 \alias{InitErgmTerm.cov_ingroup}
+\alias{cov_ingroup}
 \title{ERGM term: cov_ingroup (group-size weighted covariate sums)}
 \usage{
 InitErgmTerm.cov_ingroup(nw, arglist, ..., version = packageVersion("ergm"))

@@ -2,6 +2,7 @@
 % Please edit documentation in R/InitErgmTerm.dyadcov_full.R
 \name{InitErgmTerm.dyadcov_full}
 \alias{InitErgmTerm.dyadcov_full}
+\alias{dyadcov_full}
 \title{ERGM term: dyadcov_full (within-group dyadic covariate sums)}
 \usage{
 InitErgmTerm.dyadcov_full(nw, arglist, ...)

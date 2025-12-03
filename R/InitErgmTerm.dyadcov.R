@@ -6,6 +6,8 @@
 
 #' ERGM term: dyadcov (clique-based dyadic covariate)
 #'
+#' @name InitErgmTerm.dyadcov
+#' @aliases dyadcov
 #' @note InitErgmTerm.dyadcov.R
 #'
 #' @description

@@ -2,6 +2,7 @@
 % Please edit documentation in R/InitErgmTerm.dyadcov_GW.R
 \name{InitErgmTerm.dyadcov_GW}
 \alias{InitErgmTerm.dyadcov_GW}
+\alias{dyadcov_GW}
 \title{ERGM term: dyadcov_GW (geometrically weighted dyadic covariate)}
 \usage{
 InitErgmTerm.dyadcov_GW(nw, arglist, ...)

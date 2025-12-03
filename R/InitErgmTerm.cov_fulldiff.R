@@ -1,5 +1,6 @@
 #' ERGM term: cov_fulldiff (within-group range of a numeric covariate)
-#'
+#' @name InitErgmTerm.cov_fulldiff
+#' @aliases cov_fulldiff
 #' @note InitErgmTerm.cov_fulldiff.R
 #'
 #' @description

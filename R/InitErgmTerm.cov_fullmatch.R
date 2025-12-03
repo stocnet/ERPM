@@ -1,5 +1,6 @@
 #' ERGM term: cov_fullmatch (group-level unanimity)
-#'
+#' @name InitErgmTerm.cov_fullmatch
+#' @aliases cov_fullmatch
 #' @note InitErgmTerm.cov_fullmatch.R
 #'
 #' @description

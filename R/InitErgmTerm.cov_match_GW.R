@@ -23,7 +23,8 @@
 # ==============================================================================
 
 #' ERGM term: cov_match_GW (geometrically weighted monochromatic cliques)
-#'
+#' @name InitErgmTInitErgmTerm.cov_match_GW
+#' @aliases cov_match_GW
 #' @note InitErgmTerm.cov_match_GW.R
 #'
 #' @description

@@ -2,6 +2,7 @@
 % Please edit documentation in R/InitErgmTerm.cliques_GW.R
 \name{InitErgmTerm.cliques_GW}
 \alias{InitErgmTerm.cliques_GW}
+\alias{cliques_GW}
 \title{ERGM term: cliques_GW (geometrically weighted group sizes)}
 \usage{
 InitErgmTerm.cliques_GW(nw, arglist, ..., version = packageVersion("ergm"))

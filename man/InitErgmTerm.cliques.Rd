@@ -2,6 +2,7 @@
 % Please edit documentation in R/InitErgmTerm.cliques.R
 \name{InitErgmTerm.cliques}
 \alias{InitErgmTerm.cliques}
+\alias{cliques}
 \title{ERGM term: cliques (k-actor cliques via group sizes)}
 \usage{
 InitErgmTerm.cliques(nw, arglist, ..., version = packageVersion("ergm"))

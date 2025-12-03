@@ -1,5 +1,6 @@
 #' ERGM term: cov_diff (range over k-actor subsets within groups)
-#'
+#' @name InitErgmTerm.cov_diff
+#' @aliases cov_diff
 #' @note InitErgmTerm.cov_diff.R
 #'
 #' @description

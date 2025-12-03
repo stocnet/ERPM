@@ -1,5 +1,7 @@
 #' ERGM term: cliques (k-actor cliques via group sizes)
 #'
+#' @name InitErgmTerm.cliques
+#' @aliases cliques
 #' @note InitErgmTerm.cliques.R
 #'
 #' @description

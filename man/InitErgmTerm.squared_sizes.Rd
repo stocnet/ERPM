@@ -2,6 +2,7 @@
 % Please edit documentation in R/InitErgmTerm.squared_sizes.R
 \name{InitErgmTerm.squared_sizes}
 \alias{InitErgmTerm.squared_sizes}
+\alias{squared_sizes}
 \title{ERGM term: squared_sizes (group-mode degrees raised to a power)}
 \usage{
 InitErgmTerm.squared_sizes(nw, arglist, ..., version = packageVersion("ergm"))

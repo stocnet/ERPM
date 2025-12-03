@@ -2,6 +2,7 @@
 % Please edit documentation in R/InitErgmTerm.dyadcov.R
 \name{InitErgmTerm.dyadcov}
 \alias{InitErgmTerm.dyadcov}
+\alias{dyadcov}
 \title{ERGM term: dyadcov (clique-based dyadic covariate)}
 \usage{
 InitErgmTerm.dyadcov(nw, arglist, ...)

@@ -7,6 +7,8 @@
 
 #' ERGM term: squared_sizes (group-mode degrees raised to a power)
 #'
+#' @name InitErgmTerm.squared_sizes
+#' @aliases squared_sizes
 #' @note InitErgmTerm.squared_sizes.R
 #'
 #' @description

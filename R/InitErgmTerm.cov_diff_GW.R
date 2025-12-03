@@ -1,5 +1,6 @@
 #' ERGM term: cov_diff_GW (geometrically weighted range over k-actor subsets)
-#'
+#' @name InitErgmTerm.cov_diff_GW
+#' @aliases cov_diff_GW
 #' @note InitErgmTerm.cov_diff_GW.R
 #'
 #' @description

@@ -2,6 +2,7 @@
 % Please edit documentation in R/InitErgmTerm.log_factorial_sizes.R
 \name{InitErgmTerm.log_factorial_sizes}
 \alias{InitErgmTerm.log_factorial_sizes}
+\alias{log_factorial_sizes}
 \title{ERGM term: log_factorial_sizes (group-mode degrees)}
 \usage{
 InitErgmTerm.log_factorial_sizes(

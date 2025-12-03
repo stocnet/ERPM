@@ -1,5 +1,7 @@
 #' ERGM term: log_factorial_sizes (group-mode degrees)
 #'
+#' @name InitErgmTerm.log_factorial_sizes
+#' @aliases log_factorial_sizes
 #' @note InitErgmTerm.log_factorial_sizes.R
 #'
 #' @description

@@ -2,6 +2,7 @@
 % Please edit documentation in R/InitErgmTerm.cov_fulldiff.R
 \name{InitErgmTerm.cov_fulldiff}
 \alias{InitErgmTerm.cov_fulldiff}
+\alias{cov_fulldiff}
 \title{ERGM term: cov_fulldiff (within-group range of a numeric covariate)}
 \usage{
 InitErgmTerm.cov_fulldiff(nw, arglist, ..., version = packageVersion("ergm"))
