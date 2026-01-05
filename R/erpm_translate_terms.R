@@ -101,6 +101,27 @@
 }
 
 # ============================================================================
+# Translation result object (call + meta)
+# ============================================================================
+
+#' Standard translator return object: {call, meta}
+#'
+#' @description
+#' Translator functions may return either:
+#'   - a raw call (legacy behavior), or
+#'   - an object of class "erpm_tr" with fields {call, meta}.
+#'
+#' The wrapper will always use the call as the effective ergm term.
+#' Metadata is attached as an attribute on the call and is ignored by ergm().
+#'
+#' @noRd
+.erpm_tr_result <- function(call, meta = NULL) {
+  stopifnot(is.call(call) || is.symbol(call))
+  if (is.null(meta)) meta <- list()
+  structure(list(call = call, meta = meta), class = "erpm_tr")
+}
+
+# ============================================================================
 # Single-term translator ERPM → \pkg{ergm}
 # ============================================================================
 
@@ -114,16 +135,40 @@
 
 #' Translate `groups(...)` to ergm's `b2degrange(from,to)`
 #' @noRd
-.erpm_tr_groups <- function(fun_sym, args_list, rename_map, wrap_proj1, wrap_B) {
+.erpm_tr_groups <- function(fun_sym, args_list, rename_map, wrap_proj1, wrap_B, env_eval) {
   gt <- .erpm_normalize_groups_args(args_list)
-  as.call(list(as.name("b2degrange"), from = gt$from, to = gt$to))
+  out_call <- as.call(list(as.name("b2degrange"), from = gt$from, to = gt$to))
+
+  .erpm_tr_result(
+    call = out_call,
+    meta = list(
+      term_name_original = "groups",
+      term_name_final    = "b2degrange",
+      wrappers_applied   = character(),
+      notes              = sprintf(
+        "normalized groups -> [from=%s, to=%s)",
+        as.character(gt$from),
+        if (is.language(gt$to)) "Inf" else as.character(gt$to)
+      )
+    )
+  )
 }
 
 #' Translate `cliques(...)` by normalizing aliases only (keeps ERPM term name)
 #' @noRd
-.erpm_tr_cliques <- function(fun_sym, args_list, rename_map, wrap_proj1, wrap_B) {
+.erpm_tr_cliques <- function(fun_sym, args_list, rename_map, wrap_proj1, wrap_B, env_eval) {
   # Keep a zero-arg call unchanged.
-  if (length(args_list) == 0L) return(as.call(list(as.name("cliques"))))
+  if (length(args_list) == 0L) {
+    return(.erpm_tr_result(
+      call = as.call(list(as.name("cliques"))),
+      meta = list(
+        term_name_original = "cliques",
+        term_name_final    = "cliques",
+        wrappers_applied   = character(),
+        notes              = "zero-arg call"
+      )
+    ))
+  }
 
   al <- as.pairlist(args_list)
 
@@ -135,23 +180,103 @@
     }
   }
 
-  as.call(c(as.name("cliques"), as.list(al)))
+  out_call <- as.call(c(as.name("cliques"), as.list(al)))
+
+  .erpm_tr_result(
+    call = out_call,
+    meta = list(
+      term_name_original = "cliques",
+      term_name_final    = "cliques",
+      wrappers_applied   = character(),
+      notes              = "normalized aliases: clique_size -> k"
+    )
+  )
 }
 
-# Dispatch table for special cases (internal).
-# Extend here when adding wrapper-level syntactic sugar for new terms.
+# ============================================================================
+# Dispatch table (term specs): translate + optional validate + optional deps
+# ============================================================================
+
+#' Term spec table: translate + optional validate + optional deps
+#'
+#' @description
+#' Each entry can define:
+#'   - translate: function(fun_sym, args_list, ..., env_eval) -> call OR erpm_tr
+#'   - validate : optional function(args_list, env_eval) for early argument checks
+#'   - deps     : optional dependency checks (bipartite, dyads keys, etc.)
+#'
 #' @noRd
-.erpm_term_translators <- list(
-  groups  = .erpm_tr_groups,
-  cliques = .erpm_tr_cliques
+.erpm_term_specs <- list(
+  groups = list(
+    translate = .erpm_tr_groups,
+    validate  = NULL,
+    deps      = list(requires_bipartite = TRUE)
+  ),
+  cliques = list(
+    translate = .erpm_tr_cliques,
+    validate  = NULL,
+    deps      = list(requires_bipartite = TRUE)
+  )
 )
 
+# Backward-compat alias (kept in case other internal code expects this name).
+#' @noRd
+.erpm_term_translators <- lapply(.erpm_term_specs, `[[`, "translate")
+
+#' Apply spec-level dependency checks and optional early validation
+#' @noRd
+.erpm_apply_term_spec_checks <- function(spec, fname, args_list, env_eval) {
+  deps <- spec$deps
+
+  # Dependency: requires a bipartite `nw` (when available in env).
+  if (!is.null(deps) && isTRUE(deps$requires_bipartite)) {
+    nw <- try(get("nw", envir = env_eval), silent = TRUE)
+    if (!inherits(nw, "try-error")) {
+      bip <- try(network::get.network.attribute(nw, "bipartite"), silent = TRUE)
+      if (inherits(bip, "try-error") || is.null(bip) || is.na(bip)) {
+        stop(sprintf("%s(): requires a bipartite `nw` in evaluation environment.", fname))
+      }
+    }
+  }
+
+  # Dependency: requires named dyads attached to `nw` as `%n% "dyads"` list.
+  if (!is.null(deps) && !is.null(deps$requires_dyads)) {
+    nw <- try(get("nw", envir = env_eval), silent = TRUE)
+    if (!inherits(nw, "try-error")) {
+      dy <- try(network::get.network.attribute(nw, "dyads"), silent = TRUE)
+      if (inherits(dy, "try-error") || is.null(dy)) dy <- list()
+      need <- deps$requires_dyads
+      miss <- setdiff(need, names(dy))
+      if (length(miss)) {
+        stop(sprintf("%s(): missing required dyads: %s", fname, paste(miss, collapse = ", ")))
+      }
+    }
+  }
+
+  # Optional early validation hook.
+  if (is.function(spec$validate)) {
+    spec$validate(args_list, env_eval = env_eval)
+  }
+
+  invisible(TRUE)
+}
+
+# ============================================================================
+# Generic translator (rename + optional wrappers)
+# ============================================================================
+
 #' Translate a single ERPM term into an \pkg{ergm} term
+#'
+#' @description
+#' Returns a call. If metadata is available (from a spec translator), it is
+#' attached as attribute "erpm_meta" on the returned call.
+#'
 #' @noRd
 .erpm_translate_one_term <- function(term_call,
                                      rename_map,
                                      wrap_proj1 = character(),
-                                     wrap_B     = character()) {
+                                     wrap_B     = character(),
+                                     env_eval   = parent.frame()) {
   # Turn bare symbols into zero-arg calls to unify processing.
   if (is.symbol(term_call)) term_call <- as.call(list(term_call))
   if (!is.call(term_call)) return(term_call)
@@ -162,13 +287,28 @@
   # Determine term/function name.
   fname <- if (is.symbol(fun_sym)) as.character(fun_sym) else deparse(fun_sym)[1L]
 
-  # --- 1) Special cases dispatch --------------------------------------------
-  tr <- .erpm_term_translators[[fname]]
-  if (!is.null(tr)) {
-    return(tr(fun_sym, args_list,
-              rename_map = rename_map,
-              wrap_proj1 = wrap_proj1,
-              wrap_B     = wrap_B))
+  # --- 1) Special cases dispatch via specs -----------------------------------
+  spec <- .erpm_term_specs[[fname]]
+  if (!is.null(spec)) {
+    .erpm_apply_term_spec_checks(spec, fname, args_list, env_eval)
+
+    tr_res <- spec$translate(
+      fun_sym, args_list,
+      rename_map = rename_map,
+      wrap_proj1 = wrap_proj1,
+      wrap_B     = wrap_B,
+      env_eval   = env_eval
+    )
+
+    # New style: {call, meta}
+    if (is.list(tr_res) && inherits(tr_res, "erpm_tr")) {
+      out_call <- tr_res$call
+      attr(out_call, "erpm_meta") <- tr_res$meta
+      return(out_call)
+    }
+
+    # Legacy style: raw call
+    return(tr_res)
   }
 
   # --- 2) Generic path: rename + optional wrappers ---------------------------

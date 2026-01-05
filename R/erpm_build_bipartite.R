@@ -185,17 +185,20 @@ build_bipartite_from_inputs <- function(partition    = NULL,
 
   all_v <- c(labels, g_names)
 
-  adj <- matrix(0L, n + G, n + G, dimnames = list(all_v, all_v))
   # actor indices: 1..n ; group indices: n + (1..G)
   idx_actor <- seq_len(n)
   idx_group <- n + as.integer(partition)
 
-  # Add bipartite edges for observed membership only; extra groups remain empty.
-  adj[cbind(idx_actor, idx_group)] <- 1L
-  adj[cbind(idx_group, idx_actor)] <- 1L
-
   # -- Build network object ---------------------------------------------------
-  nw <- network::network(adj, directed = FALSE, matrix.type = "adjacency")
+  # PERF:
+  # We avoid building a dense (n+G)^2 adjacency matrix, which becomes costly
+  # when G = n (here: (2n)^2 entries). Instead we create the network from an
+  # edgelist (one membership edge per actor).
+  edges <- cbind(idx_actor, idx_group)
+
+  nw <- network::network.initialize(n + G, directed = FALSE)
+  network::add.edges(nw, tail = edges[, 1L], head = edges[, 2L])
+
   network::set.network.attribute(nw, "bipartite", n)
   network::set.vertex.attribute(nw, "vertex.names", all_v)
 
@@ -207,18 +210,21 @@ build_bipartite_from_inputs <- function(partition    = NULL,
     }
   }
 
-  # Attach dyadic n×n matrices as %n% attributes, with enforced dimnames order
+  # Attach dyadic n×n matrices as a dedicated network attribute.
   #
   # IMPORTANT:
-  # We do NOT use the %n% / %n%<- operators here to avoid requiring their import
-  # in NAMESPACE (which otherwise triggers R CMD check notes about undefined
-  # globals). We attach matrices as regular network attributes instead.
+  # Previously, dyads were attached as top-level network attributes with the same
+  # name as the list element (risk of collisions with other attributes).
+  # We now store the whole list under a single attribute "dyads".
+  # Matrices are still forced to actor label dimnames in a controlled order.
   if (length(dyads)) {
-    for (nm in names(dyads)) {
-      M <- dyads[[nm]]
+    dyads2 <- dyads
+    for (nm in names(dyads2)) {
+      M <- dyads2[[nm]]
       dimnames(M) <- list(labels, labels)
-      network::set.network.attribute(nw, nm, M)
+      dyads2[[nm]] <- M
     }
+    network::set.network.attribute(nw, "dyads", dyads2)
   }
 
   list(

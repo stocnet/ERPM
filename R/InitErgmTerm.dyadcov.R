@@ -305,12 +305,36 @@ InitErgmTerm.dyadcov <- function(nw, arglist, ...) {
   dyad_label <- NULL
 
   if (is.character(dyad_raw) && length(dyad_raw) == 1L) {
-    # Case: name of a network-level attribute storing the matrix
-    dyad_mat   <- nw %n% dyad_raw
-    dyad_label <- dyad_raw
-    if (is.null(dyad_mat))
-      stop(termname, ": attribut de niveau réseau inexistant: ", sQuote(dyad_raw), ".")
-    dbgcat("dyadcov source = network attribute ", sQuote(dyad_label))
+    # Case: name of a dyadic matrix stored on the network.
+    #
+    # Compatibility policy:
+    # - Legacy: the matrix may be stored as a top-level network attribute
+    #   under its own name (nw %n% "<name>").
+    # - New ERPM builder: dyads may be stored as a list under nw %n% "dyads",
+    #   i.e. nw %n% "dyads" is a named list and the matrix is dyads[[name]].
+    dyad_name <- dyad_raw
+
+    dyad_mat <- nw %n% dyad_name
+    src <- "network attribute"
+
+    if (is.null(dyad_mat)) {
+      dyads_list <- nw %n% "dyads"
+      if (is.list(dyads_list) && !is.null(dyads_list[[dyad_name]])) {
+        dyad_mat <- dyads_list[[dyad_name]]
+        src <- "nw %n% 'dyads' list"
+      }
+    }
+
+    if (is.null(dyad_mat)) {
+      stop(
+        termname, ": dyade introuvable: ", sQuote(dyad_name),
+        " (cherché dans nw %n% ", sQuote(dyad_name),
+        " puis dans nw %n% 'dyads'[[", sQuote(dyad_name), "]])."
+      )
+    }
+
+    dyad_label <- if (identical(src, "nw %n% 'dyads' list")) paste0("dyads$", dyad_name) else dyad_name
+    dbgcat("dyadcov source = ", src, " ", sQuote(dyad_label))
   } else {
     # Case: matrix passed literally as an argument
     dyad_mat   <- dyad_raw

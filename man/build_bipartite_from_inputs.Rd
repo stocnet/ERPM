@@ -4,7 +4,12 @@
 \alias{build_bipartite_from_inputs}
 \title{Build a padded bipartite network from a partition}
 \usage{
-build_bipartite_from_inputs(partition = NULL, nodes = NULL, dyads = list())
+build_bipartite_from_inputs(
+  partition = NULL,
+  nodes = NULL,
+  dyads = list(),
+  group_labels = NULL
+)
 }
 \arguments{
 \item{partition}{integer vector of group ids, length n, values in 1..G}
@@ -12,6 +17,8 @@ build_bipartite_from_inputs(partition = NULL, nodes = NULL, dyads = list())
 \item{nodes}{optional data.frame with a label column (auto-detected)}
 
 \item{dyads}{optional named list of n×n matrices to attach as \verb{\%n\%} attributes}
+
+\item{group_labels}{optional character vector of group labels of length G (= n)}
 }
 \value{
 list with components:

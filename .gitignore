@@ -123,4 +123,4 @@ documentation/dev/**
 !documentation/dev/**/Avancement.pdf
 
 # Generated dump of ERPM source files
-dump_erpm_files.*
+dump_*

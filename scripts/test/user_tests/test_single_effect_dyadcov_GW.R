@@ -33,10 +33,10 @@ if (file.exists("scripts/ergm_patch.R")) {
 # Partitions de test (n = 5)
 # ======================================================================================
 
-partition_mix       <- c(1, 1, 2, 2, 3)  # 2,2,1
-partition_balanced  <- c(1, 2, 2, 3, 3)  # 1,2,2
-partition_full      <- c(1, 1, 1, 1, 1)  # 5
-partition_singleton <- 1:5               # 1,1,1,1,1
+partition_mix       <- c(1, 2, 2, 3, 3, 3)
+partition_balanced  <- c(1, 1, 2, 2, 3, 3)
+partition_full      <- c(1, 1, 1, 1, 1, 1)
+partition_singleton <- c(1, 2, 3, 4, 5, 6)
 
 
 # ----- Binary attributes --------------------------------------------------------------
@@ -166,4 +166,4 @@ fit_erpm <- erpm(partition_balanced ~ dyadcov_GW("mix_att", lambda=3),
                  estimate="MLE", 
                  control=ctrl_A) 
 print(summary(fit_erpm))
-print(fit_ergm$coefficients[1] - fit_erpm$coefficients[1])  # should be 0 with the call of the same seed for each case
+cat("[ERPM vs ERGM]\n\t", sprintf("fit_ergm - fit_erpm = %f", fit_ergm$coefficients[1] - fit_erpm$coefficients[1]), "\n")  # should be 0
