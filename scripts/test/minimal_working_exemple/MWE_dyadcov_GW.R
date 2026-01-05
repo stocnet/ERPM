@@ -88,7 +88,7 @@ summary_direct <- function(rhs_str) {
   as.numeric(summary(f, constraints = ~ b1part))
 }
 
-# Helper : summary via erpm(eval_call = FALSE), à la manière du selftest
+# Helper : summary via erpm(eval.call = FALSE), à la manière du selftest
 summary_via_erpm <- function(rhs_str) {
   # Formule côté ERPM
   partition_local <- partition
@@ -100,7 +100,7 @@ summary_via_erpm <- function(rhs_str) {
 
   call_ergm <- erpm(
     f_erpm,
-    eval_call = FALSE,
+    eval.call = FALSE,
     verbose   = FALSE,
     nodes     = nodes,
     dyads     = list(Z1 = Z1, Z2 = Z2)

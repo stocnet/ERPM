@@ -38,7 +38,7 @@ cat("[REF] age S{2,3} =", exp_age_S23, " | dept=='A' S{3} =", exp_deptA_S3, "\n"
 # -------------------- SUMMARY via erpm(dry-run) --------------------------------
 dry <- erpm(
   partition ~ cov_ingroup("age", size = 2:3) + cov_ingroup("dept", category = "A", size = 3),
-  eval_call = FALSE, verbose = FALSE, nodes = nodes
+  eval.call = FALSE, verbose = FALSE, nodes = nodes
 )
 obs <- as.numeric(summary(dry[[2]], constraints = ~ b1part))
 cat("[DRY] stats =", paste(obs, collapse = ", "), "\n")

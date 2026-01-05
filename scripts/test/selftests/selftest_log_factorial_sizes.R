@@ -167,13 +167,13 @@ erpm_dryruns_check_translations <- function(partition) {
 
   # LHS = network
   nw <- .erpm_build_bipartite_network(partition)
-  call_net  <- erpm(nw ~ log_factorial_sizes(), eval_call = FALSE, verbose = FALSE)
+  call_net  <- erpm(nw ~ log_factorial_sizes(), eval.call = FALSE, verbose = FALSE)
   ok_net    <- erpm_check_translation_contains_lfs(call_net)
 
   # LHS = partition
   f_part <- partition ~ log_factorial_sizes
   environment(f_part) <- list2env(list(partition = partition), parent = parent.frame())
-  call_part <- erpm(f_part, eval_call = FALSE, verbose = FALSE)
+  call_part <- erpm(f_part, eval.call = FALSE, verbose = FALSE)
   ok_part   <- erpm_check_translation_contains_lfs(call_part)
 
   list(ok_net = ok_net, ok_part = ok_part)

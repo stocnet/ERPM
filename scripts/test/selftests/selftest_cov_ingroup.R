@@ -94,7 +94,7 @@ summary_erpm <- function(part, nodes, rhs) {
   f <- as.formula(paste0("partition ~ ", rhs))
   environment(f) <- list2env(list(partition = partition, nodes = nodes))
 
-  call_ergm <- erpm(f, eval_call = FALSE, verbose = FALSE, nodes = nodes)
+  call_ergm <- erpm(f, eval.call = FALSE, verbose = FALSE, nodes = nodes)
   ergm_form <- call_ergm[[2L]]
   rhs_e     <- ergm_form[[3L]]
 

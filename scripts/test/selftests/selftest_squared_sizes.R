@@ -261,7 +261,7 @@ if (!exists("build_bipartite_from_inputs", mode = "function"))
 
   ok_trad <- NA
   if (exists("erpm", mode = "function")) {
-    call_ergm <- erpm(f, eval_call = FALSE, verbose = TRUE)
+    call_ergm <- erpm(f, eval.call = FALSE, verbose = TRUE)
     ok_trad <- .check_translation_ok_erpm(call_ergm, term = "squared_sizes", args = args)
   }
 
@@ -354,7 +354,7 @@ if (!exists("build_bipartite_from_inputs", mode = "function"))
 
   # Dry-run pour voir l’appel ergm final
   arglist_dry <- arglist
-  arglist_dry$eval_call <- FALSE
+  arglist_dry$eval.call <- FALSE
   dry <- try(do.call(erpm, arglist_dry), silent = TRUE)
   if (inherits(dry, "try-error")) {
     cat("[diag] dry-run erpm -> ERREUR:\n", as.character(dry)[1], "\n")

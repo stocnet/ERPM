@@ -25,8 +25,8 @@ if (!requireNamespace("Rglpk", quietly = TRUE)) {
 options(ergm.loglik.warn_dyads = FALSE)
 
 # ----- Active le patch {ergm} ---------------------------------------------------------
-#source("scripts/ergm_patch.R")
-#ergm_patch_enable()
+source("scripts/ergm_patch.R")
+ergm_patch_enable()
 
 # ----- Partitions de test -------------------------------------------------------------
 partition_mix <- c(1, 2, 2, 3, 3, 3)
@@ -39,47 +39,47 @@ partition_singleton <- c(1, 2, 3, 4, 5, 6)
 # ======================================================================================
 
 # baseline test
-dry <- erpm(partition_mix ~ groups, eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_mix ~ groups, eval.call = FALSE, verbose = TRUE)
 summary(dry[[2]], constraints = ~ b1part) # should be 3
-dry <- erpm(partition_balanced ~ groups, eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_balanced ~ groups, eval.call = FALSE, verbose = TRUE)
 summary(dry[[2]], constraints = ~ b1part) # should be 3
-dry <- erpm(partition_full ~ groups, eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_full ~ groups, eval.call = FALSE, verbose = TRUE)
 summary(dry[[2]], constraints = ~ b1part) # should be 1
-dry <- erpm(partition_singleton ~ groups, eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_singleton ~ groups, eval.call = FALSE, verbose = TRUE)
 summary(dry[[2]], constraints = ~ b1part) # should be 6
 
 # with options on single size
-dry <- erpm(partition_mix ~ groups(2), eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_mix ~ groups(2), eval.call = FALSE, verbose = TRUE)
 summary(dry[[2]], constraints = ~ b1part) # should be 1
-dry <- erpm(partition_balanced ~ groups(2), eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_balanced ~ groups(2), eval.call = FALSE, verbose = TRUE)
 summary(dry[[2]], constraints = ~ b1part) # should be 3
-dry <- erpm(partition_full ~ groups(2), eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_full ~ groups(2), eval.call = FALSE, verbose = TRUE)
 summary(dry[[2]], constraints = ~ b1part) # should be 0
-dry <- erpm(partition_singleton ~ groups(2), eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_singleton ~ groups(2), eval.call = FALSE, verbose = TRUE)
 summary(dry[[2]], constraints = ~ b1part) # should be 0
 
-dry <- erpm(partition_mix ~ groups(0), eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_mix ~ groups(0), eval.call = FALSE, verbose = TRUE)
 summary(dry[[2]], constraints = ~ b1part) # should be 0
-# dry <- erpm(partition_mix ~ groups(-1), eval_call = FALSE, verbose = TRUE)
+# dry <- erpm(partition_mix ~ groups(-1), eval.call = FALSE, verbose = TRUE)
 # summary(dry[[2]], constraints = ~ b1part) # should be an error (!)                      <== OK, commenté pour pouvoir exécuter tout le script
-dry <- erpm(partition_mix ~ groups(7), eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_mix ~ groups(7), eval.call = FALSE, verbose = TRUE)
 summary(dry[[2]], constraints = ~ b1part) # should be an error (!)                        <== Pas d'accord : ça devrait valoir 0
 
 # with options on range (careful, "to" boundary is not inclusive)
-dry <- erpm(partition_mix ~ groups(from=0,to=3), eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_mix ~ groups(from=0,to=3), eval.call = FALSE, verbose = TRUE)
 summary(dry[[2]], constraints = ~ b1part) # should be 2
-dry <- erpm(partition_balanced ~ groups(from=0,to=3), eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_balanced ~ groups(from=0,to=3), eval.call = FALSE, verbose = TRUE)
 summary(dry[[2]], constraints = ~ b1part) # should be 3
-dry <- erpm(partition_full ~ groups(from=0,to=3), eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_full ~ groups(from=0,to=3), eval.call = FALSE, verbose = TRUE)
 summary(dry[[2]], constraints = ~ b1part) # should be 0
-dry <- erpm(partition_singleton ~ groups(from=0,to=3), eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_singleton ~ groups(from=0,to=3), eval.call = FALSE, verbose = TRUE)
 summary(dry[[2]], constraints = ~ b1part) # should be 6
 
-dry <- erpm(partition_mix ~ groups(from=0,to=1), eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_mix ~ groups(from=0,to=1), eval.call = FALSE, verbose = TRUE)
 summary(dry[[2]], constraints = ~ b1part) # should be 0
-# dry <- erpm(partition_mix ~ groups(from=0,to=0), eval_call = FALSE, verbose = TRUE)
+# dry <- erpm(partition_mix ~ groups(from=0,to=0), eval.call = FALSE, verbose = TRUE)
 # summary(dry[[2]], constraints = ~ b1part) # should be an error                          <== OK, commenté pour pouvoir exécuter tout le script
-dry <- erpm(partition_mix ~ groups(from=7,to=8), eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_mix ~ groups(from=7,to=8), eval.call = FALSE, verbose = TRUE)
 summary(dry[[2]], constraints = ~ b1part) # should be an error (!)
 
 # ======================================================================================

@@ -71,7 +71,7 @@ summary_ref_2to3 <- as.numeric(
 # ----------------------------------------------------------------------
 dry_all <- erpm(
   partition ~ dyadcov_full("Z1"),
-  eval_call = FALSE,
+  eval.call = FALSE,
   verbose   = FALSE,
   nodes     = nodes,
   dyads     = list(Z1 = Z1)
@@ -82,7 +82,7 @@ summary_obs_all <- as.numeric(
 
 dry_2to3 <- erpm(
   partition ~ dyadcov_full("Z1", size = 2:3),
-  eval_call = FALSE,
+  eval.call = FALSE,
   verbose   = FALSE,
   nodes     = nodes,
   dyads     = list(Z1 = Z1)

@@ -85,7 +85,7 @@ summary_ref_k2_norm_global <- as.numeric(
 
 dry_k2_nonnorm <- erpm(
   partition ~ dyadcov("Z1", clique_size = 2, normalize = FALSE),
-  eval_call = FALSE,
+  eval.call = FALSE,
   verbose   = FALSE,
   nodes     = nodes,
   dyads     = list(Z1 = Z1)
@@ -96,7 +96,7 @@ summary_obs_k2_nonnorm <- as.numeric(
 
 dry_k2_norm <- erpm(
   partition ~ dyadcov("Z1", clique_size = 2, normalize = "global"),
-  eval_call = FALSE,
+  eval.call = FALSE,
   verbose   = FALSE,
   nodes     = nodes,
   dyads     = list(Z1 = Z1)
@@ -245,7 +245,7 @@ summary_ergm_Z2_k2_norm_by_grp <- as.numeric(
 
 dry_Z2_k2_nonnorm <- erpm(
   partition ~ dyadcov("Z2", clique_size = 2, normalize = FALSE),
-  eval_call = FALSE,
+  eval.call = FALSE,
   verbose   = FALSE,
   nodes     = nodes,
   dyads     = list(Z2 = Z2)
@@ -256,7 +256,7 @@ summary_erpm_Z2_k2_nonnorm <- as.numeric(
 
 dry_Z2_k2_norm_global <- erpm(
   partition ~ dyadcov("Z2", clique_size = 2, normalize = "global"),
-  eval_call = FALSE,
+  eval.call = FALSE,
   verbose   = FALSE,
   nodes     = nodes,
   dyads     = list(Z2 = Z2)
@@ -267,7 +267,7 @@ summary_erpm_Z2_k2_norm_global <- as.numeric(
 
 dry_Z2_k2_norm_by_grp <- erpm(
   partition ~ dyadcov("Z2", clique_size = 2, normalize = "by_group"),
-  eval_call = FALSE,
+  eval.call = FALSE,
   verbose   = FALSE,
   nodes     = nodes,
   dyads     = list(Z2 = Z2)

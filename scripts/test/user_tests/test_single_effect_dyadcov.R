@@ -72,7 +72,7 @@ cat("========== 1) STAT OBSERVÉE SANS FIT — dyadcov (k=2) ==========\n")
 dry <- erpm(
   partition_mix ~ dyadcov("block_att", clique_size = 2, normalized = FALSE),
   dyads     = nets_df,
-  eval_call = FALSE,
+  eval.call = FALSE,
   verbose   = TRUE
 )
 print(summary(dry[[2]], constraints = ~ b1part))
@@ -81,7 +81,7 @@ print(summary(dry[[2]], constraints = ~ b1part))
 dry <- erpm(
   partition_balanced ~ dyadcov("block_att", clique_size = 2, normalized = FALSE),
   dyads     = nets_df,
-  eval_call = FALSE,
+  eval.call = FALSE,
   verbose   = TRUE
 )
 print(summary(dry[[2]], constraints = ~ b1part))
@@ -90,7 +90,7 @@ print(summary(dry[[2]], constraints = ~ b1part))
 dry <- erpm(
   partition_full ~ dyadcov("block_att", clique_size = 2, normalized = FALSE),
   dyads     = nets_df,
-  eval_call = FALSE,
+  eval.call = FALSE,
   verbose   = TRUE
 )
 print(summary(dry[[2]], constraints = ~ b1part))
@@ -99,7 +99,7 @@ print(summary(dry[[2]], constraints = ~ b1part))
 dry <- erpm(
   partition_singleton ~ dyadcov("block_att", clique_size = 2, normalized = FALSE),
   dyads     = nets_df,
-  eval_call = FALSE,
+  eval.call = FALSE,
   verbose   = TRUE
 )
 print(summary(dry[[2]], constraints = ~ b1part))
@@ -109,7 +109,7 @@ print(summary(dry[[2]], constraints = ~ b1part))
 dry <- erpm(
   partition_mix ~ dyadcov("mix_att", clique_size = 2, normalized = FALSE),
   dyads     = nets_df,
-  eval_call = FALSE,
+  eval.call = FALSE,
   verbose   = TRUE
 )
 print(summary(dry[[2]], constraints = ~ b1part))
@@ -118,7 +118,7 @@ print(summary(dry[[2]], constraints = ~ b1part))
 dry <- erpm(
   partition_balanced ~ dyadcov("mix_att", clique_size = 2, normalized = FALSE),
   dyads     = nets_df,
-  eval_call = FALSE,
+  eval.call = FALSE,
   verbose   = TRUE
 )
 print(summary(dry[[2]], constraints = ~ b1part))
@@ -127,7 +127,7 @@ print(summary(dry[[2]], constraints = ~ b1part))
 dry <- erpm(
   partition_full ~ dyadcov("mix_att", clique_size = 2, normalized = FALSE),
   dyads     = nets_df,
-  eval_call = FALSE,
+  eval.call = FALSE,
   verbose   = TRUE
 )
 print(summary(dry[[2]], constraints = ~ b1part))
@@ -136,7 +136,7 @@ print(summary(dry[[2]], constraints = ~ b1part))
 dry <- erpm(
   partition_singleton ~ dyadcov("mix_att", clique_size = 2, normalized = FALSE),
   dyads     = nets_df,
-  eval_call = FALSE,
+  eval.call = FALSE,
   verbose   = TRUE
 )
 print(summary(dry[[2]], constraints = ~ b1part))
@@ -146,7 +146,7 @@ print(summary(dry[[2]], constraints = ~ b1part))
 dry <- erpm(
   partition_mix ~ dyadcov("cont_att", clique_size = 2, normalized = FALSE),
   dyads     = nets_df,
-  eval_call = FALSE,
+  eval.call = FALSE,
   verbose   = TRUE
 )
 print(summary(dry[[2]], constraints = ~ b1part))
@@ -155,7 +155,7 @@ print(summary(dry[[2]], constraints = ~ b1part))
 dry <- erpm(
   partition_balanced ~ dyadcov("cont_att", clique_size = 2, normalized = FALSE),
   dyads     = nets_df,
-  eval_call = FALSE,
+  eval.call = FALSE,
   verbose   = TRUE
 )
 print(summary(dry[[2]], constraints = ~ b1part))
@@ -164,7 +164,7 @@ print(summary(dry[[2]], constraints = ~ b1part))
 dry <- erpm(
   partition_full ~ dyadcov("cont_att", clique_size = 2, normalized = FALSE),
   dyads     = nets_df,
-  eval_call = FALSE,
+  eval.call = FALSE,
   verbose   = TRUE
 )
 print(summary(dry[[2]], constraints = ~ b1part))
@@ -173,7 +173,7 @@ print(summary(dry[[2]], constraints = ~ b1part))
 dry <- erpm(
   partition_singleton ~ dyadcov("cont_att", clique_size = 2, normalized = FALSE),
   dyads     = nets_df,
-  eval_call = FALSE,
+  eval.call = FALSE,
   verbose   = TRUE
 )
 print(summary(dry[[2]], constraints = ~ b1part))
@@ -183,37 +183,37 @@ print(summary(dry[[2]], constraints = ~ b1part))
 # option test - clique_size=3
 dry <- erpm(partition_mix ~ dyadcov("block_att", clique_size=3), 
             dyads = nets_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 1x2^3=8 
 dry <- erpm(partition_balanced ~ dyadcov("block_att", clique_size=3), 
             dyads = nets_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 0 
 dry <- erpm(partition_full ~ dyadcov("block_att", clique_size=3), 
             dyads = nets_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 2x2^3=16
 dry <- erpm(partition_singleton ~ dyadcov("block_att", clique_size=3), 
             dyads = nets_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 0 
 
 # option test - clique_size=3
 dry <- erpm(partition_mix ~ dyadcov("block_att", clique_size=2, normalized=T), 
             dyads = nets_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 2/2+6/3=2
 dry <- erpm(partition_balanced ~ dyadcov("block_att", clique_size=2, normalized=T), 
             dyads = nets_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 2/2+0+2/2=2 -> error??
 dry <- erpm(partition_full ~ dyadcov("block_att", clique_size=2, normalized=T), 
             dyads = nets_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 12/6=2
 dry <- erpm(partition_singleton ~ dyadcov("block_att", clique_size=2, normalized=T), 
             dyads = nets_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 0 
 
 # ======================================================================================
@@ -291,5 +291,4 @@ fit_erpm <- erpm(
 print(summary(fit_erpm))
 
 cat("Différence des coefficients (ergm - erpm) :\n")
-print(fit_ergm$coefficients[1] - fit_erpm$coefficients[1])
-# attendu: ≈ 0 si les chemins d'estimation et la définition de la stat coïncident
+cat("[ERPM vs ERGM]\n\t", sprintf("fit_ergm - fit_erpm = %f", fit_ergm$coefficients[1] - fit_erpm$coefficients[1]), "\n")  # should be 0

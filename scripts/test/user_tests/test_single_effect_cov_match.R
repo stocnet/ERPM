@@ -43,91 +43,91 @@ nodes_df <- data.frame(label = 1:6, bin_att = bin_att, bin_cat = cat_att)
 # baseline test - binary attribute
 dry <- erpm(partition_mix ~ cov_match("bin_att"), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 4
 dry <- erpm(partition_balanced ~ cov_match("bin_att"), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 2
 dry <- erpm(partition_full ~ cov_match("bin_att"), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 6
 dry <- erpm(partition_singleton ~ cov_match("bin_att"),
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 0 
 
 # baseline test - category attribute
 dry <- erpm(partition_mix ~ cov_match("bin_cat"),
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 1
 dry <- erpm(partition_balanced ~ cov_match("bin_cat"),
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 3
 dry <- erpm(partition_full ~ cov_match("bin_cat"), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 3
 dry <- erpm(partition_singleton ~ cov_match("bin_cat"), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 0
 
 # option test - clique size = 3 -> error
 dry <- erpm(partition_mix ~ cov_match("bin_att", clique_size=3), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 1 
 dry <- erpm(partition_balanced ~ cov_match("bin_att", clique_size=3), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 0 
 dry <- erpm(partition_full ~ cov_match("bin_att", clique_size=3), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 2
 dry <- erpm(partition_singleton ~ cov_match("bin_att", clique_size=3),
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 0 
 
 # option test - normalized = by group
 dry <- erpm(partition_mix ~ cov_match("bin_att", normalized="by_group"), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 1/1 + 3/3 = 2
 dry <- erpm(partition_balanced ~ cov_match("bin_att", normalized="by_group"), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 1/1 + 0 + 1/1 = 2
 dry <- erpm(partition_full ~ cov_match("bin_att", normalized="by_group"), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 6/15 = 0.4
 dry <- erpm(partition_singleton ~ cov_match("bin_att", normalized="by_group"),
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 0
 
 # option test - normalized = global
 dry <- erpm(partition_mix ~ cov_match("bin_att", normalized="global"), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be (1+3)/15 = 0.266667 -> error?
 dry <- erpm(partition_balanced ~ cov_match("bin_att", normalized="global"), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be (1+1)/15 = 0.133333 -> error?
 dry <- erpm(partition_full ~ cov_match("bin_att", normalized="global"), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 6/15 = 0.4 -> error?
 dry <- erpm(partition_singleton ~ cov_match("bin_att", normalized="global"),
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 0 -> error?
 
 # ======================================================================================

@@ -79,7 +79,7 @@ ref_big <- as.numeric(
 
 dry_all <- erpm(
   partition ~ cov_fulldiff("score"),
-  eval_call = FALSE, verbose = FALSE, nodes = nodes
+  eval.call = FALSE, verbose = FALSE, nodes = nodes
 )
 obs_all <- as.numeric(
   summary(dry_all[[2]], constraints = ~ b1part)
@@ -87,7 +87,7 @@ obs_all <- as.numeric(
 
 dry_mid <- erpm(
   partition ~ cov_fulldiff("score", size = c(5,6,8)),
-  eval_call = FALSE, verbose = FALSE, nodes = nodes
+  eval.call = FALSE, verbose = FALSE, nodes = nodes
 )
 obs_mid <- as.numeric(
   summary(dry_mid[[2]], constraints = ~ b1part)
@@ -95,7 +95,7 @@ obs_mid <- as.numeric(
 
 dry_big <- erpm(
   partition ~ cov_fulldiff("score", size = 6:20),
-  eval_call = FALSE, verbose = FALSE, nodes = nodes
+  eval.call = FALSE, verbose = FALSE, nodes = nodes
 )
 obs_big <- as.numeric(
   summary(dry_big[[2]], constraints = ~ b1part)

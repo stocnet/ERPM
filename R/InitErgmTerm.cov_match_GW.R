@@ -67,29 +67,29 @@
 #' }
 #' and for each group \eqn{g} and category \eqn{r},
 #' \deqn{
-#'   S_{g,r}^{\text{GW}}(B; c, \lambda)
-#'   = \lambda \cdot \left(1 - r_\lambda^{n_{g,r}}\right).
+#'   S_{g,r}^{\text{GW}}(B; c, \eqn{\lambda})
+#'   = \eqn{\lambda} \cdot \left(1 - r_\lambda^{n_{g,r}}\right).
 #' }
 #'
 #' The non-normalized aggregate is:
 #' \deqn{
-#'   S_{\text{GW}}(B; c, \lambda)
-#'   = \sum_{g \in G} \sum_{r=1}^R S_{g,r}^{\text{GW}}(B; c, \lambda)
-#'   = \sum_{g \in G} \sum_{r=1}^R \lambda \cdot \left(1 - r_\lambda^{n_{g,r}}\right).
+#'   S_{\text{GW}}(B; c, \eqn{\lambda})
+#'   = \sum_{g \in G} \sum_{r=1}^R S_{g,r}^{\text{GW}}(B; c, \eqn{\lambda})
+#'   = \sum_{g \in G} \sum_{r=1}^R \eqn{\lambda} \cdot \left(1 - r_\lambda^{n_{g,r}}\right).
 #' }
 #'
 #' When a targeted category \eqn{\kappa} is specified, we restrict to:
 #' \deqn{
-#'   S_{\text{GW}}^{(\kappa)}(B; c, \lambda)
-#'   = \sum_{g \in G} \lambda \cdot \left(1 - r_\lambda^{n_{g,\kappa}}\right).
+#'   S_{\text{GW}}^{(\kappa)}(B; c, \eqn{\lambda})
+#'   = \sum_{g \in G} \eqn{\lambda} \cdot \left(1 - r_\lambda^{n_{g,\kappa}}\right).
 #' }
 #'
 #' For the normalization modes, let:
 #' \itemize{
 #'   \item \eqn{\text{Num}(g)} be the non-normalized group-level contribution
-#'         (either \eqn{\sum_r \lambda(1 - r_\lambda^{n_{g,r}})} or
+#'         (either \eqn{\sum_r \eqn{\lambda}(1 - r_\lambda^{n_{g,r}})} or
 #'         \eqn{\lambda(1 - r_\lambda^{n_{g,\kappa}})} for a targeted category);
-#'   \item \eqn{\text{Den}(g) = \lambda(1 - r_\lambda^{n_g})} be a group-size
+#'   \item \eqn{\text{Den}(g) = \eqn{\lambda}(1 - r_\lambda^{n_g})} be a group-size
 #'         denominator reminiscent of a geometrically weighted size term.
 #' }
 #'
@@ -97,21 +97,21 @@
 #' \itemize{
 #'   \item \code{normalized = "none"}:
 #'     \deqn{
-#'       T(B; c, \lambda) =
+#'       T(B; c, \eqn{\lambda}) =
 #'       \begin{cases}
-#'         S_{\text{GW}}(B; c, \lambda) & \text{if no category is targeted}, \\
-#'         S_{\text{GW}}^{(\kappa)}(B; c, \lambda) & \text{if category } \kappa \text{ is targeted};
+#'         S_{\text{GW}}(B; c, \eqn{\lambda}) & \text{if no category is targeted}, \\
+#'         S_{\text{GW}}^{(\kappa)}(B; c, \eqn{\lambda}) & \text{if category } \kappa \text{ is targeted};
 #'       \end{cases}
 #'     }
 #'   \item \code{normalized = "by_group"}:
 #'     \deqn{
-#'       T_{\text{by\_group}}(B; c, \lambda)
+#'       T_{\text{by\_group}}(B; c, \eqn{\lambda})
 #'       = \sum_{g \in G} \frac{\text{Num}(g)}{\text{Den}(g)};
 #'     }
 #'   \item \code{normalized = "global"}:
-#'     using \eqn{\text{Den}_{\text{glob}} = \lambda(1 - r_\lambda^{N_A})},
+#'     using \eqn{\text{Den}_{\text{glob}} = \eqn{\lambda}(1 - r_\lambda^{N_A})},
 #'     \deqn{
-#'       T_{\text{global}}(B; c, \lambda)
+#'       T_{\text{global}}(B; c, \eqn{\lambda})
 #'       = \frac{\sum_{g \in G} \text{Num}(g)}{\text{Den}_{\text{glob}}}.
 #'     }
 #' }
@@ -295,7 +295,7 @@
 #'   \item construct small bipartite networks with a known actor partition
 #'         into groups and a categorical covariate on actors;
 #'   \item choose several \eqn{\lambda} values and compute, in pure R, the
-#'         reference quantities \eqn{S_{\text{GW}}(B; c, \lambda)} and their
+#'         reference quantities \eqn{S_{\text{GW}}(B; c, \eqn{\lambda})} and their
 #'         by-group and global normalizations;
 #'   \item compare these reference values to
 #'         \code{summary(nw ~ cov_match_GW(...), constraints = ~ b1part)};

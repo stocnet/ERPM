@@ -180,7 +180,7 @@ run_one_summary_and_translation_case <- function(partition_vec, case_name, rhs_c
 
   ok_translation <- NA
   if (exists("erpm", mode = "function")) {
-    call_ergm <- erpm(f, eval_call = FALSE, verbose = TRUE)
+    call_ergm <- erpm(f, eval.call = FALSE, verbose = TRUE)
     ok_translation <- check_translation_contains_cliques_with_args(call_ergm, args = rhs_args)
   }
 

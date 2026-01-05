@@ -86,7 +86,7 @@ ref_k1_F_bg <- as.numeric(
 # k = 2, normalisation "none"
 dry_k2 <- erpm(
   partition ~ cov_match("sexe", clique_size = 2),
-  eval_call = FALSE,
+  eval.call = FALSE,
   verbose   = FALSE,
   nodes     = nodes
 )
@@ -97,7 +97,7 @@ obs_k2 <- as.numeric(
 # k = 2, normalisation "by_group"
 dry_k2_bg <- erpm(
   partition ~ cov_match("sexe", clique_size = 2, normalized = "by_group"),
-  eval_call = FALSE,
+  eval.call = FALSE,
   verbose   = FALSE,
   nodes     = nodes
 )
@@ -108,7 +108,7 @@ obs_k2_bg <- as.numeric(
 # k = 2, normalisation "global"
 dry_k2_glob <- erpm(
   partition ~ cov_match("sexe", clique_size = 2, normalized = "global"),
-  eval_call = FALSE,
+  eval.call = FALSE,
   verbose   = FALSE,
   nodes     = nodes
 )
@@ -120,7 +120,7 @@ obs_k2_glob <- as.numeric(
 dry_k1_F_bg <- erpm(
   partition ~ cov_match("sexe", clique_size = 1, category = "F",
                         normalized = "by_group"),
-  eval_call = FALSE,
+  eval.call = FALSE,
   verbose   = FALSE,
   nodes     = nodes
 )

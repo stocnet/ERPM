@@ -49,7 +49,7 @@ stopifnot(isTRUE(all.equal(summary_reference_val, summary_reference_closed, tol 
 # ------------------------------------------------------------------------------ 
 # 3) SUMMARY observé via erpm(dry-run) -> formule -> summary(...)
 # ------------------------------------------------------------------------------ 
-dry <- erpm(partition ~ log_factorial_sizes, eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition ~ log_factorial_sizes, eval.call = FALSE, verbose = TRUE)
 fml <- dry[[2]]
 cons <- if (length(dry) >= 3L && inherits(dry[[3]], "formula")) dry[[3]] else ~ b1part
 

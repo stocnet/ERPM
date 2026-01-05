@@ -44,37 +44,37 @@ nodes_df <- data.frame(label = 1:6, bin_att = bin_att, bin_cat = cat_att)
 # baseline test - binary attribute
 dry <- erpm(partition_mix ~ cov_ingroup("bin_att"), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 5 = 1+1*2+1*2+0+0+0
 dry <- erpm(partition_balanced ~ cov_ingroup("bin_att"), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 6 = 1*2+1*2+1*2+0+0+0
 dry <- erpm(partition_full ~ cov_ingroup("bin_att"), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 18 = 1*6+1*6+1*6+0+0+0
 dry <- erpm(partition_singleton ~ cov_ingroup("bin_att"),
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 3 = 1*1+1*1+1*1+0+0+0
 
 # baseline test - category attribute
 dry <- erpm(partition_mix ~ cov_ingroup("bin_cat",category="C"),
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 6 = 0+0+0+0+1*3+1*3
 dry <- erpm(partition_balanced ~ cov_ingroup("bin_cat",category="C"),
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 4 = 0+0+0+0+1*2+1*2
 dry <- erpm(partition_full ~ cov_ingroup("bin_cat",category="C"), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 12 = 0+0+0+0+1*6+1*6
 dry <- erpm(partition_singleton ~ cov_ingroup("bin_cat",category="C"), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 2 = 0+0+0+0+1*1+1*1
 
 # option test - TODO
@@ -82,8 +82,6 @@ print(summary(dry[[2]], constraints = ~ b1part)) # should be 2 = 0+0+0+0+1*1+1*1
 # ======================================================================================
 # 2) FIT MODEL
 # ======================================================================================
-
-set.seed(1)  # stabilise l’estimation si on utilise une estimation CD dans ergm
 
 make_nw_from_partition <- function(part,nodes) {
   built <- build_bipartite_from_inputs(
@@ -104,17 +102,17 @@ ctrl_A <- control.ergm(
 
 # baseline case -> TODO
 nw <- make_nw_from_partition(partition_mix,nodes_df)
+set.seed(1)  
 fit_ergm <- ergm( nw ~ cov_ingroup("bin_att"),
                   constraints = ~b1part, 
                   estimate="MLE", 
                   control=ctrl_A)
 print(summary(fit_ergm))
 
+set.seed(1)  
 fit_erpm <- erpm(partition_mix ~ cov_ingroup("bin_att"),
                  nodes = nodes_df,
                  estimate="MLE", 
                  control=ctrl_A) 
 print(summary(fit_erpm))
-fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # should be close to 0
-
-# option case -> TODO
+cat("[ERPM vs ERGM]\n\t", sprintf("fit_ergm - fit_erpm = %f", fit_ergm$coefficients[1] - fit_erpm$coefficients[1]), "\n")  # should be 0

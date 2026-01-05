@@ -279,7 +279,7 @@ if (!exists(".__launcher_loaded", envir = .GlobalEnv)) {
     f <- build_formula_from_rhs(rhs, nw = nw)
 
     if (dry_run) {
-      call_erpm <- erpm(f, eval_call = FALSE, verbose = verbose, estimate = estimate)
+      call_erpm <- erpm(f, eval.call = FALSE, verbose = verbose, estimate = estimate)
       call_text <- .fmt_call(call_erpm)
       .log_info(paste("Résultat (dry-run/erpm):", call_text))
       return(list(engine=engine, mode="dryrun", rhs=rhs, rhs_text=rhs_text,
@@ -295,7 +295,7 @@ if (!exists(".__launcher_loaded", envir = .GlobalEnv)) {
       ctrl <- do.call(ergm::control.ergm, .modify_list(ctrl_defaults, control))
     }
 
-    fit <- erpm(f, eval_call = TRUE, verbose = verbose, estimate = estimate,
+    fit <- erpm(f, eval.call = TRUE, verbose = verbose, estimate = estimate,
                 eval.loglik = eval_loglik, control = ctrl, timeout = timeout)
 
     if (!inherits(fit, "ergm")) {
@@ -961,7 +961,7 @@ if (!exists(".__launcher_loaded", envir = .GlobalEnv)) {
 
 #         if (dry_run) {                                                # Dry-run : ne fit pas
 #             call_erpm <- erpm(  f,                      # Demande l’appel traduit sans évaluer
-#                                 eval_call   = FALSE,
+#                                 eval.call   = FALSE,
 #                                 verbose     = verbose,
 #                                 estimate    = estimate
 #                             )  
@@ -977,7 +977,7 @@ if (!exists(".__launcher_loaded", envir = .GlobalEnv)) {
 #             ))
 #         }
 
-#         # fit <- erpm(f, eval_call = TRUE, verbose = verbose)           # Fit réel via erpm (traduit → ergm)
+#         # fit <- erpm(f, eval.call = TRUE, verbose = verbose)           # Fit réel via erpm (traduit → ergm)
         
 #         ctrl_defaults <- list(
 #                 MCMLE.maxit     = 5L,
@@ -995,7 +995,7 @@ if (!exists(".__launcher_loaded", envir = .GlobalEnv)) {
 #         ctrl <- do.call(ergm::control.ergm, ctrl_list)
 #         fit <- erpm(
 #             f,
-#             eval_call   = TRUE,
+#             eval.call   = TRUE,
 #             verbose     = verbose,
 #             estimate    = estimate,
 #             eval.loglik = eval_loglik,

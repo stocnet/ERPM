@@ -233,7 +233,7 @@ run_one_erpm_translated_summary_case_for_dyadcov_GW <- function(partition_vec, n
 
   call_ergm <- erpm(
     f,
-    eval_call = FALSE,
+    eval.call = FALSE,
     verbose   = FALSE,
     nodes     = nodes_df,
     dyads     = dyads_list

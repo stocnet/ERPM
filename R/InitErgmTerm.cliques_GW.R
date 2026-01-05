@@ -16,9 +16,9 @@
 #' For each group node \eqn{g} in the group mode, let \eqn{n_g} be its degree
 #' (the number of adjacent actors). For a given \eqn{\lambda \ge 1}, define
 #' \deqn{
-#'   S(n_g, \lambda)
+#'   S(n_g, \eqn{\lambda})
 #'   =
-#'   \lambda \Big[1 - r_\lambda^{\,n_g}\Big],
+#'   \eqn{\lambda} \Big[1 - r_\lambda^{\,n_g}\Big],
 #'   \qquad
 #'   r_\lambda = \frac{\lambda - 1}{\lambda}.
 #' }
@@ -26,9 +26,9 @@
 #' \deqn{
 #'   T_\lambda(y)
 #'   =
-#'   \sum_{g \in G} S(n_g, \lambda)
+#'   \sum_{g \in G} S(n_g, \eqn{\lambda})
 #'   =
-#'   \sum_{g \in G} \lambda \Big[ 1 - r_\lambda^{\,n_g} \Big],
+#'   \sum_{g \in G} \eqn{\lambda} \Big[ 1 - r_\lambda^{\,n_g} \Big],
 #' }
 #' where \eqn{G} is the set of group-mode nodes. Intuitively, each group
 #' contributes a geometrically weighted function of its size, with
@@ -80,15 +80,15 @@
 #' }
 #' For a given \eqn{\lambda \ge 1}, define
 #' \deqn{
-#'   S(n_g, \lambda)
+#'   S(n_g, \eqn{\lambda})
 #'   =
-#'   \lambda \Big[ 1 - \Big(\frac{\lambda - 1}{\lambda}\Big)^{n_g} \Big],
+#'   \eqn{\lambda} \Big[ 1 - \Big(\frac{\lambda - 1}{\lambda}\Big)^{n_g} \Big],
 #' }
 #' and the statistic
 #' \deqn{
 #'   T_\lambda(y)
 #'   =
-#'   \sum_{g \in G} S(n_g, \lambda).
+#'   \sum_{g \in G} S(n_g, \eqn{\lambda}).
 #' }
 #' When multiple values \eqn{\lambda_1,\dots,\lambda_J} are supplied, the ERGM
 #' term returns the vector
@@ -173,7 +173,7 @@
 #' networks with known group sizes, then:
 #' \itemize{
 #'   \item compute group-mode degrees \eqn{n_g} and evaluate
-#'         \eqn{T_\lambda(y) = \sum_g \lambda \big[1 - r_\lambda^{n_g}\big]}
+#'         \eqn{T_\lambda(y) = \sum_g \eqn{\lambda} \big[1 - r_\lambda^{n_g}\big]}
 #'         directly in R for several values of \eqn{\lambda};
 #'   \item compare these reference values with
 #'         \code{summary(nw ~ cliques_GW(lambda = lambda_vec))};

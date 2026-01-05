@@ -29,3 +29,16 @@ appveyor.yml
 ^vignettes/.*_files$
 ^README.md$
 _snaps
+
+^\.DS_Store$
+^\.vscode$
+^\.idea$
+^\.lintr\.R$
+
+^logs$
+^selftest_.*\.log$
+
+^ERPM_.*\.tar\.gz$
+^\.Rhistory$
+^\.RData$
+^\.Ruserdata$

@@ -32,7 +32,7 @@ expected_stat <- function(part, lambda) {
 # ------------------------------------------------------------------------------
 lambda <- c(2, 4)
 
-dry <- erpm(partition ~ cliques_GW(lambda = lambda), eval_call = FALSE, verbose = FALSE)
+dry <- erpm(partition ~ cliques_GW(lambda = lambda), eval.call = FALSE, verbose = FALSE)
 obs  <- as.numeric(summary(dry[[2]], constraints = ~ b1part))
 exp  <- expected_stat(partition, lambda)
 

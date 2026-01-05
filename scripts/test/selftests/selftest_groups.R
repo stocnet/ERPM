@@ -151,11 +151,11 @@ run_one_network_summary_case_for_groups <- function(partition_vec, groups_args) 
                                       constraints = ~ b1part)))
 }
 
-# Summary côté ERPM: traduction via erpm(eval_call=FALSE) puis summary sur nw équivalent
+# Summary côté ERPM: traduction via erpm(eval.call=FALSE) puis summary sur nw équivalent
 run_one_erpm_translated_summary_case_for_groups <- function(partition_vec, call_txt) {
   f <- as.formula(paste0("partition ~ ", call_txt))
   environment(f) <- list2env(list(partition = partition_vec), parent = parent.frame())
-  call_ergm <- erpm(f, eval_call = FALSE, verbose = FALSE)
+  call_ergm <- erpm(f, eval.call = FALSE, verbose = FALSE)
 
   # Extraire RHS traduit
   ergm_form <- call_ergm[[2L]]

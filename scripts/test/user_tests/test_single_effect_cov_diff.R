@@ -43,61 +43,61 @@ nodes_df <- data.frame(label = 1:6, bin_att = bin_att, bin_cat = cat_att)
 # baseline test - binary attribute
 dry <- erpm(partition_mix ~ cov_diff("bin_att"), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 0
 dry <- erpm(partition_balanced ~ cov_diff("bin_att"), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 1
 dry <- erpm(partition_full ~ cov_diff("bin_att"), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 9
 dry <- erpm(partition_singleton ~ cov_diff("bin_att"),
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 0 
 
 # baseline test - category attribute
 #dry <- erpm(partition_mix ~ cov_diff("bin_cat"),
 #            nodes = nodes_df,
-#            eval_call = FALSE, verbose = TRUE) # should be an error
+#            eval.call = FALSE, verbose = TRUE) # should be an error
 
 
 # option test - clique size = 3 -> error
 dry <- erpm(partition_mix ~ cov_diff("bin_att", clique_size=3), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 0
 dry <- erpm(partition_balanced ~ cov_diff("bin_att", clique_size=3), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 0
 dry <- erpm(partition_full ~ cov_diff("bin_att", clique_size=3), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 18
 dry <- erpm(partition_singleton ~ cov_diff("bin_att", clique_size=3),
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 0 
 
 # option test - clique size = 3 -> error
 dry <- erpm(partition_mix ~ cov_diff("bin_att", normalized = T), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 0
 dry <- erpm(partition_balanced ~ cov_diff("bin_att", normalized = T), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 0.5
 dry <- erpm(partition_full ~ cov_diff("bin_att", normalized = T), 
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 1.5
 dry <- erpm(partition_singleton ~ cov_diff("bin_att", normalized = T),
             nodes = nodes_df,
-            eval_call = FALSE, verbose = TRUE)
+            eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 0 
 
 # ======================================================================================
@@ -140,6 +140,4 @@ fit_erpm <- erpm(partition_balanced ~ cov_diff("bin_att"),
                  estimate="MLE", 
                  control=ctrl_A) 
 print(summary(fit_erpm))
-fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # should be close to 0
-
-# option case TODO
+cat("[ERPM vs ERGM]\n\t", sprintf("fit_ergm - fit_erpm = %f", fit_ergm$coefficients[1] - fit_erpm$coefficients[1]), "\n")  # should be 0

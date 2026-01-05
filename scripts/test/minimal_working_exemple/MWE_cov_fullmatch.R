@@ -47,11 +47,11 @@ summary_ref_A_2to3   <- as.numeric(summary(nw ~ cov_fullmatch("dept", category =
 # ---------------------- Observés via dry-run erpm() ----------------------------
 # 2) demandé : noms explicites + appels directs
 dry_allSizes <- erpm(partition ~ cov_fullmatch("dept"),
-                     eval_call = FALSE, verbose = FALSE, nodes = nodes)
+                     eval.call = FALSE, verbose = FALSE, nodes = nodes)
 summary_obs_allSizes <- as.numeric(summary(dry_allSizes[[2]], constraints = ~ b1part))
 
 dry_A_2to3 <- erpm(partition ~ cov_fullmatch("dept", category = "A", size = 2:3),
-                   eval_call = FALSE, verbose = FALSE, nodes = nodes)
+                   eval.call = FALSE, verbose = FALSE, nodes = nodes)
 summary_obs_A_2to3 <- as.numeric(summary(dry_A_2to3[[2]], constraints = ~ b1part))
 
 cat(sprintf("[summary] cov_fullmatch(dept) : observé=%g | référence=%g\n",

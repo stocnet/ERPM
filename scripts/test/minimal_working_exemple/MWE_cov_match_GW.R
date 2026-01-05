@@ -76,7 +76,7 @@ ref_l2_F <- as.numeric(
 
 dry_l2 <- erpm(
   partition ~ cov_match_GW("sexe", lambda = 2),
-  eval_call = FALSE, verbose = FALSE, nodes = nodes
+  eval.call = FALSE, verbose = FALSE, nodes = nodes
 )
 obs_l2 <- as.numeric(
   summary(dry_l2[[2]], constraints = ~ b1part)
@@ -84,7 +84,7 @@ obs_l2 <- as.numeric(
 
 dry_l2_bg <- erpm(
   partition ~ cov_match_GW("sexe", lambda = 2, normalized = "by_group"),
-  eval_call = FALSE, verbose = FALSE, nodes = nodes
+  eval.call = FALSE, verbose = FALSE, nodes = nodes
 )
 obs_l2_bg <- as.numeric(
   summary(dry_l2_bg[[2]], constraints = ~ b1part)
@@ -92,7 +92,7 @@ obs_l2_bg <- as.numeric(
 
 dry_l2_F <- erpm(
   partition ~ cov_match_GW("sexe", lambda = 2, category = "F"),
-  eval_call = FALSE, verbose = FALSE, nodes = nodes
+  eval.call = FALSE, verbose = FALSE, nodes = nodes
 )
 obs_l2_F <- as.numeric(
   summary(dry_l2_F[[2]], constraints = ~ b1part)

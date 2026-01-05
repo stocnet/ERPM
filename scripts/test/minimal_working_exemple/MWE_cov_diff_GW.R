@@ -79,7 +79,7 @@ ref_l2_l4 <- as.numeric(
 # lambda = 2
 dry_l2 <- erpm(
   partition ~ cov_diff_GW("score", lambda = 2),
-  eval_call = FALSE, verbose = FALSE, nodes = nodes
+  eval.call = FALSE, verbose = FALSE, nodes = nodes
 )
 obs_l2 <- as.numeric(
   summary(dry_l2[[2]], constraints = ~ b1part)
@@ -88,7 +88,7 @@ obs_l2 <- as.numeric(
 # lambda = 3
 dry_l3 <- erpm(
   partition ~ cov_diff_GW("score", lambda = 3),
-  eval_call = FALSE, verbose = FALSE, nodes = nodes
+  eval.call = FALSE, verbose = FALSE, nodes = nodes
 )
 obs_l3 <- as.numeric(
   summary(dry_l3[[2]], constraints = ~ b1part)
@@ -97,7 +97,7 @@ obs_l3 <- as.numeric(
 # lambda = c(2,4)
 dry_l2_l4 <- erpm(
   partition ~ cov_diff_GW("score", lambda = c(2, 4)),
-  eval_call = FALSE, verbose = FALSE, nodes = nodes
+  eval.call = FALSE, verbose = FALSE, nodes = nodes
 )
 obs_l2_l4 <- as.numeric(
   summary(dry_l2_l4[[2]], constraints = ~ b1part)

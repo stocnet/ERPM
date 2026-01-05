@@ -189,7 +189,7 @@ summary_on_erpm_translation <- function(part, nodes, rhs_txt) {
   f <- as.formula(paste0("partition ~ ", rhs_txt))
   environment(f) <- list2env(list(partition = partition, nodes = nodes), parent = parent.frame())
 
-  call_ergm <- erpm(f, eval_call = FALSE, verbose = FALSE, nodes = nodes)
+  call_ergm <- erpm(f, eval.call = FALSE, verbose = FALSE, nodes = nodes)
   ergm_form <- call_ergm[[2L]]
   rhs_expr  <- ergm_form[[3L]]
   nw <- .erpm_build_bipartite_nw(part, nodes)
@@ -460,7 +460,7 @@ run_phase2_summary_equiv <- function() {
   partition <- part
   f <- as.formula(paste0("partition ~ ", rhs_txt))
   environment(f) <- list2env(list(partition = partition, nodes = nodes), parent = parent.frame())
-  call_ergm <- try(erpm(f, eval_call = FALSE, verbose = FALSE, nodes = nodes), silent = TRUE)
+  call_ergm <- try(erpm(f, eval.call = FALSE, verbose = FALSE, nodes = nodes), silent = TRUE)
   if (!inherits(call_ergm, "try-error")) {
     ergm_form <- call_ergm[[2L]]
     rhs_expr  <- try(ergm_form[[3L]], silent = TRUE)

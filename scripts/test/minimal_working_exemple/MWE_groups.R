@@ -53,7 +53,7 @@ cat(sprintf("[summary|ref] groups(k=%d) = %g\n", k_group, stat_summary_ref_group
 # ======================================================================================
 # 2) SUMMARY via erpm(dry-run) puis summary(formule) — vérification
 # ======================================================================================
-dry_erpm_groups_k <- erpm(partition ~ groups(k_group), eval_call = FALSE, verbose = FALSE)
+dry_erpm_groups_k <- erpm(partition ~ groups(k_group), eval.call = FALSE, verbose = FALSE)
 stat_summary_via_dry_groups_k <- as.numeric(summary(dry_erpm_groups_k[[2]], constraints = ~ b1part))
 cat(sprintf("[summary|erpm(dry)] groups(k=%d) = %g\n\n", k_group, stat_summary_via_dry_groups_k))
 

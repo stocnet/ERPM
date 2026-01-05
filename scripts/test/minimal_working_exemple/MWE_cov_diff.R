@@ -89,7 +89,7 @@ ref_k3_bygrp <- as.numeric(
 # k = 2 (non normalisé)
 dry_k2_raw <- erpm(
   partition ~ cov_diff("score", clique_size = 2),
-  eval_call = FALSE, verbose = FALSE, nodes = nodes
+  eval.call = FALSE, verbose = FALSE, nodes = nodes
 )
 obs_k2_raw <- as.numeric(
   summary(dry_k2_raw[[2]], constraints = ~ b1part)
@@ -98,7 +98,7 @@ obs_k2_raw <- as.numeric(
 # k = 2 (normalisé par groupe : TRUE doit se comporter comme "by_group")
 dry_k2_bygrp <- erpm(
   partition ~ cov_diff("score", clique_size = 2, normalized = TRUE),
-  eval_call = FALSE, verbose = FALSE, nodes = nodes
+  eval.call = FALSE, verbose = FALSE, nodes = nodes
 )
 obs_k2_bygrp <- as.numeric(
   summary(dry_k2_bygrp[[2]], constraints = ~ b1part)
@@ -107,7 +107,7 @@ obs_k2_bygrp <- as.numeric(
 # k = 2 (normalisation globale explicite)
 dry_k2_glob <- erpm(
   partition ~ cov_diff("score", clique_size = 2, normalized = "global"),
-  eval_call = FALSE, verbose = FALSE, nodes = nodes
+  eval.call = FALSE, verbose = FALSE, nodes = nodes
 )
 obs_k2_glob <- as.numeric(
   summary(dry_k2_glob[[2]], constraints = ~ b1part)
@@ -116,7 +116,7 @@ obs_k2_glob <- as.numeric(
 # k = 3 (non normalisé)
 dry_k3_raw <- erpm(
   partition ~ cov_diff("score", clique_size = 3),
-  eval_call = FALSE, verbose = FALSE, nodes = nodes
+  eval.call = FALSE, verbose = FALSE, nodes = nodes
 )
 obs_k3_raw <- as.numeric(
   summary(dry_k3_raw[[2]], constraints = ~ b1part)
@@ -125,7 +125,7 @@ obs_k3_raw <- as.numeric(
 # k = 3 (normalisé par groupe)
 dry_k3_bygrp <- erpm(
   partition ~ cov_diff("score", clique_size = 3, normalized = "by_group"),
-  eval_call = FALSE, verbose = FALSE, nodes = nodes
+  eval.call = FALSE, verbose = FALSE, nodes = nodes
 )
 obs_k3_bygrp <- as.numeric(
   summary(dry_k3_bygrp[[2]], constraints = ~ b1part)

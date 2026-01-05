@@ -38,13 +38,13 @@ partition_singleton <- c(1, 2, 3, 4, 5, 6)
 # ======================================================================================
 
 # baseline test
-dry <- erpm(partition_mix ~ log_factorial_sizes, eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_mix ~ log_factorial_sizes, eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be log(2)=0.6931472
-dry <- erpm(partition_balanced ~ log_factorial_sizes, eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_balanced ~ log_factorial_sizes, eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 0
-dry <- erpm(partition_full ~ log_factorial_sizes, eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_full ~ log_factorial_sizes, eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be log(2*3*4*5) = 4.787492
-dry <- erpm(partition_singleton ~ log_factorial_sizes, eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_singleton ~ log_factorial_sizes, eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 0
 
 

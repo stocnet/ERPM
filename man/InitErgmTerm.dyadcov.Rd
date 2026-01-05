@@ -22,20 +22,26 @@ In both cases the matrix is truncated, if necessary, to its top-left
 It is rounded and coerced to an integer and must satisfy \eqn{k \ge 2}.
 Defaults to \code{2}.}
 
-\item{normalized}{logical scalar. When \code{FALSE}, the statistic is a raw
-sum over all \eqn{k}-cliques per group. When \code{TRUE}, each group's
-clique-based sum \eqn{S_g^{(k)}(Z)} is multiplied by \eqn{1 / n_g} (and
-groups with \eqn{n_g < k} contribute \code{0} since they have no
-\eqn{k}-cliques). Defaults to \code{FALSE}.}
+\item{normalize}{logical or character scalar. Controls the normalisation of
+the group-level sums \eqn{S_g^{(k)}(Z)}:
+\itemize{
+\item \code{FALSE} or \code{"none"}: no normalisation (raw sum) ;
+\item \code{"global"} or \code{TRUE} or legacy \code{"size"}:
+global normalisation by \eqn{1 / n_g} when \eqn{n_g \ge k};
+\item \code{"by_group"} or legacy \code{"cliques"}:
+normalisation by \eqn{1 / \binom{n_g}{k}} when \eqn{n_g \ge k}.
+}
+Deprecated aliases \code{normalized} and \code{norm} are also accepted and
+mapped internally to \code{normalize}.}
 }
 \value{
 A standard {ergm} term initialization list with components:
 \itemize{
 \item \code{name}         = \code{"dyadcov"};
 \item \code{coef.names}   = a single coefficient name encoding
-\code{dyadcov} label, \code{k} and the normalization flag;
+\code{dyadcov} label, \code{k} and the normalization mode;
 \item \code{inputs}       = numeric vector
-\code{c(n1, k, normalized_flag, as.double(Z))};
+\code{c(n1, k, norm_mode, as.double(Z))};
 \item \code{dependence}   = \code{TRUE};
 \item \code{minval}       = \code{-Inf};
 \item \code{maxval}       = \code{Inf};
@@ -61,13 +67,17 @@ over all actor pairs in the clique. For each unordered pair \eqn{\{i,j\}} with
 }
 If \eqn{Z} is symmetric, each factor reduces to \eqn{2 z_{ij}}.
 
-Two variants are supported:
+Three variants are supported, controlled by the \code{normalize} argument
+(with deprecated aliases \code{normalized} and \code{norm}):
 \itemize{
-\item \code{normalized = FALSE} (raw sum over cliques);
-\item \code{normalized = TRUE} (per-group scaling of the clique sum by
-the group size \eqn{n_g}, i.e. a factor \eqn{1 / n_g} whenever
-\eqn{n_g \ge k}).
+\item \emph{no normalisation} (raw sum) ;
+\item \emph{global normalisation} (\code{normalize = "global"}), factor
+\eqn{1 / n_g} per group;
+\item \emph{by-group normalisation} (\code{normalize = "by_group"}), factor
+\eqn{1 / \binom{n_g}{k}} per group.
 }
+Backward compatibility is preserved with the historical interface based on
+TRUE/FALSE and the labels \code{"none"}, \code{"size"} and \code{"cliques"}.
 }
 \details{
 The dyadic covariate \eqn{Z} is a real actor-by-actor matrix of size
@@ -84,7 +94,7 @@ network-level attribute (\code{nw \%n\% "..."});
 \item optionally reports (in debug mode) how far the matrix is from being
 symmetric, but does not require symmetry;
 \item parses \code{clique_size} into an integer \eqn{k \ge 2};
-\item parses \code{normalized} into a logical flag.
+\item parses \code{normalize} (or its aliases) into a normalisation mode.
 }
 }
 \note{
@@ -107,34 +117,43 @@ is from symmetry.
 }
 \section{Core statistic}{
 
-The core statistic (for a fixed \eqn{k} and scalar \code{normalized}) can be
-written in terms of the partition \eqn{p} and the dyadic covariate \eqn{Z}:
+The core statistic (for a fixed \eqn{k}) can be written in terms of the
+partition \eqn{p} and the dyadic covariate \eqn{Z}. Let
+\eqn{S_g^{(k)}(Z)} be the raw clique-based sum in group \eqn{g}:
+\deqn{
+  S_g^{(k)}(Z)
+    = \sum_{C \in C_k(g)} \prod_{i<j,\, i,j \in C} (z_{ij} + z_{ji}),
+}
+and \eqn{n_g} the number of actors adjacent to group \eqn{g}. Then:
 \itemize{
-\item normalized = FALSE :
-T^{(k)}(p; Z)
-= sum_g sum_{C in C_k(g)} prod_{i<j in C} (z_{ij} + z_{ji})
-\item normalized = TRUE :
-T^{(k)}\emph{norm(p; Z)
-= sum_g 1(n_g >= k) * (1 / n_g) *
-sum}{C in C_k(g)} prod_{i<j in C} (z_{ij} + z_{ji})
+\item no normalisation (backward-compatible with \code{normalize = FALSE}) :
+\deqn{
+      T^{(k)}(p; Z)
+        = \sum_g S_g^{(k)}(Z)
+}
+\item global normalisation (backward-compatible with \code{normalize = "global"}
+and \code{normalize = TRUE}) :
+\deqn{
+      T^{(k)}_{\mathrm{global}}(p; Z)
+        = \sum_g \mathbf{1}(n_g \ge k) \frac{1}{n_g}
+            S_g^{(k)}(Z)
+}
+\item by-group normalisation:
+\deqn{
+      T^{(k)}_{\mathrm{by\_group}}(p; Z)
+        = \sum_g \mathbf{1}(n_g \ge k) \frac{1}{\binom{n_g}{k}}
+            S_g^{(k)}(Z).
+}
 }
 
-where:
-\itemize{
-\item \eqn{g} runs over group-mode nodes (groups);
-\item \eqn{n_g} is the number of actors adjacent to group \eqn{g};
-\item \eqn{C_k(g)} is the set of all subsets \eqn{C \subseteq A(g)} of size
-\eqn{k}, where \eqn{A(g)} is the actor set attached to group \eqn{g}.
-}
-
-For \eqn{k = 2} and \code{normalized = FALSE}, this reduces to:
+For \eqn{k = 2} and no normalisation, this reduces to:
 \deqn{
   T^{(2)}(p; Z)
     = \sum_g \sum_{i<j,\, i,j \in A(g)} (z_{ij} + z_{ji}),
 }
 which matches the definition of \code{dyadcov_full(dyadcov, size = NULL)}
 aggregating the dyadic covariate over all ordered pairs of co-grouped actors.
-For \eqn{k = 2} and \code{normalized = TRUE}, each group contribution is
+For \eqn{k = 2} and global normalisation, each group contribution is
 additionally scaled by \eqn{1 / n_g}.
 }
 
@@ -143,7 +162,7 @@ additionally scaled by \eqn{1 / n_g}.
 The term is implemented as a native ERGM C change-statistic, exposed under the
 symbol \code{c_dyadcov}. The R initializer below:
 \itemize{
-\item packages \code{n1}, \code{k}, \code{normalized} and the flattened
+\item packages \code{n1}, \code{k}, the normalisation mode and the flattened
 \code{dyadcov} matrix into \code{INPUT_PARAM};
 \item declares the term as dependent (\code{dependence = TRUE}) with no
 finite \code{minval}/\code{maxval};
@@ -153,8 +172,8 @@ finite \code{minval}/\code{maxval};
 On each toggle of an actor–group edge, the C change-statistic recomputes the
 local contribution for the unique group affected by the toggle, by updating
 the clique-based sums according to the new set of actors in that group and,
-when \code{normalized = TRUE}, dividing by the current group size \eqn{n_g}
-(if \eqn{n_g \ge k}).
+when a normalisation is requested, dividing by either \eqn{n_g} or
+\eqn{\binom{n_g}{k}} depending on the chosen mode.
 }
 
 \section{Arguments}{
@@ -174,11 +193,12 @@ groups;
 products can be computed analytically using \code{z_ij + z_ji};
 \item compare \code{summary(nw ~ dyadcov(...), constraints = ~ b1part)} with
 a direct implementation of
-\code{sum_g 1(n_g >= k) / n_g * sum_{C in C_k(g)} prod_{i<j in C}(Z[i,j]+Z[j,i])}
-(raw or normalized);
+\code{sum_g f(n_g) * sum_{C in C_k(g)} prod_{i<j in C}(Z[i,j]+Z[j,i])},
+where \code{f(n_g)} is \code{1}, \code{1 / n_g} or
+\code{1 / choose(n_g, k)} depending on the chosen normalisation;
 \item verify that toggling a single actor–group edge changes the statistic
 by the local difference between the "before" and "after" clique sums
-(with or without the 1 / n_g factor), in agreement with the C
+(with or without normalisation), in agreement with the C
 change-statistic \code{c_dyadcov}.
 }
 }
@@ -189,7 +209,7 @@ change-statistic \code{c_dyadcov}.
   library(ergm)
 
   # -------------------------------------------------------------------------
-  # Build a toy bipartite network: 4 actors, 2 groups
+  # Build a bipartite network: 4 actors, 2 groups
   # -------------------------------------------------------------------------
   n_actors <- 4
   n_groups <- 2
@@ -228,11 +248,16 @@ change-statistic \code{c_dyadcov}.
   # -------------------------------------------------------------------------
   # k = 2, raw sum over all cliques of size 2 (pairs) within groups,
   # using (z_ij + z_ji) for each pair {i,j}
-  summary(nw ~ dyadcov("Z_example", clique_size = 2, normalized = FALSE),
+  summary(nw ~ dyadcov("Z_example", clique_size = 2, normalize = FALSE),
           constraints = ~ b1part)
 
-  # k = 3, per-group normalisation by 1 / n_g on 3-cliques
-  summary(nw ~ dyadcov("Z_example", clique_size = 3, normalized = TRUE),
+  # k = 3, global normalisation by 1 / n_g on 3-cliques
+  summary(nw ~ dyadcov("Z_example", clique_size = 3, normalize = "global"),
+          constraints = ~ b1part)
+
+  # k = 3, by-group normalisation by 1 / C(n_g, 3)
+  summary(nw ~ dyadcov("Z_example", clique_size = 3,
+                       normalize = "by_group"),
           constraints = ~ b1part)
 
   # -------------------------------------------------------------------------

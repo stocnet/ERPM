@@ -302,27 +302,27 @@ tmp <- try(
 # ==============================================================================
 
 run("Dry-run: groups(2) -> b2degrange(2,3)", {
-  o <- erpm(partition ~ groups(2), eval_call = FALSE, verbose = TRUE)
+  o <- erpm(partition ~ groups(2), eval.call = FALSE, verbose = TRUE)
   expect_in_call(o, "b2degrange\\(from=2,to=3\\)", "groups(2)")
 })
 
 run("Dry-run: groups(from=2,to=4)", {
-  o <- erpm(partition ~ groups(from=2,to=4), eval_call = FALSE, verbose = TRUE)
+  o <- erpm(partition ~ groups(from=2,to=4), eval.call = FALSE, verbose = TRUE)
   expect_in_call(o, "b2degrange\\(from=2,to=4\\)", "groups(2..4)")
 })
 
 run("Dry-run: cliques(3)", {
-  o <- erpm(partition ~ cliques(3), eval_call = FALSE, verbose = TRUE)
+  o <- erpm(partition ~ cliques(3), eval.call = FALSE, verbose = TRUE)
   expect_in_call(o, "cliques\\(clique_size=3L?,normalized=FALSE\\)", "cliques(3)")
 })
 
 run("Dry-run: cliques(2, normalized=TRUE)", {
-  o <- erpm(partition ~ cliques(clique_size=2, normalized=TRUE), eval_call = FALSE, verbose = TRUE)
+  o <- erpm(partition ~ cliques(clique_size=2, normalized=TRUE), eval.call = FALSE, verbose = TRUE)
   expect_in_call(o, "cliques\\(clique_size=2L?,normalized=TRUE\\)", "cliques(2,TRUE)")
 })
 
 run("Dry-run: squared_sizes(from=1,to=3,pow=3)", {
-  o <- erpm(partition ~ squared_sizes(from=1,to=3,pow=3), eval_call = FALSE, verbose = TRUE)
+  o <- erpm(partition ~ squared_sizes(from=1,to=3,pow=3), eval.call = FALSE, verbose = TRUE)
   expect_in_call(o, "squared_sizes\\(from=1,to=3,pow=3\\)", "squared_sizes(1..3,pow3)")
 })
 

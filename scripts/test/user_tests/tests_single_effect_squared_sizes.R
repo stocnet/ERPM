@@ -39,33 +39,33 @@ partition_singleton <- c(1, 2, 3, 4, 5, 6)
 # ======================================================================================
 
 # baseline test
-dry <- erpm(partition_mix ~ squared_sizes, eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_mix ~ squared_sizes, eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 14
-dry <- erpm(partition_balanced ~ squared_sizes, eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_balanced ~ squared_sizes, eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 12
-dry <- erpm(partition_full ~ squared_sizes, eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_full ~ squared_sizes, eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 36
-dry <- erpm(partition_singleton ~ squared_sizes, eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_singleton ~ squared_sizes, eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 6
 
 # with options on single size
-dry <- erpm(partition_mix ~ squared_sizes(sizes=2), eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_mix ~ squared_sizes(sizes=2), eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 4
-dry <- erpm(partition_balanced ~ squared_sizes(sizes=2), eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_balanced ~ squared_sizes(sizes=2), eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 12
-dry <- erpm(partition_full ~ squared_sizes(sizes=2), eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_full ~ squared_sizes(sizes=2), eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 0
-dry <- erpm(partition_singleton ~ squared_sizes(sizes=2), eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_singleton ~ squared_sizes(sizes=2), eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 0
 
 # with options on several sizes
-dry <- erpm(partition_mix ~ squared_sizes(sizes=2:6), eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_mix ~ squared_sizes(sizes=2:6), eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 13
-dry <- erpm(partition_balanced ~ squared_sizes(sizes=2:6), eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_balanced ~ squared_sizes(sizes=2:6), eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 12
-dry <- erpm(partition_full ~ squared_sizes(sizes=2:6), eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_full ~ squared_sizes(sizes=2:6), eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 36
-dry <- erpm(partition_singleton ~ squared_sizes(sizes=2:6), eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition_singleton ~ squared_sizes(sizes=2:6), eval.call = FALSE, verbose = TRUE)
 print(summary(dry[[2]], constraints = ~ b1part)) # should be 0
 
 # ======================================================================================
@@ -107,6 +107,6 @@ fit_erpm <- erpm(partition_mix ~ squared_sizes,
                  nodes = NULL
                  ) 
 print(summary(fit_erpm))
-fit_ergm$coefficients[1] - fit_erpm$coefficients[1]  # should be close to 0
+cat("[ERPM vs ERGM]\n\t", sprintf("fit_ergm - fit_erpm = %f", fit_ergm$coefficients[1] - fit_erpm$coefficients[1]), "\n")  # should be 0
 
 ergm_patch_disable()

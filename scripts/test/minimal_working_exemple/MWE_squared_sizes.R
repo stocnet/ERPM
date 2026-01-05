@@ -11,7 +11,7 @@
 # Résumé technique :
 #   • `squared_sizes()` est implémenté côté ERGM (InitErgmTerm + change-stat C).
 #   • La statistique vaut ∑_g |g|^2 sur le mode groupes du biparti.
-#   • Pour le summary : `erpm(..., eval_call=FALSE)` renvoie un appel `ergm(formule, ...)` non évalué.
+#   • Pour le summary : `erpm(..., eval.call=FALSE)` renvoie un appel `ergm(formule, ...)` non évalué.
 #     La formule capture `nw` dans son environnement ; `summary(formule, ...)` l’utilise.
 # ======================================================================================
 
@@ -48,7 +48,7 @@ cat("Nombre d'acteurs (N1):", length(partition), " | Nombre de groupes:", length
 #    dry-run erpm -> extraction de la formule -> summary(formule, ~b1part)
 # ======================================================================================
 
-dry <- erpm(partition ~ squared_sizes(), eval_call = FALSE, verbose = TRUE)
+dry <- erpm(partition ~ squared_sizes(), eval.call = FALSE, verbose = TRUE)
 fml <- dry[[2]]  # formule: nw ~ squared_sizes()
 
 # Le réseau biparti 'nw' est dans l’environnement de la formule
@@ -63,7 +63,7 @@ stopifnot(is.numeric(obs), length(obs) == 1L, obs == 14)
 
 set.seed(1) # stabilise l’estimation si on utilise une estimation CD dans ergm
 fit <- erpm(partition ~ squared_sizes(),
-            eval_call   = TRUE,
+            eval.call   = TRUE,
             verbose     = TRUE,
             # estimate    = "MLE",     # MCMLE pour obtenir SE/logLik
             # control     = list(MCMLE.maxit = 20),
