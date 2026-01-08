@@ -3,7 +3,7 @@
  * @brief  Change statistic for the ERPM term `dyadcov_full` (one-toggle form).
  *
  * @details
- *  This file implements the {ergm} change statistic for the ERPM effect
+ *  This file implements the \pkg{ergm} change statistic for the ERPM effect
  *  `dyadcov_full`, which aggregates a dyadic covariate over all actor pairs
  *  inside each group, with an optional filter on group sizes.
  *
@@ -70,7 +70,7 @@
  *
  *         CHANGE_STAT[0] += Δ.
  *
- *  The {ergm} engine accumulates Δ over all toggles to obtain the
+ *  The \pkg{ergm} engine accumulates Δ over all toggles to obtain the
  *  total statistic during MCMC or summary evaluation.
  *
  *  ------------------------------------------------------------
@@ -203,7 +203,7 @@ static inline int in_sizes(int n, int L, const double *sizes){
  * @param L       Length of the size filter vector @p sizes.
  * @param sizes   Pointer to the vector of allowed group sizes (may have L=0).
  * @param Z       Pointer to the dyadic covariate matrix (n1*n1, column-major).
- * @param nwp     Pointer to the {ergm} Network structure (provides edges).
+ * @param nwp     Pointer to the \pkg{ergm} Network structure (provides edges).
  *
  * @return The sum of z_ij over all ordered actor pairs i != j inside group
  *         @p g that satisfy the size filter, or 0.0 if n_g <= 1 or n_g is not
@@ -299,7 +299,7 @@ static double group_dyadcov(Vertex g,
  * @brief Change statistic for the ERPM term `dyadcov_full`.
  *
  * @details
- *  This is the {ergm} change-statistic function registered as
+ *  This is the \pkg{ergm} change-statistic function registered as
  *  ::c_dyadcov_full via ::C_CHANGESTAT_FN. It implements the one-toggle
  *  update for the dyadic covariate statistic over actor pairs inside
  *  groups, with optional size filtering.

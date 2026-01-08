@@ -21,7 +21,13 @@
 #' contribute.
 #'
 #' This term has no user-visible arguments and is intended to be used directly
-#' in {ergm} formulas or through the ERPM wrapper.
+#' in \pkg{ergm} formulas or through the ERPM wrapper.
+#'
+#' @param nw A bipartite \pkg{network} object.
+#' @param arglist A list of arguments passed by \pkg{ergm} to the initializer.
+#'   This term expects no user-visible arguments, so \code{arglist} should be empty.
+#' @param ... Further arguments passed by \pkg{ergm}; not used.
+#' @param version ERGM API version. Defaults to \code{packageVersion("ergm")}.
 #'
 #' @details
 #' The term is implemented as a native ERGM C change-statistic, declared in
@@ -52,7 +58,7 @@
 #' }
 #'
 #' @section Usage:
-#' Typical usage with {ergm}:
+#' Typical usage with \pkg{ergm}:
 #' \preformatted{
 #'   summary(nw ~ log_factorial_sizes)
 #'   ergm(nw ~ log_factorial_sizes)
@@ -111,7 +117,7 @@
 #'   \item a direct evaluation of \code{sum(lgamma(group_sizes))} with
 #'         \code{lgamma(0) <- 0}.
 #' }
-#' These tests also check that toggling an actor–group tie updates the statistic
+#' These tests also check that toggling an actor-group tie updates the statistic
 #' by the correct local increment as defined in the C change-statistic.
 #'
 #' @keywords ERGM term bipartite groups factorial
@@ -124,7 +130,7 @@ InitErgmTerm.log_factorial_sizes <- function(nw, arglist, ..., version = package
   # Run standard ERGM term checks:
   # - enforce bipartite network;
   # - no user arguments;
-  # - let {ergm} handle all other generic validations.
+  # - let \pkg{ergm} handle all other generic validations.
   a <- check.ErgmTerm(
     nw, arglist,
     directed      = NULL,         # no explicit restriction here, see extra guard below
@@ -138,7 +144,7 @@ InitErgmTerm.log_factorial_sizes <- function(nw, arglist, ..., version = package
   # Extra guard for direction: require an undirected bipartite network.
   # This keeps the semantics consistent with "actors in groups" on an undirected bipartite graph.
   if (isTRUE(nw %n% "directed"))
-    ergm_Init_stop(sQuote(termname), ": use an undirected bipartite network (actor–group edges).")
+    ergm_Init_stop(sQuote(termname), ": use an undirected bipartite network (actor-group edges).")
 
   # Single scalar statistic with a fixed, argument-free name.
   coef.names   <- termname
@@ -152,7 +158,7 @@ InitErgmTerm.log_factorial_sizes <- function(nw, arglist, ..., version = package
   # - sum is therefore 0.
   emptynwstats <- 0
 
-  # Return the ERGM term specification expected by {ergm}.
+  # Return the ERGM term specification expected by \pkg{ergm}.
   # The field `name` must match the C symbol `c_log_factorial_sizes`.
   list(
     name         = termname,   # must match c_log_factorial_sizes in the C changestats

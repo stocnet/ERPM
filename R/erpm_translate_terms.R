@@ -6,7 +6,7 @@
 #' @note erpm_translate_terms.R
 #'
 #' @description
-#' This file implements the ERPM→{ergm} translation helpers:
+#' This file implements the ERPM→\pkg{ergm} translation helpers:
 #' \itemize{
 #'   \item RHS syntactic splitting by `+`;
 #'   \item argument normalization for ERPM-specific terms (e.g. \code{groups(...)});
@@ -20,20 +20,29 @@
 # ============================================================================
 
 #' Normalize `groups(...)` arguments
+#'
+#' IMPORTANT (env handling):
+#' This normalizer may need to evaluate user-provided expressions, e.g.
+#'   k <- 3; erpm(partition ~ groups(k))
+#'
+#' Therefore, evaluation must occur in the wrapper evaluation environment
+#' (`env_eval`), whose parent is the user's formula environment.
+#' Using parent.frame() here is fragile because it depends on the internal call stack.
+#'
 #' @noRd
-.erpm_normalize_groups_args <- function(args_list) {
+.erpm_normalize_groups_args <- function(args_list, env_eval) {
   nm <- names(args_list)
 
   # -- helpers ---------------------------------------------------------------
   .deparse1 <- function(x) paste(deparse(x, width.cutoff = 500L), collapse = " ")
-  .eval_num_scalar <- function(x, env = parent.frame()) {
+  .eval_num_scalar <- function(x, env = env_eval) {
     if (is.numeric(x) && length(x) == 1L) return(x)
     vx <- try(eval(x, envir = env), silent = TRUE)
     if (inherits(vx, "try-error")) return(NULL)
     if (is.numeric(vx) && length(vx) == 1L) return(vx)
     NULL
   }
-  .as_from_int <- function(x, env = parent.frame()) {
+  .as_from_int <- function(x, env = env_eval) {
     if (is.symbol(x) && identical(x, as.name("Inf")))
       stop("groups(from,to): 'from' cannot be Inf.")
     v <- .eval_num_scalar(x, env)
@@ -44,7 +53,7 @@
     if (iv < 0L) stop("groups(from): must be >= 0.")
     iv
   }
-  .as_to_val <- function(x, env = parent.frame()) {
+  .as_to_val <- function(x, env = env_eval) {
     # Accept both symbol Inf and numeric Inf.
     if ((is.symbol(x) && identical(x, as.name("Inf"))) ||
         (is.numeric(x) && length(x) == 1L && is.infinite(x))) {
@@ -69,14 +78,14 @@
 
   # Single positional: groups(k) ≡ [k, k+1)
   if (length(args_list) == 1L && (is.null(nm) || isTRUE(nm[1L] == ""))) {
-    k <- .as_from_int(args_list[[1L]], parent.frame())
+    k <- .as_from_int(args_list[[1L]], env_eval)
     return(list(from = k, to = k + 1L))
   }
 
   # Named pair: groups(from=..., to=...)
   if (!is.null(nm) && all(c("from","to") %in% nm)) {
-    from <- .as_from_int(args_list[["from"]], parent.frame())
-    to   <- .as_to_val  (args_list[["to"]],   parent.frame())
+    from <- .as_from_int(args_list[["from"]], env_eval)
+    to   <- .as_to_val  (args_list[["to"]],   env_eval)
 
     # Resolve numeric to for check; keep quote(Inf) if Inf.
     to_num <- if (is.language(to)) Inf else to
@@ -136,7 +145,7 @@
 #' Translate `groups(...)` to ergm's `b2degrange(from,to)`
 #' @noRd
 .erpm_tr_groups <- function(fun_sym, args_list, rename_map, wrap_proj1, wrap_B, env_eval) {
-  gt <- .erpm_normalize_groups_args(args_list)
+  gt <- .erpm_normalize_groups_args(args_list, env_eval = env_eval)
   out_call <- as.call(list(as.name("b2degrange"), from = gt$from, to = gt$to))
 
   .erpm_tr_result(

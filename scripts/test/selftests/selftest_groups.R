@@ -1,6 +1,6 @@
 # ======================================================================================
 # Fichier : scripts/test/selftests/selftest_groups.R
-# Objet   : Tests robustes pour l'effet ERPM `groups` → {ergm} `b2degrange`
+# Objet   : Tests robustes pour l'effet ERPM `groups` → \pkg{ergm} `b2degrange`
 # Exécution: Rscript scripts/test/selftests/selftest_groups.R
 # ======================================================================================
 

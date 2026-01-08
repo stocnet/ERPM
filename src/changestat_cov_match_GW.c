@@ -3,7 +3,7 @@
  * @brief  Change statistic for the ERPM term `cov_match_GW` (one-toggle form).
  *
  * @details
- *  This file implements the {ergm} change statistic for the ERPM effect
+ *  This file implements the \pkg{ergm} change statistic for the ERPM effect
  *  `cov_match_GW`, which applies a geometrically weighted transform to
  *  group-level category counts for a categorical actor covariate.
  *
@@ -259,7 +259,7 @@ static inline int code_of_actor(Vertex i, const double *z_codes){
  *
  *  Only neighbours whose vertex index is ≤ n1 are considered actors.
  *
- * @param nwp     Pointer to the {ergm} Network structure.
+ * @param nwp     Pointer to the \pkg{ergm} Network structure.
  * @param g       Group vertex whose actor neighbours are queried.
  * @param actors  Output buffer that will receive actor vertex indices.
  * @param n1      Number of actors (size of the actor mode).
@@ -353,7 +353,7 @@ static int histogram_codes(const Vertex *actors, int na, const double *z_codes, 
  * @brief Change statistic for the ERPM term `cov_match_GW`.
  *
  * @details
- *  This is the {ergm} change-statistic function registered as
+ *  This is the \pkg{ergm} change-statistic function registered as
  *  ::c_cov_match_GW via ::C_CHANGESTAT_FN. It implements the one-toggle
  *  update for the geometrically weighted covariate-matching effect, with:
  *
@@ -424,7 +424,7 @@ static int histogram_codes(const Vertex *actors, int na, const double *z_codes, 
 C_CHANGESTAT_FN(c_cov_match_GW){
   /* 1) Reset the output buffer for THIS toggle.
    *
-   * {ergm} accumulates change-statistics across multiple toggles, but this
+   * \pkg{ergm} accumulates change-statistics across multiple toggles, but this
    * function computes the local Δ only for the current membership toggle.
    */
   ZERO_ALL_CHANGESTATS(0);

@@ -7,6 +7,21 @@
 \usage{
 InitErgmTerm.cov_fullmatch(nw, arglist, ..., version = packageVersion("ergm"))
 }
+\arguments{
+\item{nw}{A \pkg{network} object.}
+
+\item{arglist}{A named list of term arguments as provided by \pkg{ergm}.
+Expected components include:
+\itemize{
+\item \code{cov}: a vertex attribute name (preferred) or a literal vector (actor mode).
+\item \code{size}: optional allowed group sizes (positive integers), or \code{NULL}.
+\item \code{category}: optional targeted category (one level of \code{cov}).
+}}
+
+\item{...}{Passed through by \pkg{ergm}; not used.}
+
+\item{version}{ERGM API version; defaults to the installed \pkg{ergm} version.}
+}
 \description{
 \code{cov_fullmatch} is an ERGM term for bipartite networks that counts
 groups whose actors are unanimously homogeneous on a categorical covariate.
@@ -51,7 +66,7 @@ The network must be strictly bipartite:
 \item the actor mode size is identified by \code{nw \%n\% "bipartite"} and
 must be a positive integer;
 \item the group mode is the complementary set of nodes;
-\item the term assumes that the bipartite structure encodes actor–group
+\item the term assumes that the bipartite structure encodes actor-group
 membership in a way consistent with the ERPM builder.
 }
 The covariate is read on the actor mode only and must contain no \code{NA}
@@ -109,7 +124,7 @@ i.e. the number of groups that are unanimously in the targeted category
 
 \section{Usage}{
 
-Typical usage with {ergm} on a bipartite network \code{nw}:
+Typical usage with \pkg{ergm} on a bipartite network \code{nw}:
 \preformatted{
   # Count all groups that are unanimously homogeneous on 'cov_attr',
   # with no size filter:
@@ -140,7 +155,7 @@ known group memberships and covariate patterns, and compare:
 \item direct counts of groups that are unanimously in a given category,
 with and without size filters.
 }
-Additional checks verify that toggling actor–group ties updates the statistic
+Additional checks verify that toggling actor-group ties updates the statistic
 by the expected local increment, including edge cases such as empty groups,
 groups of size 1, and groups whose covariate composition switches between
 homogeneous and heterogeneous.

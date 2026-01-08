@@ -3,7 +3,7 @@
  * @brief  Change statistic for the ERPM term `dyadcov_GW` (one-toggle form).
  *
  * @details
- *  This file implements the {ergm} change statistic for the ERPM effect
+ *  This file implements the \pkg{ergm} change statistic for the ERPM effect
  *  `dyadcov_GW(lambda)`, which aggregates a symmetrised dyadic covariate
  *  functional over all actor cliques inside each group, with a geometric
  *  weighting over the clique size.
@@ -90,7 +90,7 @@
  *
  *         CHANGE_STAT[0] += Δ.
  *
- *  The {ergm} engine accumulates Δ over all toggles to obtain the
+ *  The \pkg{ergm} engine accumulates Δ over all toggles to obtain the
  *  total statistic during MCMC or summary evaluation.
  *
  *  ------------------------------------------------------------
@@ -311,7 +311,7 @@ static double sum_cliques_k(const int *actors,
  * @param n1       Number of actors (dimension of the actor mode).
  * @param lambda   Geometric decay parameter λ.
  * @param Z        Pointer to the dyadic covariate matrix (n1*n1, column-major).
- * @param nwp      Pointer to the {ergm} Network structure (provides edges).
+ * @param nwp      Pointer to the \pkg{ergm} Network structure (provides edges).
  * @param n_g_out  If non-NULL, receives the number of actors in group g.
  *
  * @return S_g^{GW}(Z, λ) for group g.
@@ -403,7 +403,7 @@ static double group_dyadcov_GW(Vertex g,
  * @brief Change statistic for the ERPM term `dyadcov_GW(lambda)`.
  *
  * @details
- *  This is the {ergm} change-statistic function registered as
+ *  This is the \pkg{ergm} change-statistic function registered as
  *  ::c_dyadcov_GW via ::C_CHANGESTAT_FN. It implements the one-toggle
  *  update for the geometrically weighted dyadic covariate statistic on
  *  actor cliques inside each group, based on the symmetrised covariate
@@ -451,7 +451,7 @@ static double group_dyadcov_GW(Vertex g,
 C_CHANGESTAT_FN(c_dyadcov_GW){
   /* 1) Reset the output buffer for THIS toggle.
    *
-   * {ergm} accumulates contributions from multiple calls; here we only
+   * \pkg{ergm} accumulates contributions from multiple calls; here we only
    * report the local Δ for the current membership toggle.
    */
   ZERO_ALL_CHANGESTATS(0);

@@ -81,7 +81,7 @@
 #' \eqn{\kappa} and whose size belongs to \eqn{S}.
 #'
 #' @section Usage:
-#' Typical usage with {ergm} on a bipartite network \code{nw}:
+#' Typical usage with \pkg{ergm} on a bipartite network \code{nw}:
 #' \preformatted{
 #'   # Count all groups that are unanimously homogeneous on 'cov_attr',
 #'   # with no size filter:
@@ -108,7 +108,7 @@
 #'   \item the actor mode size is identified by \code{nw \%n\% "bipartite"} and
 #'         must be a positive integer;
 #'   \item the group mode is the complementary set of nodes;
-#'   \item the term assumes that the bipartite structure encodes actor–group
+#'   \item the term assumes that the bipartite structure encodes actor-group
 #'         membership in a way consistent with the ERPM builder.
 #' }
 #' The covariate is read on the actor mode only and must contain no \code{NA}
@@ -120,6 +120,17 @@
 #' maps its levels to integer codes \eqn{1,\dots,K}. The C change-statistic
 #' receives these codes together with the size filter and, optionally, a
 #' targeted category.
+#'
+#' @param nw A \pkg{network} object.
+#' @param arglist A named list of term arguments as provided by \pkg{ergm}.
+#'   Expected components include:
+#'   \itemize{
+#'     \item \code{cov}: a vertex attribute name (preferred) or a literal vector (actor mode).
+#'     \item \code{size}: optional allowed group sizes (positive integers), or \code{NULL}.
+#'     \item \code{category}: optional targeted category (one level of \code{cov}).
+#'   }
+#' @param ... Passed through by \pkg{ergm}; not used.
+#' @param version ERGM API version; defaults to the installed \pkg{ergm} version.
 #'
 #' @examples
 #' \dontrun{
@@ -170,7 +181,7 @@
 #'   \item direct counts of groups that are unanimously in a given category,
 #'         with and without size filters.
 #' }
-#' Additional checks verify that toggling actor–group ties updates the statistic
+#' Additional checks verify that toggling actor-group ties updates the statistic
 #' by the expected local increment, including edge cases such as empty groups,
 #' groups of size 1, and groups whose covariate composition switches between
 #' homogeneous and heterogeneous.
@@ -201,7 +212,7 @@ InitErgmTerm.cov_fullmatch <- function(nw, arglist, ..., version = packageVersio
   # ----- 1) Actor-mode size n1 -----------------------------------------------
   # n1 is the number of actors, as stored in the bipartite network attribute.
   n1 <- as.integer(nw %n% "bipartite")
-  if (is.na(n1) || n1 <= 0L) stop(termname, ": réseau non biparti strict.")
+  if (is.na(n1) || n1 <= 0L) stop(termname, ": strictly bipartite network required.")
   dbgcat("n1 = ", n1)
 
   # ----- 2) Extract the actor covariate vector (length >= n1) -----------------
@@ -219,14 +230,14 @@ InitErgmTerm.cov_fullmatch <- function(nw, arglist, ..., version = packageVersio
     cov_label <- "cov"
     dbgcat("cov source = vector literal")
   }
-  if (length(cov_vec) < n1) stop(termname, ": longueur de la covariée < n1.")
+  if (length(cov_vec) < n1) stop(termname, ": covariate length < n1.")
   cov_vec <- cov_vec[seq_len(n1)]
   dbgcat("cov length = ", length(cov_vec), " | head = ", paste(utils::head(as.character(cov_vec), 6L), collapse = ","))
 
   # ----- 3) Fail-fast on missing values ---------------------------------------
   # Any NA on the actor mode is rejected, since the change-statistic expects
   # well-defined categories for all actors.
-  if (anyNA(cov_vec)) stop(termname, ": NA non autorisé dans la covariée du mode acteurs.")
+  if (anyNA(cov_vec)) stop(termname, ": NA values are not allowed in the actor-mode covariate.")
 
   # ----- 4) Normalize to integer category codes 1..K --------------------------
   # We map the actor covariate to a factor, then to integer codes:
@@ -237,7 +248,7 @@ InitErgmTerm.cov_fullmatch <- function(nw, arglist, ..., version = packageVersio
   f        <- factor(cov_vec)           # no NA at this stage
   levels_f <- levels(f)
   K        <- length(levels_f)
-  if (K == 0L) stop(termname, ": aucune modalité valide trouvée.")
+  if (K == 0L) stop(termname, ": no valid modalit found.")
   cats     <- as.integer(f)             # 1..K
   dbgcat("K = ", K, " | levels = {", paste(levels_f, collapse = ","), "}")
 
@@ -256,7 +267,7 @@ InitErgmTerm.cov_fullmatch <- function(nw, arglist, ..., version = packageVersio
     if (is.logical(cat_val)) cat_val <- as.integer(cat_val)
     ix <- match(as.character(cat_val), levels_f, nomatch = 0L)
     if (ix == 0L) {
-      warning(termname, ": 'category' non trouvée dans les modalités; cible ignorée.", call. = FALSE)
+      warning(termname, ": 'category' not found among the modalities; target ignored.", call. = FALSE)
       dbgcat("category ", sQuote(as.character(a$category)), " not found -> target=0 (ignored)")
     } else {
       target <- as.integer(ix)
@@ -276,12 +287,12 @@ InitErgmTerm.cov_fullmatch <- function(nw, arglist, ..., version = packageVersio
     dbgcat("size filter = <ALL> (L=0)")
   } else {
     if (!is.numeric(sizes))
-      stop("cov_fullmatch: 'size' doit être numérique.")
+      stop("cov_fullmatch: 'size' must be numeric.")
     if (length(sizes) == 0L)
-      stop("cov_fullmatch: 'size' vide (integer(0)) interdit. Utilisez NULL pour toutes tailles.")
+      stop("cov_fullmatch: empty 'size' (integer(0)) is not allowed. Use NULL for all sizes.")
     sizes <- as.integer(round(sizes))
     if (any(!is.finite(sizes)) || any(sizes <= 0L))
-      stop("cov_fullmatch: 'size' doit contenir des entiers positifs.")
+      stop("cov_fullmatch: 'size' must contain positive integers.")
     sizes <- sort(unique(sizes))
     L <- length(sizes)
     sizes_vec <- as.double(sizes)
@@ -316,7 +327,7 @@ InitErgmTerm.cov_fullmatch <- function(nw, arglist, ..., version = packageVersio
          paste(utils::head(as.integer(cats), 6L), collapse = ","))
 
   # ----- 9) Return the ERGM term specification --------------------------------
-  # This structure is what {ergm} expects from an InitErgmTerm.* initializer.
+  # This structure is what \pkg{ergm} expects from an InitErgmTerm.* initializer.
   list(
     name         = "cov_fullmatch",
     coef.names   = coef.name,

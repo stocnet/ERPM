@@ -7,19 +7,19 @@
 # Statistic (informal summary)
 # ------------------------------------------------------------------------------
 # Non-normalized:
-#   S_GW(B; c, λ)       = sum_g sum_r λ * (1 - r_λ^{ n_{g,r} })
-# Targeted category (category = κ):
-#   S_GW^{(κ)}(B; c, λ) = sum_g λ * (1 - r_λ^{ n_{g,κ} })
+#   S_GW(B; c, l)       = sum_g sum_r l * (1 - r_l^{ n_{g,r} })
+# Targeted category (category = k):
+#   S_GW^{(k)}(B; c, l) = sum_g l * (1 - r_l^{ n_{g,k} })
 # By-group:
 #   sum_g [ Num(g) / Den(g) ] with
-#     Num(g) = sum_r λ(1 - r_λ^{n_{g,r}})    (or λ(1 - r_λ^{n_{g,κ}}) when targeted)
-#     Den(g) = λ(1 - r_λ^{n_g})
+#     Num(g) = sum_r l(1 - r_l^{n_{g,r}})    (or l(1 - r_l^{n_{g,k}}) when targeted)
+#     Den(g) = l(1 - r_l^{n_g})
 # Global:
-#   [ sum_g Num(g) ] / [ λ(1 - r_λ^{N_A}) ]
+#   [ sum_g Num(g) ] / [ l(1 - r_l^{N_A}) ]
 # where:
 #   - N_A is the number of actors in the actor mode,
 #   - n_{g,r} is the number of actors of category r in group g,
-#   - r_λ = (λ - 1) / λ with λ > 1.
+#   - r_l = (l - 1) / l with l > 1.
 # ==============================================================================
 
 #' ERGM term: cov_match_GW (geometrically weighted monochromatic cliques)
@@ -53,7 +53,7 @@
 #' \itemize{
 #'   \item \eqn{A} be the set of actor-mode nodes, with \eqn{|A| = N_A};
 #'   \item \eqn{G} be the set of group-mode nodes;
-#'   \item \eqn{B} be the actor–group incidence (bipartite) matrix;
+#'   \item \eqn{B} be the actor-group incidence (bipartite) matrix;
 #'   \item \eqn{c : A \to \{1,\dots,R\}} be a categorical covariate assigning a
 #'         category \eqn{r} to each actor;
 #'   \item \eqn{n_{g,r}} be the number of actors of category \eqn{r} attached to
@@ -67,29 +67,29 @@
 #' }
 #' and for each group \eqn{g} and category \eqn{r},
 #' \deqn{
-#'   S_{g,r}^{\text{GW}}(B; c, \eqn{\lambda})
-#'   = \eqn{\lambda} \cdot \left(1 - r_\lambda^{n_{g,r}}\right).
+#'   S_{g,r}^{\text{GW}}(B; c, \lambda)
+#'   = \lambda \cdot \left(1 - r_\lambda^{n_{g,r}}\right).
 #' }
 #'
 #' The non-normalized aggregate is:
 #' \deqn{
-#'   S_{\text{GW}}(B; c, \eqn{\lambda})
-#'   = \sum_{g \in G} \sum_{r=1}^R S_{g,r}^{\text{GW}}(B; c, \eqn{\lambda})
-#'   = \sum_{g \in G} \sum_{r=1}^R \eqn{\lambda} \cdot \left(1 - r_\lambda^{n_{g,r}}\right).
+#'   S_{\text{GW}}(B; c, \lambda)
+#'   = \sum_{g \in G} \sum_{r=1}^R S_{g,r}^{\text{GW}}(B; c, \lambda)
+#'   = \sum_{g \in G} \sum_{r=1}^R \lambda \cdot \left(1 - r_\lambda^{n_{g,r}}\right).
 #' }
 #'
 #' When a targeted category \eqn{\kappa} is specified, we restrict to:
 #' \deqn{
-#'   S_{\text{GW}}^{(\kappa)}(B; c, \eqn{\lambda})
-#'   = \sum_{g \in G} \eqn{\lambda} \cdot \left(1 - r_\lambda^{n_{g,\kappa}}\right).
+#'   S_{\text{GW}}^{(\kappa)}(B; c, \lambda)
+#'   = \sum_{g \in G} \lambda \cdot \left(1 - r_\lambda^{n_{g,\kappa}}\right).
 #' }
 #'
 #' For the normalization modes, let:
 #' \itemize{
 #'   \item \eqn{\text{Num}(g)} be the non-normalized group-level contribution
-#'         (either \eqn{\sum_r \eqn{\lambda}(1 - r_\lambda^{n_{g,r}})} or
+#'         (either \eqn{\sum_r \lambda(1 - r_\lambda^{n_{g,r}})} or
 #'         \eqn{\lambda(1 - r_\lambda^{n_{g,\kappa}})} for a targeted category);
-#'   \item \eqn{\text{Den}(g) = \eqn{\lambda}(1 - r_\lambda^{n_g})} be a group-size
+#'   \item \eqn{\text{Den}(g) = \lambda(1 - r_\lambda^{n_g})} be a group-size
 #'         denominator reminiscent of a geometrically weighted size term.
 #' }
 #'
@@ -97,21 +97,21 @@
 #' \itemize{
 #'   \item \code{normalized = "none"}:
 #'     \deqn{
-#'       T(B; c, \eqn{\lambda}) =
+#'       T(B; c, \lambda) =
 #'       \begin{cases}
-#'         S_{\text{GW}}(B; c, \eqn{\lambda}) & \text{if no category is targeted}, \\
-#'         S_{\text{GW}}^{(\kappa)}(B; c, \eqn{\lambda}) & \text{if category } \kappa \text{ is targeted};
+#'         S_{\text{GW}}(B; c, \lambda) & \text{if no category is targeted}, \\
+#'         S_{\text{GW}}^{(\kappa)}(B; c, \lambda) & \text{if category } \kappa \text{ is targeted};
 #'       \end{cases}
 #'     }
 #'   \item \code{normalized = "by_group"}:
 #'     \deqn{
-#'       T_{\text{by\_group}}(B; c, \eqn{\lambda})
+#'       T_{\text{by\_group}}(B; c, \lambda)
 #'       = \sum_{g \in G} \frac{\text{Num}(g)}{\text{Den}(g)};
 #'     }
 #'   \item \code{normalized = "global"}:
-#'     using \eqn{\text{Den}_{\text{glob}} = \eqn{\lambda}(1 - r_\lambda^{N_A})},
+#'     using \eqn{\text{Den}_{\text{glob}} = \lambda(1 - r_\lambda^{N_A})},
 #'     \deqn{
-#'       T_{\text{global}}(B; c, \eqn{\lambda})
+#'       T_{\text{global}}(B; c, \lambda)
 #'       = \frac{\sum_{g \in G} \text{Num}(g)}{\text{Den}_{\text{glob}}}.
 #'     }
 #' }
@@ -147,13 +147,13 @@
 #'   )
 #' }
 #'
-#' On each toggle of an actor–group edge, the C code recomputes the local
+#' On each toggle of an actor-group edge, the C code recomputes the local
 #' contribution for the affected group (for each \eqn{\lambda}) and updates the
 #' statistics accordingly, respecting the chosen normalization and targeted
 #' category.
 #'
 #' @section User-facing term:
-#' The initializer is called internally by {ergm} and should not be invoked
+#' The initializer is called internally by \pkg{ergm} and should not be invoked
 #' directly by users. The user-facing term is:
 #'
 #' \preformatted{
@@ -163,39 +163,14 @@
 #'                normalized = c("none","by_group","global"))
 #' }
 #'
-#' @param cov character  
-#'   Name of an actor-level vertex attribute (factor/character) defined on all
-#'   actors in the actor mode. The attribute is coerced to a factor and then
-#'   encoded as integer codes \eqn{1,\dots,R}; \code{NA} values are mapped to 0
-#'   (meaning "absent/undefined" and ignored in the counts).
-#'
-#' @param lambda numeric  
-#'   Scalar or numeric vector of \eqn{\lambda} values. Each \eqn{\lambda} must
-#'   be finite and strictly greater than 1. The internal ratio
-#'   \eqn{r_\lambda = (\lambda-1)/\lambda} drives the geometric weighting. A
-#'   vector of \eqn{\lambda} values yields one statistic per value.
-#'
-#' @param category character|NULL  
-#'   Optional targeted category. If \code{NULL}, all categories contribute to
-#'   the statistic. If a character string, the initializer ensures that the
-#'   category appears in the factor levels; if it does not, the level is added
-#'   with zero frequency so that the resulting statistic is structurally zero
-#'   without error.
-#'
-#' @param normalized character|logical  
-#'   Normalization mode, one of:
-#'   \itemize{
-#'     \item \code{"none"}: raw geometrically weighted contributions;
-#'     \item \code{"by_group"}: per-group normalization by a GW-size-like
-#'           denominator \eqn{\lambda(1 - r_\lambda^{n_g})};
-#'     \item \code{"global"}: normalization by \eqn{\lambda(1 - r_\lambda^{N_A})}.
-#'   }
-#'   Logical values are supported as shorthand:
-#'   \code{TRUE} is equivalent to \code{"by_group"} and \code{FALSE} to
-#'   \code{"none"}.
+#' @param nw A \pkg{network} object.
+#' @param arglist A named list of term arguments. Expected components include
+#'   \code{cov}, \code{lambda}, \code{category}, and \code{normalized}.
+#' @param ... Additional arguments passed by \pkg{ergm}; not used.
+#' @param version ERGM API version; not used.
 #'
 #' @return
-#' A standard {ergm} term specification list with components:
+#' A standard \pkg{ergm} term specification list with components:
 #' \itemize{
 #'   \item \code{name}         = \code{"cov_match_GW"};
 #'   \item \code{coef.names}   = coefficient names encoding the covariate label,
@@ -299,7 +274,7 @@
 #'         by-group and global normalizations;
 #'   \item compare these reference values to
 #'         \code{summary(nw ~ cov_match_GW(...), constraints = ~ b1part)};
-#'   \item verify that toggling a single actor–group edge changes the statistic
+#'   \item verify that toggling a single actor-group edge changes the statistic
 #'         by an increment consistent with the local recalculation of the
 #'         group-level contributions for the affected group, as implemented in
 #'         the C change-statistic \code{c_cov_match_GW}.
@@ -331,7 +306,7 @@ InitErgmTerm.cov_match_GW <- function(nw, arglist, ..., version = packageVersion
   # ---------------------------------------------------------------------------
   n1 <- tryCatch(nw %n% "bipartite", error = function(e) NA_integer_)
   if (!is.numeric(n1) || !is.finite(n1) || n1 <= 0)
-    ergm_Init_stop(sQuote(termname), ": réseau non biparti ou attribut %n% 'bipartite' manquant/invalide.")
+    ergm_Init_stop(sQuote(termname), ": non-bipartite network or missing/invalid %n% 'bipartite' attribute.")
 
   # ---------------------------------------------------------------------------
   # Normalization mode: map "none" / "by_group" / "global" to an integer flag
@@ -350,7 +325,7 @@ InitErgmTerm.cov_match_GW <- function(nw, arglist, ..., version = packageVersion
   lambdas <- as.double(a$lambda)
   if (!length(lambdas)) lambdas <- 2
   if (any(!is.finite(lambdas)) || any(lambdas <= 1))
-    ergm_Init_stop(sQuote(termname), ": 'lambda' doit être > 1 (numérique, fini).")
+    ergm_Init_stop(sQuote(termname), ": 'lambda' must be > 1 (numeric, finite).")
   lambdas <- as.double(unique(lambdas))
   K <- length(lambdas)
 
@@ -362,7 +337,7 @@ InitErgmTerm.cov_match_GW <- function(nw, arglist, ..., version = packageVersion
   # ---------------------------------------------------------------------------
   covname   <- a$cov
   if (!(is.character(covname) && length(covname) == 1L))
-    ergm_Init_stop(sQuote(termname), ": 'cov' doit être le nom d'un attribut acteur (factor/character).")
+    ergm_Init_stop(sQuote(termname), ": 'cov' must be the name of an actor attribute (factor/character).")
 
   # Indices for the actor mode (here simply 1..n1)
   ia <- seq_len(n1)
@@ -370,7 +345,7 @@ InitErgmTerm.cov_match_GW <- function(nw, arglist, ..., version = packageVersion
   # Retrieve the actor-level covariate values
   vals <- network::get.vertex.attribute(nw, covname)
   if (is.null(vals))
-    ergm_Init_stop(sQuote(termname), ": attribut inexistant: ", sQuote(covname), ".")
+    ergm_Init_stop(sQuote(termname), ": nonexistent attribute : ", sQuote(covname), ".")
 
   # Coerce to factor and restrict to actors
   f <- as.factor(vals[ia])

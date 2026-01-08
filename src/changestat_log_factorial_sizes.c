@@ -3,7 +3,7 @@
  * @brief Change statistic for the ERPM term `log_factorial_sizes` (one-toggle, non-vectorised).
  *
  * @details
- *  This file implements the {ergm} change statistic for the ERPM effect
+ *  This file implements the \pkg{ergm} change statistic for the ERPM effect
  *  `log_factorial_sizes`, defined on a bipartite network with:
  *    - actor mode  = actor vertices,
  *    - group mode  = group vertices.
@@ -50,7 +50,7 @@
  *  lgamma() inside the change statistic.
  *
  *  ------------------------------------------------------------
- *  Implementation in {ergm} (one-toggle)
+ *  Implementation in \pkg{ergm} (one-toggle)
  *  ------------------------------------------------------------
  *
  *  - A bipartite network is assumed, with:
@@ -61,7 +61,7 @@
  *    group-mode vertex; only that group is affected.
  *
  *  - The macro ::C_CHANGESTAT_FN declares the function with the signature
- *    required by {ergm} and exposes:
+ *    required by \pkg{ergm} and exposes:
  *      - N_CHANGE_STATS (here equal to 1),
  *      - CHANGE_STAT    (output buffer),
  *      - INPUT_PARAM    (unused here, non-vectorised term).
@@ -151,6 +151,7 @@
  */
 #define DEBUG_LOG_FACTORIAL 0
 
+#define UNUSED_VARIABLE(x) (void)x
 /* -------------------------------------------------------------------------- */
 /* Change statistic: log_factorial_sizes                                      */
 /* -------------------------------------------------------------------------- */
@@ -159,7 +160,7 @@
  * @brief Change statistic for the ERPM term `log_factorial_sizes`.
  *
  * @details
- *  This {ergm} change-statistic function is registered as ::c_log_factorial_sizes
+ *  This \pkg{ergm} change-statistic function is registered as ::c_log_factorial_sizes
  *  via ::C_CHANGESTAT_FN. It implements the one-toggle update for the statistic
  *  defined by:
  *
@@ -191,7 +192,7 @@
  *        6. Accumulates the change:
  *             CHANGE_STAT[0] += Δ.
  *
- *  The global statistic over all toggles is obtained by the {ergm} engine
+ *  The global statistic over all toggles is obtained by the \pkg{ergm} engine
  *  via accumulation of the per-toggle contributions.
  *
  * @param tail       Tail vertex of the toggled edge (actor or group).
@@ -216,7 +217,7 @@
 C_CHANGESTAT_FN(c_log_factorial_sizes){
   /* 1) Reset the output buffer for THIS toggle.
    *
-   * {ergm} accumulates the contributions from multiple calls; here we only
+   * \pkg{ergm} accumulates the contributions from multiple calls; here we only
    * report the local increment Δ for the current toggle.
    */
   ZERO_ALL_CHANGESTATS(0);
@@ -243,8 +244,9 @@ C_CHANGESTAT_FN(c_log_factorial_sizes){
    * one membership depending on the current edge state.
    */
   int deg_old = (int)(OUT_DEG[v2] + IN_DEG[v2]);
-  int delta   = edgestate ? -1 : +1;   // edge present -> deletion (-1), edge absent -> addition (+1)
+  int delta   = edgestate ? -1 : +1;    // edge present -> deletion (-1), edge absent -> addition (+1)
   int deg_new = deg_old + delta;
+  UNUSED_VARIABLE(deg_new);             // To remove later
 
   #if DEBUG_LOG_FACTORIAL
     Rprintf("[c_log_factorial_sizes] v2=%d | edgestate=%d | deg_old=%d -> deg_new=%d\n",

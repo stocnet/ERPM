@@ -23,7 +23,7 @@ if (!requireNamespace("Rglpk", quietly = TRUE)) {
   message("Avis: 'Rglpk' non installé. ergm utilisera 'lpSolveAPI'.")
 }
 
-# ----- Active le patch {ergm} ---------------------------------------------------------
+# ----- Active le patch \pkg{ergm} ---------------------------------------------------------
 if (file.exists("scripts/ergm_patch.R")) {
   source("scripts/ergm_patch.R")
   ergm_patch_enable()

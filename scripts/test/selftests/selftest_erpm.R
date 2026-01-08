@@ -1,7 +1,7 @@
 # ==============================================================================
 # Fichier : selftest_erpm.R
 # Objet   : Self-tests étendus du wrapper erpm() — vérifie :
-#           1) la traduction des termes ERPM -> {ergm} (dry-run),
+#           1) la traduction des termes ERPM -> \pkg{ergm} (dry-run),
 #           2) l’exécution d'ergm avec contrôle minimal,
 #           3) la robustesse à l’absence de coef.names (validation via appel).
 # ==============================================================================
@@ -47,9 +47,9 @@ source("R/functions_erpm_bip_network.R",         local = FALSE)
 #     package ERPM dans les workers PSOCK lors d’un développement via devtools)
 # ==============================================================================
 
-#' Désactive le parallélisme {ergm} et nettoie l'env. parallèle.
+#' Désactive le parallélisme \pkg{ergm} et nettoie l'env. parallèle.
 #'
-#' - Force `parallel = 0` côté {ergm}
+#' - Force `parallel = 0` côté \pkg{ergm}
 #' - Nettoie les variables d'environnement susceptibles de déclencher
 #'   la création d’un cluster PSOCK (CI/IDE).
 disable_all_parallel <- function() {
@@ -69,7 +69,7 @@ disable_all_parallel()
 # ==============================================================================
 
 # - Charge le projet ERPM (messages/patchs visibles si verbose=TRUE)
-# - Active le patch {ergm} si présent (tracing / correctifs ciblés)
+# - Active le patch \pkg{ergm} si présent (tracing / correctifs ciblés)
 init_erpm(selftest = FALSE, verbose = TRUE)
 if (exists("ergm_patch_enable")) ergm_patch_enable(verbose = VERBOSE)
 
@@ -116,9 +116,9 @@ if (exists("ergm_patch_enable")) ergm_patch_enable(verbose = VERBOSE)
   paste(deparse(call_obj, width.cutoff = 500L), collapse = " ")
 }
 
-#' Valide la présence d’un motif dans l’appel {ergm}.
+#' Valide la présence d’un motif dans l’appel \pkg{ergm}.
 #' S’appuie sur l’appel d'ergm quand `coef.names` est vide (ex. CD + contraintes).
-#' @param obj    fit ou structure avec un attr/call {ergm}
+#' @param obj    fit ou structure avec un attr/call \pkg{ergm}
 #' @param pattern motif regex
 #' @param label   étiquette affichée (optionnelle)
 expect_in_call <- function(obj, pattern, label = NULL) {
@@ -156,9 +156,9 @@ run <- function(label, expr, seed = 123, quiet_warn = TRUE) {
 #' - Tolère "data are essentially constant" (instabilité CD) et la neutralise,
 #' - Sinon relance l’erreur,
 #' - Affiche un en-tête de validation via appel.
-#' @param expr  expression qui renvoie un fit {ergm}
+#' @param expr  expression qui renvoie un fit \pkg{ergm}
 #' @param label étiquette d’affichage
-#' @return fit {ergm} ou NULL si neutralisé
+#' @return fit \pkg{ergm} ou NULL si neutralisé
 safefit <- function(expr, label = NULL) {
   f <- try(force(expr), silent = TRUE)
   if (inherits(f, "try-error")) {
@@ -261,7 +261,7 @@ nw <- make_bip(partition, nodes, friendship, distance)
 
 
 # ==============================================================================
-# 7) CONTRÔLES {ergm} POUR DES RUNS RAPIDES
+# 7) CONTRÔLES \pkg{ergm} POUR DES RUNS RAPIDES
 # ==============================================================================
 
 # - Paramétrage conservateur : itératifs CD/MCMLE courts, pas de cluster.
@@ -492,5 +492,5 @@ run("CD: nw ~ groups + cliques + squared_sizes", {
 
 cat("\n✅ Selftests étendus erpm() terminés.\n")
 
-# -- Désactive le patch {ergm} si actif ---------------------------------------
+# -- Désactive le patch \pkg{ergm} si actif ---------------------------------------
 if (exists("ergm_patch_disable")) ergm_patch_disable(verbose = TRUE)

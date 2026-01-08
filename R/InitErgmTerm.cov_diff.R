@@ -1,3 +1,10 @@
+# ==============================================================================
+# File    : InitErgmTerm.cov_diff.R
+# Purpose : Declare the ERGM term 'cov_diff' for bipartite networks
+#           (range over k-actor subsets within groups).
+# Project : ERPM / ERGM extensions
+# ============================================================================
+
 #' ERGM term: cov_diff (range over k-actor subsets within groups)
 #' @name InitErgmTerm.cov_diff
 #' @aliases cov_diff
@@ -15,7 +22,7 @@
 #' Each actor in the actor mode carries a numeric covariate value \eqn{x_i}.
 #' For a fixed integer \eqn{k \ge 2}, and for each group, the term considers all
 #' \eqn{k}-actor subsets of that group and computes, on each subset, the
-#' max–min range of the covariate. The statistic can be used either:
+#' max-min range of the covariate. The statistic can be used either:
 #' \itemize{
 #'   \item in its raw form (sum over all subsets in all groups);
 #'   \item in a by-group normalized form (average range per \eqn{k}-subset in each group);
@@ -108,7 +115,7 @@
 #' three variants.
 #'
 #' @section Usage:
-#' Typical usage with {ergm} on a bipartite network \code{nw}:
+#' Typical usage with \pkg{ergm} on a bipartite network \code{nw}:
 #' \preformatted{
 #'   # Raw (non-normalized) cov_diff on actor covariate "x_attr" with k = 2
 #'   summary(nw ~ cov_diff(cov = "x_attr", clique_size = 2))
@@ -163,6 +170,14 @@
 #'   \item \code{norm_mode} equals \code{0} for raw, \code{1} for by-group, \code{2} for global;
 #'   \item \code{x} is the numeric actor covariate restricted to the actor mode.
 #' }
+#'
+#' @param nw A \pkg{network} object. Must be bipartite, with actor-mode size
+#'   stored in \code{nw \%n\% "bipartite"}.
+#' @param arglist A named list of term arguments. Expected components include
+#'   \code{cov}, \code{clique_size}, and optionally one of \code{normalize},
+#'   \code{normalized}, or \code{norm}.
+#' @param ... Passed through by \pkg{ergm}; not used.
+#' @param version ERGM API version; not used.
 #'
 #' @examples
 #' \dontrun{
@@ -226,7 +241,7 @@
 #'               \sum_{S \in \mathcal{C}_k(g)} (\max_{i \in S} x_i - \min_{i \in S} x_i)}
 #'         (global normalized case, \code{normalize = "global"}).
 #' }
-#' Additional checks verify that toggling an actor–group tie updates the
+#' Additional checks verify that toggling an actor-group tie updates the
 #' statistic by the expected local change in the range over all \eqn{k}-subsets
 #' within the affected group, including cases where the group size crosses
 #' the threshold \eqn{n_g = k}.
@@ -248,7 +263,7 @@ InitErgmTerm.cov_diff <- function(nw, arglist, ..., version = packageVersion("er
   # - enforce bipartite network;
   # - accept 'cov', 'clique_size', and a normalization argument
   #   ('normalize', 'normalized', or 'norm') with flexible types;
-  # - let {ergm} handle generic validations (missing args, etc.).
+  # - let \pkg{ergm} handle generic validations (missing args, etc.).
   a <- check.ErgmTerm(
     nw, arglist,
     directed      = NULL,
@@ -278,7 +293,7 @@ InitErgmTerm.cov_diff <- function(nw, arglist, ..., version = packageVersion("er
   # ----- 1) Actor-mode size n1 -----------------------------------------------
   # n1 is the number of actors, retrieved from the bipartite network attribute.
   n1 <- as.integer(nw %n% "bipartite")
-  if (is.na(n1) || n1 <= 0L) stop(termname, ": réseau non biparti strict.")
+  if (is.na(n1) || n1 <= 0L) stop(termname, ": strictly non-bipartite network.")
   dbgcat("n1 = ", n1)
 
   # ----- 2) Extract actor covariate (length >= n1) ---------------------------
@@ -299,7 +314,7 @@ InitErgmTerm.cov_diff <- function(nw, arglist, ..., version = packageVersion("er
   }
 
   if (length(cov_vec) < n1)
-    stop(termname, ": longueur de la covariée < n1.")
+    stop(termname, ": length of the covariate < n1.")
 
   cov_vec <- cov_vec[seq_len(n1)]
   dbgcat("cov length = ", length(cov_vec),
@@ -312,10 +327,10 @@ InitErgmTerm.cov_diff <- function(nw, arglist, ..., version = packageVersion("er
     cov_vec <- as.numeric(cov_vec)
   }
   if (!is.numeric(cov_vec))
-    stop(termname, ": la covariée doit être convertissable en numérique.")
+    stop(termname, ": the covariate must be coercible to numeric.")
 
   if (anyNA(cov_vec))
-    stop(termname, ": NA non autorisé dans la covariée du mode acteurs.")
+    stop(termname, ": NA values are not allowed in the actor-mode covariate.")
 
   # ----- 4) Subset size 'clique_size' = k >= 2 -------------------------------
   # 'clique_size' is interpreted as the subset size k used in the definition
@@ -323,10 +338,10 @@ InitErgmTerm.cov_diff <- function(nw, arglist, ..., version = packageVersion("er
   # an integer and required to be at least 2.
   k_raw <- a$clique_size
   if (length(k_raw) != 1L || !is.numeric(k_raw))
-    stop(termname, ": 'clique_size' doit être un scalaire numérique.")
+    stop(termname, ": 'clique_size' must be a numeric scalar.")
   k <- as.integer(round(k_raw))
   if (!is.finite(k) || k < 2L)
-    stop(termname, ": 'clique_size' doit être un entier >= 2.")
+    stop(termname, ": 'clique_size' must be an integer >= 2.")
   dbgcat("clique_size k = ", k)
 
   # ----- 5) Normalization mode (raw / by_group / global) ---------------------
@@ -358,10 +373,10 @@ InitErgmTerm.cov_diff <- function(nw, arglist, ..., version = packageVersion("er
     } else if (norm_raw == 2) {
       normalized <- "global"
     } else {
-      stop(termname, ": 'normalize' numérique doit être 0 (raw), 1 ('by_group') ou 2 ('global').")
+      stop(termname, ": numeric 'normalize' must be 0 (raw), 1 ('by_group'), or 2 ('global').")
     }
   } else {
-    stop(termname, ": 'normalize'/'normalized'/'norm' doit être numérique ou 'by_group'/'global'.")
+    stop(termname, ": 'normalize'/'normalized'/'norm' must be numeric or 'by_group'/'global'.")
   }
 
   norm_mode <- switch(normalized,

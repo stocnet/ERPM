@@ -16,7 +16,7 @@
 #' Each actor in the actor mode carries a numeric covariate value \eqn{x_i}. For
 #' each group and each subset size \eqn{k \ge 2}, \code{cov_diff_GW} considers
 #' all \eqn{k}-actor subsets inside that group and computes on each subset the
-#' max–min range of the covariate. These \code{cov_diff}-type contributions are
+#' max-min range of the covariate. These \code{cov_diff}-type contributions are
 #' then combined over all \eqn{k \ge 2} using a geometric weight controlled by
 #' \eqn{\lambda > 1}.
 #'
@@ -117,7 +117,7 @@
 #' }
 #'
 #' @section Usage:
-#' Typical usage with {ergm} on a bipartite network \code{nw}:
+#' Typical usage with \pkg{ergm} on a bipartite network \code{nw}:
 #' \preformatted{
 #'   # Single lambda (default = 2)
 #'   summary(nw ~ cov_diff_GW(cov = "x_attr", lambda = 2))
@@ -155,6 +155,13 @@
 #'   options(ERPM.cov_diff_GW.debug = TRUE)
 #' }
 #' which prints internal sizes and parameter summaries.
+#'
+#' @param nw A \pkg{network} object.
+#' @param arglist A named list of term arguments constructed by \pkg{ergm}.
+#'   Expected components include \code{cov} (vertex attribute name or numeric
+#'   vector) and \code{lambda} (numeric scalar or vector with values > 1).
+#' @param ... Passed through by \pkg{ergm}; not used.
+#' @param version ERGM API version; not used.
 #'
 #' @examples
 #' \dontrun{
@@ -208,7 +215,7 @@
 #'         where each \eqn{c_k} is computed explicitly by enumerating all
 #'         \eqn{k}-actor subsets inside each group.
 #' }
-#' Additional checks verify that toggling an actor–group tie changes the
+#' Additional checks verify that toggling an actor-group tie changes the
 #' statistic by the local increment predicted by the C change-statistic, and
 #' that all \code{lambda} values are handled consistently in the vectorized
 #' interface.
@@ -229,7 +236,7 @@ InitErgmTerm.cov_diff_GW <- function(nw, arglist, ..., version = packageVersion(
   # Run standard ERGM term checks and parse user arguments:
   # - enforce bipartite network;
   # - accept 'cov' and 'lambda' with flexible types;
-  # - let {ergm} handle generic validations (missing args, etc.).
+  # - let \pkg{ergm} handle generic validations (missing args, etc.).
   a <- check.ErgmTerm(
     nw, arglist,
     directed      = NULL,
@@ -243,7 +250,7 @@ InitErgmTerm.cov_diff_GW <- function(nw, arglist, ..., version = packageVersion(
   # ----- 1) Actor-mode size n1 -----------------------------------------------
   # n1 is the number of actors, retrieved from the bipartite network attribute.
   n1 <- as.integer(nw %n% "bipartite")
-  if (is.na(n1) || n1 <= 0L) stop(termname, ": réseau non biparti strict.")
+  if (is.na(n1) || n1 <= 0L) stop(termname, ": strictly bipartite network required.")
   dbgcat("n1 = ", n1)
 
   # ----- 2) Extract actor covariate (length >= n1) ---------------------------
@@ -264,7 +271,7 @@ InitErgmTerm.cov_diff_GW <- function(nw, arglist, ..., version = packageVersion(
   }
 
   if (length(cov_vec) < n1)
-    stop(termname, ": longueur de la covariée < n1.")
+    stop(termname, ": covariate length < n1.")
 
   cov_vec <- cov_vec[seq_len(n1)]
   dbgcat("cov length = ", length(cov_vec),
@@ -277,10 +284,10 @@ InitErgmTerm.cov_diff_GW <- function(nw, arglist, ..., version = packageVersion(
     cov_vec <- as.numeric(cov_vec)
   }
   if (!is.numeric(cov_vec))
-    stop(termname, ": la covariée doit être convertissable en numérique.")
+    stop(termname, ": the covariate must be coercible to numeric.")
 
   if (anyNA(cov_vec))
-    stop(termname, ": NA non autorisé dans la covariée du mode acteurs.")
+    stop(termname, ": NA values are not allowed in the actor-mode covariate.")
 
   # ----- 4) Lambda: numeric, > 1, possibly vectorized ------------------------
   # 'lambda' is interpreted as one or more geometric parameters. Each value
@@ -288,13 +295,13 @@ InitErgmTerm.cov_diff_GW <- function(nw, arglist, ..., version = packageVersion(
   # in lambda: L = length(lambda_vec) statistics are returned.
   lambda_raw <- a$lambda
   if (!is.numeric(lambda_raw) || length(lambda_raw) < 1L)
-    stop(termname, ": 'lambda' doit être numérique (scalaire ou vecteur).")
+    stop(termname, ": 'lambda' must be numeric (scalar or vector).")
 
   lambda_vec <- as.double(lambda_raw)
   if (any(!is.finite(lambda_vec)))
-    stop(termname, ": 'lambda' doit être fini.")
+    stop(termname, ": 'lambda' must be finite.")
   if (any(lambda_vec <= 1))
-    stop(termname, ": toutes les valeurs de 'lambda' doivent être > 1.")
+    stop(termname, ": all values of 'lambda' must be > 1.")
 
   L <- length(lambda_vec)
   dbgcat("lambda_vec = {", paste(signif(lambda_vec, 5L), collapse = ", "), "} (L = ", L, ")")

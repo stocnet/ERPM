@@ -21,7 +21,7 @@ suppressPackageStartupMessages({
 devtools::load_all(".")
 
 # ----------------------------------------------------------------------
-# Patch {ergm} si présent (avec nettoyage à la sortie)
+# Patch \pkg{ergm} si présent (avec nettoyage à la sortie)
 # ----------------------------------------------------------------------
 if (file.exists("scripts/ergm_patch.R")) {
   source("scripts/ergm_patch.R")

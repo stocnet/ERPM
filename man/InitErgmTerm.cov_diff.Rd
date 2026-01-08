@@ -7,6 +7,18 @@
 \usage{
 InitErgmTerm.cov_diff(nw, arglist, ..., version = packageVersion("ergm"))
 }
+\arguments{
+\item{nw}{A \pkg{network} object. Must be bipartite, with actor-mode size
+stored in \code{nw \%n\% "bipartite"}.}
+
+\item{arglist}{A named list of term arguments. Expected components include
+\code{cov}, \code{clique_size}, and optionally one of \code{normalize},
+\code{normalized}, or \code{norm}.}
+
+\item{...}{Passed through by \pkg{ergm}; not used.}
+
+\item{version}{ERGM API version; not used.}
+}
 \description{
 \code{cov_diff} is an ERGM term for bipartite networks that measures, for each
 group, the dispersion of a numeric actor covariate over all \eqn{k}-actor
@@ -19,7 +31,7 @@ subsets within that group. The bipartite network is interpreted as:
 Each actor in the actor mode carries a numeric covariate value \eqn{x_i}.
 For a fixed integer \eqn{k \ge 2}, and for each group, the term considers all
 \eqn{k}-actor subsets of that group and computes, on each subset, the
-max–min range of the covariate. The statistic can be used either:
+max-min range of the covariate. The statistic can be used either:
 \itemize{
 \item in its raw form (sum over all subsets in all groups);
 \item in a by-group normalized form (average range per \eqn{k}-subset in each group);
@@ -150,7 +162,7 @@ three variants.
 
 \section{Usage}{
 
-Typical usage with {ergm} on a bipartite network \code{nw}:
+Typical usage with \pkg{ergm} on a bipartite network \code{nw}:
 \preformatted{
   # Raw (non-normalized) cov_diff on actor covariate "x_attr" with k = 2
   summary(nw ~ cov_diff(cov = "x_attr", clique_size = 2))
@@ -192,7 +204,7 @@ known group memberships and numeric covariates, and compare:
               \sum_{S \in \mathcal{C}_k(g)} (\max_{i \in S} x_i - \min_{i \in S} x_i)}
 (global normalized case, \code{normalize = "global"}).
 }
-Additional checks verify that toggling an actor–group tie updates the
+Additional checks verify that toggling an actor-group tie updates the
 statistic by the expected local change in the range over all \eqn{k}-subsets
 within the affected group, including cases where the group size crosses
 the threshold \eqn{n_g = k}.

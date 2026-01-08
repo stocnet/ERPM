@@ -24,7 +24,7 @@ if (!requireNamespace("Rglpk", quietly = TRUE)) {
 
 options(ergm.loglik.warn_dyads = FALSE)
 
-# ----- Active le patch {ergm} ---------------------------------------------------------
+# ----- Active le patch \pkg{ergm} ---------------------------------------------------------
 source("scripts/ergm_patch.R")
 ergm_patch_enable()
 options(ergm.loglik.warn_dyads=FALSE)

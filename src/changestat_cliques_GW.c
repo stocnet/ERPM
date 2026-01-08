@@ -3,7 +3,7 @@
  * @brief  Change statistic for the ERPM term `cliques_GW` (one-toggle form).
  *
  * @details
- *  This file implements the {ergm} change statistic for the ERPM effect
+ *  This file implements the \pkg{ergm} change statistic for the ERPM effect
  *  `cliques_GW(lambda)`, which aggregates group-level k-cliques using a
  *  geometrically weighted series.
  *
@@ -29,14 +29,14 @@
  *  Only the group affected by the toggle contributes to the change.
  *
  *  ------------------------------------------------------------
- *  Implementation in {ergm} (one-toggle)
+ *  Implementation in \pkg{ergm} (one-toggle)
  *  ------------------------------------------------------------
  *
  *  - This function is called once per toggle.
  *  - `edgestate == 1` → the edge exists → toggle = deletion → d_new = d_old − 1  
  *    `edgestate == 0` → the edge does not exist → toggle = addition → d_new = d_old + 1
  *  - `ZERO_ALL_CHANGESTATS(0)` clears the output buffer for this toggle.
- *  - {ergm} accumulates the values from all toggles afterward.
+ *  - \pkg{ergm} accumulates the values from all toggles afterward.
  *
  *  Group vertex detection:
  *    The group node is always the endpoint located in the “group mode”
@@ -158,7 +158,7 @@ static inline double dpow_double(double base, int exp){
 /**
  * @brief Change statistic for the ERPM term `cliques_GW(lambda)`.
  *
- * This is the {ergm} change-statistic function registered as
+ * This is the \pkg{ergm} change-statistic function registered as
  * ::c_cliques_GW via ::C_CHANGESTAT_FN. It processes a single toggle
  * (tail, head) on the bipartite network:
  *
@@ -189,7 +189,7 @@ static inline double dpow_double(double base, int exp){
 C_CHANGESTAT_FN(c_cliques_GW){
   /* 1) Reset the output buffer for THIS toggle.
    *
-   * {ergm} calls this function once per toggle and accumulates the
+   * \pkg{ergm} calls this function once per toggle and accumulates the
    * resulting CHANGE_STAT values outside this function. We therefore
    * explicitly zero the array at the beginning of each call.
    */
@@ -214,7 +214,7 @@ C_CHANGESTAT_FN(c_cliques_GW){
 
   /* 4) Degrees before and after the toggle.
    *
-   * OUT_DEG and IN_DEG are supplied by the {ergm} engine. For bipartite
+   * OUT_DEG and IN_DEG are supplied by the \pkg{ergm} engine. For bipartite
    * ERPM terms we sum them to get the actual size of the group in mode 2.
    * - deg_old: degree of the group before the toggle.
    * - delta:   +1 if we add an edge, -1 if we remove an edge.
@@ -273,7 +273,7 @@ C_CHANGESTAT_FN(c_cliques_GW){
 
 // /**
 //  * @file    changestat_cliques_GW.c
-//  * @brief   Change statistic {ergm} pour le terme ERPM `cliques_GW` (forme un-toggle)
+//  * @brief   Change statistic \pkg{ergm} pour le terme ERPM `cliques_GW` (forme un-toggle)
 //  *
 //  * @details
 //  *  Principe statistique :
@@ -282,13 +282,13 @@ C_CHANGESTAT_FN(c_cliques_GW){
 //  *  - Lors d’un toggle affectant un unique groupe v2, la variation locale est :
 //  *        Δ = S(d_new,λ) - S(d_old,λ) = λ( r^{d_old} - r^{d_new} ),  r=(λ-1)/λ.
 //  *
-//  *  Implémentation {ergm} — forme "un-toggle" :
+//  *  Implémentation \pkg{ergm} — forme "un-toggle" :
 //  *  - Signature imposée : C_CHANGESTAT_FN(c_cliques_GW)(tail, head, mtp, nwp, edgestate)
 //  *  - Chaque appel traite UN toggle (tail, head) dans l’état courant du réseau.
 //  *  - edgestate = 1  → l’arête existe (toggle = RETRAIT) → d_new = d_old - 1.
 //  *    edgestate = 0  → l’arête n’existe pas (toggle = AJOUT) → d_new = d_old + 1.
 //  *  - ZERO_ALL_CHANGESTATS(0) : remet le tampon de sortie à zéro.
-//  *    {ergm} additionne ensuite les contributions de tous les toggles.
+//  *    \pkg{ergm} additionne ensuite les contributions de tous les toggles.
 //  *
 //  *  Hypothèses et conventions internes :
 //  *  - Réseau biparti : mode 1 = acteurs (1..BIPARTITE), mode 2 = groupes (BIPARTITE+1..N).

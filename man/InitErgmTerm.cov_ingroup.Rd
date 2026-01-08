@@ -8,35 +8,21 @@
 InitErgmTerm.cov_ingroup(nw, arglist, ..., version = packageVersion("ergm"))
 }
 \arguments{
-\item{cov}{character|numeric
-Either:
+\item{nw}{A \pkg{network} object.}
+
+\item{arglist}{A named list of term arguments. Expected components include:
 \itemize{
-\item the name of an actor-level vertex attribute (numeric or
-categorical) to be evaluated on the actor mode; or
-\item a numeric vector of length at least \eqn{|A| = n_1} giving covariate
-values directly for actors.
-}
-When \code{category} is \code{NULL} and \code{cov} refers to a vertex
-attribute, the attribute is coerced to numeric and used as is. When
-\code{category} is not \code{NULL} and \code{cov} refers to a vertex
-attribute, an indicator is constructed for the targeted category
-(\code{1[cov == category]} on the actor mode). If \code{cov} is a numeric
-vector, \code{category} must be \code{NULL}.}
+\item \code{cov}: character (vertex attribute name) or numeric vector for actor covariates;
+\item \code{size}: optional integer vector of admissible group sizes;
+\item \code{category}: optional character scalar selecting a category when \code{cov} is categorical.
+}}
 
-\item{size}{integer|numeric|NULL
-Optional set \eqn{S} of admissible group sizes. If \code{NULL} or empty, all
-group sizes are included. Otherwise, \code{size} is converted to a sorted
-vector of distinct positive integers; only groups with size in this set
-contribute to the statistic.}
+\item{...}{Passed through by \pkg{ergm}; not used.}
 
-\item{category}{character|NULL
-Optional targeted category when \code{cov} denotes a categorical actor
-attribute. If provided, the actor covariate is replaced by the indicator
-\eqn{1[c_i = \text{category}]}. If \code{cov} is given as a numeric vector,
-\code{category} must remain \code{NULL}.}
+\item{version}{ERGM API version; not used.}
 }
 \value{
-A standard {ergm} term specification list with components:
+A standard \pkg{ergm} term specification list with components:
 \itemize{
 \item \code{name}         = \code{"cov_ingroup"};
 \item \code{coef.names}   = a single coefficient name encoding the
@@ -93,7 +79,7 @@ into a sorted set \eqn{S} of positive integers;
 \code{INPUT_PARAM} vector consumed by the C code.
 }
 
-On each toggle of an actor–group edge, the C change-statistic recomputes the
+On each toggle of an actor-group edge, the C change-statistic recomputes the
 contribution of the affected group and updates the statistic in \eqn{O(n_g)}
 time for that group.
 }
@@ -208,7 +194,7 @@ groups and known covariate values on the actor mode;
 \eqn{T(B; x, S) = \sum_g n_g (\sum_{i \in g} x_i)\mathbf{1}[n_g \in S]};
 \item compare these reference values to
 \code{summary(nw ~ cov_ingroup(...), constraints = ~ b1part)};
-\item verify that toggling a single actor–group tie changes the statistic
+\item verify that toggling a single actor-group tie changes the statistic
 by the local increment obtained by recomputing the contribution of
 the affected group only, as implemented in the C change-statistic
 \code{c_cov_ingroup}.

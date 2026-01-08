@@ -148,7 +148,7 @@
 #' respecting the chosen normalization and targeted category.
 #'
 #' @section Arguments:
-#' The initializer is called internally by {ergm} and should not be invoked
+#' The initializer is called internally by \pkg{ergm} and should not be invoked
 #' directly by users. The user-facing term is:
 #'
 #' \code{
@@ -158,49 +158,23 @@
 #'             normalized  = c("none","by_group","global"))
 #' }
 #'
-#' @param cov character|factor|numeric
-#'   Either:
-#'   \itemize{
-#'     \item the name of an actor-level vertex attribute (factor or character)
-#'           defined on all actors in the actor mode; or
-#'     \item a vector of length at least \code{|A|} (number of actors), which
-#'           is interpreted as an actor-level covariate.
-#'   }
-#'   In both cases, the covariate is coerced to a factor and then encoded as
-#'   integer codes \eqn{1,\dots,R}; \code{NA} values are mapped to 0 (meaning
-#'   "absent/undefined" and ignored in clique counts). For numeric covariates,
-#'   \code{cov_match} is not meaningful and the initializer fails fast with an
-#'   error.
+#' The term arguments are passed to this initializer through \code{arglist}
+#' with expected components:
+#' \itemize{
+#'   \item \code{cov}: character (vertex attribute name) or a factor/character vector;
+#'   \item \code{clique_size}: integer(s) \eqn{k \ge 1};
+#'   \item \code{category}: optional targeted category (character or \code{NULL});
+#'   \item \code{normalized}: \code{"none"}, \code{"by_group"}, or \code{"global"}
+#'         (logical values are accepted as shorthand).
+#' }
 #'
-#' @param clique_size integer|numeric
-#'   One or several clique sizes \eqn{k \ge 1}. The term is vectorized in
-#'   \code{clique_size}, so each distinct value of \eqn{k} yields one statistic
-#'   and one coefficient. Values are rounded to integers and must be finite and
-#'   at least 1.
-#'
-#' @param category character|NULL
-#'   Optional targeted category. If \code{NULL}, all categories contribute to
-#'   the statistic. If a character string, the initializer ensures that the
-#'   category appears in the factor levels; if it does not, the level is added
-#'   with zero frequency so that the resulting statistic is structurally zero
-#'   without error.
-#'
-#' @param normalized character|logical
-#'   Normalization mode, one of:
-#'   \itemize{
-#'     \item \code{"none"}: raw counts of monochromatic cliques;
-#'     \item \code{"by_group"}: per-group normalization by \eqn{\binom{n_g}{k}};
-#'     \item \code{"global"}: per-group normalization by \eqn{n_g}, i.e.
-#'           each group contribution is divided by its size and the resulting
-#'           contributions are summed over groups. Groups with \eqn{n_g = 0}
-#'           contribute 0.
-#'   }
-#'   Logical values are supported as shorthand:
-#'   \code{TRUE} is equivalent to \code{"by_group"} and \code{FALSE} to
-#'   \code{"none"}.
+#' @param nw A \pkg{network} object.
+#' @param arglist A named list of term arguments (see \sQuote{Arguments}).
+#' @param ... Passed through by \pkg{ergm}; not used.
+#' @param version ERGM API version; not used.
 #'
 #' @return
-#' A standard {ergm} term specification list with components:
+#' A standard \pkg{ergm} term specification list with components:
 #' \itemize{
 #'   \item \code{name}         = \code{"cov_match"};
 #'   \item \code{coef.names}   = coefficient names encoding the covariate label,
@@ -228,6 +202,8 @@
 #'         \code{options(erpm.debug.cov_match_init = TRUE)}. When enabled, the
 #'         initializer prints diagnostic information about actor-mode size,
 #'         clique sizes, normalization mode, and covariate level mapping.
+#'         It also verifies whether ERPM wrapper metadata are attached:
+#'         \code{nw \%n\% "nodes"} and \code{nw \%n\% "dyads"}.
 #' }
 #'
 #' @examples
@@ -319,205 +295,276 @@
 #'
 #' @export
 InitErgmTerm.cov_match <- function(nw, arglist, ..., version = packageVersion("ergm")) {
-    termname <- "cov_match"
+  termname <- "cov_match"
 
-    # -------------------------------------------------------------------------
-    # Optional debug flag for this initializer
-    #   options(erpm.debug.cov_match_init = TRUE)
-    # will trigger additional console output.
-    # -------------------------------------------------------------------------
-    options(erpm.debug.cov_match_init = FALSE)
+  # -------------------------------------------------------------------------
+  # Optional debug flag for this initializer
+  #   options(erpm.debug.cov_match_init = TRUE)
+  # will trigger additional console output.
+  # -------------------------------------------------------------------------
+  DEBUG <- isTRUE(getOption("erpm.debug.cov_match_init", FALSE))
 
-    # -------------------------------------------------------------------------
-    # Base ERGM term validation and argument parsing
-    # -------------------------------------------------------------------------
-    a <- check.ErgmTerm(
-        nw, arglist,
-        directed      = NULL,
-        bipartite     = TRUE,
-        varnames      = c("cov","clique_size","category","normalized"),
-        vartypes      = c("numeric,character","numeric","character","logical,character"),
-        defaultvalues = list(NULL,            2,            NULL,       "none"),
-        required      = c(TRUE,               FALSE,        FALSE,      FALSE)
+  # -------------------------------------------------------------------------
+  # Base ERGM term validation and argument parsing
+  # -------------------------------------------------------------------------
+  a <- check.ErgmTerm(
+    nw, arglist,
+    directed      = NULL,
+    bipartite     = TRUE,
+    varnames      = c("cov","clique_size","category","normalized"),
+    vartypes      = c("numeric,character","numeric","character","logical,character"),
+    defaultvalues = list(NULL,            2,            NULL,       "none"),
+    required      = c(TRUE,               FALSE,        FALSE,      FALSE)
+  )
+
+  # -------------------------------------------------------------------------
+  # 0) Bipartite guard and actor-mode size
+  # -------------------------------------------------------------------------
+  n1 <- tryCatch(as.integer(nw %n% "bipartite"), error = function(e) NA_integer_)
+  if (!is.finite(n1) || n1 <= 0L)
+    ergm_Init_stop(sQuote(termname), ": non-bipartite network or missing/invalid %n% 'bipartite' attribute.")
+
+  # -------------------------------------------------------------------------
+  # Debug: verify ERPM wrapper metadata are attached
+  #   - build_bipartite_from_inputs() stores dyads in: nw %n% "dyads"
+  #   - nodes may be stored in: nw %n% "nodes"
+  # This does not change semantics. It only prints diagnostics when enabled.
+  # -------------------------------------------------------------------------
+  if (DEBUG) {
+    .safe_get_n_attr <- function(nw, key) {
+      tryCatch(nw %n% key, error = function(e) NULL)
+    }
+
+    nodes_meta <- .safe_get_n_attr(nw, "nodes")
+    dyads_meta <- .safe_get_n_attr(nw, "dyads")
+
+    cat(sprintf("[Init:%s] debug=TRUE\n", termname))
+    cat(sprintf("[Init:%s] network size=%d | bipartite n1=%d\n", termname, network::network.size(nw), n1))
+
+    if (is.null(nodes_meta)) {
+      cat(sprintf("[Init:%s] nw %%n%% \"nodes\" : ABSENT\n", termname))
+    } else {
+      cls <- paste(class(nodes_meta), collapse = "/")
+      cat(sprintf("[Init:%s] nw %%n%% \"nodes\" : PRESENT (class=%s)\n", termname, cls))
+      if (is.data.frame(nodes_meta)) {
+        cat(sprintf("[Init:%s] nodes: nrow=%d ncol=%d\n", termname, nrow(nodes_meta), ncol(nodes_meta)))
+        cat(sprintf("[Init:%s] nodes colnames: %s\n", termname, paste(colnames(nodes_meta), collapse = ", ")))
+        cat(sprintf("[Init:%s] nodes head:\n", termname))
+        print(utils::head(nodes_meta, 3))
+      }
+    }
+
+    if (is.null(dyads_meta)) {
+      cat(sprintf("[Init:%s] nw %%n%% \"dyads\" : ABSENT\n", termname))
+    } else {
+      cls <- paste(class(dyads_meta), collapse = "/")
+      cat(sprintf("[Init:%s] nw %%n%% \"dyads\" : PRESENT (class=%s)\n", termname, cls))
+      if (is.data.frame(dyads_meta)) {
+        cat(sprintf("[Init:%s] dyads: nrow=%d ncol=%d\n", termname, nrow(dyads_meta), ncol(dyads_meta)))
+        cat(sprintf("[Init:%s] dyads colnames: %s\n", termname, paste(colnames(dyads_meta), collapse = ", ")))
+        cat(sprintf("[Init:%s] dyads head:\n", termname))
+        print(utils::head(dyads_meta, 3))
+      }
+    }
+  }
+
+  # -------------------------------------------------------------------------
+  # 1) Normalize the 'normalized' argument to an internal mode flag
+  # -------------------------------------------------------------------------
+  normalized <- a$normalized
+  if (is.logical(normalized)) {
+    normalized <- if (isTRUE(normalized)) "by_group" else "none"
+  }
+  normalized <- match.arg(tolower(as.character(normalized)), c("none","by_group","global"))
+  norm_mode  <- switch(normalized, none = 0L, by_group = 1L, global = 2L)
+
+  # -------------------------------------------------------------------------
+  # 2) Normalize clique sizes k (clique_size)
+  # -------------------------------------------------------------------------
+  ks <- as.integer(round(a$clique_size))
+  if (length(ks) < 1L || any(!is.finite(ks)) || any(ks < 1L))
+    ergm_Init_stop(sQuote(termname), ": 'clique_size' must contain finite integers >= 1.")
+
+  # Option to explicitly allow k = 1 with non-normalized/global modes
+  .allow_k1_nn <- isTRUE(getOption("ERPM.allow.k1.nonnormalized", FALSE))
+
+  # Forbid k = 1 when normalized is "none" or "global" unless explicitly overridden
+  if (any(ks == 1L) && (normalized %in% c("none","global")) && !.allow_k1_nn) {
+    ergm_Init_stop(
+      sQuote(termname),
+      ": cov_match(..., clique_size=1) with normalized='", normalized,
+      "' is constant in the partition setting. ",
+      "Use k>=2, normalized='by_group', or offset(...). ",
+      "To force: options(ERPM.allow.k1.nonnormalized=TRUE)."
     )
+  }
 
-    # -------------------------------------------------------------------------
-    # 0) Bipartite guard and actor-mode size
-    # -------------------------------------------------------------------------
-    n1 <- tryCatch(nw %n% "bipartite", error = function(e) NA_integer_)
-    if (!is.numeric(n1) || !is.finite(n1) || n1 <= 0)
-        ergm_Init_stop(sQuote(termname), ": réseau non biparti ou attribut %n% 'bipartite' manquant/invalide.")
+  ks <- sort(unique(ks))
+  K  <- length(ks)
 
-    # -------------------------------------------------------------------------
-    # 1) Normalize the 'normalized' argument to an internal mode flag
-    # -------------------------------------------------------------------------
-    normalized <- a$normalized
-    if (is.logical(normalized)) {
-        normalized <- if (isTRUE(normalized)) "by_group" else "none"
-    }
-    normalized <- match.arg(tolower(as.character(normalized)), c("none","by_group","global"))
-    norm_mode  <- switch(normalized, none = 0L, by_group = 1L, global = 2L)
+  # -------------------------------------------------------------------------
+  # 3) Build actor-level category codes (z) and targeted category info
+  # -------------------------------------------------------------------------
+  cov      <- a$cov
+  category <- a$category
 
-    # -------------------------------------------------------------------------
-    # 2) Normalize clique sizes k (clique_size)
-    # -------------------------------------------------------------------------
-    ks <- as.integer(a$clique_size)
-    if (any(!is.finite(ks)) || any(ks < 1L))
-        ergm_Init_abort(sQuote(termname), ": 'clique_size' doit contenir des entiers >= 1.")
+  get_actor_codes <- function(nw, cov, category = NULL, n1, termname, DEBUG = FALSE) {
+    ia <- seq_len(n1)
 
-    # Option to explicitly allow k = 1 with non-normalized/global modes
-    .allow_k1_nn <- isTRUE(getOption("ERPM.allow.k1.nonnormalized", FALSE))
+    if (is.character(cov) && length(cov) == 1L) {
+      # Case 1: 'cov' is the name of a vertex attribute
+      vals <- network::get.vertex.attribute(nw, cov)
+      if (is.null(vals))
+        ergm_Init_stop(sQuote(termname), ": missing vertex attribute: ", sQuote(cov), ".")
 
-    # Forbid k = 1 when normalized is "none" or "global" unless explicitly overridden
-    if (any(ks == 1L) && (normalized %in% c("none","global")) && !.allow_k1_nn) {
-        ergm_Init_abort(
-            sQuote(termname),
-            ": cov_match(..., clique_size=1) avec normalized='", normalized,
-            "' est constant pour les fits ERGM dans le cadre partition. ",
-            "Utilisez k>=2, normalized='by_group', ou offset(...). ",
-            "Pour forcer: options(ERPM.allow.k1.nonnormalized=TRUE)."
-        )
-    }
+      # Only actor-mode values are used.
+      x <- vals[ia]
 
-    ks <- unique(ks)
-    K  <- length(ks)
+      if (is.numeric(x))
+        ergm_Init_stop(sQuote(termname), ": 'cov_match' requires a categorical covariate (factor/character), not numeric.")
 
-    # -------------------------------------------------------------------------
-    # 3) Build actor-level category codes (z) and targeted category info
-    # -------------------------------------------------------------------------
-    cov      <- a$cov
-    category <- a$category
+      f <- as.factor(x)
 
-    get_actor_codes <- function(nw, cov, category = NULL) {
-        # Determine actor indices: by default 1..n1, but try to detect actor
-        # labels when vertex names suggest a pattern "G<id>" for groups.
-        n1 <- as.integer(nw %n% "bipartite")
-        ia <- seq_len(n1)
-        vn <- network::network.vertex.names(nw)
-        if (length(vn) >= n1) {
-            ia_guess <- which(!grepl("^G\\d+$", vn))
-            if (length(ia_guess) == n1) ia <- ia_guess
+      # If a targeted category is absent, add it to levels so match() is defined.
+      if (!is.null(category)) {
+        category <- as.character(category)[1L]
+        if (!(category %in% levels(f))) levels(f) <- c(levels(f), category)
+      }
+
+      z <- as.integer(f)            # 1..R or NA
+      z[is.na(z)] <- 0L            # 0 = "absent/undefined"
+      levs <- levels(f)
+
+      kappa_code <- 0L
+      cov_label  <- cov
+      if (!is.null(category)) {
+        kappa_code <- as.integer(match(category, levs))
+        cov_label  <- paste0(cov, "==", category)
+      }
+
+      if (DEBUG) {
+        cat(sprintf("[Init:%s] cov attribute=%s | actor N=%d | NA actors=%d\n",
+                    termname, cov, n1, sum(z == 0L)))
+        cat(sprintf("[Init:%s] levels (%d): %s\n",
+                    termname, length(levs), paste(levs, collapse = ", ")))
+        if (!is.null(category)) {
+          cat(sprintf("[Init:%s] targeted category=%s | kappa_code=%d\n",
+                      termname, category, kappa_code))
         }
+      }
 
-        if (is.character(cov) && length(cov) == 1L) {
-            # Case 1: 'cov' is the name of a vertex attribute
-            vals <- network::get.vertex.attribute(nw, cov)
-            if (is.null(vals))
-                ergm_Init_stop(sQuote(termname), ": attribut inexistant: ", sQuote(cov), ".")
-            x <- vals[ia]
-
-            # Coerce to factor for clean category coding
-            f <- as.factor(x)
-            z <- as.integer(f)     # codes 1..R, NA -> NA
-            z[!is.finite(z)] <- 0L # 0 = "absent/undefined"
-
-            kappa_code <- 0L
-            cov_label  <- cov
-            if (!is.null(category)) {
-                # If the targeted category is absent, add it to the levels
-                # so that it has zero frequency without error.
-                if (!(category %in% levels(f))) {
-                    levels(f) <- c(levels(f), category)
-                    # Recompute codes with updated levels
-                    z <- as.integer(f)
-                    z[!is.finite(z)] <- 0L
-                }
-                kappa_code <- as.integer(match(category, levels(f)))
-                cov_label  <- paste0(cov, "==", category)
-            }
-
-            # Return codes, targeted category code, and levels (for debug)
-            return(list(
-                z          = as.double(z),
-                kappa_code = as.double(kappa_code),
-                cov_label  = cov_label,
-                levels     = levels(f)
-            ))
-
-        } else {
-            # Case 2: direct numeric vector
-            # For cov_match, a purely numeric covariate is not meaningful,
-            # so we fail fast after basic checks.
-            x_num <- suppressWarnings(as.numeric(cov))
-            if (any(!is.finite(x_num)))
-                ergm_Init_stop(sQuote(termname), ": vecteur 'cov' contient NA/NaN/Inf.")
-            if (length(x_num) < n1)
-                ergm_Init_stop(sQuote(termname), ": longueur(cov) < |A| = ", n1, ".")
-            ergm_Init_stop(sQuote(termname), ": 'cov_match' requiert un attribut catégoriel (factor/character).")
-        }
+      return(list(
+        z          = as.double(z),
+        kappa_code = as.double(kappa_code),
+        cov_label  = cov_label,
+        levels     = levs
+      ))
     }
 
-    ax <- get_actor_codes(nw, cov = cov, category = category)
-    z_codes    <- ax$z          # double*, codes 0 (NA) or 1..R
-    kappa_code <- ax$kappa_code # 0 if no targeted category
-    cov_label  <- ax$cov_label
-    levs       <- ax$levels %||% character(0)
-
-    has_kappa <- as.double(as.integer(kappa_code > 0))
-
-    # -------------------------------------------------------------------------
-    # Optional local debug output
-    #   Enable with: options(erpm.debug.cov_match_init = TRUE)
-    # -------------------------------------------------------------------------
-    DEBUG_COV_MATCH_INIT <- isTRUE(getOption("erpm.debug.cov_match_init", FALSE)) || FALSE
-    if (DEBUG_COV_MATCH_INIT) {
-        cat(sprintf("[Init:%s] n1=%d | normalized=%s (mode=%d) | K=%d | ks={%s}\n",
-                    termname, n1, normalized, norm_mode, K, paste(ks, collapse=",")))
-        cat(sprintf("[Init:%s] cov=%s | has_kappa=%s | kappa_code=%s\n",
-                    termname, deparse(substitute(cov)), as.logical(has_kappa), as.integer(kappa_code)))
-        if (length(levs)) {
-            map <- paste(sprintf("%d:%s", seq_along(levs), levs), collapse=", ")
-            cat(sprintf("[Init:%s] levels map: %s\n", termname, map))
-            zi <- as.integer(z_codes)
-            zi[!is.finite(zi)] <- 0L
-            tab <- as.integer(table(factor(zi, levels = 0:length(levs))))
-            cat(sprintf("[Init:%s] freq codes (0=NA): {%s}\n",
-                        termname, paste(tab, collapse=", ")))
-        }
+    # Case 2: direct vector supplied
+    if (is.numeric(cov)) {
+      ergm_Init_stop(sQuote(termname), ": 'cov_match' requires a categorical covariate (factor/character), not a numeric vector.")
     }
 
-    # -------------------------------------------------------------------------
-    # 4) Build INPUT_PARAM vector for the C change-statistic
-    # -------------------------------------------------------------------------
-    # Layout:
-    #   [0]          n1
-    #   [1]          K
-    #   [2]          norm_mode  (0 none, 1 by_group, 2 global)
-    #   [3]          has_kappa  (0/1)
-    #   [4]          kappa_code (0 if no targeted category)
-    #   [5 .. 5+K-1] ks (clique sizes)
-    #   [5+K .. ]    z[1..n1] (actor covariate codes)
-    inputs <- c(
-        as.double(n1),
-        as.double(K),
-        as.double(norm_mode),
-        has_kappa,
-        as.double(kappa_code),
-        as.double(ks),
-        z_codes
-    )
+    if (length(cov) < n1)
+      ergm_Init_stop(sQuote(termname), ": length(cov) < |A| = ", n1, ".")
 
-    # -------------------------------------------------------------------------
-    # 5) Coefficient names
-    # -------------------------------------------------------------------------
-    # Example patterns:
-    #   cov_match[sex]_k2
-    #   cov_match[sex==F]_k3_bygrp
-    #   cov_match[group]_k4_glob
-    suffix_norm <- switch(normalized,
-                          none     = "",
-                          by_group = "_bygrp",
-                          global   = "_glob")
-    coef.names  <- paste0("cov_match[", cov_label, "]_k", ks, suffix_norm)
+    x <- cov[ia]
+    f <- as.factor(x)
 
-    # -------------------------------------------------------------------------
-    # 6) Standard ERGM term specification
-    # -------------------------------------------------------------------------
-    list(
-        name         = "cov_match",   # must match C_CHANGESTAT_FN(c_cov_match)
-        coef.names   = coef.names,    # length = K
-        inputs       = inputs,        # as described above
-        dependence   = TRUE,
-        emptynwstats = 0
-    )
+    if (!is.null(category)) {
+      category <- as.character(category)[1L]
+      if (!(category %in% levels(f))) levels(f) <- c(levels(f), category)
+    }
+
+    z <- as.integer(f)
+    z[is.na(z)] <- 0L
+    levs <- levels(f)
+
+    kappa_code <- 0L
+    cov_label  <- "cov"
+    if (!is.null(category)) {
+      kappa_code <- as.integer(match(category, levs))
+      cov_label  <- paste0("cov==", category)
+    }
+
+    if (DEBUG) {
+      cat(sprintf("[Init:%s] cov vector | actor N=%d | NA actors=%d\n",
+                  termname, n1, sum(z == 0L)))
+      cat(sprintf("[Init:%s] levels (%d): %s\n",
+                  termname, length(levs), paste(levs, collapse = ", ")))
+      if (!is.null(category)) {
+        cat(sprintf("[Init:%s] targeted category=%s | kappa_code=%d\n",
+                    termname, category, kappa_code))
+      }
+    }
+
+    return(list(
+      z          = as.double(z),
+      kappa_code = as.double(kappa_code),
+      cov_label  = cov_label,
+      levels     = levs
+    ))
+  }
+
+  ax <- get_actor_codes(nw, cov = cov, category = category, n1 = n1, termname = termname, DEBUG = DEBUG)
+  z_codes    <- ax$z
+  kappa_code <- ax$kappa_code
+  cov_label  <- ax$cov_label
+  levs       <- ax$levels
+
+  has_kappa <- as.double(as.integer(kappa_code > 0))
+
+  # -------------------------------------------------------------------------
+  # Optional local debug output (continued)
+  # -------------------------------------------------------------------------
+  if (DEBUG) {
+    cat(sprintf("[Init:%s] normalized=%s (mode=%d) | K=%d | ks={%s}\n",
+                termname, normalized, norm_mode, K, paste(ks, collapse=",")))
+  }
+
+  # -------------------------------------------------------------------------
+  # 4) Build INPUT_PARAM vector for the C change-statistic
+  # -------------------------------------------------------------------------
+  # Layout:
+  #   [0]          n1
+  #   [1]          K
+  #   [2]          norm_mode  (0 none, 1 by_group, 2 global)
+  #   [3]          has_kappa  (0/1)
+  #   [4]          kappa_code (0 if no targeted category)
+  #   [5 .. 5+K-1] ks (clique sizes)
+  #   [5+K .. ]    z[1..n1] (actor covariate codes)
+  inputs <- c(
+    as.double(n1),
+    as.double(K),
+    as.double(norm_mode),
+    has_kappa,
+    as.double(kappa_code),
+    as.double(ks),
+    z_codes
+  )
+
+  # -------------------------------------------------------------------------
+  # 5) Coefficient names
+  # -------------------------------------------------------------------------
+  # Example patterns:
+  #   cov_match[sex]_k2
+  #   cov_match[sex==F]_k3_bygrp
+  #   cov_match[group]_k4_glob
+  suffix_norm <- switch(normalized,
+                        none     = "",
+                        by_group = "_bygrp",
+                        global   = "_glob")
+  coef.names  <- paste0("cov_match[", cov_label, "]_k", ks, suffix_norm)
+
+  # -------------------------------------------------------------------------
+  # 6) Standard ERGM term specification
+  # -------------------------------------------------------------------------
+  list(
+    name         = "cov_match",         # must match C_CHANGESTAT_FN(c_cov_match)
+    coef.names   = coef.names,          # length = K
+    inputs       = inputs,              # as described above
+    dependence   = TRUE,
+    emptynwstats = rep(0, K)
+  )
 }

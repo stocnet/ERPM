@@ -9,39 +9,17 @@
 InitErgmTerm.cov_match_GW(nw, arglist, ..., version = packageVersion("ergm"))
 }
 \arguments{
-\item{cov}{character
-Name of an actor-level vertex attribute (factor/character) defined on all
-actors in the actor mode. The attribute is coerced to a factor and then
-encoded as integer codes \eqn{1,\dots,R}; \code{NA} values are mapped to 0
-(meaning "absent/undefined" and ignored in the counts).}
+\item{nw}{A \pkg{network} object.}
 
-\item{lambda}{numeric
-Scalar or numeric vector of \eqn{\lambda} values. Each \eqn{\lambda} must
-be finite and strictly greater than 1. The internal ratio
-\eqn{r_\lambda = (\lambda-1)/\lambda} drives the geometric weighting. A
-vector of \eqn{\lambda} values yields one statistic per value.}
+\item{arglist}{A named list of term arguments. Expected components include
+\code{cov}, \code{lambda}, \code{category}, and \code{normalized}.}
 
-\item{category}{character|NULL
-Optional targeted category. If \code{NULL}, all categories contribute to
-the statistic. If a character string, the initializer ensures that the
-category appears in the factor levels; if it does not, the level is added
-with zero frequency so that the resulting statistic is structurally zero
-without error.}
+\item{...}{Additional arguments passed by \pkg{ergm}; not used.}
 
-\item{normalized}{character|logical
-Normalization mode, one of:
-\itemize{
-\item \code{"none"}: raw geometrically weighted contributions;
-\item \code{"by_group"}: per-group normalization by a GW-size-like
-denominator \eqn{\lambda(1 - r_\lambda^{n_g})};
-\item \code{"global"}: normalization by \eqn{\lambda(1 - r_\lambda^{N_A})}.
-}
-Logical values are supported as shorthand:
-\code{TRUE} is equivalent to \code{"by_group"} and \code{FALSE} to
-\code{"none"}.}
+\item{version}{ERGM API version; not used.}
 }
 \value{
-A standard {ergm} term specification list with components:
+A standard \pkg{ergm} term specification list with components:
 \itemize{
 \item \code{name}         = \code{"cov_match_GW"};
 \item \code{coef.names}   = coefficient names encoding the covariate label,
@@ -78,7 +56,7 @@ Let:
 \itemize{
 \item \eqn{A} be the set of actor-mode nodes, with \eqn{|A| = N_A};
 \item \eqn{G} be the set of group-mode nodes;
-\item \eqn{B} be the actor–group incidence (bipartite) matrix;
+\item \eqn{B} be the actor-group incidence (bipartite) matrix;
 \item \eqn{c : A \to \{1,\dots,R\}} be a categorical covariate assigning a
 category \eqn{r} to each actor;
 \item \eqn{n_{g,r}} be the number of actors of category \eqn{r} attached to
@@ -92,29 +70,29 @@ For a fixed \eqn{\lambda > 1}, define:
 }
 and for each group \eqn{g} and category \eqn{r},
 \deqn{
-  S_{g,r}^{\text{GW}}(B; c, \eqn{\lambda})
-  = \eqn{\lambda} \cdot \left(1 - r_\lambda^{n_{g,r}}\right).
+  S_{g,r}^{\text{GW}}(B; c, \lambda)
+  = \lambda \cdot \left(1 - r_\lambda^{n_{g,r}}\right).
 }
 
 The non-normalized aggregate is:
 \deqn{
-  S_{\text{GW}}(B; c, \eqn{\lambda})
-  = \sum_{g \in G} \sum_{r=1}^R S_{g,r}^{\text{GW}}(B; c, \eqn{\lambda})
-  = \sum_{g \in G} \sum_{r=1}^R \eqn{\lambda} \cdot \left(1 - r_\lambda^{n_{g,r}}\right).
+  S_{\text{GW}}(B; c, \lambda)
+  = \sum_{g \in G} \sum_{r=1}^R S_{g,r}^{\text{GW}}(B; c, \lambda)
+  = \sum_{g \in G} \sum_{r=1}^R \lambda \cdot \left(1 - r_\lambda^{n_{g,r}}\right).
 }
 
 When a targeted category \eqn{\kappa} is specified, we restrict to:
 \deqn{
-  S_{\text{GW}}^{(\kappa)}(B; c, \eqn{\lambda})
-  = \sum_{g \in G} \eqn{\lambda} \cdot \left(1 - r_\lambda^{n_{g,\kappa}}\right).
+  S_{\text{GW}}^{(\kappa)}(B; c, \lambda)
+  = \sum_{g \in G} \lambda \cdot \left(1 - r_\lambda^{n_{g,\kappa}}\right).
 }
 
 For the normalization modes, let:
 \itemize{
 \item \eqn{\text{Num}(g)} be the non-normalized group-level contribution
-(either \eqn{\sum_r \eqn{\lambda}(1 - r_\lambda^{n_{g,r}})} or
+(either \eqn{\sum_r \lambda(1 - r_\lambda^{n_{g,r}})} or
 \eqn{\lambda(1 - r_\lambda^{n_{g,\kappa}})} for a targeted category);
-\item \eqn{\text{Den}(g) = \eqn{\lambda}(1 - r_\lambda^{n_g})} be a group-size
+\item \eqn{\text{Den}(g) = \lambda(1 - r_\lambda^{n_g})} be a group-size
 denominator reminiscent of a geometrically weighted size term.
 }
 
@@ -122,21 +100,21 @@ Then:
 \itemize{
 \item \code{normalized = "none"}:
 \deqn{
-      T(B; c, \eqn{\lambda}) =
+      T(B; c, \lambda) =
       \begin{cases}
-        S_{\text{GW}}(B; c, \eqn{\lambda}) & \text{if no category is targeted}, \\
-        S_{\text{GW}}^{(\kappa)}(B; c, \eqn{\lambda}) & \text{if category } \kappa \text{ is targeted};
+        S_{\text{GW}}(B; c, \lambda) & \text{if no category is targeted}, \\
+        S_{\text{GW}}^{(\kappa)}(B; c, \lambda) & \text{if category } \kappa \text{ is targeted};
       \end{cases}
     }
 \item \code{normalized = "by_group"}:
 \deqn{
-      T_{\text{by\_group}}(B; c, \eqn{\lambda})
+      T_{\text{by\_group}}(B; c, \lambda)
       = \sum_{g \in G} \frac{\text{Num}(g)}{\text{Den}(g)};
     }
 \item \code{normalized = "global"}:
-using \eqn{\text{Den}_{\text{glob}} = \eqn{\lambda}(1 - r_\lambda^{N_A})},
+using \eqn{\text{Den}_{\text{glob}} = \lambda(1 - r_\lambda^{N_A})},
 \deqn{
-      T_{\text{global}}(B; c, \eqn{\lambda})
+      T_{\text{global}}(B; c, \lambda)
       = \frac{\sum_{g \in G} \text{Num}(g)}{\text{Den}_{\text{glob}}}.
     }
 }
@@ -189,7 +167,7 @@ The numeric input vector passed to \code{c_cov_match_GW} is:
   )
 }
 
-On each toggle of an actor–group edge, the C code recomputes the local
+On each toggle of an actor-group edge, the C code recomputes the local
 contribution for the affected group (for each \eqn{\lambda}) and updates the
 statistics accordingly, respecting the chosen normalization and targeted
 category.
@@ -197,7 +175,7 @@ category.
 
 \section{User-facing term}{
 
-The initializer is called internally by {ergm} and should not be invoked
+The initializer is called internally by \pkg{ergm} and should not be invoked
 directly by users. The user-facing term is:
 
 \preformatted{
@@ -219,7 +197,7 @@ reference quantities \eqn{S_{\text{GW}}(B; c, \eqn{\lambda})} and their
 by-group and global normalizations;
 \item compare these reference values to
 \code{summary(nw ~ cov_match_GW(...), constraints = ~ b1part)};
-\item verify that toggling a single actor–group edge changes the statistic
+\item verify that toggling a single actor-group edge changes the statistic
 by an increment consistent with the local recalculation of the
 group-level contributions for the affected group, as implemented in
 the C change-statistic \code{c_cov_match_GW}.

@@ -3,7 +3,7 @@
  * @brief Change statistic for the ERPM term `dyadcov` (one-toggle form).
  *
  * @details
- *  This file implements the {ergm} change statistic for an ERPM effect
+ *  This file implements the \pkg{ergm} change statistic for an ERPM effect
  *  `dyadcov`, defined on a bipartite network with:
  *    - actor mode  = actor vertices,
  *    - group mode  = group vertices.
@@ -131,7 +131,7 @@
  *         CHANGE_STAT[0] += Δ.
  *
  *  The change statistic is “one-toggle”: each call reports only the local
- *  change Δ associated with a single toggle. The {ergm} engine accumulates
+ *  change Δ associated with a single toggle. The \pkg{ergm} engine accumulates
  *  these local changes over all toggles when evaluating the statistic.
  *
  *  ------------------------------------------------------------
@@ -324,7 +324,7 @@ static double sum_cliques_k(const int *actors,
  * @param n1       Number of actors (dimension of the actor mode).
  * @param k        Clique size (k ≥ 2).
  * @param Z        Pointer to the dyadic covariate matrix (n1*n1, column-major).
- * @param nwp      Pointer to the {ergm} Network structure (provides edges).
+ * @param nwp      Pointer to the \pkg{ergm} Network structure (provides edges).
  * @param n_g_out  If non-NULL, receives the number of actors in group g.
  *
  * @return S_g^{(k)}(Z) for group g.
@@ -403,7 +403,7 @@ static double group_dyadcov_k(Vertex g,
  * @brief Change statistic for the ERPM term `dyadcov`.
  *
  * @details
- *  This is the {ergm} change-statistic function registered as ::c_dyadcov via
+ *  This is the \pkg{ergm} change-statistic function registered as ::c_dyadcov via
  *  ::C_CHANGESTAT_FN. It implements the one-toggle update for the dyadic
  *  covariate statistic on k-cliques of actors inside each group.
  *
@@ -449,7 +449,7 @@ static double group_dyadcov_k(Vertex g,
 C_CHANGESTAT_FN(c_dyadcov){
   /* 1) Reset the output buffer for THIS toggle.
    *
-   * {ergm} accumulates contributions from multiple calls; here we only
+   * \pkg{ergm} accumulates contributions from multiple calls; here we only
    * report the local change Δ for the current membership toggle.
    */
   ZERO_ALL_CHANGESTATS(0);

@@ -3,7 +3,7 @@
  * @brief  Change statistic for the ERPM term `cov_fulldiff` (one-toggle form).
  *
  * @details
- *  This file implements the {ergm} change statistic for the ERPM effect
+ *  This file implements the \pkg{ergm} change statistic for the ERPM effect
  *  `cov_fulldiff`, which measures, for each group in the group mode, the
  *  within-group dispersion of a numeric actor covariate via the range:
  *
@@ -370,7 +370,7 @@ static double group_range(Vertex g,
  * @brief Change statistic for the ERPM term `cov_fulldiff`.
  *
  * @details
- *  This is the {ergm} change-statistic function registered as
+ *  This is the \pkg{ergm} change-statistic function registered as
  *  ::c_cov_fulldiff via ::C_CHANGESTAT_FN. It computes the local change
  *  Δ in the range-based dispersion statistic for a single membership
  *  toggle between an actor and a group.

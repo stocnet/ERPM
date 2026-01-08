@@ -3,7 +3,7 @@
  * @brief  Change statistic for the ERPM term `cov_fullmatch` (one-toggle form).
  *
  * @details
- *  This file implements the {ergm} change statistic for the ERPM effect
+ *  This file implements the \pkg{ergm} change statistic for the ERPM effect
  *  `cov_fullmatch`, which detects groups that are completely homogeneous
  *  with respect to a categorical actor covariate, with an optional filter
  *  on group sizes and an optional targeted category.
@@ -421,7 +421,7 @@ static double group_flag(Vertex g, int n1, int L, const double *sizes,
  * @brief Change statistic for the ERPM term `cov_fullmatch`.
  *
  * @details
- *  This is the {ergm} change-statistic function registered as
+ *  This is the \pkg{ergm} change-statistic function registered as
  *  ::c_cov_fullmatch via ::C_CHANGESTAT_FN. It computes the local change
  *  Δ in the "full match" statistic for a single membership toggle between
  *  an actor and a group.

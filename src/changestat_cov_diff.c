@@ -3,7 +3,7 @@
  * @brief  Change statistic for the ERPM term `cov_diff` (one-toggle form).
  *
  * @details
- *  This file implements the {ergm} change statistic for the ERPM effect
+ *  This file implements the \pkg{ergm} change statistic for the ERPM effect
  *  `cov_diff`, which measures, for each group in the group mode, the
  *  dispersion of a numeric actor covariate over all k-subsets of actors
  *  inside that group.
@@ -425,7 +425,7 @@ static double group_covdiff(Vertex g,
  * @brief Change statistic for the ERPM term `cov_diff`.
  *
  * @details
- *  This is the {ergm} change-statistic function registered as
+ *  This is the \pkg{ergm} change-statistic function registered as
  *  ::c_cov_diff via ::C_CHANGESTAT_FN. It computes the local change
  *  Δ in the cov_diff statistic for a single membership toggle between
  *  an actor and a group.

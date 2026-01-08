@@ -8,34 +8,16 @@
 InitErgmTerm.dyadcov(nw, arglist, ...)
 }
 \arguments{
-\item{dyadcov}{matrix or character. Either:
-\itemize{
-\item a numeric matrix of size at least \code{n1 x n1}, where
-\code{n1 = nw \%n\% "bipartite"} is the actor-mode size; or
-\item the name of a network-level attribute containing such a matrix
-(retrieved as \code{nw \%n\% dyadcov}).
-}
-In both cases the matrix is truncated, if necessary, to its top-left
-\code{n1 x n1} block.}
+\item{nw}{A \pkg{network} object.}
 
-\item{clique_size}{numeric or integer scalar. Target clique size \eqn{k}.
-It is rounded and coerced to an integer and must satisfy \eqn{k \ge 2}.
-Defaults to \code{2}.}
+\item{arglist}{A named list of term arguments. Expected components include
+\code{dyadcov}, \code{clique_size}, \code{normalize} (and deprecated aliases
+\code{normalized} and \code{norm}).}
 
-\item{normalize}{logical or character scalar. Controls the normalisation of
-the group-level sums \eqn{S_g^{(k)}(Z)}:
-\itemize{
-\item \code{FALSE} or \code{"none"}: no normalisation (raw sum) ;
-\item \code{"global"} or \code{TRUE} or legacy \code{"size"}:
-global normalisation by \eqn{1 / n_g} when \eqn{n_g \ge k};
-\item \code{"by_group"} or legacy \code{"cliques"}:
-normalisation by \eqn{1 / \binom{n_g}{k}} when \eqn{n_g \ge k}.
-}
-Deprecated aliases \code{normalized} and \code{norm} are also accepted and
-mapped internally to \code{normalize}.}
+\item{...}{Passed through by \pkg{ergm}; not used.}
 }
 \value{
-A standard {ergm} term initialization list with components:
+A standard \pkg{ergm} term initialization list with components:
 \itemize{
 \item \code{name}         = \code{"dyadcov"};
 \item \code{coef.names}   = a single coefficient name encoding
@@ -169,7 +151,7 @@ finite \code{minval}/\code{maxval};
 \item sets the empty-network statistic to \code{0}.
 }
 
-On each toggle of an actor–group edge, the C change-statistic recomputes the
+On each toggle of an actor-group edge, the C change-statistic recomputes the
 local contribution for the unique group affected by the toggle, by updating
 the clique-based sums according to the new set of actors in that group and,
 when a normalisation is requested, dividing by either \eqn{n_g} or
@@ -179,7 +161,7 @@ when a normalisation is requested, dividing by either \eqn{n_g} or
 \section{Arguments}{
 
 The initializer is not called directly by users; it is invoked automatically
-by {ergm} when the term \code{dyadcov(...)} appears on the right-hand side of
+by \pkg{ergm} when the term \code{dyadcov(...)} appears on the right-hand side of
 a model formula.
 }
 
@@ -196,7 +178,7 @@ a direct implementation of
 \code{sum_g f(n_g) * sum_{C in C_k(g)} prod_{i<j in C}(Z[i,j]+Z[j,i])},
 where \code{f(n_g)} is \code{1}, \code{1 / n_g} or
 \code{1 / choose(n_g, k)} depending on the chosen normalisation;
-\item verify that toggling a single actor–group edge changes the statistic
+\item verify that toggling a single actor-group edge changes the statistic
 by the local difference between the "before" and "after" clique sums
 (with or without normalisation), in agreement with the C
 change-statistic \code{c_dyadcov}.

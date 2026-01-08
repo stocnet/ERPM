@@ -5,7 +5,7 @@
 #' @note InitErgmTerm.cliques.R
 #'
 #' @description
-#' \code{cliques} is an ERGM term for bipartite actor–group networks that counts
+#' \code{cliques} is an ERGM term for bipartite actor-group networks that counts
 #' k-actor cliques induced by group memberships. The bipartite network is
 #' interpreted as:
 #' \itemize{
@@ -23,7 +23,7 @@
 #' For k = 1 this reduces to the number of groups of size 1.
 #'
 #' The term \code{cliques} computes this statistic directly from group sizes,
-#' without explicitly materializing the actor–actor projection.
+#' without explicitly materializing the actor-actor projection.
 #'
 #' The initializer supports:
 #' \itemize{
@@ -117,7 +117,7 @@
 #' of \code{scale_j} as an additional multiplicative factor.
 #'
 #' @section Usage:
-#' Typical usage with {ergm} on a bipartite network \code{nw}:
+#' Typical usage with \pkg{ergm} on a bipartite network \code{nw}:
 #' \preformatted{
 #'   # Count 2-actor cliques induced by groups
 #'   summary(nw ~ cliques(k = 2))
@@ -135,7 +135,7 @@
 #'   erpm(partition ~ cliques(k = 2))
 #'   erpm(partition ~ cliques(k = c(2, 3), normalized = TRUE))
 #' }
-#' provided that the wrapper builds a consistent actor–group bipartite network
+#' provided that the wrapper builds a consistent actor-group bipartite network
 #' from the partition.
 #'
 #' @note
@@ -145,13 +145,20 @@
 #'         a strictly positive integer;
 #'   \item the group mode consists of the remaining nodes and represents groups;
 #'   \item the \code{cliques} term only depends on degrees of group-mode nodes
-#'         and the actor–group incidence.
+#'         and the actor-group incidence.
 #' }
 #'
 #' The initializer is tolerant with respect to the argument name for
 #' \code{k}: it accepts positional usage \code{cliques(2)}, the legacy
 #' \code{clique_size} name, as well as the explicit \code{k} argument. All
 #' values of \code{k} must be integers greater than or equal to 1.
+#'
+#' @param nw A \pkg{network} object.
+#' @param arglist A named list of term arguments passed by \pkg{ergm}. Expected
+#'   components include \code{k} (or legacy \code{clique_size}) and
+#'   \code{normalized}.
+#' @param ... Passed through by \pkg{ergm}; not used.
+#' @param version ERGM API version; not used.
 #'
 #' @examples
 #' \dontrun{
@@ -205,7 +212,7 @@
 #' \itemize{
 #'   \item the normalized version matches
 #'         \eqn{\sum_{g} \binom{n_g}{k} / n_g} for each \eqn{k \ge 2};
-#'   \item toggling an actor–group tie changes the statistic by exactly the
+#'   \item toggling an actor-group tie changes the statistic by exactly the
 #'         increment implied by the local change in the size of the affected
 #'         group(s);
 #'   \item the vectorized interface over multiple values of \code{k} returns
@@ -240,7 +247,7 @@ InitErgmTerm.cliques <- function(nw, arglist, ..., version = packageVersion("erg
   # This is the number of actors; the remaining nodes form the group mode.
   n1 <- network::get.network.attribute(nw, "bipartite")
   if (is.null(n1) || is.na(n1)) {
-    ergm_Init_stop(sQuote(termname), ": réseau non biparti ou attribut 'bipartite' manquant.")
+    ergm_Init_stop(sQuote(termname), ": non-bipartite network or missing 'bipartite' attribute.")
   }
   n1 <- as.integer(n1)
   if (n1 <= 1L) ergm_Init_stop(sQuote(termname), ": biparti invalide (N1 <= 1).")
@@ -248,7 +255,7 @@ InitErgmTerm.cliques <- function(nw, arglist, ..., version = packageVersion("erg
   # Run standard ERGM term checks:
   # - enforce bipartite network;
   # - expect arguments 'k' and 'normalized';
-  # - let {ergm} handle generic validations.
+  # - let \pkg{ergm} handle generic validations.
   a <- check.ErgmTerm(
     nw, arglist,
     directed      = NULL,
@@ -290,7 +297,7 @@ InitErgmTerm.cliques <- function(nw, arglist, ..., version = packageVersion("erg
   coef.names <- if (isTRUE(nz)) paste0("cliques_k", k, "_grp") else paste0("cliques_k", k)
   inputs <- c(rbind(as.integer(k), as.double(scale)))
 
-  # Return the ERGM term specification expected by {ergm}.
+  # Return the ERGM term specification expected by \pkg{ergm}.
   # The field 'name' must match the C change-statistic symbol 'cliques'.
   list(
     name         = "cliques",

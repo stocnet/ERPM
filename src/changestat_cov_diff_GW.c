@@ -3,7 +3,7 @@
  * @brief  Change statistic for the ERPM term `cov_diff_GW` (one-toggle form).
  *
  * @details
- *  This file implements the {ergm} change statistic for the ERPM effect
+ *  This file implements the \pkg{ergm} change statistic for the ERPM effect
  *  `cov_diff_GW`, which applies a geometrically weighted transformation
  *  to the family of cov_diff statistics over all subset sizes k ≥ 2
  *  inside each group in the group mode.
@@ -408,7 +408,7 @@ static void group_covdiff_allk(Vertex g,
  * @brief Change statistic for the ERPM term `cov_diff_GW`.
  *
  * @details
- *  This is the {ergm} change-statistic function registered as
+ *  This is the \pkg{ergm} change-statistic function registered as
  *  ::c_cov_diff_GW via ::C_CHANGESTAT_FN. It computes the local change
  *  Δ T_GW(λ_ℓ) for each λ_ℓ when a single membership edge between an actor
  *  (actor mode) and a group (group mode) is toggled.

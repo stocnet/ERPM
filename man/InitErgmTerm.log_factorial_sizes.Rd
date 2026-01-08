@@ -12,6 +12,16 @@ InitErgmTerm.log_factorial_sizes(
   version = packageVersion("ergm")
 )
 }
+\arguments{
+\item{nw}{A bipartite \pkg{network} object.}
+
+\item{arglist}{A list of arguments passed by \pkg{ergm} to the initializer.
+This term expects no user-visible arguments, so \code{arglist} should be empty.}
+
+\item{...}{Further arguments passed by \pkg{ergm}; not used.}
+
+\item{version}{ERGM API version. Defaults to \code{packageVersion("ergm")}.}
+}
 \description{
 \code{log_factorial_sizes} is an ERGM term for bipartite networks that sums
 the log-factorial of group sizes. The network is interpreted as:
@@ -29,7 +39,7 @@ with the convention \code{lgamma(0) = 0}, so that empty groups do not
 contribute.
 
 This term has no user-visible arguments and is intended to be used directly
-in {ergm} formulas or through the ERPM wrapper.
+in \pkg{ergm} formulas or through the ERPM wrapper.
 }
 \details{
 The term is implemented as a native ERGM C change-statistic, declared in
@@ -75,7 +85,7 @@ The statistic is:
 
 \section{Usage}{
 
-Typical usage with {ergm}:
+Typical usage with \pkg{ergm}:
 \preformatted{
   summary(nw ~ log_factorial_sizes)
   ergm(nw ~ log_factorial_sizes)
@@ -97,7 +107,7 @@ with known group sizes and compare:
 \item a direct evaluation of \code{sum(lgamma(group_sizes))} with
 \code{lgamma(0) <- 0}.
 }
-These tests also check that toggling an actor–group tie updates the statistic
+These tests also check that toggling an actor-group tie updates the statistic
 by the correct local increment as defined in the C change-statistic.
 }
 

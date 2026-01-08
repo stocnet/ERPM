@@ -7,10 +7,27 @@
 \usage{
 InitErgmTerm.cov_fulldiff(nw, arglist, ..., version = packageVersion("ergm"))
 }
+\arguments{
+\item{nw}{A \pkg{network} object. Must be bipartite with actor-mode size stored
+in \code{nw \%n\% "bipartite"}.}
+
+\item{arglist}{A named list of term arguments provided by \pkg{ergm}.
+Expected components include:
+\itemize{
+\item \code{cov}: name of a vertex attribute on the actor mode, or a numeric
+vector (only the first \code{n1} entries are used);
+\item \code{size}: optional vector of strictly positive integers specifying
+which group sizes contribute (use \code{NULL} for all sizes).
+}}
+
+\item{...}{Passed through by \pkg{ergm}; not used.}
+
+\item{version}{ERGM API version; not used.}
+}
 \description{
 \code{cov_fulldiff} is an ERGM term for bipartite networks that measures,
 for each group, the dispersion of a numeric actor covariate through the
-max–min range, optionally restricted to a subset of group sizes.
+max-min range, optionally restricted to a subset of group sizes.
 
 The bipartite network is interpreted as:
 \itemize{
@@ -39,7 +56,7 @@ strictly positive integers;
 
 The ERGM infrastructure will call the C change-statistic whenever a toggle
 affects an edge between an actor and a group. The C code then recomputes the
-local contribution of the affected group(s) to the total max–min range.
+local contribution of the affected group(s) to the total max-min range.
 }
 \note{
 InitErgmTerm.cov_fulldiff.R
@@ -99,7 +116,7 @@ positive integers and every non-empty group contributes.
 
 \section{Usage}{
 
-Typical usage with {ergm} on a bipartite network \code{nw}:
+Typical usage with \pkg{ergm} on a bipartite network \code{nw}:
 \preformatted{
   # Range of a numeric actor covariate within each group (all group sizes)
   summary(nw ~ cov_fulldiff(cov = "x_attr"))
@@ -127,8 +144,8 @@ known group memberships and numeric covariates, and compare:
 \eqn{\sum_g \mathbf{1}[n_g \in S] (x_g^{\max} - x_g^{\min})}
 for various choices of the size filter \eqn{S}.
 }
-Additional checks verify that toggling an actor–group tie updates the
-statistic by the expected local change in the max–min range of the affected
+Additional checks verify that toggling an actor-group tie updates the
+statistic by the expected local change in the max-min range of the affected
 group, including cases where the group becomes empty or changes size.
 }
 

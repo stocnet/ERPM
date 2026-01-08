@@ -29,12 +29,20 @@
 #' symbol \code{c_dyadcov_GW}. The initializer packages \code{n1}, \code{lambda}
 #' and the flattened \code{dyadcov} matrix into \code{INPUT_PARAM}.
 #'
-#' @section Arguments:
-#' @param dyadcov matrix or character. Either a numeric matrix, or the name of a
+#' @param nw A \pkg{network} object.
+#' @param arglist A named list of term arguments. Expected components include
+#'   \code{dyadcov} (matrix or character) and \code{lambda} (numeric scalar).
+#' @param ... Passed through by \pkg{ergm}; not used.
+#'
+#' @details
+#' Term arguments are passed via \code{arglist} by \pkg{ergm}:
+#' \itemize{
+#' \item \code{dyadcov}: matrix or character. Either a numeric matrix, or the name of a
 #' network-level attribute containing such a matrix (retrieved as \code{nw \%n\% dyadcov}).
 #' In ERPM usage, the matrix can also come from \code{nw \%n\% "dyads"} (a named list),
 #' i.e. \code{(nw \%n\% "dyads")[[dyadcov]]}.
-#' @param lambda numeric scalar. Geometric weight parameter \eqn{\lambda > 0}.
+#' \item \code{lambda}: numeric scalar. Geometric weight parameter \eqn{\lambda > 0}.
+#' }
 #'
 #' @keywords ERGM term bipartite dyadic covariate geometrically-weighted cliques
 #' @md
@@ -68,7 +76,7 @@ InitErgmTerm.dyadcov_GW <- function(nw, arglist, ...) {
   # ---------------------------------------------------------------------------
   n1 <- as.integer(nw %n% "bipartite")
   if (is.na(n1) || n1 <= 0L)
-    stop(termname, ": réseau non biparti strict (attribut %n% 'bipartite' manquant ou invalide).")
+    stop(termname, ": strictly bipartite network required (attribut %n% 'bipartite' manquant ou invalide).")
   dbgcat("n1 = ", n1)
 
   # ---------------------------------------------------------------------------
@@ -92,8 +100,8 @@ InitErgmTerm.dyadcov_GW <- function(nw, arglist, ...) {
         dyad_label <- paste0("dyads$", dyad_raw)
         dbgcat("dyadcov source = dyads list, key=", sQuote(dyad_raw))
       } else {
-        stop(termname, ": attribut de niveau réseau inexistant et dyads[[",
-             sQuote(dyad_raw), "]] introuvable.")
+        stop(termname, ": nonexistent network-level attribute and dyads[[",
+             sQuote(dyad_raw), "]] not found")
       }
     }
   } else {
@@ -104,7 +112,7 @@ InitErgmTerm.dyadcov_GW <- function(nw, arglist, ...) {
   }
 
   if (!is.matrix(dyad_mat))
-    stop(termname, ": 'dyadcov' doit être une matrice ou le nom d'un attribut de niveau réseau.")
+    stop(termname, ": 'dyadcov' must be a matrix or the name of a network-level attribute.")
 
   nr <- nrow(dyad_mat)
   nc <- ncol(dyad_mat)
@@ -121,9 +129,9 @@ InitErgmTerm.dyadcov_GW <- function(nw, arglist, ...) {
   # Numeric coercion + NA guard
   if (is.logical(dyad_mat) || is.integer(dyad_mat)) dyad_mat <- as.numeric(dyad_mat)
   if (!is.numeric(dyad_mat))
-    stop(termname, ": la matrice dyadique doit être numérique (ou coercible en numérique).")
+    stop(termname, ": the dyadic matrix must be numeric (or coercible to numeric).")
   if (anyNA(dyad_mat))
-    stop(termname, ": NA non autorisé dans la matrice dyadique.")
+    stop(termname, ": NA values are not allowed in the dyadic matrix.")
 
   # Optional symmetry diagnostics (no requirement)
   if (dbg) {
@@ -137,9 +145,9 @@ InitErgmTerm.dyadcov_GW <- function(nw, arglist, ...) {
   lambda <- as.double(a$lambda)
   if (!length(lambda) || is.na(lambda)) lambda <- 2
   if (length(lambda) != 1L)
-    stop(termname, ": 'lambda' doit être un scalaire.")
+    stop(termname, ": 'lambda' must be a scalar.")
   if (!is.finite(lambda) || lambda <= 0)
-    stop(termname, ": 'lambda' doit être un réel strictement positif (et typiquement > 1).")
+    stop(termname, ": 'lambda' must be a strictly positive real number (and typically > 1).")
   dbgcat("lambda = ", format(lambda, digits = 6L))
 
   # ---------------------------------------------------------------------------

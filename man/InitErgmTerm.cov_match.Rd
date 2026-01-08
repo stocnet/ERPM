@@ -8,49 +8,16 @@
 InitErgmTerm.cov_match(nw, arglist, ..., version = packageVersion("ergm"))
 }
 \arguments{
-\item{cov}{character|factor|numeric
-Either:
-\itemize{
-\item the name of an actor-level vertex attribute (factor or character)
-defined on all actors in the actor mode; or
-\item a vector of length at least \code{|A|} (number of actors), which
-is interpreted as an actor-level covariate.
-}
-In both cases, the covariate is coerced to a factor and then encoded as
-integer codes \eqn{1,\dots,R}; \code{NA} values are mapped to 0 (meaning
-"absent/undefined" and ignored in clique counts). For numeric covariates,
-\code{cov_match} is not meaningful and the initializer fails fast with an
-error.}
+\item{nw}{A \pkg{network} object.}
 
-\item{clique_size}{integer|numeric
-One or several clique sizes \eqn{k \ge 1}. The term is vectorized in
-\code{clique_size}, so each distinct value of \eqn{k} yields one statistic
-and one coefficient. Values are rounded to integers and must be finite and
-at least 1.}
+\item{arglist}{A named list of term arguments (see \sQuote{Arguments}).}
 
-\item{category}{character|NULL
-Optional targeted category. If \code{NULL}, all categories contribute to
-the statistic. If a character string, the initializer ensures that the
-category appears in the factor levels; if it does not, the level is added
-with zero frequency so that the resulting statistic is structurally zero
-without error.}
+\item{...}{Passed through by \pkg{ergm}; not used.}
 
-\item{normalized}{character|logical
-Normalization mode, one of:
-\itemize{
-\item \code{"none"}: raw counts of monochromatic cliques;
-\item \code{"by_group"}: per-group normalization by \eqn{\binom{n_g}{k}};
-\item \code{"global"}: per-group normalization by \eqn{n_g}, i.e.
-each group contribution is divided by its size and the resulting
-contributions are summed over groups. Groups with \eqn{n_g = 0}
-contribute 0.
-}
-Logical values are supported as shorthand:
-\code{TRUE} is equivalent to \code{"by_group"} and \code{FALSE} to
-\code{"none"}.}
+\item{version}{ERGM API version; not used.}
 }
 \value{
-A standard {ergm} term specification list with components:
+A standard \pkg{ergm} term specification list with components:
 \itemize{
 \item \code{name}         = \code{"cov_match"};
 \item \code{coef.names}   = coefficient names encoding the covariate label,
@@ -183,6 +150,8 @@ can be overridden (for advanced use) by setting:
 \code{options(erpm.debug.cov_match_init = TRUE)}. When enabled, the
 initializer prints diagnostic information about actor-mode size,
 clique sizes, normalization mode, and covariate level mapping.
+It also verifies whether ERPM wrapper metadata are attached:
+\code{nw \%n\% "nodes"} and \code{nw \%n\% "dyads"}.
 }
 }
 \section{INPUT_PARAM layout (C side)}{
@@ -208,7 +177,7 @@ respecting the chosen normalization and targeted category.
 
 \section{Arguments}{
 
-The initializer is called internally by {ergm} and should not be invoked
+The initializer is called internally by \pkg{ergm} and should not be invoked
 directly by users. The user-facing term is:
 
 \code{
@@ -216,6 +185,16 @@ directly by users. The user-facing term is:
             clique_size = 2,
             category    = NULL,
             normalized  = c("none","by_group","global"))
+}
+
+The term arguments are passed to this initializer through \code{arglist}
+with expected components:
+\itemize{
+\item \code{cov}: character (vertex attribute name) or a factor/character vector;
+\item \code{clique_size}: integer(s) \eqn{k \ge 1};
+\item \code{category}: optional targeted category (character or \code{NULL});
+\item \code{normalized}: \code{"none"}, \code{"by_group"}, or \code{"global"}
+(logical values are accepted as shorthand).
 }
 }
 

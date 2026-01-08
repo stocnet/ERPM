@@ -14,7 +14,7 @@ suppressPackageStartupMessages({
 })
 devtools::load_all(".")
 
-# ----- Active le patch {ergm} ---------------------------------------------------------
+# ----- Active le patch \pkg{ergm} ---------------------------------------------------------
 # source("scripts/ergm_patch.R")
 # ergm_patch_enable()
 

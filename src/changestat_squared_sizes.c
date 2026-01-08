@@ -3,7 +3,7 @@
  * @brief Change statistic for the ERPM term `squared_sizes` (one-toggle form).
  *
  * @details
- *  This file implements the {ergm} change statistic for the ERPM effect
+ *  This file implements the \pkg{ergm} change statistic for the ERPM effect
  *  `squared_sizes(sizes, pow)` on a bipartite network encoded as:
  *    - actor mode  = actor vertices,
  *    - group mode  = group vertices.
@@ -41,7 +41,7 @@
  *  in CHANGE_STAT[0].
  *
  *  ------------------------------------------------------------
- *  Implementation in {ergm} (one-toggle)
+ *  Implementation in \pkg{ergm} (one-toggle)
  *  ------------------------------------------------------------
  *
  *  - A bipartite network is assumed:
@@ -68,7 +68,7 @@
  *         This Δ is then added to CHANGE_STAT[0].
  *
  *  - The macro ::C_CHANGESTAT_FN declares the function with the signature
- *    required by {ergm} and exposes:
+ *    required by \pkg{ergm} and exposes:
  *      - N_CHANGE_STATS  (number of statistics, expected to be 1 here),
  *      - INPUT_PARAM     (packed parameters),
  *      - CHANGE_STAT     (output buffer).
@@ -238,7 +238,7 @@ C_CHANGESTAT_FN(c_squared_sizes){
 
   /* 1) Always reset the output buffer for THIS call.
    *
-   * {ergm} sums the vectors returned by successive calls. Here we only
+   * \pkg{ergm} sums the vectors returned by successive calls. Here we only
    * compute the local contribution of the current toggle.
    */
   ZERO_ALL_CHANGESTATS();

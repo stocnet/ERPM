@@ -30,7 +30,7 @@ options(ergm.loglik.warn_dyads=FALSE)
 # ----- Charge le package local ERPM ---------------------------------------------------
 devtools::load_all(".")
 
-# ----- Active le patch {ergm} ---------------------------------------------------------
+# ----- Active le patch \pkg{ergm} ---------------------------------------------------------
 source("scripts/ergm_patch.R")
 ergm_patch_enable()
 

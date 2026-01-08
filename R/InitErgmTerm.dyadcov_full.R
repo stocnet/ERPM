@@ -62,29 +62,30 @@
 #'   \item sets the empty-network statistic to \code{0}.
 #' }
 #'
-#' For each toggle of an actor–group edge, the C change-statistic recomputes
+#' For each toggle of an actor-group edge, the C change-statistic recomputes
 #' the within-group dyadic covariate sum for the unique group touched by the
 #' toggle, respecting the size filter \eqn{S} when present.
 #'
 #' @section Arguments:
 #' The initializer is not called directly by users; it is invoked automatically
-#' by {ergm} when the term \code{dyadcov_full(...)} appears on the right-hand side
+#' by \pkg{ergm} when the term \code{dyadcov_full(...)} appears on the right-hand side
 #' of a model formula.
 #'
-#' @param dyadcov matrix or character. Either:
+#' @param nw A \pkg{network} object.
+#' @param arglist A named list of term arguments. Expected components:
 #'   \itemize{
-#'     \item a numeric matrix of size at least \code{n1 x n1}, where
-#'           \code{n1 = nw \%n\% "bipartite"} is the actor-mode size; or
-#'     \item the name of a network-level attribute containing such a matrix
-#'           (retrieved as \code{nw \%n\% dyadcov}).
+#'     \item \code{dyadcov}: matrix or character. Either a numeric matrix of size at least
+#'           \code{n1 x n1} (with \code{n1 = nw \%n\% "bipartite"}), or the name of a
+#'           network-level attribute containing such a matrix (retrieved as
+#'           \code{nw \%n\% dyadcov}). The matrix is truncated, if necessary, to its
+#'           top-left \code{n1 x n1} block.
+#'     \item \code{size}: optional numeric/integer vector. If provided, only groups whose
+#'           actor-degree is in \code{size} contribute to the statistic.
 #'   }
-#'   In both cases the matrix is truncated, if necessary, to its top-left
-#'   \code{n1 x n1} block.
-#' @param size optional numeric/integer vector. If provided, only groups whose
-#'   actor-degree is in \code{size} contribute to the statistic.
+#' @param ... Passed through by \pkg{ergm}; not used.
 #'
 #' @return
-#' A standard {ergm} term initialization list with components:
+#' A standard \pkg{ergm} term initialization list with components:
 #' \itemize{
 #'   \item \code{name}         = \code{"dyadcov_full"};
 #'   \item \code{coef.names}   = a single coefficient name encoding
@@ -126,7 +127,7 @@ InitErgmTerm.dyadcov_full <- function(nw, arglist, ...) {
   # ---------------------------------------------------------------------------
   n1 <- as.integer(nw %n% "bipartite")
   if (is.na(n1) || n1 <= 0L)
-    stop(termname, ": réseau non biparti strict (attribut %n% 'bipartite' manquant ou invalide).")
+    stop(termname, ": strictly bipartite network required (attribut %n% 'bipartite' manquant ou invalide).")
   dbgcat("n1 = ", n1)
 
   # ---------------------------------------------------------------------------
@@ -152,26 +153,26 @@ InitErgmTerm.dyadcov_full <- function(nw, arglist, ...) {
       dyad_mat   <- nw %n% dyad_raw
       dyad_label <- dyad_raw
       if (is.null(dyad_mat))
-        stop(termname, ": matrice dyadique introuvable: ",
+        stop(termname, ": dyadic matrix not found: ",
              sQuote(dyad_raw),
-             " (cherché dans nw %n% 'dyads' puis dans nw %n% ", sQuote(dyad_raw), ").")
+             " (looked up in nw %n% 'dyads', then in nw %n%. ", sQuote(dyad_raw), ").")
       dbgcat("dyadcov source = network attribute ", sQuote(dyad_label))
     }
   } else {
     # Case: matrix passed literally as an argument
     dyad_mat   <- dyad_raw
     dyad_label <- "dyadcov"
-    dbgcat("dyadcov source = matrix literal")
+    dbgcat("dyadcov source = literal matrix ")
   }
 
   if (!is.matrix(dyad_mat))
-    stop(termname, ": 'dyadcov' doit être une matrice ou le nom d'un attribut de niveau réseau.")
+    stop(termname, ": 'dyadcov' must be a matrix or the name of a network-level attribute.")
 
   nr <- nrow(dyad_mat)
   nc <- ncol(dyad_mat)
 
   if (nr < n1 || nc < n1)
-    stop(termname, ": dimensions de la matrice dyadique (", nr, "x", nc,
+    stop(termname, ": dyadic matrix dimension (", nr, "x", nc,
          ") insuffisantes pour n1 = ", n1, ".")
 
   # If larger than needed, restrict to the top-left n1 x n1 block
@@ -184,10 +185,10 @@ InitErgmTerm.dyadcov_full <- function(nw, arglist, ...) {
   # Numeric coercion and fail-fast on NA
   # ---------------------------------------------------------------------------
   if (!is.numeric(dyad_mat))
-    stop(termname, ": la matrice dyadique doit être numérique.")
+    stop(termname, ": dyadic matrix must be numeric.")
 
   if (anyNA(dyad_mat))
-    stop(termname, ": NA non autorisé dans la matrice dyadique.")
+    stop(termname, ": NA values are not allowed in the dyadic matrix.")
 
   dbgcat("dyadcov dim = ", paste(dim(dyad_mat), collapse = "x"),
          " | sample = ",
@@ -203,10 +204,10 @@ InitErgmTerm.dyadcov_full <- function(nw, arglist, ...) {
     size_label <- ""
   } else {
     if (!is.numeric(sizes_raw))
-      stop(termname, ": 'size' doit être numérique ou entier.")
+      stop(termname, ": 'size' must be numeric ou entier.")
     iv <- as.integer(round(sizes_raw))
     if (any(!is.finite(sizes_raw)) || any(iv <= 0L) || !isTRUE(all.equal(sizes_raw, iv))) {
-      stop(termname, ": 'size' doit contenir des entiers positifs.")
+      stop(termname, ": 'size' must contain positive integers.")
     }
     iv <- sort(unique(iv))
     sizes_vec <- as.double(iv)

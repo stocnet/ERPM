@@ -16,7 +16,7 @@ suppressPackageStartupMessages({
 # Charge le package local
 devtools::load_all(".")
 
-# Patch {ergm} si présent
+# Patch \pkg{ergm} si présent
 if (file.exists("scripts/ergm_patch.R")) {
   source("scripts/ergm_patch.R"); ergm_patch_enable()
 }

@@ -6,7 +6,7 @@
 #' @description
 #' \code{cov_fulldiff} is an ERGM term for bipartite networks that measures,
 #' for each group, the dispersion of a numeric actor covariate through the
-#' max–min range, optionally restricted to a subset of group sizes.
+#' max-min range, optionally restricted to a subset of group sizes.
 #'
 #' The bipartite network is interpreted as:
 #' \itemize{
@@ -35,7 +35,7 @@
 #'
 #' The ERGM infrastructure will call the C change-statistic whenever a toggle
 #' affects an edge between an actor and a group. The C code then recomputes the
-#' local contribution of the affected group(s) to the total max–min range.
+#' local contribution of the affected group(s) to the total max-min range.
 #'
 #' @section Mathematical definition:
 #' Let:
@@ -71,7 +71,7 @@
 #' positive integers and every non-empty group contributes.
 #'
 #' @section Usage:
-#' Typical usage with {ergm} on a bipartite network \code{nw}:
+#' Typical usage with \pkg{ergm} on a bipartite network \code{nw}:
 #' \preformatted{
 #'   # Range of a numeric actor covariate within each group (all group sizes)
 #'   summary(nw ~ cov_fulldiff(cov = "x_attr"))
@@ -106,6 +106,19 @@
 #' Internally, \code{cov_fulldiff} passes the size filter and the actor
 #' covariate to the C layer through \code{INPUT_PARAM} with layout
 #' \code{c(n1, L, sizes[1:L], x[1:n1])}.
+#'
+#' @param nw A \pkg{network} object. Must be bipartite with actor-mode size stored
+#'   in \code{nw \%n\% "bipartite"}.
+#' @param arglist A named list of term arguments provided by \pkg{ergm}.
+#'   Expected components include:
+#'   \itemize{
+#'     \item \code{cov}: name of a vertex attribute on the actor mode, or a numeric
+#'       vector (only the first \code{n1} entries are used);
+#'     \item \code{size}: optional vector of strictly positive integers specifying
+#'       which group sizes contribute (use \code{NULL} for all sizes).
+#'   }
+#' @param ... Passed through by \pkg{ergm}; not used.
+#' @param version ERGM API version; not used.
 #'
 #' @examples
 #' \dontrun{
@@ -156,8 +169,8 @@
 #'         \eqn{\sum_g \mathbf{1}[n_g \in S] (x_g^{\max} - x_g^{\min})}
 #'         for various choices of the size filter \eqn{S}.
 #' }
-#' Additional checks verify that toggling an actor–group tie updates the
-#' statistic by the expected local change in the max–min range of the affected
+#' Additional checks verify that toggling an actor-group tie updates the
+#' statistic by the expected local change in the max-min range of the affected
 #' group, including cases where the group becomes empty or changes size.
 #'
 #' @keywords ERGM term bipartite groups covariate range
@@ -186,7 +199,7 @@ InitErgmTerm.cov_fulldiff <- function(nw, arglist, ..., version = packageVersion
   # ----- 1) Actor-mode size n1 -----------------------------------------------
   # n1 is the number of actors, retrieved from the bipartite network attribute.
   n1 <- as.integer(nw %n% "bipartite")
-  if (is.na(n1) || n1 <= 0L) stop(termname, ": réseau non biparti strict.")
+  if (is.na(n1) || n1 <= 0L) stop(termname, ": strictly bipartite network required.")
   dbgcat("n1 = ", n1)
 
   # ----- 2) Extract actor covariate (length >= n1) ---------------------------
@@ -207,7 +220,7 @@ InitErgmTerm.cov_fulldiff <- function(nw, arglist, ..., version = packageVersion
   }
 
   if (length(cov_vec) < n1)
-    stop(termname, ": longueur de la covariée < n1.")
+    stop(termname, ": covariate length < n1.")
 
   cov_vec <- cov_vec[seq_len(n1)]
   dbgcat("cov length = ", length(cov_vec),
@@ -220,10 +233,10 @@ InitErgmTerm.cov_fulldiff <- function(nw, arglist, ..., version = packageVersion
     cov_vec <- as.numeric(cov_vec)
   }
   if (!is.numeric(cov_vec))
-    stop(termname, ": la covariée doit être coercible en numérique.")
+    stop(termname, ": the covariate must be coercible to numeric.")
 
   if (anyNA(cov_vec))
-    stop(termname, ": NA non autorisé dans la covariée du mode acteurs.")
+    stop(termname, ": NA values are not allowed in the actor-mode covariate.")
 
   # ----- 4) Size filter S (argument 'size') ----------------------------------
   # The 'size' argument defines the set S of allowed group sizes:
@@ -237,13 +250,13 @@ InitErgmTerm.cov_fulldiff <- function(nw, arglist, ..., version = packageVersion
     size_label <- "_all"
   } else {
     if (!is.numeric(sizes))
-      stop(termname, ": 'size' doit être numérique.")
+      stop(termname, ": 'size' must be numeric.")
     if (length(sizes) == 0L)
-      stop(termname, ": 'size' vide (integer(0)) interdit. Utilisez NULL pour toutes tailles.")
+      stop(termname, ": empty 'size' (integer(0)) is not allowed. Use NULL for all sizes.")
 
     sizes <- as.integer(round(sizes))
     if (any(!is.finite(sizes)) || any(sizes <= 0L))
-      stop(termname, ": 'size' doit contenir des entiers positifs.")
+      stop(termname, ": 'size' must contain positive integers.")
 
     sizes     <- sort(unique(sizes))
     L         <- length(sizes)

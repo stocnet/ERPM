@@ -68,7 +68,7 @@
 #' so that \eqn{T(y) = \sum_{g \in G} \deg(g)^{\text{pow}}}.
 #'
 #' @section Usage:
-#' Typical usage with {ergm} (constraints explicit):
+#' Typical usage with \pkg{ergm} (constraints explicit):
 #' \preformatted{
 #'   # Sum of squared group sizes over all non-empty groups
 #'   summary(nw ~ squared_sizes, constraints = ~ b1part)
@@ -95,17 +95,22 @@
 #'   erpm(partition ~ squared_sizes)
 #' }
 #'
-#' @param sizes numeric, integer(s) \eqn{\ge 1}. Admissible group sizes.
-#'   If \code{sizes} is \code{NULL} or missing, it defaults to
-#'   \code{1:network.bipartite(nw)}, i.e. all non-empty group sizes up to the
-#'   number of actors. Can be a scalar or a vector; all values are aggregated
-#'   into a \emph{single} statistic.
-#' @param pow numeric, integer \eqn{\ge 1}. Power applied to the group
-#'   degrees. Defaults to \code{2}. Must be of length 1; the same exponent is
-#'   applied to all sizes in \code{sizes}.
+#' @param nw A \pkg{network} object.
+#' @param arglist A named list of term arguments. Expected components:
+#'   \describe{
+#'     \item{\code{sizes}}{numeric, integer(s) \eqn{\ge 1}. Admissible group sizes.
+#'       If \code{NULL} or missing, defaults to \code{1:network.bipartite(nw)},
+#'       i.e. all non-empty group sizes up to the number of actors. Can be a scalar
+#'       or a vector; all values are aggregated into a \emph{single} statistic.}
+#'     \item{\code{pow}}{numeric, integer \eqn{\ge 1}. Power applied to the group
+#'       degrees. Defaults to \code{2}. Must be of length 1; the same exponent is
+#'       applied to all sizes in \code{sizes}.}
+#'   }
+#' @param ... Passed through by \pkg{ergm}; not used.
+#' @param version ERGM API version; defaults to \code{packageVersion("ergm")}.
 #'
 #' @return
-#' A standard {ergm} term initialization list with components:
+#' A standard \pkg{ergm} term initialization list with components:
 #' \itemize{
 #'   \item \code{name}         = \code{"squared_sizes"};
 #'   \item \code{coef.names}   = a single character string encoding the set
@@ -322,7 +327,7 @@ InitErgmTerm.squared_sizes <- function(nw, arglist, ..., version = packageVersio
   # ---------------------------------------------------------------------------
   # Standard ERGM term initialization return value
   # ---------------------------------------------------------------------------
-  # - name         : must match the C symbol (without the 'c_' prefix parsed by {ergm}).
+  # - name         : must match the C symbol (without the 'c_' prefix parsed by \pkg{ergm}).
   # - coef.names   : single label for the aggregated statistic.
   # - inputs       : numeric vector passed to the C change-statistic as INPUT_PARAM.
   # - dependence   : TRUE since the term depends on the network configuration.

@@ -7,6 +7,16 @@
 \usage{
 InitErgmTerm.cliques_GW(nw, arglist, ..., version = packageVersion("ergm"))
 }
+\arguments{
+\item{nw}{A \pkg{network} object.}
+
+\item{arglist}{A named list of term arguments. Expected components include
+\code{lambda}.}
+
+\item{...}{Passed through by \pkg{ergm}; not used.}
+
+\item{version}{ERGM API version; not used.}
+}
 \description{
 \code{cliques_GW} is an ERGM term for bipartite actor–group networks that
 aggregates group sizes through a geometrically weighted transform. The
@@ -20,9 +30,9 @@ groups.
 For each group node \eqn{g} in the group mode, let \eqn{n_g} be its degree
 (the number of adjacent actors). For a given \eqn{\lambda \ge 1}, define
 \deqn{
-  S(n_g, \eqn{\lambda})
+  S(n_g, \lambda)
   =
-  \eqn{\lambda} \Big[1 - r_\lambda^{\,n_g}\Big],
+  \lambda \Big[1 - r_\lambda^{\,n_g}\Big],
   \qquad
   r_\lambda = \frac{\lambda - 1}{\lambda}.
 }
@@ -30,9 +40,9 @@ The \code{cliques_GW} term computes the statistic
 \deqn{
   T_\lambda(y)
   =
-  \sum_{g \in G} S(n_g, \eqn{\lambda})
+  \sum_{g \in G} S(n_g, \lambda)
   =
-  \sum_{g \in G} \eqn{\lambda} \Big[ 1 - r_\lambda^{\,n_g} \Big],
+  \sum_{g \in G} \lambda \Big[ 1 - r_\lambda^{\,n_g} \Big],
 }
 where \eqn{G} is the set of group-mode nodes. Intuitively, each group
 contributes a geometrically weighted function of its size, with
@@ -102,15 +112,15 @@ with \eqn{B_{ig} = 1} if actor \eqn{i} belongs to group \eqn{g};
 }
 For a given \eqn{\lambda \ge 1}, define
 \deqn{
-  S(n_g, \eqn{\lambda})
+  S(n_g, \lambda)
   =
-  \eqn{\lambda} \Big[ 1 - \Big(\frac{\lambda - 1}{\lambda}\Big)^{n_g} \Big],
+  \lambda \Big[ 1 - \Big(\frac{\lambda - 1}{\lambda}\Big)^{n_g} \Big],
 }
 and the statistic
 \deqn{
   T_\lambda(y)
   =
-  \sum_{g \in G} S(n_g, \eqn{\lambda}).
+  \sum_{g \in G} S(n_g, \lambda).
 }
 When multiple values \eqn{\lambda_1,\dots,\lambda_J} are supplied, the ERGM
 term returns the vector
@@ -119,7 +129,7 @@ term returns the vector
 
 \section{Usage}{
 
-Typical usage with {ergm} on a bipartite actor–group network \code{nw}:
+Typical usage with \pkg{ergm} on a bipartite actor–group network \code{nw}:
 \preformatted{
   # Single lambda
   summary(nw ~ cliques_GW(lambda = 2))
@@ -148,7 +158,7 @@ Self-tests for \code{cliques_GW} construct small bipartite actor–group
 networks with known group sizes, then:
 \itemize{
 \item compute group-mode degrees \eqn{n_g} and evaluate
-\eqn{T_\lambda(y) = \sum_g \eqn{\lambda} \big[1 - r_\lambda^{n_g}\big]}
+\eqn{T_\lambda(y) = \sum_g \lambda \big[1 - r_\lambda^{n_g}\big]}
 directly in R for several values of \eqn{\lambda};
 \item compare these reference values with
 \code{summary(nw ~ cliques_GW(lambda = lambda_vec))};

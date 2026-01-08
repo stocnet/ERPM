@@ -9,7 +9,7 @@
 #
 # Résumé technique :
 #   • `groups(k)` ≡ nombre de groupes de taille EXACTEMENT k.
-#   • Le wrapper traduit `groups(k)` en {ergm} `b2degrange(from=k, to=k+1)`.
+#   • Le wrapper traduit `groups(k)` en \pkg{ergm} `b2degrange(from=k, to=k+1)`.
 #   • On compare un summary direct sur `nw` et un summary via dry-run `erpm`.
 # ======================================================================================
 
@@ -25,7 +25,7 @@ suppressPackageStartupMessages({
 
 devtools::load_all(".")
 
-# Patch {ergm} optionnel si présent
+# Patch \pkg{ergm} optionnel si présent
 if (file.exists("scripts/ergm_patch.R")) {
   source("scripts/ergm_patch.R"); ergm_patch_enable()
 }

@@ -7,6 +7,17 @@
 \usage{
 InitErgmTerm.cov_diff_GW(nw, arglist, ..., version = packageVersion("ergm"))
 }
+\arguments{
+\item{nw}{A \pkg{network} object.}
+
+\item{arglist}{A named list of term arguments constructed by \pkg{ergm}.
+Expected components include \code{cov} (vertex attribute name or numeric
+vector) and \code{lambda} (numeric scalar or vector with values > 1).}
+
+\item{...}{Passed through by \pkg{ergm}; not used.}
+
+\item{version}{ERGM API version; not used.}
+}
 \description{
 \code{cov_diff_GW} is an ERGM term for bipartite networks that builds a
 geometrically weighted combination of \code{cov_diff}-type statistics over
@@ -20,7 +31,7 @@ interpreted as:
 Each actor in the actor mode carries a numeric covariate value \eqn{x_i}. For
 each group and each subset size \eqn{k \ge 2}, \code{cov_diff_GW} considers
 all \eqn{k}-actor subsets inside that group and computes on each subset the
-max–min range of the covariate. These \code{cov_diff}-type contributions are
+max-min range of the covariate. These \code{cov_diff}-type contributions are
 then combined over all \eqn{k \ge 2} using a geometric weight controlled by
 \eqn{\lambda > 1}.
 
@@ -148,7 +159,7 @@ returns the vector
 
 \section{Usage}{
 
-Typical usage with {ergm} on a bipartite network \code{nw}:
+Typical usage with \pkg{ergm} on a bipartite network \code{nw}:
 \preformatted{
   # Single lambda (default = 2)
   summary(nw ~ cov_diff_GW(cov = "x_attr", lambda = 2))
@@ -179,7 +190,7 @@ known groups and numeric covariates and compare, for each \code{lambda},
 where each \eqn{c_k} is computed explicitly by enumerating all
 \eqn{k}-actor subsets inside each group.
 }
-Additional checks verify that toggling an actor–group tie changes the
+Additional checks verify that toggling an actor-group tie changes the
 statistic by the local increment predicted by the C change-statistic, and
 that all \code{lambda} values are handled consistently in the vectorized
 interface.

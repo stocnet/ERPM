@@ -7,8 +7,19 @@
 \usage{
 InitErgmTerm.cliques(nw, arglist, ..., version = packageVersion("ergm"))
 }
+\arguments{
+\item{nw}{A \pkg{network} object.}
+
+\item{arglist}{A named list of term arguments passed by \pkg{ergm}. Expected
+components include \code{k} (or legacy \code{clique_size}) and
+\code{normalized}.}
+
+\item{...}{Passed through by \pkg{ergm}; not used.}
+
+\item{version}{ERGM API version; not used.}
+}
 \description{
-\code{cliques} is an ERGM term for bipartite actor–group networks that counts
+\code{cliques} is an ERGM term for bipartite actor-group networks that counts
 k-actor cliques induced by group memberships. The bipartite network is
 interpreted as:
 \itemize{
@@ -26,7 +37,7 @@ actors, the total number of k-actor cliques is
 For k = 1 this reduces to the number of groups of size 1.
 
 The term \code{cliques} computes this statistic directly from group sizes,
-without explicitly materializing the actor–actor projection.
+without explicitly materializing the actor-actor projection.
 
 The initializer supports:
 \itemize{
@@ -91,7 +102,7 @@ The network must be strictly bipartite:
 a strictly positive integer;
 \item the group mode consists of the remaining nodes and represents groups;
 \item the \code{cliques} term only depends on degrees of group-mode nodes
-and the actor–group incidence.
+and the actor-group incidence.
 }
 
 The initializer is tolerant with respect to the argument name for
@@ -140,7 +151,7 @@ of \code{scale_j} as an additional multiplicative factor.
 
 \section{Usage}{
 
-Typical usage with {ergm} on a bipartite network \code{nw}:
+Typical usage with \pkg{ergm} on a bipartite network \code{nw}:
 \preformatted{
   # Count 2-actor cliques induced by groups
   summary(nw ~ cliques(k = 2))
@@ -158,7 +169,7 @@ invoked indirectly as:
   erpm(partition ~ cliques(k = 2))
   erpm(partition ~ cliques(k = c(2, 3), normalized = TRUE))
 }
-provided that the wrapper builds a consistent actor–group bipartite network
+provided that the wrapper builds a consistent actor-group bipartite network
 from the partition.
 }
 
@@ -176,7 +187,7 @@ Additional checks verify that:
 \itemize{
 \item the normalized version matches
 \eqn{\sum_{g} \binom{n_g}{k} / n_g} for each \eqn{k \ge 2};
-\item toggling an actor–group tie changes the statistic by exactly the
+\item toggling an actor-group tie changes the statistic by exactly the
 increment implied by the local change in the size of the affected
 group(s);
 \item the vectorized interface over multiple values of \code{k} returns

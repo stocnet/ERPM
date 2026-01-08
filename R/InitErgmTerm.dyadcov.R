@@ -111,7 +111,7 @@
 #'   \item sets the empty-network statistic to \code{0}.
 #' }
 #'
-#' On each toggle of an actor–group edge, the C change-statistic recomputes the
+#' On each toggle of an actor-group edge, the C change-statistic recomputes the
 #' local contribution for the unique group affected by the toggle, by updating
 #' the clique-based sums according to the new set of actors in that group and,
 #' when a normalisation is requested, dividing by either \eqn{n_g} or
@@ -119,35 +119,17 @@
 #'
 #' @section Arguments:
 #' The initializer is not called directly by users; it is invoked automatically
-#' by {ergm} when the term \code{dyadcov(...)} appears on the right-hand side of
+#' by \pkg{ergm} when the term \code{dyadcov(...)} appears on the right-hand side of
 #' a model formula.
 #'
-#' @param dyadcov matrix or character. Either:
-#'   \itemize{
-#'     \item a numeric matrix of size at least \code{n1 x n1}, where
-#'           \code{n1 = nw \%n\% "bipartite"} is the actor-mode size; or
-#'     \item the name of a network-level attribute containing such a matrix
-#'           (retrieved as \code{nw \%n\% dyadcov}).
-#'   }
-#'   In both cases the matrix is truncated, if necessary, to its top-left
-#'   \code{n1 x n1} block.
-#' @param clique_size numeric or integer scalar. Target clique size \eqn{k}.
-#'   It is rounded and coerced to an integer and must satisfy \eqn{k \ge 2}.
-#'   Defaults to \code{2}.
-#' @param normalize logical or character scalar. Controls the normalisation of
-#'   the group-level sums \eqn{S_g^{(k)}(Z)}:
-#'   \itemize{
-#'     \item \code{FALSE} or \code{"none"}: no normalisation (raw sum) ;
-#'     \item \code{"global"} or \code{TRUE} or legacy \code{"size"}:
-#'           global normalisation by \eqn{1 / n_g} when \eqn{n_g \ge k};
-#'     \item \code{"by_group"} or legacy \code{"cliques"}:
-#'           normalisation by \eqn{1 / \binom{n_g}{k}} when \eqn{n_g \ge k}.
-#'   }
-#'   Deprecated aliases \code{normalized} and \code{norm} are also accepted and
-#'   mapped internally to \code{normalize}.
+#' @param nw A \pkg{network} object.
+#' @param arglist A named list of term arguments. Expected components include
+#'   \code{dyadcov}, \code{clique_size}, \code{normalize} (and deprecated aliases
+#'   \code{normalized} and \code{norm}).
+#' @param ... Passed through by \pkg{ergm}; not used.
 #'
 #' @return
-#' A standard {ergm} term initialization list with components:
+#' A standard \pkg{ergm} term initialization list with components:
 #' \itemize{
 #'   \item \code{name}         = \code{"dyadcov"};
 #'   \item \code{coef.names}   = a single coefficient name encoding
@@ -251,7 +233,7 @@
 #'         \code{sum_g f(n_g) * sum_{C in C_k(g)} prod_{i<j in C}(Z[i,j]+Z[j,i])},
 #'         where \code{f(n_g)} is \code{1}, \code{1 / n_g} or
 #'         \code{1 / choose(n_g, k)} depending on the chosen normalisation;
-#'   \item verify that toggling a single actor–group edge changes the statistic
+#'   \item verify that toggling a single actor-group edge changes the statistic
 #'         by the local difference between the "before" and "after" clique sums
 #'         (with or without normalisation), in agreement with the C
 #'         change-statistic \code{c_dyadcov}.
@@ -295,7 +277,7 @@ InitErgmTerm.dyadcov <- function(nw, arglist, ...) {
   # ---------------------------------------------------------------------------
   n1 <- as.integer(nw %n% "bipartite")
   if (is.na(n1) || n1 <= 0L)
-    stop(termname, ": réseau non biparti strict (attribut %n% 'bipartite' manquant ou invalide).")
+    stop(termname, ": strictly bipartite network required (attribut %n% 'bipartite' manquant ou invalide).")
   dbgcat("n1 = ", n1)
 
   # ---------------------------------------------------------------------------
@@ -327,9 +309,9 @@ InitErgmTerm.dyadcov <- function(nw, arglist, ...) {
 
     if (is.null(dyad_mat)) {
       stop(
-        termname, ": dyade introuvable: ", sQuote(dyad_name),
-        " (cherché dans nw %n% ", sQuote(dyad_name),
-        " puis dans nw %n% 'dyads'[[", sQuote(dyad_name), "]])."
+        termname, ": dyad not found : ", sQuote(dyad_name),
+        " (looked up in nw %n% ", sQuote(dyad_name),
+        " and in nw %n% 'dyads'[[", sQuote(dyad_name), "]])."
       )
     }
 
@@ -339,18 +321,18 @@ InitErgmTerm.dyadcov <- function(nw, arglist, ...) {
     # Case: matrix passed literally as an argument
     dyad_mat   <- dyad_raw
     dyad_label <- "dyadcov"
-    dbgcat("dyadcov source = matrix literal")
+    dbgcat("dyadcov source = literal matrix")
   }
 
   if (!is.matrix(dyad_mat))
-    stop(termname, ": 'dyadcov' doit être une matrice ou le nom d'un attribut de niveau réseau.")
+    stop(termname, ": 'dyadcov' must be a matrix or the name of a network-level attribute.")
 
   nr <- nrow(dyad_mat)
   nc <- ncol(dyad_mat)
 
   if (nr < n1 || nc < n1)
-    stop(termname, ": dimensions de la matrice dyadique (", nr, "x", nc,
-         ") insuffisantes pour n1 = ", n1, ".")
+    stop(termname, ": dyadic matrix dimensions (", nr, "x", nc,
+         ") insufficient for n1 = ", n1, ".")
 
   # If larger than needed, restrict to the top-left n1 x n1 block
   if (nr > n1 || nc > n1) {
@@ -362,10 +344,10 @@ InitErgmTerm.dyadcov <- function(nw, arglist, ...) {
   # Numeric coercion and fail-fast on NA
   # ---------------------------------------------------------------------------
   if (!is.numeric(dyad_mat))
-    stop(termname, ": la matrice dyadique doit être numérique.")
+    stop(termname, ": dyadic matrix should be numeric.")
 
   if (anyNA(dyad_mat))
-    stop(termname, ": NA non autorisé dans la matrice dyadique.")
+    stop(termname, ": NA values are not allowed in the dyadic matrix.")
 
   # ---------------------------------------------------------------------------
   # Optional symmetry diagnostics (non-blocking)
@@ -373,7 +355,7 @@ InitErgmTerm.dyadcov <- function(nw, arglist, ...) {
   tol <- 1e-8
   max_asym <- max(abs(dyad_mat - t(dyad_mat)))
   if (dbg && max_asym > tol) {
-    dbgcat("warning: dyadcov matrix is not symmetric, max |Z - t(Z)| = ",
+    dbgcat("warning : dyadcov matrix is not symmetric, max |Z - t(Z)| = ",
            signif(max_asym, 5L))
   }
 
@@ -389,12 +371,12 @@ InitErgmTerm.dyadcov <- function(nw, arglist, ...) {
     k <- 2L
   } else {
     if (!is.numeric(k_raw))
-      stop(termname, ": 'clique_size' doit être numérique ou entier.")
+      stop(termname, ": 'clique_size' must be numeric or integer.")
     k <- as.integer(round(k_raw[1L]))
   }
 
   if (!is.finite(k) || k < 2L)
-    stop(termname, ": 'clique_size' doit être un entier >= 2.")
+    stop(termname, ": 'clique_size' must be an integer >= 2.")
 
   dbgcat("clique_size (k) = ", k)
 
@@ -440,7 +422,7 @@ InitErgmTerm.dyadcov <- function(nw, arglist, ...) {
       norm_label <- "by_group"
     }
   } else {
-    stop(termname, ": 'normalize' doit être logique ou caractère ",
+    stop(termname, ": 'normalize' must be logical or character. ",
          "(\"none\", \"global\", \"by_group\").")
   }
 

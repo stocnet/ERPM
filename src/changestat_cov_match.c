@@ -3,7 +3,7 @@
  * @brief  Change statistic for the ERPM term `cov_match` (one-toggle form).
  *
  * @details
- *  This file implements the {ergm} change statistic for the ERPM effect
+ *  This file implements the \pkg{ergm} change statistic for the ERPM effect
  *  `cov_match`, which counts monochromatic k-cliques of actors inside groups
  *  based on a categorical covariate, with several normalisation modes and an
  *  optional target category.
@@ -60,7 +60,7 @@
  *    i.e. a count of groups that contain at least one actor in category κ.
  *
  *  ------------------------------------------------------------
- *  One-toggle implementation in {ergm}
+ *  One-toggle implementation in \pkg{ergm}
  *  ------------------------------------------------------------
  *
  *  For each membership toggle between an actor and a group:
@@ -274,7 +274,7 @@ static inline int code_of_actor(Vertex i, const double *z_codes){
  *
  *  The buffer @p actors must be large enough to hold up to n1 vertices.
  *
- * @param nwp     Pointer to the {ergm} Network structure.
+ * @param nwp     Pointer to the \pkg{ergm} Network structure.
  * @param g       Group vertex whose actor neighbours are queried.
  * @param actors  Output buffer that will receive the actor vertex indices.
  * @param n1      Number of actors (and maximum number of neighbours).
@@ -362,7 +362,7 @@ static int histogram_codes(const Vertex *actors, int na, const double *z_codes, 
  * @brief Change statistic for the ERPM term `cov_match`.
  *
  * @details
- *  This is the {ergm} change-statistic function registered as
+ *  This is the \pkg{ergm} change-statistic function registered as
  *  ::c_cov_match via ::C_CHANGESTAT_FN. It implements the one-toggle
  *  update for the cov_match effect, which counts groups that are
  *  homogeneous (or partially homogeneous) with respect to a categorical
@@ -420,7 +420,7 @@ static int histogram_codes(const Vertex *actors, int na, const double *z_codes, 
 C_CHANGESTAT_FN(c_cov_match){
   /* 1) Reset the output buffer for THIS toggle.
    *
-   * {ergm} accumulates contributions from multiple calls. Here we only
+   * \pkg{ergm} accumulates contributions from multiple calls. Here we only
    * provide the local Δ for the current membership toggle.
    */
   ZERO_ALL_CHANGESTATS(0);

@@ -8,7 +8,7 @@
 # Let:
 #   - A be the actor mode (|A| = n1 = nw %n% "bipartite");
 #   - G be the group mode (complementary side of the bipartite graph);
-#   - B be the actor–group incidence matrix;
+#   - B be the actor-group incidence matrix;
 #   - x_i be a numeric value attached to actor i in A;
 #   - n_g be the size of group g (number of adjacent actors);
 #   - S be a set of admissible group sizes (encoded by `size`).
@@ -72,7 +72,7 @@
 #'         \code{INPUT_PARAM} vector consumed by the C code.
 #' }
 #'
-#' On each toggle of an actor–group edge, the C change-statistic recomputes the
+#' On each toggle of an actor-group edge, the C change-statistic recomputes the
 #' contribution of the affected group and updates the statistic in \eqn{O(n_g)}
 #' time for that group.
 #'
@@ -155,35 +155,18 @@
 #'   erpm(partition ~ cov_ingroup("gender", category = "F"))
 #' }
 #'
-#' @param cov character|numeric  
-#'   Either:
+#' @param nw A \pkg{network} object.
+#' @param arglist A named list of term arguments. Expected components include:
 #'   \itemize{
-#'     \item the name of an actor-level vertex attribute (numeric or
-#'           categorical) to be evaluated on the actor mode; or
-#'     \item a numeric vector of length at least \eqn{|A| = n_1} giving covariate
-#'           values directly for actors.
+#'     \item \code{cov}: character (vertex attribute name) or numeric vector for actor covariates;
+#'     \item \code{size}: optional integer vector of admissible group sizes;
+#'     \item \code{category}: optional character scalar selecting a category when \code{cov} is categorical.
 #'   }
-#'   When \code{category} is \code{NULL} and \code{cov} refers to a vertex
-#'   attribute, the attribute is coerced to numeric and used as is. When
-#'   \code{category} is not \code{NULL} and \code{cov} refers to a vertex
-#'   attribute, an indicator is constructed for the targeted category
-#'   (\code{1[cov == category]} on the actor mode). If \code{cov} is a numeric
-#'   vector, \code{category} must be \code{NULL}.
-#'
-#' @param size integer|numeric|NULL  
-#'   Optional set \eqn{S} of admissible group sizes. If \code{NULL} or empty, all
-#'   group sizes are included. Otherwise, \code{size} is converted to a sorted
-#'   vector of distinct positive integers; only groups with size in this set
-#'   contribute to the statistic.
-#'
-#' @param category character|NULL  
-#'   Optional targeted category when \code{cov} denotes a categorical actor
-#'   attribute. If provided, the actor covariate is replaced by the indicator
-#'   \eqn{1[c_i = \text{category}]}. If \code{cov} is given as a numeric vector,
-#'   \code{category} must remain \code{NULL}.
+#' @param ... Passed through by \pkg{ergm}; not used.
+#' @param version ERGM API version; not used.
 #'
 #' @return
-#' A standard {ergm} term specification list with components:
+#' A standard \pkg{ergm} term specification list with components:
 #' \itemize{
 #'   \item \code{name}         = \code{"cov_ingroup"};
 #'   \item \code{coef.names}   = a single coefficient name encoding the
@@ -279,7 +262,7 @@
 #'         \eqn{T(B; x, S) = \sum_g n_g (\sum_{i \in g} x_i)\mathbf{1}[n_g \in S]};
 #'   \item compare these reference values to
 #'         \code{summary(nw ~ cov_ingroup(...), constraints = ~ b1part)};
-#'   \item verify that toggling a single actor–group tie changes the statistic
+#'   \item verify that toggling a single actor-group tie changes the statistic
 #'         by the local increment obtained by recomputing the contribution of
 #'         the affected group only, as implemented in the C change-statistic
 #'         \code{c_cov_ingroup}.
@@ -313,7 +296,7 @@ InitErgmTerm.cov_ingroup <- function(nw, arglist, ..., version = packageVersion(
   # ---------------------------------------------------------------------------
   n1 <- tryCatch(nw %n% "bipartite", error = function(e) NA_integer_)
   if (!is.numeric(n1) || !is.finite(n1) || n1 <= 0)
-    ergm_Init_stop(sQuote(termname), ": réseau non biparti ou attribut %n% 'bipartite' manquant/invalide.")
+    ergm_Init_stop(sQuote(termname), ": non-bipartite network or missing/invalid %n% 'bipartite' attribute.")
 
   # ---------------------------------------------------------------------------
   # Build the actor-level covariate vector x (length n1)

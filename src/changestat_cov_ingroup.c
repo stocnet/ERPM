@@ -3,7 +3,7 @@
  * @brief  Change statistic for the ERPM term `cov_ingroup` (one-toggle form).
  *
  * @details
- *  This file implements the {ergm} change statistic for the ERPM effect
+ *  This file implements the \pkg{ergm} change statistic for the ERPM effect
  *  `cov_ingroup`, which couples group size and the sum of a numeric actor
  *  covariate inside each group, with an optional filter on group sizes.
  *
@@ -257,13 +257,13 @@ static inline int in_sizes_set(int n, const double *in, int L){
  *    - actors have indices 1..n1,
  *    - groups have indices n1+1..N_NODES.
  *
- *  It relies on {ergm}'s STEP_THROUGH_OUTEDGES and STEP_THROUGH_INEDGES
+ *  It relies on \pkg{ergm}'s STEP_THROUGH_OUTEDGES and STEP_THROUGH_INEDGES
  *  macros and the conventional Network* pointer named `nwp`.
  *
  * @param v2  Group vertex index (group mode).
  * @param x   Pointer to covariate values x[0..n1-1] on actors.
  * @param n1  Number of actors (size of actor mode).
- * @param nwp Network workspace pointer (required by {ergm} macros).
+ * @param nwp Network workspace pointer (required by \pkg{ergm} macros).
  *
  * @return Sum of x_i over all actor neighbours i of v2.
  */
@@ -299,7 +299,7 @@ static inline double SAFE_SUM_GROUP(Vertex v2, const double *x, int n1, Network 
  * @brief Change statistic for the ERPM term `cov_ingroup`.
  *
  * @details
- *  This is the {ergm} change-statistic function registered as
+ *  This is the \pkg{ergm} change-statistic function registered as
  *  ::c_cov_ingroup via ::C_CHANGESTAT_FN. It computes the local change
  *  Δ for the ingroup covariate statistic when a single membership edge
  *  between an actor and a group is toggled.
@@ -343,7 +343,7 @@ static inline double SAFE_SUM_GROUP(Vertex v2, const double *x, int n1, Network 
 C_CHANGESTAT_FN(c_cov_ingroup){
   /* 1) Reset the output buffer for THIS toggle.
    *
-   * {ergm} accumulates contributions across multiple toggles; this function
+   * \pkg{ergm} accumulates contributions across multiple toggles; this function
    * sets the local Δ for the current one.
    */
   ZERO_ALL_CHANGESTATS(0);

@@ -29,84 +29,19 @@
 #' @keywords ERPM ERGM wrapper bipartite translation
 
 # ============================================================================
-# Main ERPM → \pkg{ergm} wrapper
+# Bootstrap (dev script support)
 # ============================================================================
-
-#' Build the final \pkg{ergm} call (internal helper)
-#' @noRd
-.erpm_build_ergm_call <- function(formula,
-                                  constraints,
-                                  estimate,
-                                  eval.loglik,
-                                  control,
-                                  verbose_arg_missing,
-                                  verbose) {
-  call_args <- list(
-    as.name("ergm"),
-    formula,
-    constraints = constraints
-  )
-
-  if (!is.null(estimate))    call_args$estimate    <- estimate
-  if (!is.null(eval.loglik)) call_args$eval.loglik <- eval.loglik
-
-  # Pass control as an object to avoid hidden state in the evaluation environment.
-  # ergm() accepts a control.ergm object directly.
-  if (!is.null(control)) call_args$control <- control
-
-  # Propagation rétroactive : si verbose a été explicitement fourni à erpm(),
-  # on le transmet aussi à ergm(verbose = <valeur>).
-  if (!isTRUE(verbose_arg_missing)) call_args$verbose <- verbose
-
-  as.call(call_args)
-}
-
-#' Compact logging for translation (internal helper)
-#' @noRd
-.erpm_log_translation <- function(user_formula_str,
-                                 final_str,
-                                 estimate,
-                                 eval.loglik,
-                                 control,
-                                 constraints_str = "~ b1part") {
-  cat(sprintf("[ERPM] call initial : erpm(%s) -> call final : %s\n",
-              user_formula_str, final_str))
-  cat("\t Constraints:  ", constraints_str, "\n", sep = "")
-  cat("\t Options: estimate=",
-      if (is.null(estimate)) "NULL" else estimate,
-      ", eval.loglik=",
-      if (is.null(eval.loglik)) "NULL" else eval.loglik,
-      ", control=",
-      if (is.null(control)) "NULL" else class(control)[1L],
-      "\n", sep = "")
+# This wrapper is primarily used as part of the package.
+# However, some selftests may source this file directly.
+# In that case, ensure shared helpers are available.
+if (!exists(".erpm_parse_formula", mode = "function") &&
+    file.exists("R/erpm_core_helpers.R")) {
+  source("R/erpm_core_helpers.R", local = FALSE)
 }
 
 # ============================================================================
 # Small internal pipeline helpers (testable units)
 # ============================================================================
-
-#' Parse and normalize the user formula (internal helper)
-#' @noRd
-.erpm_parse_formula <- function(formula) {
-  if (!inherits(formula, "formula"))
-    stop("Expected a `lhs ~ ...` formula with lhs = partition OR bipartite network.")
-
-  env0 <- environment(formula) %||% parent.frame()
-
-  list(
-    env0             = env0,
-    lhs_expr         = formula[[2]],
-    rhs_expr         = formula[[3]],
-    # For logs: keep a compact but readable, single-line representation.
-    user_formula_str = .compact_ws(.oneline(formula))
-  )
-}
-
-#' Evaluate LHS safely (internal helper)
-#' @noRd
-.erpm_eval_lhs <- function(lhs_expr, eval_env) {
-  tryCatch(eval(lhs_expr, envir = eval_env), error = function(e) e)
-}
 
 #' Resolve LHS: build network if needed, and build a unique eval_env (internal helper)
 #' @noRd
@@ -138,11 +73,33 @@
   }
 
   # Case B: LHS is already a network
+  #
+  # IMPORTANT:
+  # Even when the LHS is a network, we still create a dedicated eval_env binding
+  # that network to the symbol `nw`. This makes translation/validation consistent
+  # across all entrypoints because term specs and checks (requires_bipartite,
+  # requires_dyads, etc.) look for `nw` in the evaluation environment.
+  #
+  # It also stabilizes internal calls that evaluate the formula (e.g. summary()
+  # inside .erpm_build_control()).
   if (!(inherits(lhs_val, "error")) && inherits(lhs_val, "network")) {
     bip <- tryCatch(network::get.network.attribute(lhs_val, "bipartite"),
                     error = function(e) NULL)
     if (is.null(bip) || is.na(bip))
       stop("LHS network is not bipartite or missing `%n% 'bipartite'` attribute.")
+
+    # Always bind the network to `nw` for translation, validation, and evaluation.
+    eval_env <- list2env(list(nw = lhs_val), parent = env0)
+
+    # Canonical internal formula: nw ~ rhs
+    new_formula <- as.formula(bquote(nw ~ .(rhs_expr)))
+    environment(new_formula) <- eval_env
+
+    return(list(
+      lhs_kind    = "network",
+      eval_env    = eval_env,
+      new_formula = new_formula
+    ))
   }
 
   # Default: do not fabricate a placeholder formula.
@@ -151,16 +108,6 @@
     lhs_kind = if (inherits(lhs_val, "network")) "network" else "unknown",
     eval_env = env0
   )
-}
-
-# The default constructor above is awkward if left as-is.
-# Replace with an explicit helper returning the original formula, while keeping the
-# same semantics (no rebuild).
-#' @noRd
-.erpm_keep_formula <- function(formula, eval_env, lhs_val) {
-  new_formula <- formula
-  if (!(inherits(lhs_val, "error"))) environment(new_formula) <- eval_env
-  new_formula
 }
 
 #' Validate one translated term (internal helper)
@@ -206,7 +153,8 @@
     .erpm_translate_one_term,
     rename_map = rename_map,
     wrap_proj1 = wrap_proj1,
-    wrap_B     = wrap_B
+    wrap_B     = wrap_B,
+    env_eval   = env_eval
   )
 
   # 3) validate
@@ -301,6 +249,72 @@
 
 #' ERPM main wrapper: translate and optionally fit with \pkg{ergm}
 #'
+#' This function:
+#' \enumerate{
+#'   \item Interprets the LHS of a formula as either a partition vector or a
+#'         pre-built bipartite \pkg{network} object;
+#'   \item Builds a padded bipartite membership network from a partition when needed
+#'         (via \code{build_bipartite_from_inputs()}, with optional node and dyadic inputs);
+#'   \item Creates a dedicated evaluation environment that binds the current network to
+#'         the symbol \code{nw} for consistent translation, validation, and evaluation;
+#'   \item Splits and translates ERPM RHS terms into \pkg{ergm} terms using a clear
+#'         pipeline (split \eqn{\rightarrow} translate \eqn{\rightarrow} validate \eqn{\rightarrow} recombine);
+#'   \item Constructs a standard \code{ergm()} call of the form
+#'         \code{ergm(nw ~ <translated RHS>, constraints = ~ b1part, ...)};
+#'   \item Either returns the unevaluated call (dry-run) or evaluates it and returns the fitted model.
+#' }
+#'
+#' @param formula A formula \code{lhs ~ <ERPM terms>}, where \code{lhs} is either
+#'   a partition vector (atomic vector of group ids) or an already built bipartite
+#'   \pkg{network} object.
+#' @param eval.call Logical. If TRUE, evaluate the resulting \code{ergm()} call.
+#'   If FALSE, return the unevaluated call (dry-run).
+#' @param verbose Logical. If TRUE, print a compact translation log and the effective
+#'   modeling options. When \code{verbose} is explicitly provided to \code{erpm()},
+#'   its value is also forwarded to \code{ergm(verbose = ...)}.
+#' @param estimate Character or NULL. If non-NULL, forwarded to \code{ergm(estimate = ...)}
+#'   after a light normalization that maps \code{"MCMLE"} to \code{"MLE"}.
+#'   If NULL, no \code{estimate} argument is supplied and \pkg{ergm} uses its default.
+#' @param eval.loglik Logical or NULL. If non-NULL, forwarded to \code{ergm(eval.loglik = ...)}.
+#'   If NULL, no \code{eval.loglik} argument is supplied and \pkg{ergm} uses its default.
+#' @param control A list, a \code{control.ergm} object, or NULL.
+#'   If NULL, \code{ergm()} receives no \code{control} argument and uses its defaults.
+#'   If a control object with an incompatible \code{init} length is provided, the wrapper
+#'   drops \code{init} to let \pkg{ergm} recompute a consistent default.
+#' @param timeout Numeric seconds or NULL. If set, evaluation is run under
+#'   \code{R.utils::withTimeout()} with \code{onTimeout="silent"}.
+#' @param nodes Optional \code{data.frame} for actor attributes and labels.
+#'   Used only when the LHS is a partition vector.
+#' @param dyads Optional named list of \eqn{n\times n} matrices to attach to the network
+#'   as a dedicated network attribute (currently \code{\%n\% "dyads"}).
+#'   Used only when the LHS is a partition vector.
+#' @param group_labels Optional character vector (or NULL) used only when the LHS is a
+#'   partition vector. Forwarded to \code{build_bipartite_from_inputs()} to set readable
+#'   group vertex labels in the padded bipartite network.
+#'
+#' @return If \code{eval.call=TRUE}, an \pkg{ergm} fitted model object. Otherwise, the
+#'   unevaluated \code{ergm()} call.
+#'
+#' @examples
+#' \dontrun{
+#'   # Translate only (dry-run)
+#'   partition <- c(1, 1, 2, 2, 3)
+#'   call_only <- erpm(partition ~ groups(2), eval.call = FALSE)
+#'   print(call_only)
+#'
+#'   # Fit with explicit estimate
+#'   fit <- erpm(partition ~ groups + cliques(3), estimate = "MLE")
+#' }
+#'
+#' @note
+#' The wrapper always imposes the \code{b1part} constraint and assumes a bipartite
+#' representation of partitions. The internal translation layer can be extended by
+#' populating \code{effect_rename_map}, \code{wrap_with_proj1}, and \code{wrap_with_B}.
+#'
+#' @note
+#' The behavior of \code{erpm()} is exercised in self-tests that compare ERPM-based
+#' fits to direct \pkg{ergm} calls on constructed bipartite networks.
+#'
 #' @export
 erpm <- function(formula,
                  eval.call    = TRUE,
@@ -328,13 +342,13 @@ erpm <- function(formula,
   # Single evaluation env is introduced by resolving the LHS.
   lhs_val <- .erpm_eval_lhs(input$lhs_expr, env0)
 
-  # Resolve LHS and create the unique eval_env if partition.
+  # Resolve LHS and create the unique eval_env if partition or network.
   resolved <- .erpm_resolve_lhs(
     lhs_val, input$rhs_expr, env0, nodes, dyads,
     group_labels = group_labels
   )
 
-  if (identical(resolved$lhs_kind, "partition")) {
+  if (identical(resolved$lhs_kind, "partition") || identical(resolved$lhs_kind, "network")) {
     eval_env    <- resolved$eval_env
     new_formula <- resolved$new_formula
   } else {

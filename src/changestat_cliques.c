@@ -3,7 +3,7 @@
  * @brief  Change statistic for the ERPM term `cliques(k, normalized)`.
  *
  * @details
- *  This file implements the {ergm} change statistic for the ERPM effect
+ *  This file implements the \pkg{ergm} change statistic for the ERPM effect
  *  `cliques(k, normalized)`. The effect counts, for each group in the
  *  group mode, the number of actor k-cliques that are induced by group
  *  memberships in the actor mode.
@@ -199,7 +199,7 @@
 C_CHANGESTAT_FN(c_cliques){
   /* 1) Reset the output buffer for this toggle.
    *
-   * {ergm} accumulates the contributions of all toggles outside this
+   * \pkg{ergm} accumulates the contributions of all toggles outside this
    * function, so we explicitly zero the vector here.
    */
   ZERO_ALL_CHANGESTATS(0);
@@ -224,7 +224,7 @@ C_CHANGESTAT_FN(c_cliques){
 
   /* 4) Group size before the toggle.
    *
-   * OUT_DEG and IN_DEG are provided by {ergm}. For a bipartite membership
+   * OUT_DEG and IN_DEG are provided by \pkg{ergm}. For a bipartite membership
    * representation, the group size is the sum of outgoing and incoming
    * degrees of the group vertex.
    */

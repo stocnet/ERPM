@@ -8,30 +8,29 @@
 InitErgmTerm.dyadcov_full(nw, arglist, ...)
 }
 \arguments{
-\item{dyadcov}{matrix or character. Either:
-\itemize{
-\item a numeric matrix of size at least \code{n1 x n1}, where
-\code{n1 = nw \%n\% "bipartite"} is the actor-mode size; or
-\item the name of a network-level attribute containing such a matrix
-(retrieved via \code{nw \%n\% dyadcov}).
-}
-In both cases the matrix is truncated, if needed, to its top-left
-\code{n1 x n1} block.}
+\item{nw}{A \pkg{network} object.}
 
-\item{size}{numeric or integer vector of positive group sizes to retain.
-If \code{NULL} (the default), all positive group sizes are included
-(\eqn{S} = all sizes). If non-\code{NULL}, the vector is rounded to
-integers, filtered to positive finite values, and deduplicated. An empty
-non-\code{NULL} vector is rejected.}
+\item{arglist}{A named list of term arguments. Expected components:
+\itemize{
+\item \code{dyadcov}: matrix or character. Either a numeric matrix of size at least
+\code{n1 x n1} (with \code{n1 = nw \%n\% "bipartite"}), or the name of a
+network-level attribute containing such a matrix (retrieved as
+\code{nw \%n\% dyadcov}). The matrix is truncated, if necessary, to its
+top-left \code{n1 x n1} block.
+\item \code{size}: optional numeric/integer vector. If provided, only groups whose
+actor-degree is in \code{size} contribute to the statistic.
+}}
+
+\item{...}{Passed through by \pkg{ergm}; not used.}
 }
 \value{
-A standard {ergm} term initialization list with components:
+A standard \pkg{ergm} term initialization list with components:
 \itemize{
 \item \code{name}         = \code{"dyadcov_full"};
-\item \code{coef.names}   = a single coefficient name encoding the dyadic
-covariate label and the size filter;
+\item \code{coef.names}   = a single coefficient name encoding
+\code{dyadcov} label and the size filter;
 \item \code{inputs}       = numeric vector
-\code{c(n1, L, sizes[L], as.double(Z))};
+\code{c(n1, L, sizes[1:L], as.double(Z))};
 \item \code{dependence}   = \code{TRUE};
 \item \code{minval}       = \code{-Inf};
 \item \code{maxval}       = \code{Inf};
@@ -40,173 +39,65 @@ covariate label and the size filter;
 }
 \description{
 \code{dyadcov_full} is an ERGM term for bipartite networks that aggregates a
-numeric dyadic covariate \eqn{Z = (z_{ij})} over pairs of actors within
-each group. The network is interpreted as:
+numeric dyadic covariate \eqn{Z = (z_{ij})} over \emph{ordered} pairs of actors that
+are adjacent to the same group.
+
+The network is interpreted as:
 \itemize{
 \item an \emph{actor mode} (the side identified by \code{nw \%n\% "bipartite"});
 \item a \emph{group mode} (the complementary side of the bipartite graph).
 }
 
-For each group in the group mode, we consider all ordered pairs of distinct
-actors attached to that group and sum the dyadic covariate values
-\eqn{z_{ij}}. An optional size filter restricts the sum to groups whose size
-belongs to a specified set \eqn{S}.
+For each group node, we consider the set of adjacent actors and sum \eqn{z_{ij}}
+over all ordered pairs \eqn{(i,j)} with \eqn{i \ne j} within that group.
+
+An optional size filter \code{size} restricts which groups contribute by
+requiring the group size \eqn{n_g} to be in the provided set.
 }
 \details{
-Let:
+The dyadic covariate \eqn{Z} is a real actor-by-actor matrix of size
+\eqn{n_A \times n_A}, where \eqn{n_A} is the size of the actor mode
+(\code{n1 = nw \%n\% "bipartite"}).
+
+The initializer:
 \itemize{
-\item \eqn{A} be the set of actor-mode nodes;
-\item \eqn{G} be the set of group-mode nodes;
-\item \eqn{y} be the bipartite adjacency between actors and groups;
-\item \eqn{n_g} be the number of actors attached to group \eqn{g \in G};
-\item \eqn{Z = (z_{ij})_{i,j \in A}} be a numeric matrix of dyadic covariates.
-}
-
-The statistic implemented by \code{dyadcov_full} is:
-
-\preformatted{
-  T(p; Z, S) =
-    sum_g 1[n_g in S] * sum_{i != j, i,j in g} z_{ij},
-}
-
-where:
-\itemize{
-\item \eqn{S} is a set of admissible group sizes (if \code{size = NULL},
-\eqn{S} is implicitly "all positive sizes");
-\item the inner sum runs over all ordered pairs of distinct actors
-\eqn{i, j} that share group \eqn{g}.
-}
-
-If \eqn{Z} is symmetric, this is equal to
-\eqn{2 * \sum_{i<j, i,j \in g} z_{ij}} (no division by 2 is applied).
-
-The dyadic covariate \eqn{Z} is provided as an actor-by-actor matrix of size
-at least \code{n1 x n1}, where \code{n1 = nw \%n\% "bipartite"} is the size
-of the actor mode. The initializer:
-\itemize{
-\item enforces that the network is bipartite and retrieves \code{n1};
+\item enforces bipartiteness and retrieves the actor-mode size \eqn{n_A};
 \item accepts \code{dyadcov} either as a literal matrix or as the name of a
-network-level attribute containing the matrix;
-\item truncates the matrix to its top-left \code{n1 x n1} block if it is
-larger than required;
-\item checks that the matrix is numeric and free of \code{NA};
-\item optionally reports (in debug mode) how far the matrix is from being
-symmetric, but does not require symmetry.
+network-level attribute (\code{nw \%n\% "..."});
+\item truncates \code{dyadcov} to its top-left \code{n1 x n1} block if larger;
+\item checks that \code{dyadcov} is numeric and free of \code{NA};
+\item parses \code{size} into a sorted, distinct set of positive integers.
 }
 }
 \note{
 InitErgmTerm.dyadcov_full.R
+}
+\section{Implementation and change-statistic}{
 
+The term is implemented as a native ERGM C change-statistic, exposed under the
+symbol \code{c_dyadcov_full}. The R initializer below:
 \itemize{
-\item The network must be bipartite and interpreted as actors versus groups.
-\item The actor mode is identified by \code{nw \%n\% "bipartite"} and must
-be a strictly positive integer.
-\item The dyadic matrix must be numeric and free of \code{NA} values.
-Any \code{NA} triggers a fail-fast error. Symmetry is not required:
-both \eqn{z_{ij}} and \eqn{z_{ji}} are used when available.
-\item When \code{size = NULL}, no size filter is applied and all groups
-contribute. When \code{size} is non-\code{NULL}, only groups with
-size in the set \eqn{S} contribute.
-\item Debug logging is controlled by the global option
-\code{options(ERPM.dyadcov_full.debug = TRUE/FALSE)}. When
-\code{TRUE}, the initializer prints diagnostic messages prefixed by
-\code{"[dyadcov_full][DEBUG]"} and may report how far the dyadic
-matrix is from symmetry.
+\item packages \code{n1}, \code{L}, \code{sizes[1:L]} and the flattened
+\code{dyadcov} matrix into \code{INPUT_PARAM};
+\item declares the term as dependent (\code{dependence = TRUE}) with no
+finite \code{minval}/\code{maxval};
+\item sets the empty-network statistic to \code{0}.
 }
 
-Self-tests for \code{dyadcov_full} (not shown here) typically:
-\itemize{
-\item construct small bipartite networks with a known partition of actors
-into groups and specified size sets \eqn{S};
-\item define dyadic matrices \code{Z} for which
-\code{sum_g 1[n_g in S] * sum_{i != j, i,j in g} z_{ij}} can be
-computed analytically in R;
-\item compare \code{summary(nw ~ dyadcov_full(...), constraints = ~ b1part)}
-to a direct implementation of the formula above;
-\item verify that toggling a single actor–group edge changes the statistic
-exactly by the difference between the "before" and "after" within-group
-dyadic sums for the affected group, in agreement with the C
-change-statistic \code{c_dyadcov_full}.
-}
-}
-\section{Implementation and INPUT_PARAM}{
-
-On the C side, the term is implemented by the change-statistic
-\code{c_dyadcov_full}. The R initializer below packages the following into
-the numeric \code{INPUT_PARAM} vector:
-
-\preformatted{
-  INPUT_PARAM = c(
-    n1,             # actor-mode size
-    L,              # number of targeted group sizes (length of S)
-    sizes[1:L],     # sorted distinct positive group sizes
-    as.double(Z)    # flattened n1 x n1 matrix in column-major order
-  )
-}
-
-For each toggle of an actor–group edge, the C change-statistic recomputes
+For each toggle of an actor-group edge, the C change-statistic recomputes
 the within-group dyadic covariate sum for the unique group touched by the
 toggle, respecting the size filter \eqn{S} when present.
 }
 
 \section{Arguments}{
 
-The initializer is not called directly by users. It is invoked automatically
-by {ergm} when the term \code{dyadcov_full(...)} appears on the right-hand
-side of a model formula. The user-facing arguments are:
+The initializer is not called directly by users; it is invoked automatically
+by \pkg{ergm} when the term \code{dyadcov_full(...)} appears on the right-hand side
+of a model formula.
 }
 
-\examples{
-\dontrun{
-  library(network)
-  library(ergm)
-
-  # -------------------------------------------------------------------------
-  # Build a toy bipartite network: 4 actors, 2 groups
-  # -------------------------------------------------------------------------
-  n_actors <- 4
-  n_groups <- 2
-  n_total  <- n_actors + n_groups
-
-  adj <- matrix(0, n_total, n_total)
-
-  # Actors = 1..4, Groups = 5..6
-  # Group 5 has actors 1, 2, 3  (size 3)
-  adj[1, 5] <- adj[5, 1] <- 1
-  adj[2, 5] <- adj[5, 2] <- 1
-  adj[3, 5] <- adj[5, 3] <- 1
-  # Group 6 has actors 3, 4    (size 2)
-  adj[3, 6] <- adj[6, 3] <- 1
-  adj[4, 6] <- adj[6, 4] <- 1
-
-  nw <- network(adj, directed = FALSE, matrix.type = "adjacency")
-  nw \%n\% "bipartite" <- n_actors  # actor-mode size
-
-  # -------------------------------------------------------------------------
-  # Define a dyadic covariate on actors (symmetric or not)
-  # -------------------------------------------------------------------------
-  Z <- matrix(
-    c(
-      0, 1, 2, 3,
-      1, 0, 4, 5,
-      2, 4, 0, 6,
-      3, 5, 6, 0
-    ),
-    n_actors, n_actors, byrow = TRUE
-  )
-  nw \%n\% "Z_example" <- Z
-
-  # Example: all group sizes (size = NULL)
-  summary(
-    nw ~ dyadcov_full("Z_example"),
-    constraints = ~ b1part
-  )
-}
-
-}
 \keyword{ERGM}
 \keyword{bipartite}
 \keyword{covariate}
 \keyword{dyadic}
-\keyword{group-sum}
 \keyword{term}

@@ -28,7 +28,7 @@ suppressPackageStartupMessages({
 # ----- Charge le package local ERPM -------------------------------------------
 devtools::load_all(".")
 
-# ----- Active le patch {ergm} si présent --------------------------------------
+# ----- Active le patch \pkg{ergm} si présent --------------------------------------
 if (file.exists("scripts/ergm_patch.R")) {
   source("scripts/ergm_patch.R")
   ergm_patch_enable()
@@ -165,5 +165,5 @@ fit_cliques_k2 <- erpm(
 cat("\n--- summary(fit_cliques_k2) (style ergm) ---\n")
 print(summary(fit_cliques_k2))
 
-# ----- Désactivation du patch {ergm} si activé --------------------------------
+# ----- Désactivation du patch \pkg{ergm} si activé --------------------------------
 on.exit(try(ergm_patch_disable(), silent = TRUE), add = TRUE)
