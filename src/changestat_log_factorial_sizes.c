@@ -1,5 +1,5 @@
 /**
- * @file
+ * @file changestat_log_factorial_sizes.c
  * @brief Change statistic for the ERPM term `log_factorial_sizes` (one-toggle, non-vectorised).
  *
  * @details

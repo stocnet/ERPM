@@ -215,15 +215,32 @@ if (!exists(".erpm_parse_formula", mode = "function") &&
 
 #' Evaluate or return call with ERPM error formatting (internal helper)
 #' @noRd
-.erpm_eval_or_return <- function(ergm_call, eval.call, timeout, eval_env, user_formula_str) {
+.erpm_eval_or_return <- function(ergm_call, eval.call, timeout, seed, eval_env, user_formula_str) {
   if (!isTRUE(eval.call)) return(ergm_call)
+
+  # Validate `seed` early so failures are explicit and consistent with set.seed().
+  # Keep the normalized integer value (so downstream code never has to repeat checks).
+  if (!is.null(seed)) {
+    if (!(is.numeric(seed) && length(seed) == 1L && is.finite(seed))) {
+      stop("[ERPM] `seed` must be a single finite numeric value (integer-like) or NULL.", call. = FALSE)
+    }
+    si <- as.integer(round(seed))
+    if (!isTRUE(all.equal(seed, si))) {
+      stop("[ERPM] `seed` must be integer-valued (e.g., 1, 2, 42).", call. = FALSE)
+    }
+    seed <- si
+  }
 
   res <- try({
     if (is.null(timeout)) {
+      if (!is.null(seed)) set.seed(seed)
       eval(ergm_call, envir = eval_env)
     } else {
       R.utils::withTimeout(
-        eval(ergm_call, envir = eval_env),
+        {
+          if (!is.null(seed)) set.seed(seed)
+          eval(ergm_call, envir = eval_env)
+        },
         timeout   = as.numeric(timeout),
         onTimeout = "silent"
       )
@@ -283,6 +300,8 @@ if (!exists(".erpm_parse_formula", mode = "function") &&
 #'   drops \code{init} to let \pkg{ergm} recompute a consistent default.
 #' @param timeout Numeric seconds or NULL. If set, evaluation is run under
 #'   \code{R.utils::withTimeout()} with \code{onTimeout="silent"}.
+#' @param seed Integer or NULL. If non-NULL and \code{eval.call=TRUE}, \code{set.seed(seed)} is executed
+#'   immediately before the underlying \code{ergm()} evaluation, making fits reproducible.
 #' @param nodes Optional \code{data.frame} for actor attributes and labels.
 #'   Used only when the LHS is a partition vector.
 #' @param dyads Optional named list of \eqn{n\times n} matrices to attach to the network
@@ -323,6 +342,7 @@ erpm <- function(formula,
                  eval.loglik  = NULL,
                  control      = NULL,
                  timeout      = NULL,
+                 seed         = NULL,
                  nodes        = NULL,
                  dyads        = list(),
                  group_labels = NULL) {
@@ -333,6 +353,19 @@ erpm <- function(formula,
   if (!is.null(estimate)) {
     estimate <- match.arg(estimate, c("MLE", "CD", "MPLE", "MCMLE"))
     if (identical(estimate, "MCMLE")) estimate <- "MLE"
+  }
+
+  # If `seed` is not NULL, ensure it is compatible with set.seed().
+  # Keep the normalized integer value (so later code can assume correctness).
+  if (!is.null(seed)) {
+    if (!(is.numeric(seed) && length(seed) == 1L && is.finite(seed))) {
+      stop("[ERPM] `seed` must be a single finite numeric value (integer-like) or NULL.", call. = FALSE)
+    }
+    seed_i <- as.integer(round(seed))
+    if (!isTRUE(all.equal(seed, seed_i))) {
+      stop("[ERPM] `seed` must be integer-valued (e.g., 1, 2, 42).", call. = FALSE)
+    }
+    seed <- seed_i
   }
 
   # --- 1) Parse formula and build invariants ---------------------------------
@@ -411,6 +444,7 @@ erpm <- function(formula,
     ergm_call         = ergm_call,
     eval.call         = eval.call,
     timeout           = timeout,
+    seed              = seed,
     eval_env          = eval_env,
     user_formula_str  = input$user_formula_str
   )

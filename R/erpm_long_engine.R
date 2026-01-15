@@ -1,6 +1,6 @@
-################################################################################
+# =====================================================================
 # FILE: R/erpm_long_engine.R
-################################################################################
+# =====================================================================
 #' ERPM longitudinal engine helpers (internal)
 #'
 #' @name erpm_long_engine
@@ -29,7 +29,6 @@
 # Helpers
 # ============================================================================
 
-
 #' Select inertial calls that are active at time t.
 #'
 #' For each inertial term call, this checks its registered specification
@@ -46,12 +45,12 @@
 #' @return A list of inertial term calls that are active at time \code{t}.
 #' @noRd
 .erpm_long_active_inertial_calls_for_t <- function(inertial_calls, t, env0, debug = FALSE, .dbg = NULL) {
-  # Nothing to do if no inertial terms were provided.
+  # No inertial terms were provided : nothing to do .
   if (!length(inertial_calls)) return(list())
 
   out <- list()
   for (cc in inertial_calls) {
-    # Map the call to a canonical term name and retrieve its inertia spec.
+    # Map the call to a standard term name and retrieve its inertia spec.
     nm <- .erpm_long_term_name(cc)
     spec <- .erpm_long_inertia_registry[[nm]]
 
@@ -65,7 +64,7 @@
     if (t > d) out[[length(out) + 1L]] <- cc
   }
 
-  # Optional debug trace for human inspection.
+  # Optional debug trace
   if (isTRUE(debug) && is.function(.dbg)) {
     .dbg("active_inertial_calls_for_t t=", as.integer(t),
          " -> ", if (length(out)) paste(vapply(out, .erpm_long_term_name, ""), collapse = ", ") else "(none)")
@@ -131,12 +130,12 @@
       # Do not access time <= 0 (no past networks available).
       if (j < 1L) break
 
-      # Stable attribute naming scheme so translated terms can predict names.
+      # Apply standard naming scheme so translated terms can predict names (should match initergmterm parser).
       attr_name <- paste0("erpm_inertia__", nm, "__lag", lag)
 
       if (is.function(spec$build_attr)) { # build_attr is a function defined into inertial registry
 
-        # Preferred path: the spec knows how to construct the attribute value.
+        # Preferred path: spec knows how to construct the attribute value.
         val <- spec$build_attr(nw_t, nets, parts, t, lag, cc, env0, debug = debug)
 
         # Store it on the current network so ERGM terms can read it.
@@ -175,46 +174,66 @@
   list(network = nw_t, attached = attached)
 }
 
-
-#' Run the longitudinal ERPM loop across \eqn{t = 1,\dots,T}.
+#' Run the longitudinal ERPM fitting loop over \eqn{t = 1,\dots,T}.
 #'
-#' This is the central time loop used by \code{erpm_long()}.
+#' Internal engine used by \code{erpm_long()} to iterate across time points and
+#' fit (or dry-run) a sequence of ERPM models on time-indexed partitions.
 #'
-#' At each time point, it:
+#' For each time point \code{t}, the routine:
 #' \enumerate{
-#'   \item builds a padded bipartite membership network from the current partition
-#'         and optional time-varying inputs;
-#'   \item determines which inertial terms are active given their \code{past_influence};
+#'   \item extracts the current partition and time-specific inputs (\code{nodes},
+#'         \code{dyads}, \code{group_labels});
+#'   \item builds the padded bipartite membership network via
+#'         \code{build_bipartite_from_inputs()};
+#'   \item determines which inertial terms are active at \code{t} (based on their
+#'         \code{past_influence} and the current time index);
 #'   \item attaches per-lag inertia attributes onto the current network when needed;
 #'   \item constructs the time-specific RHS as static terms plus active inertial terms;
-#'   \item calls \code{erpm()} either in dry-run mode (return calls) or fit mode (return models).
+#'   \item calls \code{erpm()} in fit mode (\code{eval.call=TRUE}) or dry-run mode
+#'         (\code{eval.call=FALSE}).
 #' }
 #'
+#' The function stores, for each \code{t}, the network actually used for fitting,
+#' the resulting fit (if any), the produced call, and a timeline describing inertial
+#' activation and attribute attachments.
+#'
 #' @param parts List of partitions (one per time point), length \code{T}.
+#'   Each partition is expected to be integer-like; values are rounded and coerced
+#'   to integer defensively.
 #' @param T Integer; number of time points.
-#' @param env0 Evaluation environment of the original formula.
-#' @param rhs_expr Shared RHS expression (unevaluated).
-#' @param static_terms List of static RHS terms (always active).
+#' @param env0 Evaluation environment of the original formula; used as parent for
+#'   per-time evaluation environments.
+#' @param rhs_expr Shared RHS expression (unevaluated), used for deep-debug translation.
+#' @param static_terms List of static RHS term calls (always active).
 #' @param inertial_calls List of inertial RHS term calls (activation depends on \code{t}).
-#' @param det Inertia detection descriptor produced upstream (enabled, names, etc.).
+#' @param det Inertia detection descriptor produced upstream (e.g. enabled flag, names).
 #' @param eval.call Logical; if TRUE, fit models, else return unevaluated calls.
 #' @param verbose Logical; if TRUE, print compact per-time traces.
-#' @param debug Logical; if TRUE, print additional diagnostics.
+#' @param debug Logical or character; if TRUE, prints additional diagnostics.
+#'   If \code{debug="deep"}, performs deep checks including RHS translation and
+#'   nodecov/nodefactor readiness checks on the built network.
 #' @param .dbg Optional debug function used by subroutines when \code{debug=TRUE}.
 #' @param estimate Character or NULL, forwarded to \code{erpm()}.
 #' @param eval.loglik Logical or NULL, forwarded to \code{erpm()}.
 #' @param control Control object or list, forwarded to \code{erpm()}.
 #' @param timeout Numeric seconds or NULL, forwarded to \code{erpm()}.
-#' @param nodes Optional time-invariant or time-indexed node tables.
-#' @param dyads Optional time-invariant or time-indexed dyadic inputs.
-#' @param group_labels Optional time-invariant or time-indexed group labels.
+#' @param seed Integer or NULL, forwarded to \code{erpm()}.
+#' @param nodes Optional node tables, either time-invariant or time-indexed.
+#'   If provided at time \code{t}, must be a data.frame with \code{nrow(nodes[[t]])}
+#'   equal to \code{length(parts[[t]])}.
+#' @param dyads Optional dyadic inputs, either time-invariant or time-indexed.
+#'   Normalized upstream to a list (possibly empty) for each time point.
+#' @param group_labels Optional group label vectors, either time-invariant or time-indexed.
+#'
 #' @return An object of class \code{"erpm_long"} with components:
 #'   \itemize{
 #'     \item \code{calls}: list of per-time \code{ergm()} calls (or extracted calls from fits);
 #'     \item \code{fits}: list of per-time fitted models (or NULLs in dry-run mode);
 #'     \item \code{networks}: list of per-time networks used for fitting;
-#'     \item \code{history_timeline}: list describing inertial activation and attachments per time.
+#'     \item \code{history_timeline}: list describing inertial activation and inertia
+#'           attribute attachments per time.
 #'   }
+#'
 #' @noRd
 .erpm_long_run <- function(parts,
                           T,
@@ -231,6 +250,7 @@
                           eval.loglik,
                           control,
                           timeout,
+                          seed,
                           nodes,
                           dyads,
                           group_labels) {
@@ -240,6 +260,9 @@
   fits              <- vector("list", T)
   nets              <- vector("list", T)
   history_timeline  <- vector("list", T)
+
+  debug_deep <- is.character(debug) && identical(debug, "deep")
+  debug_any  <- isTRUE(debug) || debug_deep
 
   for (t in seq_len(T)) {
     # Partition is expected to be integer-like; round defensively to avoid floating artifacts.
@@ -261,6 +284,12 @@
       }
     }
 
+    # dyads_t is normalized upstream to be a list (possibly empty).
+    if (is.null(dyads_t)) dyads_t <- list()
+    if (!is.list(dyads_t)) {
+      stop(sprintf("[ERPM_LONG] internal error: dyads[[%d]] must be a list after normalization.", t), call. = FALSE)
+    }
+
     # Verbose logging for user-facing tracing of inputs.
     if (isTRUE(verbose)) {
       cat(sprintf("\n[ERPM_LONG] --- t=%d ---\n", t))
@@ -271,7 +300,7 @@
         cat("[ERPM_LONG] nodes: cols={", paste(names(nodes_t), collapse = ","), "}\n", sep = "")
       }
 
-      if (is.null(dyads_t) || length(dyads_t) == 0L) {
+      if (length(dyads_t) == 0L) {
         cat("[ERPM_LONG] dyads: empty\n")
       } else {
         # Print dyad matrix dimensions to catch mismatches early.
@@ -285,21 +314,21 @@
     built <- build_bipartite_from_inputs(
       partition    = p_t,
       nodes        = nodes_t,
-      dyads        = if (is.null(dyads_t)) list() else dyads_t,
+      dyads        = dyads_t,
       group_labels = glab_t
     )
     nw_t <- built$network
 
     # Debug mode prints a network summary (useful when diagnosing attribute attachment).
-    if (debug) print(summary(nw_t))
+    if (isTRUE(debug_any) && !debug_deep) print(summary(nw_t))
 
     # Determine which inertial terms are active at this time step.
-    active_calls <- .erpm_long_active_inertial_calls_for_t(inertial_calls, t, env0, debug = debug, .dbg = .dbg)
+    active_calls <- .erpm_long_active_inertial_calls_for_t(inertial_calls, t, env0, debug = debug_any, .dbg = .dbg)
     attached_index <- NULL
 
     if (length(active_calls)) {
       # Attach per-lag inertia attributes onto nw_t using past networks and partitions.
-      ret <- .erpm_long_attach_inertia_for_t(nw_t, nets, parts, t, active_calls, env0, debug = debug)
+      ret <- .erpm_long_attach_inertia_for_t(nw_t, nets, parts, t, active_calls, env0, debug = debug_any)
       nw_t <- ret$network
       attached_index <- ret$attached
 
@@ -352,6 +381,39 @@
 
     # Evaluate the formula in an environment that exposes 'nw' as the built network.
     eval_env_t <- list2env(list(nw = nw_t), parent = env0)
+
+    # -----------------------------------------------------------------------
+    # Deep debug: show nodecov()/nodefactor() readiness by mode.
+    # We inspect the TRANSLATED RHS so it matches what ergm() will see.
+    # -----------------------------------------------------------------------
+    if (isTRUE(debug_deep)) {
+      cat(sprintf("[ERPM_LONG][deep] --- t=%d deep data checks ---\n", t))
+      print(summary(nw_t))
+
+      # Translate RHS(t) using the same translation pipeline as erpm(),
+      # so deep debug follows the effective ergm terms.
+      rhs_tr <- try(
+        .erpm_translate_rhs_expr(
+          rhs_expr  = rhs_t,
+          env_eval  = eval_env_t,
+          effect_rename_map = c(),
+          wrap_with_proj1   = c(),
+          wrap_with_B       = c()
+        ),
+        silent = TRUE
+      )
+
+      if (inherits(rhs_tr, "try-error")) {
+        cat("[ERPM_LONG][deep] RHS translation failed while preparing deep debug.\n")
+        cat("[ERPM_LONG][deep] message: ", conditionMessage(attr(rhs_tr, "condition")), "\n", sep = "")
+      } else {
+        cat("[ERPM_LONG][deep] RHS(t) translated: ", .erpm_long_rhs_oneline(rhs_tr), "\n", sep = "")
+        .erpm_long_deep_debug_nodecov_inputs(nw_t, rhs_tr)
+      }
+
+      cat(sprintf("[ERPM_LONG][deep] --- t=%d end deep data checks ---\n", t))
+    }
+
     f_t <- as.formula(bquote(nw ~ .(rhs_t)))
     environment(f_t) <- eval_env_t
 
@@ -364,6 +426,7 @@
       eval.loglik  = eval.loglik,
       control      = control,
       timeout      = timeout,
+      seed         = seed,
       nodes        = NULL,
       dyads        = list(),
       group_labels = NULL

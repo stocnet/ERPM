@@ -115,12 +115,9 @@ docs
 # Ignore everything under documentation/dev
 documentation/dev/**
 
-# Do not ignore directories themselves (required so file-level rules apply)
-!documentation/dev/
-!documentation/dev/**/
-
-# Do not ignore Avancement.pdf files in any subdirectory
-!documentation/dev/**/Avancement.pdf
+# ...but keep Phase 2 PDF
+!documentation/dev/avancement_P2/
+!documentation/dev/avancement_P2/avancement_P2.pdf
 
 # Generated dump of ERPM source files
 dump_*

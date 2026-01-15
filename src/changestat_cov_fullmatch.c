@@ -1,5 +1,5 @@
 /**
- * @file
+ * @file changestat_cov_fullmatch.c
  * @brief  Change statistic for the ERPM term `cov_fullmatch` (one-toggle form).
  *
  * @details

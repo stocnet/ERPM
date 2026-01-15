@@ -1,5 +1,5 @@
 /**
- * @file
+ * @file changestat_dyadcov_GW.c
  * @brief  Change statistic for the ERPM term `dyadcov_GW` (one-toggle form).
  *
  * @details

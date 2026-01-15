@@ -1,5 +1,5 @@
 /**
- * @file
+ * @file changestat_cov_ingroup.c
  * @brief  Change statistic for the ERPM term `cov_ingroup` (one-toggle form).
  *
  * @details

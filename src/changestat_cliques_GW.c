@@ -1,5 +1,5 @@
 /**
- * @file
+ * @file changestat_cliques_GW.c
  * @brief  Change statistic for the ERPM term `cliques_GW` (one-toggle form).
  *
  * @details

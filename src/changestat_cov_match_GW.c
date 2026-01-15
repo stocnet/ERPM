@@ -1,5 +1,5 @@
 /**
- * @file
+ * @file changestat_cov_match_GW.c
  * @brief  Change statistic for the ERPM term `cov_match_GW` (one-toggle form).
  *
  * @details
