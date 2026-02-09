@@ -47,10 +47,14 @@
 .erpm_check_dyads <- function(dyads, n, labels) {
   if (length(dyads) == 0L) return(invisible(TRUE))
   stopifnot(is.list(dyads))
+
+  if (is.null(names(dyads)) || any(!nzchar(names(dyads)))) {
+    stop("dyads must be a *named* list of n×n matrices (e.g., list(X = M)).")
+  }
+
   for (nm in names(dyads)) {
     M <- dyads[[nm]]
     stopifnot(is.matrix(M), nrow(M) == n, ncol(M) == n)
-    # If names are present, enforce exact matching to actor label order.
     if (!is.null(rownames(M)) && !is.null(colnames(M))) {
       if (!identical(rownames(M), labels) || !identical(colnames(M), labels))
         stop(sprintf("dyads['%s']: row/colnames must match the actor order.", nm))
@@ -58,3 +62,17 @@
   }
   invisible(TRUE)
 }
+# .erpm_check_dyads <- function(dyads, n, labels) {
+#   if (length(dyads) == 0L) return(invisible(TRUE))
+#   stopifnot(is.list(dyads))
+#   for (nm in names(dyads)) {
+#     M <- dyads[[nm]]
+#     stopifnot(is.matrix(M), nrow(M) == n, ncol(M) == n)
+#     # If names are present, enforce exact matching to actor label order.
+#     if (!is.null(rownames(M)) && !is.null(colnames(M))) {
+#       if (!identical(rownames(M), labels) || !identical(colnames(M), labels))
+#         stop(sprintf("dyads['%s']: row/colnames must match the actor order.", nm))
+#     }
+#   }
+#   invisible(TRUE)
+# }

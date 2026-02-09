@@ -129,6 +129,17 @@ build_bipartite_from_inputs <- function(partition    = NULL,
     nodes  <- data.frame(label = labels, stringsAsFactors = FALSE)
   } else {
     # Wrap .erpm_check_nodes_df errors in a more informative message
+    # Allow nodes as named list of vectors (e.g., list(colors=..., shapes=...))
+    if (is.list(nodes) && !is.data.frame(nodes)) {
+      if (length(nodes) && (is.null(names(nodes)) || any(!nzchar(names(nodes))))) {
+        .erpm_stop_build_bipartite("`nodes` as list must be a named list (e.g., list(colors=..., shapes=...)).")
+      }
+      if (length(nodes) && !all(vapply(nodes, is.atomic, logical(1)))) {
+        .erpm_stop_build_bipartite("`nodes` list must contain only atomic vectors.")
+      }
+      # Convert to data.frame; label handled below by existing logic
+      nodes <- as.data.frame(nodes, stringsAsFactors = FALSE)
+    }
     ok_nodes <- try(.erpm_check_nodes_df(nodes), silent = TRUE)
     if (inherits(ok_nodes, "try-error")) {
       .erpm_stop_build_bipartite(
@@ -158,6 +169,7 @@ build_bipartite_from_inputs <- function(partition    = NULL,
     .erpm_stop_build_bipartite("max(partition) cannot exceed n when padding with G = n.")
   }
   G <- n  # force as many groups as actors
+  stopifnot(G >= n)
 
   # Validate dyadic matrices
   ok_dyads <- try(.erpm_check_dyads(dyads, n, labels), silent = TRUE)

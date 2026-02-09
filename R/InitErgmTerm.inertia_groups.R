@@ -1,183 +1,444 @@
 ################################################################################
 # FILE: R/InitErgmTerm.inertia_groups.R
 ################################################################################
-#' ERGM term: inertia_groups (longitudinal exact-group persistence)
+#' ERGM inertial term: inertia_groups (PLS/PLE-ready)
 #'
 #' @name InitErgmTerm.inertia_groups
 #' @aliases inertia_groups
 #' @note InitErgmTerm.inertia_groups.R
 #'
 #' @description
-#' \code{inertia_groups} is an ERGM term for bipartite membership networks used
-#' by \code{erpm_long()}. It counts, at time \eqn{t}, how many current groups
-#' (group-mode vertices) have an \emph{exact} actor membership set that matches
-#' at least one group observed in the past, over a window of \code{past_influence}
-#' lags. The required past information is expected to be attached to the network
-#' as network attributes by \code{erpm_long()}.
-#'
-#' The term is inertial: it does not compute history by itself. It requires
-#' network attributes of the form:
-#' \preformatted{
-#'   nw %n% "erpm_inertia__inertia_groups__lag1"
-#'   nw %n% "erpm_inertia__inertia_groups__lag2"
-#'   ...
-#'   nw %n% "erpm_inertia__inertia_groups__lagd"
-#' }
-#' where \code{d = past_influence}.
-#'
-#' Each lag attribute must be a list with at least:
+#' \code{inertia_groups} is a longitudinal (inertial) ERGM term intended to be used
+#' with \code{erpm_long()} under either:
 #' \itemize{
-#'   \item \code{type = "group_signature_set"}
-#'   \item \code{signatures}: character vector, each entry like "1,3,5"
+#'   \item PLS (sequential): one bipartite network per time, with past partitions attached
+#'         to the current network as network attributes;
+#'   \item PLE (stacked): one stacked block-diagonal bipartite meta-network, with per-block
+#'         past observed partitions attached to the network.
 #' }
 #'
-#' Optional \code{size} restricts which current group sizes are eligible to be
-#' counted (same semantics as other ERPM group-level effects): NULL = all sizes.
+#' This InitErgmTerm is responsible for:
+#' \enumerate{
+#'   \item validating user arguments (past_influence, type, size, ...);
+#'   \item detecting whether the current network carries PLS or PLE longitudinal attributes;
+#'   \item extracting the relevant past partitions from network attributes;
+#'   \item packing \code{inputs} for the generic C changestat \code{c_inertia_groups}.
+#' }
 #'
-#' @param nw A bipartite \pkg{network} object for time \eqn{t}.
-#' @param arglist Term arguments from \pkg{ergm}. Supported:
-#'   \itemize{
-#'     \item \code{past_influence}: integer >= 1 (default 1).
-#'     \item \code{size}: NULL or positive integers (filter on current group size).
-#'   }
-#' @param ... Unused.
-#' @param version ERGM API version.
+#' IMPORTANT:
+#' The changestat code is paradigm-agnostic for \code{type="exogenous"}.
+#' All paradigm-specific work must be done here by preparing \code{inputs}.
 #'
-#' @return A term specification list for \pkg{ergm}.
+#' Debugging:
+#'   options(ERPM.inertia_groups.debug = TRUE) to enable debug logs
+#'   options(ERPM.inertia_groups.debug = "deep") for verbose debug logs
+#'
+#' @keywords ERPM ERGM inertial longitudinal
+#' @md
+NULL
+
+# ------------------------------------------------------------------------------
+# Small internal helpers (local to this InitErgmTerm)
+# ------------------------------------------------------------------------------
+
+#' Null-coalescing helper (local)
+#' @noRd
+`%||%` <- function(x, y) if (is.null(x)) y else x
+
+#' Debug printer (local, inspired by InitErgmTerm.cliques style)
+#'
+#' The initializer emits debug logs through ergm's init warning channel:
+#' - it avoids polluting the console during MCMC/initialization;
+#' - users can inspect messages via warnings().
+#'
+#' Debug is controlled by an R option (preferred):
+#'   options(ERPM.inertia_groups.debug = TRUE) or "deep"
+#'
+#' A term argument `debug` is still accepted for backward compatibility, but
+#' it is treated as an override only when explicitly provided.
+#'
+#' @noRd
+.inertia_groups_dbg <- function(termname, debug, ...) {
+  if (!isTRUE(debug)) return(invisible(NULL))
+  msg <- sprintf(...)
+  if (exists("ergm_Init_warn", mode = "function")) {
+    ergm_Init_warn(sQuote(termname), ": ", msg)
+  } else {
+    cat("[", termname, "|DEBUG] ", msg, "\n", sep = "")
+  }
+  invisible(NULL)
+}
+
+#' Stop helper using ergm_Init_stop when available
+#' @noRd
+.inertia_groups_stop <- function(termname, ...) {
+  msg <- paste0(...)
+  if (exists("ergm_Init_stop", mode = "function")) {
+    ergm_Init_stop(sQuote(termname), ": ", msg)
+  }
+  stop(paste0("[", termname, "] ", msg), call. = FALSE)
+}
+
+#' Coerce and validate an integer scalar >= 1
+#' @noRd
+.inertia_groups_as_int1 <- function(x, name = "past_influence", termname = "inertia_groups") {
+  if (is.numeric(x) && length(x) == 1L && is.finite(x)) {
+    iv <- as.integer(round(x))
+    if (isTRUE(all.equal(x, iv)) && iv >= 1L) return(iv)
+  }
+  .inertia_groups_stop(termname, "`", name, "` must be an integer >= 1.")
+}
+
+#' Normalize size filter:
+#' - NULL => integer(0) meaning "all sizes"
+#' - scalar/vector/interval => set of positive integers, unique, sorted
+#' @noRd
+.inertia_groups_norm_size <- function(size, termname = "inertia_groups") {
+  if (is.null(size)) return(integer(0))
+
+  if (!(is.atomic(size) && length(size) >= 1L)) {
+    .inertia_groups_stop(termname, "`size` must be NULL or an atomic vector (e.g., 4, c(1,4), 1:4).")
+  }
+
+  v_num <- suppressWarnings(as.numeric(size))
+  if (anyNA(v_num) || any(!is.finite(v_num))) {
+    .inertia_groups_stop(termname, "`size` contains NA/NaN/Inf.")
+  }
+
+  v_int <- as.integer(round(v_num))
+  if (!isTRUE(all.equal(v_num, as.numeric(v_int)))) {
+    .inertia_groups_stop(termname, "`size` must be integer-valued.")
+  }
+  if (any(v_int <= 0L)) {
+    .inertia_groups_stop(termname, "`size` must contain integers > 0.")
+  }
+
+  sort(unique(v_int))
+}
+
+#' Partition -> list of groups (actor indices 1..n_block), as integer vectors
+#' @noRd
+.inertia_groups_groups_from_partition <- function(p) {
+  p <- as.integer(p)
+  split(seq_along(p), p)
+}
+
+#' Groups -> sorted global actor ids for block b (global actor space 1..n1_total)
+#' @noRd
+.inertia_groups_groups_to_global_ids <- function(groups, b, n_block) {
+  off <- (b - 1L) * n_block
+  lapply(groups, function(v) sort(off + as.integer(v)))
+}
+
+#' Apply size filter on a list of integer vectors
+#' @noRd
+.inertia_groups_filter_by_size <- function(groups, sizes_int) {
+  if (!length(sizes_int)) return(groups)
+  keep <- vapply(groups, function(v) length(v) %in% sizes_int, logical(1))
+  groups[keep]
+}
+
+# ------------------------------------------------------------------------------
+# InitErgmTerm
+# ------------------------------------------------------------------------------
+
 #' @export
 InitErgmTerm.inertia_groups <- function(nw, arglist, ..., version = packageVersion("ergm")) {
   termname <- "inertia_groups"
 
   # ---------------------------------------------------------------------------
-  # Debug helpers
+  # 0) Parse and validate user arguments
   # ---------------------------------------------------------------------------
-  # Global option:
-  #   options(ERPM.inertia_groups.debug = TRUE/FALSE)
-  # When TRUE, the initializer prints diagnostic messages to the console.
-  dbg    <- isTRUE(getOption("ERPM.inertia_groups.debug", TRUE))
-  dbgcat <- function(...) if (dbg) cat("[inertia_groups][DEBUG]", ..., "\n", sep = "")
+  # Accept positional inertia_groups(1) as past_influence=1 (only if unambiguous).
+  if (length(arglist) == 1L) {
+    nm <- names(arglist)
+    if (is.null(nm) || isTRUE(nm[1L] == "")) {
+      arglist <- list(past_influence = arglist[[1L]])
+    }
+  }
 
-  a <- check.ErgmTerm(
+  # Normalize aliases into canonical names early.
+  if (!is.null(names(arglist)) && "pi" %in% names(arglist) && !"past_influence" %in% names(arglist))
+    arglist[["past_influence"]] <- arglist[["pi"]]
+  if (!is.null(names(arglist)) && "d" %in% names(arglist) && !"past_influence" %in% names(arglist))
+    arglist[["past_influence"]] <- arglist[["d"]]
+  if (!is.null(names(arglist)) && "sizes" %in% names(arglist) && !"size" %in% names(arglist))
+    arglist[["size"]] <- arglist[["sizes"]]
+
+  # Use ergm's standard checking for defaults and basic types.
+  # Debug is special: accept TRUE/FALSE/"deep".
+  #
+  # NOTE:
+  # Debugging is primarily controlled by options(ERPM.inertia_groups.debug = ...).
+  # The `debug` argument is kept for backward compatibility and explicit overrides.
+  a <- ergm::check.ErgmTerm(
     nw, arglist,
     directed      = NULL,
     bipartite     = TRUE,
-    varnames      = c("past_influence", "size"),
-    vartypes      = c("numeric,integer", "numeric,integer"),
-    defaultvalues = list(1L, NULL),
-    required      = c(FALSE, FALSE)
+    varnames      = c("past_influence", "type", "size", "debug"),
+    vartypes      = c("numeric", "character", "ANY", "ANY"),
+    defaultvalues = list(1, "exogenous", NULL, NULL), # <- debug default from option below
+    required      = c(FALSE, FALSE, FALSE, FALSE)
   )
 
-  # -- bipartite boundary (actor mode size) -----------------------------------
-  n1 <- as.integer(nw %n% "bipartite")
-  if (is.na(n1) || n1 <= 0L) stop(termname, ": strictly bipartite network required.")
-  dbgcat("n1 = ", n1)
+  # ---------------------------------------------------------------------------
+  # Debug control
+  # ---------------------------------------------------------------------------
+  # Priority:
+  #   1) explicit term argument `debug` if provided (TRUE/FALSE/"deep")
+  #   2) global option ERPM.inertia_groups.debug (TRUE/FALSE/"deep")
+  opt_dbg <- getOption("ERPM.inertia_groups.debug", TRUE)
 
-  # -- past_influence d --------------------------------------------------------
-  d <- a$past_influence
-  if (length(d) != 1L || is.na(d) || !is.finite(d))
-    stop(termname, ": 'past_influence' must be a finite scalar.")
-  d <- as.integer(round(d))
-  if (d < 1L) stop(termname, ": 'past_influence' must be >= 1.")
-  dbgcat("past_influence (d) = ", d)
+  debug_raw <- a$debug
+  if (is.null(debug_raw)) debug_raw <- opt_dbg
 
-  # -- size filter on CURRENT groups ------------------------------------------
-  sizes <- a$size
-  if (is.null(sizes)) {
-    L <- 0L
-    sizes_vec <- numeric(0)
-    dbgcat("size filter: NULL (all current group sizes eligible)")
+  debug <- isTRUE(debug_raw) ||
+    (is.character(debug_raw) && length(debug_raw) == 1L && !is.na(debug_raw) &&
+       tolower(trimws(debug_raw)) %in% c("deep", "true", "t", "1"))
+  deep <- is.character(debug_raw) && length(debug_raw) == 1L && !is.na(debug_raw) &&
+    tolower(trimws(debug_raw)) == "deep"
+
+  d <- .inertia_groups_as_int1(a$past_influence, name = "past_influence", termname = termname)
+
+  type <- a$type %||% "exogenous"
+  if (!is.character(type) || length(type) != 1L || is.na(type)) {
+    .inertia_groups_stop(termname, "`type` must be a single string: \"exogenous\" or \"endogenous\".")
+  }
+  type <- tolower(trimws(type))
+
+  sizes_int <- .inertia_groups_norm_size(a$size, termname = termname)
+  L <- length(sizes_int)
+
+  .inertia_groups_dbg(termname, debug,
+                      "args: type=%s | past_influence=%d | size_filter=%s | deep=%s",
+                      type, d,
+                      if (!L) "all" else paste(sizes_int, collapse = ","),
+                      if (isTRUE(deep)) "TRUE" else "FALSE")
+
+  # ---------------------------------------------------------------------------
+  # 1) Read bipartite size and longitudinal mode
+  # ---------------------------------------------------------------------------
+  n1_total <- network::get.network.attribute(nw, "bipartite")
+  if (is.null(n1_total) || is.na(n1_total)) {
+    .inertia_groups_stop(termname, "non-bipartite network or missing %n% 'bipartite' attribute.")
+  }
+  n1_total <- as.integer(n1_total)
+  if (n1_total <= 0L) {
+    .inertia_groups_stop(termname, "invalid bipartite size (N1 <= 0).")
+  }
+
+  erpm_mode <- network::get.network.attribute(nw, "erpm_mode")
+  if (is.null(erpm_mode) || is.na(erpm_mode)) erpm_mode <- "empile"
+  erpm_mode <- as.character(erpm_mode)
+
+  is_PLE <- identical(erpm_mode, "empile")
+  is_PLS <- !is_PLE
+
+  .inertia_groups_dbg(termname, debug,
+                      "network: erpm_mode=%s | paradigm=%s | n1_total=%d",
+                      erpm_mode, if (is_PLE) "PLE" else "PLS", n1_total)
+
+  # type handling
+  if ( identical(type, "endogenous") ) {
+    if (!is_PLE) {
+      .inertia_groups_stop(termname, "`type=\"endogenous\"` is only meaningful in PLE (stacked) mode.")
+    }
+    .inertia_groups_stop(termname, "`type=\"endogenous\"` is not implemented yet.")
+  }
+  if (!identical(type, "exogenous")) {
+    .inertia_groups_stop(termname, "`type` must be \"exogenous\" (default) or \"endogenous\" (not implemented).")
+  }
+
+  # ---------------------------------------------------------------------------
+  # 2) Determine block structure (B, n_block, G_block)
+  # ---------------------------------------------------------------------------
+  if (is_PLE) {
+    B       <- as.integer(network::get.network.attribute(nw, "erpm_B"))
+    n_block <- as.integer(network::get.network.attribute(nw, "erpm_n"))
+    G_block <- as.integer(network::get.network.attribute(nw, "erpm_G"))
+
+    if (any(is.na(c(B, n_block, G_block))) || any(c(B, n_block, G_block) <= 0L)) {
+      .inertia_groups_stop(termname, "[PLE] missing/invalid stacked attributes: erpm_B, erpm_n, erpm_G.")
+    }
+    if (n1_total != n_block * B) {
+      .inertia_groups_stop(
+        termname,
+        sprintf("[PLE] inconsistent actor count: bipartite=%d but erpm_n*erpm_B=%d*%d=%d.",
+                n1_total, n_block, B, n_block * B)
+      )
+    }
   } else {
-    if (!is.numeric(sizes) || length(sizes) == 0L)
-      stop(termname, ": 'size' must be NULL or a non-empty numeric/integer vector.")
-    sizes <- as.integer(round(sizes))
-    if (any(!is.finite(sizes)) || any(sizes <= 0L))
-      stop(termname, ": 'size' must contain positive integers.")
-    sizes <- sort(unique(sizes))
-    L <- length(sizes)
-    sizes_vec <- as.double(sizes)
-    dbgcat("size filter: S = {", paste(sizes, collapse = ","), "} (L = ", L, ")")
+    # PLS: one block only (current network); keep the same packing layout.
+    B       <- 1L
+    n_block <- n1_total
+    G_block <- n1_total
   }
 
-  # -- helpers ----------------------------------------------------------------
-  .stop_bad_attr <- function(msg) stop(paste0(termname, ": ", msg), call. = FALSE)
+  .inertia_groups_dbg(termname, debug,
+                      "blocks: B=%d | n_block=%d | G_block=%d | d=%d | L=%d",
+                      B, n_block, G_block, d, L)
 
-  .parse_signature <- function(sig, n1) {
-    # Expect "1,3,5" (no spaces). Allow empty only if truly empty group (we disallow here).
-    if (!is.character(sig) || length(sig) != 1L || is.na(sig) || !nzchar(sig))
-      .stop_bad_attr("invalid signature entry (must be a non-empty string).")
-    parts <- strsplit(sig, ",", fixed = TRUE)[[1L]]
-    if (!length(parts)) .stop_bad_attr("invalid signature: empty.")
-    ids <- suppressWarnings(as.integer(parts))
-    if (anyNA(ids)) .stop_bad_attr(sprintf("invalid signature (non-integer token): %s", sig))
-    if (any(ids < 1L | ids > n1)) .stop_bad_attr(sprintf("signature ids out of range 1..n1: %s", sig))
-    ids <- sort(unique(ids))
-    ids
+  # ---------------------------------------------------------------------------
+  # 3) Extract past partitions from network attributes
+  # ---------------------------------------------------------------------------
+  if (is_PLE) {
+    # Prefer historical attribute name; accept standardized engine name as fallback.
+    past_by_block <- network::get.network.attribute(nw, "erpm_block_past_partitions")
+    if (is.null(past_by_block)) {
+      # Accept standardized engine attribute name
+      past_by_block <- network::get.network.attribute(nw, "erpm_past_partitions")
+    }
+
+    if (is.null(past_by_block) || !is.list(past_by_block) || length(past_by_block) != B) {
+      .inertia_groups_stop(
+        termname,
+        sprintf("[PLE] expected %%n%% 'erpm_block_past_partitions' or 'erpm_past_partitions' as list(B=%d).", B)
+      )
+    }
+
+    for (b in seq_len(B)) {
+      pb <- past_by_block[[b]]
+      if (is.null(pb) || !is.list(pb) || length(pb) < d) {
+        .inertia_groups_stop(termname, sprintf("[PLE] block %d has insufficient past partitions: need past_influence=%d lags.", b, d))
+      }
+    }
+
+    if (isTRUE(deep)) {
+      lens <- vapply(past_by_block, length, integer(1))
+      .inertia_groups_dbg(termname, debug, "past(deep): per-block lag lengths: %s", paste(lens, collapse = ","))
+    }
+
+  } else {
+    past_parts <- network::get.network.attribute(nw, "erpm_past_partitions")
+    past_depth <- network::get.network.attribute(nw, "erpm_past_depth")
+
+    if (is.null(past_parts) || !is.list(past_parts)) {
+      .inertia_groups_stop(termname, "[PLS] expected %n% 'erpm_past_partitions' as a list of lags.")
+    }
+    if (is.null(past_depth) || is.na(past_depth)) past_depth <- length(past_parts)
+    past_depth <- as.integer(past_depth)
+
+    if (past_depth < d || length(past_parts) < d) {
+      .inertia_groups_stop(
+        termname,
+        sprintf("[PLS] insufficient past partitions: need past_influence=%d lags but have past_depth=%d.", d, past_depth)
+      )
+    }
+
+    # Normalize to a PLE-like container with B=1 for the packing loop.
+    past_by_block <- list(past_parts)
+
+    if (isTRUE(deep)) {
+      .inertia_groups_dbg(termname, debug,
+                          "past(deep): past_depth=%d | length(erpm_past_partitions)=%d",
+                          past_depth, length(past_parts))
+    }
   }
 
-  # -- read and validate lag attributes; pack past groups ----------------------
-  # We build a single numeric INPUT_PARAM vector:
-  #
-  # [1]  n1
-  # [2]  d
-  # [3]  L
-  # [4..] sizes[L]
-  # then for each lag=1..d:
-  #   [ ] M_lag
-  #   then for each group j=1..M_lag:
-  #       len_j
-  #       actor_ids (len_j entries)
-  #
-  # All stored as doubles, cast to int in C.
-  inputs <- c(as.double(n1), as.double(d), as.double(L), sizes_vec)
+  # ---------------------------------------------------------------------------
+  # 4) Build past group lists (GLOBAL actor ids) per (block, lag)
+  # ---------------------------------------------------------------------------
+  # INPUT_PARAM layout (numeric vector):
+  #   header:
+  #     n1_total, n_block, G_block, B, d, L
+  #   sizes (L entries):
+  #     sizes_int (possibly empty)
+  #   offsets table (B*d entries):
+  #     offsets[block,lag] = 0-based index in INPUT_PARAM where the (block,lag)
+  #     data block begins (i.e., position just before writing M for that block)
+  #   data blocks (block-major, lag-major):
+  #     for each (b,lag):
+  #       M, then for each group m=1..M:
+  #         len_m, id_1, ..., id_len_m
+  offsets <- integer(B * d)
 
-  coef.name <- sprintf("inertia_groups[pi=%d]%s",
-                       d,
-                       if (L > 0L) sprintf("_S{%s}", paste(sizes, collapse = ",")) else "_all")
-  dbgcat("coef.name = ", coef.name)
+  inputs <- c(
+    as.numeric(n1_total),
+    as.numeric(n_block),
+    as.numeric(G_block),
+    as.numeric(B),
+    as.numeric(d),
+    as.numeric(L),
+    as.numeric(sizes_int)
+  )
 
-  for (lag in seq_len(d)) {
-    attr_name <- paste0("erpm_inertia__", termname, "__lag", lag)
-    obj <- nw %n% attr_name
-    dbgcat("reading attribute: ", sQuote(attr_name))
+  offsets_start <- length(inputs) + 1L
+  inputs <- c(inputs, rep(0, B * d)) # placeholder offsets (filled later)
 
-    if (is.null(obj))
-      .stop_bad_attr(sprintf("missing required network attribute %s (not attached by erpm_long?).", sQuote(attr_name)))
-    if (!is.list(obj))
-      .stop_bad_attr(sprintf("attribute %s must be a list.", sQuote(attr_name)))
+  # Deterministic order: block-major, lag-major
+  for (b in seq_len(B)) {
+    pb <- past_by_block[[b]]
 
-    if (is.null(obj$type) || !identical(as.character(obj$type), "group_signature_set"))
-      .stop_bad_attr(sprintf("attribute %s has wrong type (expected 'group_signature_set').", sQuote(attr_name)))
+    for (lag in seq_len(d)) {
+      # 0-based start position in the final INPUT_PARAM vector
+      start0 <- length(inputs)
+      offsets[(b - 1L) * d + lag] <- start0
 
-    sigs <- obj$signatures
-    if (is.null(sigs) || !is.character(sigs))
-      .stop_bad_attr(sprintf("attribute %s must contain a character vector $signatures.", sQuote(attr_name)))
+      p_lag <- pb[[lag]]
+      if (is.null(p_lag) || !is.atomic(p_lag)) {
+        .inertia_groups_stop(termname, sprintf("invalid past partition at block=%d lag=%d (must be an atomic vector).", b, lag))
+      }
+      if (length(p_lag) != n_block) {
+        .inertia_groups_stop(
+          termname,
+          sprintf("past partition length mismatch at block=%d lag=%d: expected n_block=%d, got %d.",
+                  b, lag, n_block, length(p_lag))
+        )
+      }
 
-    # Past groups can include empty groups in principle, but signatures should not be empty.
-    # If the attribute has length 0, it simply means "no groups in the past".
-    M <- length(sigs)
-    inputs <- c(inputs, as.double(M))
-    dbgcat("  lag=", lag, " | past groups M = ", M)
+      groups <- .inertia_groups_groups_from_partition(p_lag)
+      groups <- .inertia_groups_filter_by_size(groups, sizes_int)
+      groups_global <- .inertia_groups_groups_to_global_ids(groups, b, n_block)
 
-    if (M > 0L) {
-      for (s in sigs) {
-        ids <- .parse_signature(s, n1)
-        if (length(ids) < 1L)
-          .stop_bad_attr(sprintf("empty group signature is not allowed in %s.", sQuote(attr_name)))
-        inputs <- c(inputs, as.double(length(ids)), as.double(ids))
-        dbgcat("    sig=", sQuote(s), " | len=", length(ids))
+      M <- length(groups_global)
+
+      block_vec <- numeric(0)
+      block_vec <- c(block_vec, as.numeric(M))
+      if (M) {
+        for (g in groups_global) {
+          block_vec <- c(block_vec, as.numeric(length(g)), as.numeric(g))
+        }
+      }
+
+      inputs <- c(inputs, block_vec)
+
+      .inertia_groups_dbg(termname, debug,
+                          "packed block=%d lag=%d: offset0=%d | M=%d",
+                          b, lag, start0, M)
+
+      if (isTRUE(deep) && M) {
+        sizes_here <- vapply(groups_global, length, integer(1))
+        .inertia_groups_dbg(termname, debug,
+                            "packed(deep) block=%d lag=%d: group sizes: %s",
+                            b, lag, paste(sizes_here, collapse = ","))
       }
     }
   }
 
-  dbgcat("inputs packed: length=", length(inputs))
+  # Fill offsets table (as numeric)
+  offsets_end <- offsets_start + (B * d) - 1L
+  inputs[offsets_start:offsets_end] <- as.numeric(offsets)
 
+  if (isTRUE(deep)) {
+    .inertia_groups_dbg(termname, debug,
+                        "inputs(deep): header_len=%d | offsets=[%d..%d] | total_len=%d",
+                        offsets_start - 1L, offsets_start, offsets_end, length(inputs))
+  }
+
+  # ---------------------------------------------------------------------------
+  # 5) Coefficient naming
+  # ---------------------------------------------------------------------------
+  size_tag <- if (!L) "all" else paste0("size=", paste(sizes_int, collapse = ","))
+  coef_name <- sprintf("inertia_groups[type=%s,pi=%d]_%s", type, d, size_tag)
+
+  # ---------------------------------------------------------------------------
+  # 6) Return ERGM term spec
+  # ---------------------------------------------------------------------------
   list(
-    name         = "inertia_groups",
-    coef.names   = coef.name,
-    inputs       = inputs,
-    dependence   = TRUE,
-    minval       = 0,
-    maxval       = Inf,
-    emptynwstats = 0
+    name       = "inertia_groups",
+    coef.names = coef_name,
+    pkgname    = "ERPM",
+    inputs     = inputs,
+    dependence = TRUE
   )
 }
