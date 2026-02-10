@@ -25,9 +25,9 @@
 # Get estimation block indices
 # ------------------------------------------------------------------------------
 .erpm_long_get_idx_est <- function(nw) {
-  idx <- network::get.network.attribute(nw, "erpm_long.idx_est")
+  idx <- network::get.network.attribute(nw, "erpm_long.selected_partition_indices")
   if (is.null(idx)) {
-    stop("[ERPM_LONG] Missing 'erpm_long.idx_est' attribute on meta-network.")
+    stop("[ERPM_LONG] Missing 'erpm_long.selected_partition_indices' attribute on meta-network.")
   }
   as.integer(idx)
 }

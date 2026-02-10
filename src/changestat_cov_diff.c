@@ -182,7 +182,7 @@
  */
 
 #include "ergm_changestat.h"
-#include "ergm_storage.h"      /* Calloc / Free */
+#include "ergm_storage.h"      /* R_Calloc / R_Free */
 #include <R_ext/Print.h>
 #include <math.h>
 
@@ -337,9 +337,9 @@ static double group_covdiff(Vertex g,
   int ng = 0;  /* number of actors in this group */
 
   /* "seen" marks actors already counted to avoid double counting. */
-  unsigned char *seen = (unsigned char *)Calloc(n1, unsigned char);  /* 0-initialised */
+  unsigned char *seen = (unsigned char *)R_Calloc(n1, unsigned char);  /* 0-initialised */
   /* idxs holds 0-based indices into x[] for the actors in this group. */
-  int *idxs          = (int *)Calloc(n1, int);
+  int *idxs          = (int *)R_Calloc(n1, int);
 
   /* OUT-neighbours: group → actor. */
   STEP_THROUGH_OUTEDGES(g, e, h){
@@ -369,7 +369,7 @@ static double group_covdiff(Vertex g,
       seen[ idxs[i] ] = 0;
     }
   }
-  Free(seen);
+  R_Free(seen);
 
   /* Not enough actors to form a k-subset. */
   if(ng < k){
@@ -377,15 +377,15 @@ static double group_covdiff(Vertex g,
       Rprintf("[cov_diff][group_covdiff] g=%d ng=%d < k=%d -> 0\n",
               (int)g, ng, k);
     #endif
-    Free(idxs);
+    R_Free(idxs);
     return 0.0;
   }
 
   /* Sum D(S) over all k-subsets S of the group. */
   double sumD = 0.0;
-  int *comb = (int *)Calloc(k, int);
+  int *comb = (int *)R_Calloc(k, int);
   sum_D_rec(0, 0, k, ng, idxs, x, comb, &sumD);
-  Free(comb);
+  R_Free(comb);
 
   double res = sumD;
 
@@ -413,7 +413,7 @@ static double group_covdiff(Vertex g,
             (int)g, ng, k, norm_mode, res);
   #endif
 
-  Free(idxs);
+  R_Free(idxs);
   return res;
 }
 

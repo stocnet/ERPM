@@ -283,7 +283,7 @@ static inline int code_of_actor(Vertex i, const double *z_codes){
  */
 static int neighbors_actors_of_group(Network *nwp, Vertex g, Vertex *actors, int n1){
   int cnt = 0;
-  unsigned char *seen = (unsigned char*)Calloc(n1, unsigned char); /* Calloc -> 0 */
+  unsigned char *seen = (unsigned char*)R_Calloc(n1, unsigned char); /* R_Calloc -> 0 */
 
   Vertex h; Edge e;
 
@@ -309,7 +309,7 @@ static int neighbors_actors_of_group(Network *nwp, Vertex g, Vertex *actors, int
     }
   }
 
-  Free(seen);
+  R_Free(seen);
   return cnt;
 }
 

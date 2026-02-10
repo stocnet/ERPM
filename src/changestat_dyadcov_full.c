@@ -112,7 +112,7 @@
  */
 
 #include "ergm_changestat.h"
-#include "ergm_storage.h"      /* Calloc/Free */
+#include "ergm_storage.h"      /* R_Calloc/R_Free */
 #include <R_ext/Print.h>
 
 /**
@@ -215,7 +215,7 @@ static double group_dyadcov(Vertex g,
                             Network *nwp){
 
   /* Temporary bitmap of actor membership for this group (0/1 per actor). */
-  unsigned char *seen = (unsigned char*)Calloc(n1, unsigned char); /* initialised to 0 */
+  unsigned char *seen = (unsigned char*)R_Calloc(n1, unsigned char); /* initialised to 0 */
 
   Vertex h;
   Edge e;
@@ -248,12 +248,12 @@ static double group_dyadcov(Vertex g,
     Rprintf("[dyadcov_full][group_dyadcov] g=%d ng=%d -> 0 (empty/singleton/not in S)\n",
             (int)g, ng);
 #endif
-    Free(seen);
+    R_Free(seen);
     return 0.0;
   }
 
   /* Collect the 1-based actor vertex indices belonging to g. */
-  int *actors = (int*)Calloc(ng, int);
+  int *actors = (int*)R_Calloc(ng, int);
   int k = 0;
   for(int i = 0; i < n1; i++){
     if(seen[i]){
@@ -285,8 +285,8 @@ static double group_dyadcov(Vertex g,
           (int)g, ng, sum);
 #endif
 
-  Free(actors);
-  Free(seen);
+  R_Free(actors);
+  R_Free(seen);
 
   return sum;
 }

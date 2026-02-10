@@ -256,7 +256,7 @@ static double sum_cliques_k(const int *actors,
   if(k > ng) return 0.0;
 
   /* Working array for combinations of indices into actors[]. */
-  int *comb = (int*)Calloc(k, int);
+  int *comb = (int*)R_Calloc(k, int);
   for(int i = 0; i < k; i++) comb[i] = i;
 
   double total = 0.0;
@@ -292,7 +292,7 @@ static double sum_cliques_k(const int *actors,
     }
   }
 
-  Free(comb);
+  R_Free(comb);
   return total;
 }
 
@@ -336,7 +336,7 @@ static double group_dyadcov_k(Vertex g,
                               int *n_g_out){
 
   /* Temporary bitmap of actor membership for this group. */
-  unsigned char *seen = (unsigned char*)Calloc(n1, unsigned char); /* initialised to 0 */
+  unsigned char *seen = (unsigned char*)R_Calloc(n1, unsigned char); /* initialised to 0 */
   Vertex h;
   Edge e;
 
@@ -369,12 +369,12 @@ static double group_dyadcov_k(Vertex g,
     Rprintf("[dyadcov][group_dyadcov_k] g=%d ng=%d < k=%d -> 0\n",
             (int)g, ng, k);
 #endif
-    Free(seen);
+    R_Free(seen);
     return 0.0;
   }
 
   /* Collect the 1-based actor indices belonging to g. */
-  int *actors = (int*)Calloc(ng, int);
+  int *actors = (int*)R_Calloc(ng, int);
   int idx = 0;
   for(int i = 0; i < n1; i++){
     if(seen[i]){
@@ -389,8 +389,8 @@ static double group_dyadcov_k(Vertex g,
           (int)g, ng, k, sum);
 #endif
 
-  Free(actors);
-  Free(seen);
+  R_Free(actors);
+  R_Free(seen);
 
   return sum;
 }

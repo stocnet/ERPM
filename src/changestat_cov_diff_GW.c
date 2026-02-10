@@ -333,7 +333,7 @@ static void group_covdiff_allk(Vertex g,
   int ng = 0;
 
   /* Local marking of actors in the group (0..n1-1) to avoid double counting. */
-  unsigned char *seen = (unsigned char *)Calloc(n1, unsigned char);
+  unsigned char *seen = (unsigned char *)R_Calloc(n1, unsigned char);
 
   /* OUT-neighbours: group → actor. */
   STEP_THROUGH_OUTEDGES(g, e, h){
@@ -363,7 +363,7 @@ static void group_covdiff_allk(Vertex g,
       seen[ idxs[i] ] = 0;
     }
   }
-  Free(seen);
+  R_Free(seen);
 
   *ng_out = ng;
 
@@ -385,9 +385,9 @@ static void group_covdiff_allk(Vertex g,
   /* For each k, sum D(S) over all k-subsets S of the group. */
   for(int k = 2; k <= ng; k++){
     double sumD = 0.0;
-    int *comb = (int *)Calloc(k, int);
+    int *comb = (int *)R_Calloc(k, int);
     sum_D_rec(0, 0, k, ng, idxs, x, comb, &sumD);
-    Free(comb);
+    R_Free(comb);
     ck[k] = sumD;
   }
 
@@ -476,9 +476,9 @@ C_CHANGESTAT_FN(c_cov_diff_GW){
   UNUSED_WARNING(actor);
 
   /* 4) Allocate buffers for c_k(g) before and after, and for actor indices. */
-  double *ck_before = (double *)Calloc(n1 + 1, double);
-  double *ck_after  = (double *)Calloc(n1 + 1, double);
-  int    *idxs      = (int    *)Calloc(n1,     int);
+  double *ck_before = (double *)R_Calloc(n1 + 1, double);
+  double *ck_after  = (double *)R_Calloc(n1 + 1, double);
+  int    *idxs      = (int    *)R_Calloc(n1,     int);
 
   int ng_before = 0;
   int ng_after  = 0;
@@ -499,9 +499,9 @@ C_CHANGESTAT_FN(c_cov_diff_GW){
   int Kmax = (ng_before > ng_after) ? ng_before : ng_after;
   if(Kmax < 2){
     /* No contribution if the group has size < 2 in both states. */
-    Free(ck_before);
-    Free(ck_after);
-    Free(idxs);
+    R_Free(ck_before);
+    R_Free(ck_after);
+    R_Free(idxs);
     return;
   }
 
@@ -535,8 +535,8 @@ C_CHANGESTAT_FN(c_cov_diff_GW){
 #endif
   }
 
-  /* 8) Free local buffers. */
-  Free(ck_before);
-  Free(ck_after);
-  Free(idxs);
+  /* 8) R_Free local buffers. */
+  R_Free(ck_before);
+  R_Free(ck_after);
+  R_Free(idxs);
 }

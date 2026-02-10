@@ -64,7 +64,7 @@
  */
 
 #include "ergm_changestat.h"
-#include "ergm_storage.h"      /* Calloc/Free */
+#include "ergm_storage.h"      /* R_Calloc/R_Free */
 #include <R_ext/Print.h>
 #include <string.h>
 
@@ -124,7 +124,7 @@ static inline int group_block_index(Vertex g, int n1_total, int G_block, int B){
  * - return value: group size (k)
  */
 static int collect_group_members_sorted(Vertex g, int n1_total, Network *nwp, int *out_ids){
-  unsigned char *seen = (unsigned char*)Calloc(n1_total, unsigned char);
+  unsigned char *seen = (unsigned char*)R_Calloc(n1_total, unsigned char);
   Edge e; Vertex h;
 
   /* Neighbors through OUT edges */
@@ -147,7 +147,7 @@ static int collect_group_members_sorted(Vertex g, int n1_total, Network *nwp, in
     }
   }
 
-  Free(seen);
+  R_Free(seen);
   return k;
 }
 
@@ -223,24 +223,24 @@ static double group_flag(Vertex g,
   const int b = group_block_index(g, n1_total, G_block, B);
 
   /* Build current group member list */
-  int *ids = (int*)Calloc(n1_total, int);
+  int *ids = (int*)R_Calloc(n1_total, int);
   int ng = collect_group_members_sorted(g, n1_total, nwp, ids);
 
   /* Empty group: never persistent */
   if(ng == 0){
-    Free(ids);
+    R_Free(ids);
     return 0.0;
   }
 
   /* Size filter on CURRENT group */
   if(!in_sizes(ng, L, sizes_int)){
-    Free(ids);
+    R_Free(ids);
     return 0.0;
   }
 
   /* Exact match required in ALL lags, within the SAME block */
   int ok = matches_all_past_groups_block(ids, ng, ip, b, d, L);
-  Free(ids);
+  R_Free(ids);
 
   return ok ? 1.0 : 0.0;
 }
@@ -264,7 +264,7 @@ C_CHANGESTAT_FN(c_inertia_groups){
   /* Copy size filter as ints for cheap comparisons */
   int *sizes_int = NULL;
   if(L > 0){
-    sizes_int = (int*)Calloc(L, int);
+    sizes_int = (int*)R_Calloc(L, int);
     for(int i=0; i<L; i++) sizes_int[i] = (int)ip[6 + i];
   }
 
@@ -303,5 +303,5 @@ C_CHANGESTAT_FN(c_inertia_groups){
             (int)group, F_before, F_after, (F_after - F_before));
   #endif
 
-  if(sizes_int) Free(sizes_int);
+  if(sizes_int) R_Free(sizes_int);
 }

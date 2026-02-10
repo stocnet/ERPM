@@ -168,7 +168,7 @@
  */
 
 #include "ergm_changestat.h"
-#include "ergm_storage.h"      /* Calloc/Free */
+#include "ergm_storage.h"      /* R_Calloc/R_Free */
 #include <R_ext/Print.h>
 
 /**
@@ -274,8 +274,8 @@ static double group_range(Vertex g,
 
   /* "seen" marks actors that have already been counted, to avoid
    * double counting in directed or reciprocated networks.
-   * Allocated and zero-initialised by Calloc. */
-  unsigned char *seen = (unsigned char*)Calloc(n1, unsigned char);
+   * Allocated and zero-initialised by R_Calloc. */
+  unsigned char *seen = (unsigned char*)R_Calloc(n1, unsigned char);
 
   Vertex h;
   Edge e;
@@ -331,7 +331,7 @@ static double group_range(Vertex g,
   STEP_THROUGH_INEDGES(g, e, h){
     if(h <= (Vertex)n1) seen[(int)h - 1] = 0;
   }
-  Free(seen);
+  R_Free(seen);
 
   /* Empty group or singleton: no internal dispersion. */
   if(ng <= 1){

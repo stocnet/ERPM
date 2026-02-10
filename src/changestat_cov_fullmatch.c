@@ -182,7 +182,7 @@
  */
 
 #include "ergm_changestat.h"
-#include "ergm_storage.h"      /* Calloc/Free */
+#include "ergm_storage.h"      /* R_Calloc/R_Free */
 #include <R_ext/Print.h>
 #include <string.h>            /* memset */
 
@@ -302,14 +302,14 @@ static double group_flag(Vertex g, int n1, int L, const double *sizes,
   int cntK[1024];
   int *cnt = NULL;
   if(K > 0){
-    cnt = use_stack_cnt ? cntK : (int*)Calloc(K, int);
+    cnt = use_stack_cnt ? cntK : (int*)R_Calloc(K, int);
     for(int i=0; i<K; i++) cnt[i] = 0;
   }
 
   /* ----------------------------------------------------------------------
    * Build the set of actor neighbours, deduplicated via `seen`.
    * -------------------------------------------------------------------- */
-  unsigned char *seen = (unsigned char*)Calloc(n1, unsigned char); /* Calloc => zeroed */
+  unsigned char *seen = (unsigned char*)R_Calloc(n1, unsigned char); /* R_Calloc => zeroed */
   Vertex h;
   Edge e;
 
@@ -361,8 +361,8 @@ static double group_flag(Vertex g, int n1, int L, const double *sizes,
       Rprintf("[cov_fullmatch][group_flag] g=%d ng=0 -> res=0 (empty group)\n",
               (int)g);
     #endif
-    if(cnt && !use_stack_cnt) Free(cnt);
-    Free(seen);
+    if(cnt && !use_stack_cnt) R_Free(cnt);
+    R_Free(seen);
     return 0.0;
   }
 
@@ -372,8 +372,8 @@ static double group_flag(Vertex g, int n1, int L, const double *sizes,
       Rprintf("[cov_fullmatch][group_flag] g=%d ng=%d -> excluded by size filter\n",
               (int)g, ng);
     #endif
-    if(cnt && !use_stack_cnt) Free(cnt);
-    Free(seen);
+    if(cnt && !use_stack_cnt) R_Free(cnt);
+    R_Free(seen);
     return 0.0;
   }
 
@@ -399,7 +399,7 @@ static double group_flag(Vertex g, int n1, int L, const double *sizes,
     #endif
   }
 
-  if(cnt && !use_stack_cnt) Free(cnt);
+  if(cnt && !use_stack_cnt) R_Free(cnt);
 
   /* Reset "seen" marks for this group and free the buffer. */
   STEP_THROUGH_OUTEDGES(g, e, h){
@@ -408,7 +408,7 @@ static double group_flag(Vertex g, int n1, int L, const double *sizes,
   STEP_THROUGH_INEDGES(g, e, h){
     if(h <= (Vertex)n1) seen[(int)h - 1] = 0;
   }
-  Free(seen);
+  R_Free(seen);
 
   return res;
 }

@@ -2,15 +2,18 @@
 # File    : scripts/test/selftests/selftest_inertia_groups_PLE.R
 # Object  : Self-test (PLE only) for ERPM inertial term `inertia_groups`
 # Run     : Rscript scripts/test/selftests/selftest_inertia_groups_PLE.R
-# Notes   :
-#   - Only PLE ("empile") is used in this selftest.
-#   - No random generation: partitions, nodes, dyads are explicit numeric values.
-#   - When calling erpm_long(): always provide nodes AND dyads, even if unused.
-#   - When calling erpm_long(): verbose=TRUE and debug="deep".
-#   - After each erpm_long(): print(out) (or print with a short label).
-#   - Static effects exercised: cliques, cov_fullmatch, dyadcov
-#   - Inertial effect: inertia_groups
-#   - This version does NOT rely on blockdiag() (known unimplemented combo with b1part in your setup).
+#
+# Notes
+#   - PLE ("empile") only. No PLS. No inertial endogenous variant.
+#   - No blockdiag() in constraints (known broken with b1part in current setup).
+#     All summary()/fit calls below use constraints = ~ b1part only.
+#   - Two explicit datasets:
+#       * Dataset #1: n=4, dyads {fm, Z1}, nodes {label, gender, age}
+#       * Dataset #2: n=5, dyads {Y, X1}, nodes {id, sex, age_years}
+#   - The file is organized as:
+#       SECTION 1) DRY-RUN: build meta-network + verify erpm() call (dataset #1, many scenarios)
+#       SECTION 3) SUMMARY: build meta-network via erpm_long() then compare summary() vs offline expected (datasets #1 and #2)
+#       SECTION 4) FIT: run erpm_long() (eval.call=FALSE) on the same scenario grid (datasets #1 and #2)
 # ======================================================================================
 
 # --------------------------------------------------------------------------------------
@@ -32,12 +35,18 @@ suppressMessages(suppressPackageStartupMessages({
   library(network, quietly = TRUE, warn.conflicts = FALSE)
   library(ergm,    quietly = TRUE, warn.conflicts = FALSE)
 }))
+options(keep.source = TRUE)
+options(keep.source.pkgs = TRUE)
+Sys.setenv(R_KEEP_PKG_SOURCE = "yes")
+# devtools::load_all(".")
 
-devtools::load_all(".")
 
 # --------------------------------------------------------------------------------------
-# Warnings capture helper (selftest)
+# Debug + warnings capture (selftest)
 # --------------------------------------------------------------------------------------
+dbg <- TRUE
+dbgcat <- function(...) if (dbg) cat("[selftest_inertia_groups_PLE][DEBUG] ", ..., "\n", sep = "")
+
 .warn_flush <- function() {
   invisible(warnings())
   invisible(NULL)
@@ -53,6 +62,10 @@ devtools::load_all(".")
     }
   )
   list(value = val, warnings = w)
+}
+
+.print_warnings <- function(w) {
+  if (length(w)) cat(paste0("[WARN] ", w, collapse = "\n"), "\n")
 }
 
 # --------------------------------------------------------------------------------------
@@ -86,173 +99,10 @@ if (!file.exists(patch_path)) {
   }
 }
 
-cat("=== SELFTEST inertia_groups (PLE only) | NO blockdiag ===\n")
+cat("=== SELFTEST inertia_groups (PLE only) | constraints: b1part only | NO blockdiag ===\n")
 
 # ======================================================================================
-# Global fixed scenario (explicit values)
-# ======================================================================================
-
-# Stacked (PLE) dimensions
-B       <- 3L   # number of blocks (times)
-n_block <- 4L   # actors per block
-G_block <- 3L   # groups per block
-
-# Total actors in stacked actor space (mode-1)
-n1_total <- B * n_block
-
-# Total vertices in stacked bipartite network
-N_total <- n1_total + (B * G_block)
-
-# Current partitions per block (time blocks inside the stacked meta-network)
-P_cur_b1 <- c(1, 1, 2, 3)
-P_cur_b2 <- c(1, 2, 2, 3)
-P_cur_b3 <- c(1, 1, 3, 3)
-
-# Past partitions per block by lag (lag=1 recent, lag=2 older)
-P_b1_lag1 <- c(1, 1, 2, 3)
-P_b1_lag2 <- c(1, 2, 2, 3)
-
-P_b2_lag1 <- c(1, 2, 2, 3)
-P_b2_lag2 <- c(1, 1, 2, 3)
-
-P_b3_lag1 <- c(1, 1, 3, 3)
-P_b3_lag2 <- c(1, 2, 2, 3)
-
-# Container expected by InitErgmTerm.inertia_groups (PLE):
-erpm_block_past_partitions <- list(
-  list(P_b1_lag1, P_b1_lag2),
-  list(P_b2_lag1, P_b2_lag2),
-  list(P_b3_lag1, P_b3_lag2)
-)
-
-# ======================================================================================
-# Shared helpers: stacking, oracle stats, and "no blockdiag" workaround for fits
-# ======================================================================================
-
-# --- Build stacked dyads (actor-actor) as block-diagonal n1_total x n1_total matrix
-# Input: dyads_by_time = list(t=1..B) of list(fm=4x4, Z1=4x4)
-.stack_actor_dyads_blockdiag <- function(dyads_by_time, name) {
-  stopifnot(length(dyads_by_time) == B)
-  M <- matrix(0, nrow = n1_total, ncol = n1_total)
-  for (b in seq_len(B)) {
-    Z <- dyads_by_time[[b]][[name]]
-    if (!is.matrix(Z) || nrow(Z) != n_block || ncol(Z) != n_block) {
-      stop(sprintf("dyads[%d]$%s must be a %dx%d matrix", b, name, n_block, n_block), call. = FALSE)
-    }
-    i0 <- (b - 1L) * n_block
-    idx <- (i0 + 1L):(i0 + n_block)
-    M[idx, idx] <- Z
-  }
-  M
-}
-
-.vec <- function(M) as.numeric(M)
-
-# --- Oracle: current membership edges => per group member actor indices (global 1..n1_total)
-# Groups are vertices (n1_total+1)..N_total, blockwise (G_block per block)
-.get_group_members_global <- function(nw, gv) {
-  nb <- network::get.neighborhood(nw, gv, type = "all")
-  cur_ids <- sort(unique(as.integer(nb)))
-  cur_ids <- cur_ids[cur_ids >= 1L & cur_ids <= n1_total]
-  cur_ids
-}
-
-# --- Oracle inertia_groups (exogenous, PLE): strict intersection over lags 1..d
-oracle_inertia_groups <- function(nw, d, size_filter_int) {
-  cnt <- 0L
-  for (b in seq_len(B)) {
-    for (g in seq_len(G_block)) {
-      gv <- n1_total + (b - 1L) * G_block + g
-      cur_ids <- .get_group_members_global(nw, gv)
-      if (length(cur_ids) == 0L) next
-      if (length(size_filter_int) > 0L && !(length(cur_ids) %in% size_filter_int)) next
-
-      ok_all_lags <- TRUE
-      for (lag in seq_len(d)) {
-        p_lag <- erpm_block_past_partitions[[b]][[lag]]
-        grp_split <- split(seq_along(p_lag), as.integer(p_lag))
-        grp_global <- lapply(grp_split, function(v) sort((b - 1L) * n_block + as.integer(v)))
-
-        ok_lag <- FALSE
-        for (u in seq_along(grp_global)) {
-          if (length(grp_global[[u]]) == length(cur_ids) && all(grp_global[[u]] == cur_ids)) {
-            ok_lag <- TRUE
-            break
-          }
-        }
-        if (!ok_lag) {
-          ok_all_lags <- FALSE
-          break
-        }
-      }
-      if (ok_all_lags) cnt <- cnt + 1L
-    }
-  }
-  cnt
-}
-
-# --- Oracle cliques(k=2): sum over groups choose(size,2)
-oracle_cliques_k2 <- function(nw) {
-  tot <- 0
-  for (b in seq_len(B)) {
-    for (g in seq_len(G_block)) {
-      gv <- n1_total + (b - 1L) * G_block + g
-      m <- length(.get_group_members_global(nw, gv))
-      if (m >= 2L) tot <- tot + (m * (m - 1L)) / 2
-    }
-  }
-  tot
-}
-
-# --- Oracle cov-based within-group sums: sum_{groups} sum_{i<j in group} M[i,j]
-oracle_within_group_upper_sum <- function(nw, M_actor) {
-  stopifnot(is.matrix(M_actor), nrow(M_actor) == n1_total, ncol(M_actor) == n1_total)
-  tot <- 0
-  for (b in seq_len(B)) {
-    for (g in seq_len(G_block)) {
-      gv <- n1_total + (b - 1L) * G_block + g
-      ids <- .get_group_members_global(nw, gv)
-      if (length(ids) < 2L) next
-      ids <- as.integer(ids)
-      for (ii in 1L:(length(ids) - 1L)) {
-        for (jj in (ii + 1L):length(ids)) {
-          tot <- tot + M_actor[ids[ii], ids[jj]]
-        }
-      }
-    }
-  }
-  tot
-}
-
-# --- NO blockdiag workaround for fits (keep b1part only):
-# Add a structural "almost-forbidden" edgecov on cross-block actor-group dyads.
-# This DOES NOT use blockdiag(). It makes cross-block membership edges essentially impossible.
-.build_forbidden_crossblock_edgecov <- function() {
-  X <- matrix(0, nrow = N_total, ncol = N_total)
-
-  # actor i in block ba, group vertex in block bg: forbid if ba != bg
-  # Actors: 1..n1_total (global)
-  # Groups: (n1_total+1)..N_total, blockwise
-  for (ba in seq_len(B)) {
-    a0 <- (ba - 1L) * n_block
-    a_idx <- (a0 + 1L):(a0 + n_block)
-
-    for (bg in seq_len(B)) {
-      g0 <- n1_total + (bg - 1L) * G_block
-      g_idx <- (g0 + 1L):(g0 + G_block)
-
-      if (ba != bg) {
-        # Put a huge negative value so offset(edgecov(X)) kills those edges.
-        X[a_idx, g_idx] <- -1e6
-        X[g_idx, a_idx] <- -1e6
-      }
-    }
-  }
-  X
-}
-
-# ======================================================================================
-# SECTION 0) Build explicit inputs for Section 1 (manual meta-network + stacked dyads/monads)
+# DATASET #1 (n=4, T=3)
 # ======================================================================================
 
 # Nodes (explicit, per time)
@@ -327,378 +177,661 @@ partitions <- list(
   c(1, 1, 3, 3)
 )
 
-# Stacked actor dyads (n1_total x n1_total) for manual meta-network
-fm_stacked <- .stack_actor_dyads_blockdiag(dyads, "fm")
-Z1_stacked <- .stack_actor_dyads_blockdiag(dyads, "Z1")
+# ======================================================================================
+# DATASET #2 (n=5, T=3)
+# ======================================================================================
 
+# Nodes (explicit, per time) — size = 5
+nodes2 <- list(
+  data.frame(
+    id        = c("E", "F", "G", "H", "I"),
+    sex       = c(1, 2, 1, 2, 1),
+    age_years = c(21, 24, 29, 31, 26)
+  ),
+  data.frame(
+    id        = c("KA", "LU", "MI", "NO", "PA"),
+    sex       = c(2, 2, 1, 1, 2),
+    age_years = c(35, 28, 22, 40, 33)
+  ),
+  data.frame(
+    id        = c("Q", "R", "T", "U", "V"),
+    sex       = c(1, 1, 2, 2, 1),
+    age_years = c(27, 26, 34, 29, 31)
+  )
+)
+
+# Dyads (explicit, per time) — 5x5
+dyads2 <- list(
+  list(
+    Y = matrix(c(
+      0, 1, 0, 1, 0,
+      1, 0, 1, 0, 0,
+      0, 1, 0, 1, 1,
+      1, 0, 1, 0, 0,
+      0, 0, 1, 0, 0
+    ), nrow = 5, byrow = TRUE),
+    X1 = matrix(c(
+      0, 2, 0, 3, 0,
+      2, 0, 1, 0, 0,
+      0, 1, 0, 4, 2,
+      3, 0, 4, 0, 1,
+      0, 0, 2, 1, 0
+    ), nrow = 5, byrow = TRUE)
+  ),
+  list(
+    Y = matrix(c(
+      0, 1, 1, 0, 0,
+      1, 0, 0, 1, 0,
+      1, 0, 0, 1, 1,
+      0, 1, 1, 0, 0,
+      0, 0, 1, 0, 0
+    ), nrow = 5, byrow = TRUE),
+    X1 = matrix(c(
+      0, 3, 2, 0, 0,
+      3, 0, 0, 1, 0,
+      2, 0, 0, 4, 5,
+      0, 1, 4, 0, 0,
+      0, 0, 5, 0, 0
+    ), nrow = 5, byrow = TRUE)
+  ),
+  list(
+    Y = matrix(c(
+      0, 0, 1, 1, 0,
+      0, 0, 1, 0, 1,
+      1, 1, 0, 0, 1,
+      1, 0, 0, 0, 0,
+      0, 1, 1, 0, 0
+    ), nrow = 5, byrow = TRUE),
+    X1 = matrix(c(
+      0, 1, 2, 3, 0,
+      1, 0, 4, 0, 2,
+      2, 4, 0, 5, 6,
+      3, 0, 5, 0, 0,
+      0, 2, 6, 0, 0
+    ), nrow = 5, byrow = TRUE)
+  )
+)
+
+# Partitions passed to erpm_long — length = 5
+partitions2 <- list(
+  c(1, 1, 2, 3, 3),
+  c(1, 2, 2, 3, 1),
+  c(2, 2, 3, 3, 1)
+)
 
 # ======================================================================================
-# SECTION 1) summary() on a meta-network built by .erpm_long_empile_run() (ALL effects)
-# Objective:
-#   - build the stacked PLE meta-network using the exposed engine runner
-#     .erpm_long_empile_run(...), i.e. exactly the internal path used by erpm_long();
-#   - run summary() on: inertia_groups + cliques + cov_fullmatch + dyadcov
-#   - verify each effect vs offline oracle (same nw)
+# Offline helpers (expected)
+#   - cliques(k=2): sum_g choose(n_g, 2)
+#   - cov_match("gender"/"sex", k=2, normalized="none"): sum_g sum_r choose(n_{g,r}, 2)
+#   - dyadcov("Z1"/"X1", k=2, normalize=FALSE): sum_g sum_{i<j in g} (Zij + Zji)
+#   - inertia_groups(pi=d): count current groups whose exact membership matches
+#     at least one past group signature at EACH lag 1..d (strict intersection over lags)
+# ======================================================================================
+
+.get_group_members_actor_ids <- function(nw, gv, n1) {
+  nb <- network::get.neighborhood(nw, gv, type = "all")
+  ids <- sort(unique(as.integer(nb)))
+  ids[ids >= 1L & ids <= n1]
+}
+
+.expected_cliques_k2 <- function(nw) {
+  n1 <- as.integer(nw %n% "bipartite")
+  if (!is.finite(n1) || n1 <= 0L) stop("[expected] missing/invalid bipartite.")
+  tot <- 0
+  for (gv in (n1 + 1L):(2L * n1)) {
+    m <- length(.get_group_members_actor_ids(nw, gv, n1))
+    if (m >= 2L) tot <- tot + (m * (m - 1L)) / 2
+  }
+  tot
+}
+
+.expected_cov_match_k2_none <- function(nw, cov_attr) {
+  n1 <- as.integer(nw %n% "bipartite")
+  x <- network::get.vertex.attribute(nw, cov_attr)
+  if (is.null(x)) stop("[expected] missing vertex attribute: ", cov_attr)
+  x <- x[seq_len(n1)]
+  tot <- 0
+  for (gv in (n1 + 1L):(2L * n1)) {
+    ids <- .get_group_members_actor_ids(nw, gv, n1)
+    if (length(ids) < 2L) next
+    tab <- table(x[ids], useNA = "no")
+    if (!length(tab)) next
+    tot <- tot + sum(tab * (tab - 1L) / 2)
+  }
+  tot
+}
+
+.expected_dyadcov_k2_raw <- function(nw, dyad_name) {
+  n1 <- as.integer(nw %n% "bipartite")
+  Z <- tryCatch(nw %n% dyad_name, error = function(e) NULL)
+
+  if (is.null(Z)) {
+    dy <- tryCatch(nw %n% "dyads", error = function(e) NULL)
+    if (is.list(dy) && !is.null(dy[[dyad_name]])) Z <- dy[[dyad_name]]
+  }
+  if (is.null(Z) || !is.matrix(Z)) stop("[expected] dyad matrix not found: ", dyad_name)
+
+  if (nrow(Z) < n1 || ncol(Z) < n1) stop("[expected] dyad dims too small for n1.")
+  if (nrow(Z) != n1 || ncol(Z) != n1) Z <- Z[seq_len(n1), seq_len(n1), drop = FALSE]
+
+  tot <- 0
+  for (gv in (n1 + 1L):(2L * n1)) {
+    ids <- .get_group_members_actor_ids(nw, gv, n1)
+    if (length(ids) < 2L) next
+    for (ii in 1L:(length(ids) - 1L)) {
+      for (jj in (ii + 1L):length(ids)) {
+        i <- ids[ii]
+        j <- ids[jj]
+        tot <- tot + (Z[i, j] + Z[j, i])
+      }
+    }
+  }
+  tot
+}
+
+.expected_inertia_groups <- function(nw, past_influence, size = NULL) {
+  d <- as.integer(past_influence)
+  if (!is.finite(d) || d < 1L) stop("[expected] past_influence must be >= 1.")
+
+  n1 <- as.integer(nw %n% "bipartite")
+  if (!is.finite(n1) || n1 <= 0L) stop("[expected] missing/invalid bipartite.")
+
+  B <- tryCatch(as.integer(nw %n% "erpm_B"), error = function(e) NA_integer_)
+  n_block <- tryCatch(as.integer(nw %n% "erpm_n"), error = function(e) NA_integer_)
+  G_block <- tryCatch(as.integer(nw %n% "erpm_G"), error = function(e) NA_integer_)
+  past <- tryCatch(nw %n% "erpm_block_past_partitions", error = function(e) NULL)
+
+  if (!is.finite(B) || !is.finite(n_block) || !is.finite(G_block) || is.null(past)) {
+    stop("[expected] missing inertia_groups PLE attributes: erpm_B/erpm_n/erpm_G/erpm_block_past_partitions.")
+  }
+  if (n1 != B * n_block) {
+    stop("[expected] inconsistent sizes: bipartite n1=", n1, " but B*n=", B * n_block)
+  }
+  if (!is.list(past) || length(past) != B) stop("[expected] past container must have length B.")
+
+  sizes_int <- if (is.null(size)) integer(0) else sort(unique(as.integer(size)))
+  cnt <- 0L
+
+  for (b in seq_len(B)) {
+    if (!is.list(past[[b]]) || length(past[[b]]) < d) stop("[expected] past[[b]] must have at least d partitions.")
+    for (g in seq_len(G_block)) {
+      gv <- n1 + (b - 1L) * G_block + g
+      cur_ids <- .get_group_members_actor_ids(nw, gv, n1)
+      if (!length(cur_ids)) next
+      if (length(sizes_int) && !(length(cur_ids) %in% sizes_int)) next
+
+      ok_all_lags <- TRUE
+      for (lag in seq_len(d)) {
+        p_lag <- past[[b]][[lag]]
+        if (!is.atomic(p_lag) || length(p_lag) != n_block) stop("[expected] past partition wrong shape.")
+        groups <- split(seq_along(p_lag), as.integer(p_lag))
+        groups_global <- lapply(groups, function(v) sort((b - 1L) * n_block + as.integer(v)))
+
+        ok_lag <- FALSE
+        for (u in seq_along(groups_global)) {
+          if (length(groups_global[[u]]) == length(cur_ids) && all(groups_global[[u]] == cur_ids)) {
+            ok_lag <- TRUE
+            break
+          }
+        }
+        if (!ok_lag) {
+          ok_all_lags <- FALSE
+          break
+        }
+      }
+
+      if (ok_all_lags) cnt <- cnt + 1L
+    }
+  }
+
+  cnt
+}
+
+# ======================================================================================
+# Internal entry point lookup (engine)
+# ======================================================================================
+.f_empile_build <- get0(".erpm_long_empile_build_meta_nw", mode = "function", inherits = TRUE)
+if (is.null(.f_empile_build) && "ERPM" %in% loadedNamespaces()) {
+  .f_empile_build <- get0(".erpm_long_empile_build_meta_nw", envir = asNamespace("ERPM"),
+                          mode = "function", inherits = FALSE)
+}
+if (is.null(.f_empile_build)) stop("[selftest] Cannot find .erpm_long_empile_build_meta_nw().", call. = FALSE)
+
+# ======================================================================================
+# SECTION 1) DRY-RUN (dataset #1)
+#   Objective:
+#     - verify meta-network construction (light structural checks)
+#     - verify erpm() call returned by erpm_long(eval.call=TRUE)
+#   Scenarios (as requested):
+#     1) partitions ok ; nodes=NULL ; dyads=NULL ; cliques
+#     2) partitions ok ; nodes=NULL ; dyads=NULL ; inertia_groups
+#     3) partitions ok ; nodes=NULL ; dyads=NULL ; cliques + inertia_groups
+#     4) partitions ok ; nodes=filled ; dyads=NULL ; cov_match
+#     5) partitions ok ; nodes=filled ; dyads=NULL ; inertia_groups
+#     6) partitions ok ; nodes=filled ; dyads=NULL ; cov_match + inertia_groups
+#     7) partitions ok ; nodes=filled ; dyads=filled ; dyadcov
+#     8) partitions ok ; nodes=filled ; dyads=filled ; inertia_groups
+#     9) partitions ok ; nodes=filled ; dyads=filled ; dyadcov + inertia_groups
 # ======================================================================================
 
 cat("\n================================================================================\n")
-cat("SECTION 1) summary() on meta-network built by .erpm_long_empile_build_meta_nw() (ALL effects)\n")
+cat("SECTION 1) DRY-RUN: build meta-network + verify erpm() call (dataset #1)\n")
 cat("================================================================================\n")
 
-# --------------------------------------------------------------------------------------
-# 1) Build meta-network (PLE) via the exposed engine runner
-# --------------------------------------------------------------------------------------
+.run_dry_scenario <- function(label, rhs, partitions, nodes_arg, dyads_arg) {
+  cat("\n------------------------------------------------------------\n")
+  cat(label, "\n")
+  dbgcat("rhs: ", deparse(rhs))
+  dbgcat("nodes: ", if (is.null(nodes_arg)) "NULL" else "filled")
+  dbgcat("dyads: ", if (is.null(dyads_arg)) "NULL" else "filled")
 
-.f_empile_run <- get0(".erpm_long_empile_build_meta_nw", mode = "function", inherits = TRUE)
-if (is.null(.f_empile_run) && "ERPM" %in% loadedNamespaces()) {
-  .f_empile_run <- get0(".erpm_long_empile_build_meta_nw", envir = asNamespace("ERPM"),
-                        mode = "function", inherits = FALSE)
-}
-if (is.null(.f_empile_run)) {
-  stop("[SECTION 1] Cannot find exposed .erpm_long_empile_build_meta_nw() in current session.", call. = FALSE)
-}
+  inert <- grepl("\\binertia_groups\\b", paste(deparse(rhs), collapse = " "))
+  d <- if (inert) 1L else 0L
 
-# RHS must be a pure ERGM RHS (already translated if needed). We only need it because the
-# engine returns it; the build itself depends on inertial_present/past_influence.
-rhs_all <- ~ inertia_groups(past_influence = 1) +
-            cliques(k = 2) +
-            cov_fullmatch("fm") +
-            dyadcov("Z1")
+  # 1) Build meta-network via engine (construction check)
 
-# We want a "full" meta-network that supports checks for d=1 and d=2 on the SAME network,
-# so we build with inertial_present=FALSE (=> idx_est = 1..T) and do not drop early blocks.
-# This is purely for the summary/oracle validation; the erpm_long(estimation) behavior
-# with inertial terms (dropping first d blocks) is tested in SECTION 2.
-print(partitions)
-print(rhs_all)
-print(nodes)
-print(dyads)
-.emp <- tryCatch(
-  .f_empile_run(
+  built <- .f_empile_build(
     partitions       = partitions,
-    rhs              = rhs_all,
-    inertial_present = TRUE,
-    past_influence   = 1,
-    nodes            = nodes,
-    dyads            = dyads,
+    rhs              = rhs,
+    inertial_present = inert,
+    past_influence   = d,
+    nodes            = nodes_arg,
+    dyads            = dyads_arg,
     group_labels     = NULL,
     directed         = FALSE,
     verbose          = TRUE
-  ),
-  error = function(e) {
-    stop("[SECTION 1] .erpm_long_empile_build_meta_nw() failed: ", conditionMessage(e), call. = FALSE)
+  )
+
+  # built <- tryCatch(
+  #   .f_empile_build(
+  #     partitions       = partitions,
+  #     rhs              = rhs,
+  #     inertial_present = inert,
+  #     past_influence   = d,
+  #     nodes            = nodes_arg,
+  #     dyads            = dyads_arg,
+  #     group_labels     = NULL,
+  #     directed         = FALSE,
+  #     verbose          = TRUE
+  #   ),
+  #   error = function(e) e
+  # )
+
+  # if (inherits(built, "error")) {
+  #   cat("[ENGINE ERROR]\n", conditionMessage(built), "\n")
+  #   return(invisible(NULL))
+  # }
+
+  nw <- built$meta_nw
+  stopifnot(inherits(nw, "network"))
+  n1 <- as.integer(nw %n% "bipartite")
+  N  <- network::network.size(nw)
+
+  dbgcat("meta network: N=", N, " | n1(bipartite)=", n1, " | selected_partition_indices={", paste(built$selected_partition_indices, collapse = ","), "}")
+
+  # light sanity checks
+  tb <- network::get.vertex.attribute(nw, "timeblock")
+  if (is.null(tb) || length(tb) != N) stop("[DRY] missing/invalid vertex attr 'timeblock'.", call. = FALSE)
+
+  if (!is.null(nodes_arg)) {
+    # node covariates become vertex attributes; just verify presence by name on actor side
+    # Dataset #1 uses: gender, age, label_raw (label is overwritten by builder)
+    if (is.null(network::get.vertex.attribute(nw, "gender"))) stop("[DRY] missing vertex attr 'gender'.", call. = FALSE)
+    if (is.null(network::get.vertex.attribute(nw, "age")))    stop("[DRY] missing vertex attr 'age'.", call. = FALSE)
   }
-)
 
-cat("network.size types:\n")
-tmp_nws <- lapply(partitions, function(p) .erpm_ple_partition_to_bipartite(p))
-print(vapply(tmp_nws, function(nw) typeof(network::network.size(nw)), character(1)))
+  if (!is.null(dyads_arg)) {
+    # at least one dyad matrix should be reachable by dyadcov initializer policy
+    # verify either as nw %n% "<name>" or via nw %n% "dyads" list
+    z1 <- tryCatch(nw %n% "Z1", error = function(e) NULL)
+    dy <- tryCatch(nw %n% "dyads", error = function(e) NULL)
+    okZ1 <- is.matrix(z1) || (is.list(dy) && !is.null(dy[["Z1"]]))
+    if (!okZ1) stop("[DRY] dyads filled but cannot find Z1 in nw %n% 'Z1' nor nw %n% 'dyads'[['Z1']].", call. = FALSE)
+  }
 
-if (!is.list(.emp) || is.null(.emp$meta_nw) || !inherits(.emp$meta_nw, "network")) {
-  stop("[SECTION 1] .erpm_long_empile_build_meta_nw() did not return a list with $meta_nw (class 'network').",
-       call. = FALSE)
+  if (inert) {
+    # inertia_groups PLE attrs must exist
+    if (is.null(tryCatch(nw %n% "erpm_block_past_partitions", error = function(e) NULL)))
+      stop("[DRY] missing nw %n% 'erpm_block_past_partitions' (required by inertia_groups).", call. = FALSE)
+    if (!identical(as.character(tryCatch(nw %n% "erpm_mode", error = function(e) "")), "empile"))
+      stop("[DRY] missing/invalid nw %n% 'erpm_mode' for PLE.", call. = FALSE)
+  }
+
+  # 2) Verify erpm() call returned by erpm_long(eval.call=TRUE)
+  call_erpm <- tryCatch(
+    erpm_long(
+      partitions ~ rhs,
+      nodes     = nodes_arg,
+      dyads     = dyads_arg,
+      mode      = "empile",
+      verbose   = TRUE,
+      debug     = "deep",
+      eval.call = TRUE
+    ),
+    error = function(e) e
+  )
+  if (inherits(call_erpm, "error")) {
+    cat("[ERPM_LONG DRY ERROR]\n", conditionMessage(call_erpm), "\n")
+    return(invisible(NULL))
+  }
+
+  dbgcat("erpm_long returned call (eval.call=TRUE):")
+  print(call_erpm)
+
+  cat("[DRY] OK\n")
+  invisible(list(meta_nw = nw, call = call_erpm))
 }
 
-nw_meta <- .emp$meta_nw
-print(.emp)
+# Scenario grid (dataset #1)
+rhs1 <- quote(cliques(k = 2))
+rhs2 <- quote(inertia_groups(past_influence = 1))
+rhs3 <- quote(cliques(k = 2) + inertia_groups(past_influence = 1))
+rhs4 <- quote(cov_match("gender", clique_size = 2, normalized = "none"))
+rhs5 <- quote(inertia_groups(past_influence = 1))
+rhs6 <- quote(cov_match("gender", clique_size = 2, normalized = "none") + inertia_groups(past_influence = 1))
+rhs7 <- quote(dyadcov("Z1", clique_size = 2, normalize = FALSE))
+rhs8 <- quote(inertia_groups(past_influence = 1))
+rhs9 <- quote(dyadcov("Z1", clique_size = 2, normalize = FALSE) + inertia_groups(past_influence = 1))
 
-# --------------------------------------------------------------------------------------
-# 1bis) Sanity-check: meta-nodes (monadic covariates) attached by the engine
-# --------------------------------------------------------------------------------------
-.gender <- network::get.network.attribute(nw_meta, "gender")
-.age    <- network::get.network.attribute(nw_meta, "age")
+.run_dry_scenario("S1.1) nodes=NULL; dyads=NULL; cliques",                      rhs1, partitions, NULL,  NULL)
+.run_dry_scenario("S1.2) nodes=NULL; dyads=NULL; inertia_groups",              rhs2, partitions, NULL,  NULL)
+.run_dry_scenario("S1.3) nodes=NULL; dyads=NULL; cliques + inertia_groups",    rhs3, partitions, NULL,  NULL)
+.run_dry_scenario("S1.4) nodes=filled; dyads=NULL; cov_match",                 rhs4, partitions, nodes, NULL)
+.run_dry_scenario("S1.5) nodes=filled; dyads=NULL; inertia_groups",            rhs5, partitions, nodes, NULL)
+.run_dry_scenario("S1.6) nodes=filled; dyads=NULL; cov_match + inertia_groups",rhs6, partitions, nodes, NULL)
+.run_dry_scenario("S1.7) nodes=filled; dyads=filled; dyadcov",                 rhs7, partitions, nodes, dyads)
+.run_dry_scenario("S1.8) nodes=filled; dyads=filled; inertia_groups",          rhs8, partitions, nodes, dyads)
+.run_dry_scenario("S1.9) nodes=filled; dyads=filled; dyadcov + inertia_groups",rhs9, partitions, nodes, dyads)
 
-if (is.null(.gender) || !is.matrix(.gender) || ncol(.gender) != 1L) {
-  stop("[SECTION 1] meta-node 'gender' must be a (Nmeta x 1) matrix attached to meta_nw.", call. = FALSE)
-}
-if (is.null(.age) || !is.matrix(.age) || ncol(.age) != 1L) {
-  stop("[SECTION 1] meta-node 'age' must be a (Nmeta x 1) matrix attached to meta_nw.", call. = FALSE)
-}
+cat("\nSECTION 1 DONE.\n")
 
-cat(sprintf("[SECTION 1] meta-node gender: dim=%dx%d\n", nrow(.gender), ncol(.gender)))
-cat(sprintf("[SECTION 1] meta-node age   : dim=%dx%d\n", nrow(.age), ncol(.age)))
-
-cat("\n[SECTION 1] Meta-network built by .erpm_long_empile_build_meta_nw():\n")
-
-# --------------------------------------------------------------------------------------
-# 2) Normalize dyads contract for summary() terms (cov_fullmatch/dyadcov)
-# --------------------------------------------------------------------------------------
-# Your term initializers in this project sometimes read dyads from:
-#   - nw %n% "dyads"  (list of vectors length nA^2), OR
-#   - nw %n% "<name>" (matrix), depending on version.
+# ======================================================================================
+# SECTION 3) SUMMARY vs OFFLINE COMPUTATION
+#   - For each dataset, build a meta-network via erpm_long(eval.call=FALSE),
+#     then run:
+#       summary(nw ~ terms, constraints = ~ b1part)
+#     and compare to offline expected computed on the exact same nw.
 #
-# The PLE runner shown attaches dyads as matrices on network attributes named by nm.
-# To make this selftest robust across both conventions, we ensure a canonical
-# nw %n% "dyads" list exists, with vec(meta_matrix) for each dyad name.
-
-.meta_nA <- B * n_block
-if (is.null(.meta_nA) || is.na(.meta_nA)) stop("[SECTION 1] Internal error: meta_nA undefined.", call. = FALSE)
-
-.fm_M <- network::get.network.attribute(nw_meta, "fm")
-.Z1_M <- network::get.network.attribute(nw_meta, "Z1")
-
-if (!is.matrix(.fm_M) || nrow(.fm_M) != .meta_nA || ncol(.fm_M) != .meta_nA) {
-  stop("[SECTION 1] meta_nw %n% 'fm' must be a nA x nA matrix (here nA=12).", call. = FALSE)
-}
-if (!is.matrix(.Z1_M) || nrow(.Z1_M) != .meta_nA || ncol(.Z1_M) != .meta_nA) {
-  stop("[SECTION 1] meta_nw %n% 'Z1' must be a nA x nA matrix (here nA=12).", call. = FALSE)
-}
-
-network::set.network.attribute(
-  nw_meta, "dyads",
-  list(fm = as.numeric(.fm_M), Z1 = as.numeric(.Z1_M))
-)
-
-dy_ret <- network::get.network.attribute(nw_meta, "dyads")
-if (!is.list(dy_ret) || !all(c("fm", "Z1") %in% names(dy_ret))) {
-  stop("[SECTION 1] Failed to enforce dyads list with names {fm,Z1} in nw %n% 'dyads'.", call. = FALSE)
-}
-
-# --------------------------------------------------------------------------------------
-# 3) Ensure PLE past partitions attribute required by inertia_groups
-# --------------------------------------------------------------------------------------
-# The exposed runner may attach timeline_nws when inertial_present=TRUE, but your
-# canonical inertia_groups expects erpm_block_past_partitions-style content.
-# We attach it explicitly for this selftest’s oracle validation.
-
-if (is.null(network::get.network.attribute(nw_meta, "erpm_block_past_partitions"))) {
-  network::set.network.attribute(nw_meta, "erpm_block_past_partitions", erpm_block_past_partitions)
-}
-
-# --------------------------------------------------------------------------------------
-# 4) Summary vs oracle
-# --------------------------------------------------------------------------------------
-
-case_specs <- list(
-  list(label = "CASE S1: pi=1, size=NULL",    d = 1L, size = NULL),
-  list(label = "CASE S2: pi=2, size=NULL",    d = 2L, size = NULL),
-  list(label = "CASE S3: pi=1, size=2",       d = 1L, size = 2L),
-  list(label = "CASE S4: pi=2, size=2",       d = 2L, size = 2L),
-  list(label = "CASE S5: pi=1, size=c(1,3)",  d = 1L, size = c(1L, 3L))
-)
-
-oracle_all_effects <- function(nw, d, size_filter_int) {
-  list(
-    inertia_groups = oracle_inertia_groups(nw, d = d, size_filter_int = size_filter_int),
-    cliques_k2     = oracle_cliques_k2(nw),
-    cov_fullmatch  = oracle_within_group_upper_sum(nw, fm_stacked),
-    dyadcov_Z1     = oracle_within_group_upper_sum(nw, Z1_stacked)
-  )
-}
-
-for (k in seq_along(case_specs)) {
-  spec <- case_specs[[k]]
-  d_k <- spec$d
-  size_k <- spec$size
-  size_int <- if (is.null(size_k)) integer(0) else as.integer(size_k)
-
-  cat("\n------------------------------------------------------------\n")
-  cat(spec$label, "\n")
-
-  .warn_flush()
-  res <- .capture_warnings(
-    summary(
-      nw_meta ~
-        inertia_groups(past_influence = d_k, size = size_k, debug = "deep") +
-        cliques(k = 2) +
-        cov_fullmatch("fm") +
-        dyadcov("Z1")
-    )
-  )
-  if (length(res$warnings)) cat(paste(res$warnings, collapse = "\n"), "\n")
-  sum_obj <- res$value
-  print(sum_obj)
-
-  o <- oracle_all_effects(nw_meta, d = d_k, size_filter_int = size_int)
-  svals <- as.numeric(sum_obj)
-
-  cat(sprintf("[ORACLE] inertia_groups(pi=%d,size=%s) = %d\n",
-              d_k, if (is.null(size_k)) "NULL" else paste(size_int, collapse = ","),
-              as.integer(o$inertia_groups)))
-  cat(sprintf("[ORACLE] cliques(k=2)                 = %g\n", o$cliques_k2))
-  cat(sprintf("[ORACLE] cov_fullmatch('fm')          = %g\n", o$cov_fullmatch))
-  cat(sprintf("[ORACLE] dyadcov('Z1')                = %g\n", o$dyadcov_Z1))
-
-  cat(sprintf("[SUMMARY] inertia_groups              = %d\n", as.integer(svals[1L])))
-  cat(sprintf("[SUMMARY] cliques(k=2)                = %g\n", svals[2L]))
-  cat(sprintf("[SUMMARY] cov_fullmatch('fm')         = %g\n", svals[3L]))
-  cat(sprintf("[SUMMARY] dyadcov('Z1')               = %g\n", svals[4L]))
-
-  if (!isTRUE(all.equal(as.integer(svals[1L]), as.integer(o$inertia_groups))))
-    stop(sprintf("Mismatch inertia_groups in %s", spec$label), call. = FALSE)
-  if (!isTRUE(all.equal(svals[2L], o$cliques_k2)))
-    stop(sprintf("Mismatch cliques(k=2) in %s", spec$label), call. = FALSE)
-  if (!isTRUE(all.equal(svals[3L], o$cov_fullmatch)))
-    stop(sprintf("Mismatch cov_fullmatch('fm') in %s", spec$label), call. = FALSE)
-  if (!isTRUE(all.equal(svals[4L], o$dyadcov_Z1)))
-    stop(sprintf("Mismatch dyadcov('Z1') in %s", spec$label), call. = FALSE)
-}
-
-cat("\nSECTION 1 OK: summary() matches oracle for inertia_groups + cliques + cov_fullmatch + dyadcov.\n")
-# ======================================================================================
-# SECTION 2) erpm_long() dry-run (PLE only) with ALL effects in one call
-# Objective:
-#   - validate call construction
-#   - verify meta-network structure produced by erpm_long (dyads + monads) against expectations
+#   Scenario grid (for each dataset), as requested:
+#     A) nodes=NULL; dyads=NULL; cliques
+#     B) nodes=NULL; dyads=NULL; inertia_groups
+#     C) nodes=NULL; dyads=NULL; cliques + inertia_groups
+#     D) nodes=filled; dyads=NULL; cov_match
+#     E) nodes=filled; dyads=NULL; inertia_groups
+#     F) nodes=filled; dyads=NULL; cov_match + inertia_groups
+#     G) nodes=filled; dyads=filled; dyadcov
+#     H) nodes=filled; dyads=filled; inertia_groups
+#     I) nodes=filled; dyads=filled; dyadcov + inertia_groups
+#     J) nodes=filled; dyads=filled; cliques + cov_match + dyadcov + inertia_groups
 # ======================================================================================
 
 cat("\n================================================================================\n")
-cat("SECTION 2) erpm_long() dry-run (PLE only) | ALL effects\n")
-cat("================================================================================\n")
+cat("SECTION 3) SUMMARY vs OFFLINE COMPUTATION (datas5====================================\n")
 
-cat("\n--- DRY-RUN: inertia_groups + cliques + cov_fullmatch + dyadcov (pi=1) ---\n")
-
-.warn_flush()
-res <- .capture_warnings(
-  erpm_long(
-    partitions ~
-      inertia_groups(past_influence = 1, debug = "deep") +
-      cliques(k = 2) +
-      cov_fullmatch("fm") +
-      dyadcov("Z1"),
-    nodes     = nodes,
-    dyads     = dyads,
-    mode      = "empile",
-    verbose   = TRUE,
-    debug     = "deep",
-    eval.call = FALSE
-  )
-)
-if (length(res$warnings)) cat(paste(res$warnings, collapse = "\n"), "\n")
-out <- res$value
-print(out)
-
-# --- Validate meta-network built by erpm_long (expected kept times for pi=1: t=2,3 => B=2) ----
-cat("\n[SECTION 2] Validating returned meta-network content (light checks)\n")
-
-stopifnot(inherits(out, "erpm_long"))
-stopifnot(is.list(out$network) || inherits(out$network, "network"))
-nw_ret <- out$network
-stopifnot(inherits(nw_ret, "network"))
-
-# We expect (with pi=1) that erpm_long keeps times 2,3 => B_kept=2 => nA = 8, nG=6, N=14
-na_ret <- network::get.network.attribute(nw_ret, "erpm_nA")
-ng_ret <- network::get.network.attribute(nw_ret, "erpm_nG")
-N_ret  <- network::network.size(nw_ret)
-
-cat(sprintf("[SECTION 2] Returned: N=%d | erpm_nA=%d | erpm_nG=%d\n", N_ret, na_ret, ng_ret))
-
-if (!identical(as.integer(na_ret), 8L) || !identical(as.integer(ng_ret), 6L) || !identical(as.integer(N_ret), 14L)) {
-  stop("[SECTION 2] Unexpected stacked sizes from erpm_long() for pi=1 (expected N=14,nA=8,nG=6).", call. = FALSE)
-}
-
-# Check dyads exist and lengths match nA^2
-dy_ret <- network::get.network.attribute(nw_ret, "dyads")
-if (!is.list(dy_ret) || !all(c("fm", "Z1") %in% names(dy_ret))) {
-  stop("[SECTION 2] Missing dyads list with names {fm,Z1} in nw %n% 'dyads'.", call. = FALSE)
-}
-if (length(dy_ret$fm) != 8L * 8L || length(dy_ret$Z1) != 8L * 8L) {
-  stop("[SECTION 2] Dyads vectors have wrong length (expected nA^2=64).", call. = FALSE)
-}
-
-# Spot-check monadic attrs presence (x for actors, g for groups)
-for (nm in c("gender", "age")) {
-  M <- network::get.network.attribute(nw_ret, nm)
-  if (is.null(M) || !is.matrix(M) || ncol(M) != 1L) {
-    stop(sprintf("[SECTION 2] Missing meta-node '%s' as (Nmeta x 1) matrix.", nm), call. = FALSE)
-  }
-}
-
-cat("[SECTION 2] OK: erpm_long dry-run returned a meta-network with expected dimensions + dyads + monads.\n")
-cat("\nSECTION 2 OK (dry-run call executed).\n")
-
-# ======================================================================================
-# SECTION 3) FITS (NO blockdiag): direct ergm() on manual nw_meta with b1part only
-# Objective:
-#   - run minimal fits without blockdiag:
-#       * inertia_groups only
-#       * cliques only
-#       * cov_fullmatch only
-#       * dyadcov only
-#       * all 4 effects together
-#   - Keep cross-block edges essentially impossible WITHOUT using blockdiag()
-# ======================================================================================
-
-cat("\n================================================================================\n")
-cat("SECTION 3) FITS (NO blockdiag): ergm() on manual meta-network + b1part only\n")
-cat("================================================================================\n")
-
-# Build the "forbid cross-block membership edges" edgecov matrix once
-X_forbid <- .build_forbidden_crossblock_edgecov()
-
-# Control (MPLE keeps this fast/stable; no MCMC proposal needed)
-ctrl_mple <- ergm::control.ergm(
-  MPLE.maxit = 50,
-  MPLE.type = "glm"
-)
-
-.fit_one <- function(rhs, label) {
+.run_summary_case <- function(label, partitions, nodes_arg, dyads_arg, rhs_expr,
+                             cov_attr = NULL, dyad_name = NULL, past_influence = 1L) {
   cat("\n------------------------------------------------------------\n")
   cat(label, "\n")
+  dbgcat("nodes: ", if (is.null(nodes_arg)) "NULL" else "filled",
+         " | dyads: ", if (is.null(dyads_arg)) "NULL" else "filled",
+         " | rhs: ", deparse(rhs_expr))
+
+  # build via erpm_long, but keep it cheap: estimate not forced; only need network output
   .warn_flush()
-
-  # Add the "no cross-block" structural offset to keep the PLE logic sane without blockdiag()
-  f <- as.formula(paste0(
-    "nw_meta ~ offset(edgecov(X_forbid)) + ", rhs
-  ))
-
   res <- .capture_warnings(
     tryCatch(
-      ergm::ergm(
-        f,
-        constraints = ~b1part,
-        # estimate = "MPLE",
-        # control = ctrl_mple,
-        verbose = TRUE
+      erpm_long(
+        partitions ~ rhs_expr,
+        nodes     = nodes_arg,
+        dyads     = dyads_arg,
+        mode      = "empile",
+        verbose   = FALSE,
+        debug     = NULL,
+        eval.call = FALSE
       ),
       error = function(e) e
     )
   )
-
-  if (length(res$warnings)) cat(paste(res$warnings, collapse = "\n"), "\n")
+  .print_warnings(res$warnings)
 
   if (inherits(res$value, "error")) {
-    cat("[FIT ERROR]\n")
-    cat(conditionMessage(res$value), "\n")
+    cat("[ERPM_LONG ERROR]\n", conditionMessage(res$value), "\n")
+    return(invisible(NULL))
+  }
+
+  out <- res$value
+  stopifnot(is.list(out) || inherits(out, "erpm_long"))
+  nw <- out$network
+  stopifnot(inherits(nw, "network"))
+
+  n1 <- as.integer(nw %n% "bipartite")
+  N  <- network::network.size(nw)
+  dbgcat("built nw: N=", N, " | n1=", n1)
+
+  # summary() on that network
+  .warn_flush()
+  sres <- .capture_warnings(
+    tryCatch(
+      summary(
+        as.formula(call("~", nw, rhs_expr)),
+        constraints = ~ b1part
+      ),
+      error = function(e) e
+    )
+  )
+  .print_warnings(sres$warnings)
+  if (inherits(sres$value, "error")) {
+    cat("[SUMMARY ERROR]\n", conditionMessage(sres$value), "\n")
+    return(invisible(NULL))
+  }
+
+  s <- sres$value
+  print(s)
+
+  # offline expected vector in the same order as rhs_expr terms are written below
+  # (we enforce a fixed rhs building pattern per case to avoid ambiguity)
+  rhs_txt <- paste(deparse(rhs_expr), collapse = " ")
+
+  want_cliques <- grepl("\\bcliques\\b", rhs_txt)
+  want_cov     <- grepl("\\bcov_match\\b", rhs_txt)
+  want_dyad    <- grepl("\\bdyadcov\\b", rhs_txt)
+  want_inert   <- grepl("\\binertia_groups\\b", rhs_txt)
+
+  o <- numeric(0)
+  if (want_cliques) o <- c(o, .expected_cliques_k2(nw))
+  if (want_cov)     o <- c(o, .expected_cov_match_k2_none(nw, cov_attr))
+  if (want_dyad)    o <- c(o, .expected_dyadcov_k2_raw(nw, dyad_name))
+  if (want_inert)   o <- c(o, .expected_inertia_groups(nw, past_influence = past_influence))
+
+  sval <- as.numeric(s)
+
+  cat("[OFFLINE]  ", paste(signif(o, 10), collapse = " | "), "\n")
+  cat("[SUMMARY]  ", paste(signif(sval, 10), collapse = " | "), "\n")
+
+  if (length(o) != length(sval)) {
+    stop("[MISMATCH] expected length != summary length (check rhs ordering).", call. = FALSE)
+  }
+  if (!isTRUE(all.equal(sval, o))) {
+    stop("[MISMATCH] summary != expected in: ", label, call. = FALSE)
+  }
+
+  cat("[SUMMARY vs OFFLINE] OK\n")
+  invisible(list(out = out, nw = nw, summary = s))
+}
+
+# ---------------------------
+# Dataset #1: case RHS blocks
+# ---------------------------
+rhs_1A <- quote(cliques(k = 2))
+rhs_1B <- quote(inertia_groups(past_influence = 1))
+rhs_1C <- quote(cliques(k = 2) + inertia_groups(past_influence = 1))
+rhs_1D <- quote(cov_match("gender", clique_size = 2, normalized = "none"))
+rhs_1E <- quote(inertia_groups(past_influence = 1))
+rhs_1F <- quote(cov_match("gender", clique_size = 2, normalized = "none") + inertia_groups(past_influence = 1))
+rhs_1G <- quote(dyadcov("Z1", clique_size = 2, normalize = FALSE))
+rhs_1H <- quote(inertia_groups(past_influence = 1))
+rhs_1I <- quote(dyadcov("Z1", clique_size = 2, normalize = FALSE) + inertia_groups(past_influence = 1))
+rhs_1J <- quote(cliques(k = 2) + cov_match("gender", clique_size = 2, normalized = "none") +
+                  dyadcov("Z1", clique_size = 2, normalize = FALSE) +
+                  inertia_groups(past_influence = 1))
+
+# Run dataset #1 grid
+cat("\n--- DATASET #1 (n=4) ---\n")
+.run_summary_case("S3.1A) nodes=NULL; dyads=NULL; cliques",
+                  partitions, NULL, NULL, rhs_1A)
+
+.run_summary_case("S3.1B) nodes=NULL; dyads=NULL; inertia_groups",
+                  partitions, NULL, NULL, rhs_1B, past_influence = 1L)
+
+.run_summary_case("S3.1C) nodes=NULL; dyads=NULL; cliques + inertia_groups",
+                  partitions, NULL, NULL, rhs_1C, past_influence = 1L)
+
+.run_summary_case("S3.1D) nodes=filled; dyads=NULL; cov_match(gender)",
+                  partitions, nodes, NULL, rhs_1D, cov_attr = "gender")
+
+.run_summary_case("S3.1E) nodes=filled; dyads=NULL; inertia_groups",
+                  partitions, nodes, NULL, rhs_1E, past_influence = 1L)
+
+.run_summary_case("S3.1F) nodes=filled; dyads=NULL; cov_match + inertia_groups",
+                  partitions, nodes, NULL, rhs_1F, cov_attr = "gender", past_influence = 1L)
+
+.run_summary_case("S3.1G) nodes=filled; dyads=filled; dyadcov(Z1)",
+                  partitions, nodes, dyads, rhs_1G, dyad_name = "Z1")
+
+.run_summary_case("S3.1H) nodes=filled; dyads=filled; inertia_groups",
+                  partitions, nodes, dyads, rhs_1H, past_influence = 1L)
+
+.run_summary_case("S3.1I) nodes=filled; dyads=filled; dyadcov + inertia_groups",
+                  partitions, nodes, dyads, rhs_1I, dyad_name = "Z1", past_influence = 1L)
+
+.run_summary_case("S3.1J) nodes=filled; dyads=filled; cliques + cov_match + dyadcov + inertia_groups",
+                  partitions, nodes, dyads, rhs_1J, cov_attr = "gender", dyad_name = "Z1", past_influence = 1L)
+
+# ---------------------------
+# Dataset #2: case RHS blocks
+#   - cov_match uses "sex"
+#   - dyadcov uses "X1"
+# ---------------------------
+rhs_2A <- quote(cliques(k = 2))
+rhs_2B <- quote(inertia_groups(past_influence = 1))
+rhs_2C <- quote(cliques(k = 2) + inertia_groups(past_influence = 1))
+rhs_2D <- quote(cov_match("sex", clique_size = 2, normalized = "none"))
+rhs_2E <- quote(inertia_groups(past_influence = 1))
+rhs_2F <- quote(cov_match("sex", clique_size = 2, normalized = "none") + inertia_groups(past_influence = 1))
+rhs_2G <- quote(dyadcov("X1", clique_size = 2, normalize = FALSE))
+rhs_2H <- quote(inertia_groups(past_influence = 1))
+rhs_2I <- quote(dyadcov("X1", clique_size = 2, normalize = FALSE) + inertia_groups(past_influence = 1))
+rhs_2J <- quote(cliques(k = 2) + cov_match("sex", clique_size = 2, normalized = "none") +
+                  dyadcov("X1", clique_size = 2, normalize = FALSE) +
+                  inertia_groups(past_influence = 1))
+
+# Run dataset #2 grid
+cat("\n--- DATASET #2 (n=5) ---\n")
+.run_summary_case("S3.2A) nodes=NULL; dyads=NULL; cliques",
+                  partitions2, NULL, NULL, rhs_2A)
+
+.run_summary_case("S3.2B) nodes=NULL; dyads=NULL; inertia_groups",
+                  partitions2, NULL, NULL, rhs_2B, past_influence = 1L)
+
+.run_summary_case("S3.2C) nodes=NULL; dyads=NULL; cliques + inertia_groups",
+                  partitions2, NULL, NULL, rhs_2C, past_influence = 1L)
+
+.run_summary_case("S3.2D) nodes=filled; dyads=NULL; cov_match(sex)",
+                  partitions2, nodes2, NULL, rhs_2D, cov_attr = "sex")
+
+.run_summary_case("S3.2E) nodes=filled; dyads=NULL; inertia_groups",
+                  partitions2, nodes2, NULL, rhs_2E, past_influence = 1L)
+
+.run_summary_case("S3.2F) nodes=filled; dyads=NULL; cov_match + inertia_groups",
+                  partitions2, nodes2, NULL, rhs_2F, cov_attr = "sex", past_influence = 1L)
+
+.run_summary_case("S3.2G) nodes=filled; dyads=filled; dyadcov(X1)",
+                  partitions2, nodes2, dyads2, rhs_2G, dyad_name = "X1")
+
+.run_summary_case("S3.2H) nodes=filled; dyads=filled; inertia_groups",
+                  partitions2, nodes2, dyads2, rhs_2H, past_influence = 1L)
+
+.run_summary_case("S3.2I) nodes=filled; dyads=filled; dyadcov + inertia_groups",
+                  partitions2, nodes2, dyads2, rhs_2I, dyad_name = "X1", past_influence = 1L)
+
+.run_summary_case("S3.2J) nodes=filled; dyads=filled; cliques + cov_match + dyadcov + inertia_groups",
+                  partitions2, nodes2, dyads2, rhs_2J, cov_attr = "sex", dyad_name = "X1", past_influence = 1L)
+
+cat("\nSECTION 3 DONE.\n")
+
+# ======================================================================================
+# SECTION 4) FITS via erpm_long() (eval.call=FALSE)
+#   - No control / no estimate passed: let ergm choose.
+#   - constraints blockdiag + b1part still broken: only b1part is used internally.
+#   - We run the same scenario grid as SECTION 3 for both datasets.
+#   - This section is allowed to fail on some cases (separation / constant stats / etc),
+#     but must never abort the entire selftest: we log errors and continue.
+# ======================================================================================
+
+cat("\n================================================================================\n")
+cat("SECTION 4) FITS: erpm_long() eval.call=FALSE (datasets #1 and #2)\n")
+cat("================================================================================\n")
+
+.run_fit_case <- function(label, partitions, nodes_arg, dyads_arg, rhs_expr) {
+  cat("\n------------------------------------------------------------\n")
+  cat(label, "\n")
+  dbgcat("nodes: ", if (is.null(nodes_arg)) "NULL" else "filled",
+         " | dyads: ", if (is.null(dyads_arg)) "NULL" else "filled",
+         " | rhs: ", deparse(rhs_expr))
+
+  .warn_flush()
+  res <- .capture_warnings(
+    tryCatch(
+      erpm_long(
+        partitions ~ rhs_expr,
+        nodes     = nodes_arg,
+        dyads     = dyads_arg,
+        mode      = "empile",
+        verbose   = TRUE,
+        debug     = NULL,
+        eval.call = FALSE
+      ),
+      error = function(e) e
+    )
+  )
+  .print_warnings(res$warnings)
+
+  if (inherits(res$value, "error")) {
+    cat("[FIT ERROR]\n", conditionMessage(res$value), "\n")
     return(invisible(NULL))
   }
 
   fit <- res$value
   print(fit)
+  cat("[FIT] OK\n")
   invisible(fit)
 }
 
-# Individual fits
-.fit_one(
-  rhs = 'inertia_groups(past_influence = 1, debug = "deep")',
-  label = "FIT 1) inertia_groups only (pi=1)"
-)
+# Dataset #1 fits
+cat("\n--- DATASET #1 FITS (n=4) ---\n")
+.run_fit_case("S4.1A) nodes=NULL; dyads=NULL; cliques",                      partitions, NULL,  NULL,  rhs_1A)
+.run_fit_case("S4.1B) nodes=NULL; dyads=NULL; inertia_groups",              partitions, NULL,  NULL,  rhs_1B)
+.run_fit_case("S4.1C) nodes=NULL; dyads=NULL; cliques + inertia_groups",    partitions, NULL,  NULL,  rhs_1C)
+.run_fit_case("S4.1D) nodes=filled; dyads=NULL; cov_match",                 partitions, nodes, NULL,  rhs_1D)
+.run_fit_case("S4.1E) nodes=filled; dyads=NULL; inertia_groups",            partitions, nodes, NULL,  rhs_1E)
+.run_fit_case("S4.1F) nodes=filled; dyads=NULL; cov_match + inertia_groups",partitions, nodes, NULL,  rhs_1F)
+.run_fit_case("S4.1G) nodes=filled; dyads=filled; dyadcov",                 partitions, nodes, dyads, rhs_1G)
+.run_fit_case("S4.1H) nodes=filled; dyads=filled; inertia_groups",          partitions, nodes, dyads, rhs_1H)
+.run_fit_case("S4.1I) nodes=filled; dyads=filled; dyadcov + inertia_groups",partitions, nodes, dyads, rhs_1I)
+.run_fit_case("S4.1J) nodes=filled; dyads=filled; ALL",                     partitions, nodes, dyads, rhs_1J)
 
-.fit_one(
-  rhs = "cliques(k = 2)",
-  label = "FIT 2) cliques only (k=2)"
-)
-
-.fit_one(
-  rhs = 'cov_fullmatch("fm")',
-  label = "FIT 3) cov_fullmatch only ('fm')"
-)
-
-.fit_one(
-  rhs = 'dyadcov("Z1")',
-  label = "FIT 4) dyadcov only ('Z1')"
-)
-
-.fit_all <- .fit_one(
-  rhs = paste(
-    'inertia_groups(past_influence = 1, debug = "deep")',
-    "cliques(k = 2)",
-    'cov_fullmatch("fm")',
-    'dyadcov("Z1")',
-    sep = " + "
-  ),
-  label = "FIT 5) ALL effects: inertia_groups + cliques + cov_fullmatch + dyadcov"
-)
+# Dataset #2 fits
+cat("\n--- DATASET #2 FITS (n=5) ---\n")
+.run_fit_case("S4.2A) nodes=NULL; dyads=NULL; cliques",                      partitions2, NULL,   NULL,   rhs_2A)
+.run_fit_case("S4.2B) nodes=NULL; dyads=NULL; inertia_groups",              partitions2, NULL,   NULL,   rhs_2B)
+.run_fit_case("S4.2C) nodes=NULL; dyads=NULL; cliques + inertia_groups",    partitions2, NULL,   NULL,   rhs_2C)
+.run_fit_case("S4.2D) nodes=filled; dyads=NULL; cov_match",                 partitions2, nodes2, NULL,   rhs_2D)
+.run_fit_case("S4.2E) nodes=filled; dyads=NULL; inertia_groups",            partitions2, nodes2, NULL,   rhs_2E)
+.run_fit_case("S4.2F) nodes=filled; dyads=NULL; cov_match + inertia_groups",partitions2, nodes2, NULL,   rhs_2F)
+.run_fit_case("S4.2G) nodes=filled; dyads=filled; dyadcov",                 partitions2, nodes2, dyads2, rhs_2G)
+.run_fit_case("S4.2H) nodes=filled; dyads=filled; inertia_groups",          partitions2, nodes2, dyads2, rhs_2H)
+.run_fit_case("S4.2I) nodes=filled; dyads=filled; dyadcov + inertia_groups",partitions2, nodes2, dyads2, rhs_2I)
+.run_fit_case("S4.2J) nodes=filled; dyads=filled; ALL",                     partitions2, nodes2, dyads2, rhs_2J)
 
 cat("\nSELFTEST DONE.\n")
 

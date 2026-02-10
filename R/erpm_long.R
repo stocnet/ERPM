@@ -299,7 +299,7 @@ erpm_long <- function(formula,
 
   # Attach meta-network for debugging / introspection
   attr(out, "meta_nw") <- meta_nw
-  attr(out, "erpm_long.idx_est") <- built$idx_est
+  attr(out, "erpm_long.selected_partition_indices") <- built$selected_partition_indices
   attr(out, "erpm_long.d") <- if (inertial_present) d else 0
 
   out
