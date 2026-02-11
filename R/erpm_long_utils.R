@@ -72,6 +72,19 @@
 }
 
 # ------------------------------------------------------------------------------
+# Logging helpers (verbose=user, debug=dev)
+# ------------------------------------------------------------------------------
+.erpm_long_vcat <- function(verbose, ...) {
+  if (isTRUE(verbose)) message(...)
+  invisible(NULL)
+}
+
+.erpm_long_dcat <- function(debug, ...) {
+  if (isTRUE(debug)) message(...)
+  invisible(NULL)
+}
+
+# ------------------------------------------------------------------------------
 # Check whether meta-network was built with inertial support
 # ------------------------------------------------------------------------------
 .erpm_long_has_inertia <- function(nw) {
@@ -116,9 +129,9 @@
 # ------------------------------------------------------------------------------
 # Utility: read verbose option
 # ------------------------------------------------------------------------------
-.erpm_long_opt_verbose <- function() {
-  isTRUE(getOption("erpm.long.verbose", FALSE))
-}
+# .erpm_long_opt_verbose <- function() {
+#   isTRUE(getOption("erpm.long.verbose", FALSE))
+# }
 
 # ==============================================================================
 # Add getters for inertia_groups-specific PLE attributes.

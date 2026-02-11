@@ -39,33 +39,33 @@
 #' }
 #'
 #' @noRd
-.erpm_ple_normalize_dyads <- function(dyads, T) {
-  if (is.null(dyads)) return(NULL)
+# .erpm_ple_normalize_dyads <- function(dyads, T) {
+#   if (is.null(dyads)) return(NULL)
 
-  # Expected: dyads = list(t=1..T) of list(name -> matrix)
-  if (!is.list(dyads) || length(dyads) != T) {
-    stop("[ERPM_PLE] dyads must be a list of length T (timeline mode).")
-  }
+#   # Expected: dyads = list(t=1..T) of list(name -> matrix)
+#   if (!is.list(dyads) || length(dyads) != T) {
+#     stop("[ERPM_PLE] dyads must be a list of length T (timeline mode).")
+#   }
 
-  # Union of dyad names across time
-  nms <- unique(unlist(lapply(dyads, names)))
-  if (!length(nms)) stop("[ERPM_PLE] dyads timeline has no named attributes.")
+#   # Union of dyad names across time
+#   nms <- unique(unlist(lapply(dyads, names)))
+#   if (!length(nms)) stop("[ERPM_PLE] dyads timeline has no named attributes.")
 
-  # Build dyads_data[[name]][[t]] = matrix
-  dyads_data <- setNames(vector("list", length(nms)), nms)
-  for (nm in nms) {
-    mats <- vector("list", T)
-    for (t in seq_len(T)) {
-      Mt <- dyads[[t]][[nm]]
-      if (is.null(Mt)) stop(sprintf("[ERPM_PLE] dyads[%d] missing '%s'.", t, nm))
-      if (!is.matrix(Mt)) stop(sprintf("[ERPM_PLE] dyads[%d]$%s must be a matrix.", t, nm))
-      mats[[t]] <- Mt
-    }
-    dyads_data[[nm]] <- mats
-  }
+#   # Build dyads_data[[name]][[t]] = matrix
+#   dyads_data <- setNames(vector("list", length(nms)), nms)
+#   for (nm in nms) {
+#     mats <- vector("list", T)
+#     for (t in seq_len(T)) {
+#       Mt <- dyads[[t]][[nm]]
+#       if (is.null(Mt)) stop(sprintf("[ERPM_PLE] dyads[%d] missing '%s'.", t, nm))
+#       if (!is.matrix(Mt)) stop(sprintf("[ERPM_PLE] dyads[%d]$%s must be a matrix.", t, nm))
+#       mats[[t]] <- Mt
+#     }
+#     dyads_data[[nm]] <- mats
+#   }
 
-  list(mode = "timeline", dyads = dyads_data)
-}
+#   list(mode = "timeline", dyads = dyads_data)
+# }
 
 #' Detect inertial terms on RHS and extract max past influence (internal helper)
 #'
@@ -82,50 +82,50 @@
 #' }
 #'
 #' @noRd
-.erpm_long_detect_inertial <- function(rhs) {
-  tt <- terms(rhs)
-  labels <- attr(tt, "term.labels")
+# .erpm_long_detect_inertial <- function(rhs) {
+#   tt <- terms(rhs)
+#   labels <- attr(tt, "term.labels")
 
-  if (is.null(labels) || !length(labels)) {
-    return(list(inertial_present = FALSE, d = 0L))
-  }
+#   if (is.null(labels) || !length(labels)) {
+#     return(list(inertial_present = FALSE, d = 0L))
+#   }
 
-  idx <- grep("^inertia_groups\\b", labels)
-  if (!length(idx)) {
-    return(list(inertial_present = FALSE, d = 0L))
-  }
+#   idx <- grep("^inertia_groups\\b", labels)
+#   if (!length(idx)) {
+#     return(list(inertial_present = FALSE, d = 0L))
+#   }
 
-  dmax <- 1L
+#   dmax <- 1L
 
-  for (lab in labels[idx]) {
-    expr <- try(parse(text = lab)[[1L]], silent = TRUE)
-    if (inherits(expr, "try-error") || !is.call(expr)) next
-    if (!identical(as.character(expr[[1L]]), "inertia_groups")) next
+#   for (lab in labels[idx]) {
+#     expr <- try(parse(text = lab)[[1L]], silent = TRUE)
+#     if (inherits(expr, "try-error") || !is.call(expr)) next
+#     if (!identical(as.character(expr[[1L]]), "inertia_groups")) next
 
-    args <- as.list(expr)[-1L]
+#     args <- as.list(expr)[-1L]
 
-    if (!length(args)) {
-      d_i <- 1L
-    } else if ("past_influence" %in% names(args)) {
-      d_i <- suppressWarnings(as.integer(round(eval(args[["past_influence"]], parent.frame()))))
-      if (is.na(d_i)) d_i <- 1L
-    } else if ("pi" %in% names(args)) {
-      d_i <- suppressWarnings(as.integer(round(eval(args[["pi"]], parent.frame()))))
-      if (is.na(d_i)) d_i <- 1L
-    } else if ("d" %in% names(args)) {
-      d_i <- suppressWarnings(as.integer(round(eval(args[["d"]], parent.frame()))))
-      if (is.na(d_i)) d_i <- 1L
-    } else {
-      d_i <- suppressWarnings(as.integer(round(eval(args[[1L]], parent.frame()))))
-      if (is.na(d_i)) d_i <- 1L
-    }
+#     if (!length(args)) {
+#       d_i <- 1L
+#     } else if ("past_influence" %in% names(args)) {
+#       d_i <- suppressWarnings(as.integer(round(eval(args[["past_influence"]], parent.frame()))))
+#       if (is.na(d_i)) d_i <- 1L
+#     } else if ("pi" %in% names(args)) {
+#       d_i <- suppressWarnings(as.integer(round(eval(args[["pi"]], parent.frame()))))
+#       if (is.na(d_i)) d_i <- 1L
+#     } else if ("d" %in% names(args)) {
+#       d_i <- suppressWarnings(as.integer(round(eval(args[["d"]], parent.frame()))))
+#       if (is.na(d_i)) d_i <- 1L
+#     } else {
+#       d_i <- suppressWarnings(as.integer(round(eval(args[[1L]], parent.frame()))))
+#       if (is.na(d_i)) d_i <- 1L
+#     }
 
-    if (d_i < 1L) stop("[ERPM_LONG] inertia_groups: past_influence must be >= 1.")
-    if (d_i > dmax) dmax <- d_i
-  }
+#     if (d_i < 1L) stop("[ERPM_LONG] inertia_groups: past_influence must be >= 1.")
+#     if (d_i > dmax) dmax <- d_i
+#   }
 
-  list(inertial_present = TRUE, d = dmax)
-}
+#   list(inertial_present = TRUE, d = dmax)
+# }
 
 #' Validate erpm_long inputs and resolve derived settings (internal helper)
 #'
@@ -154,50 +154,60 @@
 #' @return A list of resolved objects (partitions, rhs, inertial flags, etc.).
 #'
 #' @noRd
-.erpm_long_validate_inputs <- function(formula, mode, eval.call, verbose, debug,
-                                      estimate, eval.loglik, control, timeout, seed,
-                                      nodes, dyads, group_labels) {
-  if (!inherits(formula, "formula")) stop("[ERPM_LONG] formula must be a formula.")
-  mode <- match.arg(mode)
+# .erpm_long_validate_inputs <- function(formula, mode, eval.call, verbose, debug,
+#                                       estimate, eval.loglik, control, timeout, seed,
+#                                       nodes, dyads, group_labels) {
+#   if (!inherits(formula, "formula")) stop("[ERPM_LONG] formula must be a formula.")
+#   mode <- match.arg(mode)
 
-  if (!identical(mode, "empile") && !identical(mode, "PLE")) {
-    stop("[ERPM_LONG] Only PLE/empile mode is supported (PLS removed; V2 only).")
-  }
+#   # ---------------------------------------------------------------------------
+#   # verbose/debug contract
+#   # ---------------------------------------------------------------------------
+#   if (!is.logical(verbose) || length(verbose) != 1L || is.na(verbose)) {
+#     stop("[ERPM_LONG] verbose must be TRUE or FALSE.")
+#   }
+#   if (!is.logical(debug) || length(debug) != 1L || is.na(debug)) {
+#     stop("[ERPM_LONG] debug must be TRUE or FALSE.")
+#   }
 
-  # LHS/RHS extraction
-  lhs <- formula[[2L]]
-  rhs <- formula[[3L]]
+#   if (!identical(mode, "empile") && !identical(mode, "PLE")) {
+#     stop("[ERPM_LONG] Only PLE/empile mode is supported (PLS removed; V2 only).")
+#   }
 
-  if (is.null(lhs) || is.null(rhs)) {
-    stop("[ERPM_LONG] formula must be of the form: partitions_list ~ terms")
-  }
+#   # LHS/RHS extraction
+#   lhs <- formula[[2L]]
+#   rhs <- formula[[3L]]
 
-  # Evaluate partitions from the calling environment
-  partitions <- eval(lhs, envir = parent.frame())
-  if (!is.list(partitions) || !length(partitions)) {
-    stop("[ERPM_LONG] LHS must evaluate to a non-empty list of partitions.")
-  }
-  T <- length(partitions)
+#   if (is.null(lhs) || is.null(rhs)) {
+#     stop("[ERPM_LONG] formula must be of the form: partitions_list ~ terms")
+#   }
 
-  # Inertial detection (currently: inertia_groups)
-  inert <- .erpm_long_detect_inertial(rhs)
-  inertial_present <- isTRUE(inert$inertial_present)
-  d <- as.integer(inert$d)
+#   # Evaluate partitions from the calling environment
+#   partitions <- eval(lhs, envir = parent.frame())
+#   if (!is.list(partitions) || !length(partitions)) {
+#     stop("[ERPM_LONG] LHS must evaluate to a non-empty list of partitions.")
+#   }
+#   T <- length(partitions)
 
-  # past_influence must leave at least one estimable block
-  if (inertial_present && d >= T) {
-    stop(sprintf("[ERPM_LONG] past_influence=%d but T=%d: need d <= T-1.", d, T))
-  }
+#   # Inertial detection (currently: inertia_groups)
+#   inert <- .erpm_long_detect_inertial(rhs)
+#   inertial_present <- isTRUE(inert$inertial_present)
+#   d <- as.integer(inert$d)
 
-  list(
-    lhs             = lhs,
-    rhs             = rhs,
-    partitions      = partitions,
-    T               = T,
-    inertial_present = inertial_present,
-    past_influence  = d
-  )
-}
+#   # past_influence must leave at least one estimable block
+#   if (inertial_present && d >= T) {
+#     stop(sprintf("[ERPM_LONG] past_influence=%d but T=%d: need d <= T-1.", d, T))
+#   }
+
+#   list(
+#     lhs             = lhs,
+#     rhs             = rhs,
+#     partitions      = partitions,
+#     T               = T,
+#     inertial_present = inertial_present,
+#     past_influence  = d
+#   )
+# }
 
 # ==============================================================================
 # Public API
@@ -225,10 +235,10 @@
 #'
 #' @export
 erpm_long <- function(formula,
-                      mode = c("empile", "PLE"),
+                      mode = "empile",
                       eval.call = TRUE,
                       verbose = FALSE,
-                      debug = NULL,
+                      debug = FALSE,
                       estimate = NULL,
                       eval.loglik = NULL,
                       control = NULL,
@@ -262,6 +272,14 @@ erpm_long <- function(formula,
   inertial_present <- validated$inertial_present
   d                <- validated$past_influence
 
+  if (isTRUE(verbose)) {
+    tlabs <- attr(terms(rhs), "term.labels")
+    .erpm_long_vcat(verbose, sprintf("[ERPM_LONG] mode=PLE | T=%d | eval.call=%s", length(partitions), as.character(isTRUE(eval.call))))
+    .erpm_long_vcat(verbose, sprintf("[ERPM_LONG] RHS=%s", if (length(tlabs)) paste(tlabs, collapse = " + ") else "<empty>"))
+    .erpm_long_vcat(verbose, sprintf("[ERPM_LONG] inertial_present=%s | past_influence(d)=%d",
+                                     as.character(inertial_present), if (inertial_present) d else 0L))
+  }
+
   # ---------------------------------------------------------------------------
   # 2) Build meta-network (engine)
   # ---------------------------------------------------------------------------
@@ -274,7 +292,8 @@ erpm_long <- function(formula,
     dyads            = dyads,
     group_labels     = group_labels,
     directed         = FALSE,
-    verbose          = verbose
+    verbose          = verbose,
+    debug            = debug
   )
   meta_nw <- built$meta_nw
 
@@ -285,7 +304,7 @@ erpm_long <- function(formula,
     list(as.name("erpm"), as.formula(call("~", meta_nw, rhs))),
     if (!is.null(eval.call))    list(eval.call = eval.call)     else list(),
     if (!is.null(verbose))      list(verbose = verbose)         else list(),
-    if (!is.null(debug))        list(debug = debug)             else list(),
+    if (isTRUE(debug))          list(debug = TRUE)              else list(),
     if (!is.null(estimate))     list(estimate = estimate)       else list(),
     if (!is.null(eval.loglik))  list(eval.loglik = eval.loglik) else list(),
     if (!is.null(control))      list(control = control)         else list(),

@@ -430,37 +430,38 @@ cat("===========================================================================
 
   # 1) Build meta-network via engine (construction check)
 
-  built <- .f_empile_build(
-    partitions       = partitions,
-    rhs              = rhs,
-    inertial_present = inert,
-    past_influence   = d,
-    nodes            = nodes_arg,
-    dyads            = dyads_arg,
-    group_labels     = NULL,
-    directed         = FALSE,
-    verbose          = TRUE
-  )
-
-  # built <- tryCatch(
-  #   .f_empile_build(
-  #     partitions       = partitions,
-  #     rhs              = rhs,
-  #     inertial_present = inert,
-  #     past_influence   = d,
-  #     nodes            = nodes_arg,
-  #     dyads            = dyads_arg,
-  #     group_labels     = NULL,
-  #     directed         = FALSE,
-  #     verbose          = TRUE
-  #   ),
-  #   error = function(e) e
+  # built <- .f_empile_build(
+  #   partitions       = partitions,
+  #   rhs              = rhs,
+  #   inertial_present = inert,
+  #   past_influence   = d,
+  #   nodes            = nodes_arg,
+  #   dyads            = dyads_arg,
+  #   group_labels     = NULL,
+  #   directed         = FALSE,
+  #   verbose          = TRUE
   # )
 
-  # if (inherits(built, "error")) {
-  #   cat("[ENGINE ERROR]\n", conditionMessage(built), "\n")
-  #   return(invisible(NULL))
-  # }
+  built <- tryCatch(
+    .f_empile_build(
+      partitions       = partitions,
+      rhs              = rhs,
+      inertial_present = inert,
+      past_influence   = d,
+      nodes            = nodes_arg,
+      dyads            = dyads_arg,
+      group_labels     = NULL,
+      directed         = FALSE,
+      verbose          = TRUE,
+      debug            = TRUE
+    ),
+    error = function(e) e
+  )
+
+  if (inherits(built, "error")) {
+    cat("[ENGINE ERROR]\n", conditionMessage(built), "\n")
+    return(invisible(NULL))
+  }
 
   nw <- built$meta_nw
   stopifnot(inherits(nw, "network"))
@@ -505,7 +506,7 @@ cat("===========================================================================
       dyads     = dyads_arg,
       mode      = "empile",
       verbose   = TRUE,
-      debug     = "deep",
+      debug     = TRUE,
       eval.call = TRUE
     ),
     error = function(e) e
@@ -577,16 +578,18 @@ cat("SECTION 3) SUMMARY vs OFFLINE COMPUTATION (datas5==========================
          " | rhs: ", deparse(rhs_expr))
 
   # build via erpm_long, but keep it cheap: estimate not forced; only need network output
+  formula <- as.formula(call("~", quote(partitions), rhs_expr))
+  
   .warn_flush()
   res <- .capture_warnings(
     tryCatch(
       erpm_long(
-        partitions ~ rhs_expr,
+        formula   = formula,
         nodes     = nodes_arg,
         dyads     = dyads_arg,
         mode      = "empile",
-        verbose   = FALSE,
-        debug     = NULL,
+        verbose   = TRUE,
+        debug     = TRUE,
         eval.call = FALSE
       ),
       error = function(e) e

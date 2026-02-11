@@ -750,371 +750,7 @@
   .dbg("[ERPM_PLE][CHECK][DEBUG] OK")
   invisible(TRUE)
 }
-# .erpm_ple_check_meta_network_actors_groups <- function(built, debug = FALSE) {
-#   .dbg <- function(...) if (isTRUE(debug)) message(...)
 
-#   meta_nw  <- built$meta_nw
-#   meta_partition <- built$meta_partition
-#   nbr_actors_by_selected_partitions <- built$nbr_actors_by_selected_partitions
-#   actor_start_index_by_block <- built$actor_start_index_by_block
-
-#   meta_nodes_df <- built$meta_nodes_df
-#   meta_dyads    <- built$meta_dyads
-#   dyads_mode    <- built$dyads_mode
-#   nodes_n       <- built$nodes_n
-#   dyads_data    <- built$dyads_data
-
-#   .dbg("[ERPM_PLE][CHECK][DEBUG] ---- built keys ----")
-#   .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] names(built)=%s", paste(names(built), collapse = ", ")))
-
-#   # ---------------------------------------------------------------------------
-#   # Global sizes
-#   # ---------------------------------------------------------------------------
-#   nA <- meta_nw %n% "bipartite"
-#   if (is.na(nA)) {
-#     stop("[ERPM_PLE][CHECK] meta_nw has no 'bipartite' attribute.")
-#   }
-
-#   expected_nA <- sum(nbr_actors_by_selected_partitions)
-
-#   .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] nA(bipartite)=%d | expected_nA=%d", nA, expected_nA))
-#   .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] network.size=%d | 2*nA=%d",
-#                network::network.size(meta_nw), 2L * nA))
-#   .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] edgecount=%d | expected=%d",
-#                network::network.edgecount(meta_nw), nA))
-
-#   if (nA != expected_nA) {
-#     stop(sprintf(
-#       "[ERPM_PLE][CHECK] bipartite=%d but expected %d actors.",
-#       nA, expected_nA
-#     ))
-#   }
-
-#   if (network::network.size(meta_nw) != 2L * nA) {
-#     stop("[ERPM_PLE][CHECK] meta_nw size != 2 * bipartite.")
-#   }
-
-#   if (network::network.edgecount(meta_nw) != nA) {
-#     stop("[ERPM_PLE][CHECK] meta_nw must have exactly one edge per actor.")
-#   }
-
-#   # ---------------------------------------------------------------------------
-#   # Actor / group indices
-#   # ---------------------------------------------------------------------------
-#   actors_idx <- seq_len(nA)
-#   groups_idx <- (nA + 1L):(2L * nA)
-
-#   vnames <- network::get.vertex.attribute(meta_nw, "vertex.names")
-#   if (isTRUE(debug)) {
-#     .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] head(vnames,20)=%s",
-#                  paste(utils::head(vnames, 20), collapse = ", ")))
-#     if (length(vnames) >= 2L * nA) {
-#       .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] actor vnames[1:%d]=%s",
-#                    min(nA, 20L), paste(vnames[utils::head(actors_idx, 20L)], collapse = ", ")))
-#       .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] group vnames[%d:%d]=%s",
-#                    nA + 1L, nA + min(nA, 20L),
-#                    paste(vnames[groups_idx[seq_len(min(nA, 20L))]], collapse = ", ")))
-#     }
-#   }
-
-#   if (!all(vnames[actors_idx] == paste0("A", actors_idx))) {
-#     stop("[ERPM_PLE][CHECK] actor labels are not A1..An.")
-#   }
-
-#   if (!all(vnames[groups_idx] == paste0("G", seq_len(nA)))) {
-#     stop("[ERPM_PLE][CHECK] group labels are not G1..Gn.")
-#   }
-
-#   # ---------------------------------------------------------------------------
-#   # Meta partition consistency
-#   # ---------------------------------------------------------------------------
-#   .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] length(meta_partition)=%d | nA=%d",
-#                length(meta_partition), nA))
-#   if (isTRUE(debug)) {
-#     .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] meta_partition head=%s",
-#                  paste(utils::head(meta_partition, 20L), collapse = ",")))
-#     .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] meta_partition range=[%d,%d]",
-#                  suppressWarnings(min(meta_partition)), suppressWarnings(max(meta_partition))))
-#   }
-
-#   if (length(meta_partition) != nA) {
-#     stop("[ERPM_PLE][CHECK] meta_partition length != number of actors.")
-#   }
-
-#   if (any(meta_partition < 1L | meta_partition > nA)) {
-#     stop("[ERPM_PLE][CHECK] meta_partition contains invalid group ids.")
-#   }
-
-#   # ---------------------------------------------------------------------------
-#   # Edge list consistency: actor i -> group nA + meta_partition[i]
-#   # ---------------------------------------------------------------------------
-#   el <- network::as.edgelist(meta_nw)
-#   if (isTRUE(debug)) {
-#     .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] edgelist dim=%dx%d", nrow(el), ncol(el)))
-#     .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] edgelist head=%s",
-#                  paste(apply(utils::head(el, 10L), 1L, function(r) paste0(r[1L], "->", r[2L])), collapse = " | ")))
-#     .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] all(el[,1]<=nA)=%s", as.character(all(el[,1L] <= nA))))
-#     .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] all(el[,2]>nA)=%s", as.character(all(el[,2L] > nA))))
-#   }
-
-#   if (!all(el[, 1L] <= nA)) {
-#     stop("[ERPM_PLE][CHECK] some edges do not start from actor nodes.")
-#   }
-
-#   if (!all(el[, 2L] > nA)) {
-#     stop("[ERPM_PLE][CHECK] some edges do not point to group nodes.")
-#   }
-
-#   if (!all(el[, 2L] == nA + meta_partition[el[, 1L]])) {
-#     if (isTRUE(debug)) {
-#       bad <- which(el[, 2L] != nA + meta_partition[el[, 1L]])
-#       bad <- utils::head(bad, 20L)
-#       .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] bad edges idx=%s", paste(bad, collapse = ",")))
-#       .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] bad edges=%s",
-#                    paste(apply(el[bad, , drop = FALSE], 1L, function(r) paste0(r[1L], "->", r[2L])), collapse = " | ")))
-#     }
-#     stop("[ERPM_PLE][CHECK] edge list inconsistent with meta_partition.")
-#   }
-
-#   # ---------------------------------------------------------------------------
-#   # Block structure: disjoint group-id ranges per block
-#   # ---------------------------------------------------------------------------
-#   if (isTRUE(debug)) {
-#     .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] B=%d blocks | nbr_actors_by_selected_partitions=%s",
-#                  length(nbr_actors_by_selected_partitions),
-#                  paste(nbr_actors_by_selected_partitions, collapse = ",")))
-#     .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] actor_start_index_by_block=%s",
-#                  paste(actor_start_index_by_block, collapse = ",")))
-#   }
-
-#   for (b in seq_along(nbr_actors_by_selected_partitions)) {
-#     a0 <- actor_start_index_by_block[b]
-#     n  <- nbr_actors_by_selected_partitions[b]
-
-#     idx <- (a0 + 1L):(a0 + n)
-#     g   <- meta_partition[idx]
-
-#     if (isTRUE(debug)) {
-#       .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] block %d: actors %d..%d | group_ids=%s",
-#                    b, a0 + 1L, a0 + n, paste(g, collapse = ",")))
-#     }
-
-#     if (length(intersect(g, meta_partition[-idx])) > 0L) {
-#       stop(sprintf(
-#         "[ERPM_PLE][CHECK] group id overlap detected for block %d.",
-#         b
-#       ))
-#     }
-#   }
-
-#   # ---------------------------------------------------------------------------
-#   # Nodes: conformity checks (only if present)
-#   # ---------------------------------------------------------------------------
-#   if (isTRUE(debug)) {
-#     .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] nodes_n class=%s | meta_nodes_df class=%s",
-#                  paste(class(nodes_n), collapse = "/"),
-#                  if (is.null(meta_nodes_df)) "NULL" else paste(class(meta_nodes_df), collapse = "/")))
-#   }
-
-#   if (!is.null(meta_nodes_df)) {
-#     if (!is.data.frame(meta_nodes_df)) {
-#       stop("[ERPM_PLE][CHECK] meta_nodes_df must be a data.frame when non-NULL.")
-#     }
-#     if (nrow(meta_nodes_df) != nA) {
-#       stop(sprintf(
-#         "[ERPM_PLE][CHECK] nrow(meta_nodes_df)=%d but expected %d (one row per actor).",
-#         nrow(meta_nodes_df), nA
-#       ))
-#     }
-
-#     if (!("label" %in% names(meta_nodes_df))) {
-#       stop("[ERPM_PLE][CHECK] meta_nodes_df must contain a 'label' column.")
-#     }
-
-#     lab <- as.character(meta_nodes_df$label)
-#     if (anyNA(lab) || any(!nzchar(lab))) {
-#       stop("[ERPM_PLE][CHECK] meta_nodes_df$label contains NA/empty labels.")
-#     }
-
-#     # if (isTRUE(debug)) {
-#     #   .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] meta_nodes_df nrow=%d ncol=%d cols=%s",
-#     #                nrow(meta_nodes_df), ncol(meta_nodes_df), paste(names(meta_nodes_df), collapse = ",")))
-#     #   .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] meta_nodes_df$label head=%s",
-#     #                paste(utils::head(meta_nodes_df$label, 20L), collapse = ",")))
-#     #   if ("label_raw" %in% names(meta_nodes_df)) {
-#     #     .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] meta_nodes_df$label_raw head=%s",
-#     #                  paste(utils::head(meta_nodes_df$label_raw, 20L), collapse = ",")))
-#     #   }
-#     # }
-
-#     if (isTRUE(debug)) {
-#       .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] meta_nodes_df nrow=%d ncol=%d cols=%s",
-#                   nrow(meta_nodes_df), ncol(meta_nodes_df), paste(names(meta_nodes_df), collapse = ",")))
-
-#       # Print head() for each column (actor rows only; meta_nodes_df has nA rows)
-#       for (col in names(meta_nodes_df)) {
-#         v <- meta_nodes_df[[col]]
-
-#         # Make logging robust for non-atomic columns (lists) / factors / etc.
-#         if (is.factor(v)) v <- as.character(v)
-
-#         head_vals <- utils::head(v, 20L)
-
-#         # For list-columns, show first elements compactly
-#         if (is.list(head_vals)) {
-#           head_vals <- vapply(head_vals, function(x) paste0(x, collapse = "|"), character(1))
-#         }
-
-#         .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] meta_nodes_df$%s head=%s",
-#                     col, paste(head_vals, collapse = ",")))
-#       }
-#     }
-
-#     node_cols <- setdiff(names(meta_nodes_df), "label")
-#     if (length(node_cols)) {
-#       for (a in node_cols) {
-#         va <- network::get.vertex.attribute(meta_nw, a)
-#         if (is.null(va)) {
-#           stop(sprintf("[ERPM_PLE][CHECK] actor attribute '%s' missing on meta_nw.", a))
-#         }
-
-#         if (!isTRUE(all.equal(va[actors_idx], meta_nodes_df[[a]]))) {
-#           if (isTRUE(debug)) {
-#             .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] mismatch attr='%s' actor-side:", a))
-#             .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] meta_nodes_df head=%s",
-#                          paste(utils::head(meta_nodes_df[[a]], 20L), collapse = ",")))
-#             .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] meta_nw attr head=%s",
-#                          paste(utils::head(va[actors_idx], 20L), collapse = ",")))
-#           }
-#           stop(sprintf("[ERPM_PLE][CHECK] actor attribute '%s' differs from meta_nodes_df.", a))
-#         }
-
-#         if (any(!is.na(va[groups_idx]))) {
-#           if (isTRUE(debug)) {
-#             .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] non-NA padding detected for attr='%s': %s",
-#                          a, paste(utils::head(va[groups_idx][!is.na(va[groups_idx])], 20L), collapse = ",")))
-#           }
-#           stop(sprintf("[ERPM_PLE][CHECK] group-side padding for node attribute '%s' is not NA.", a))
-#         }
-#       }
-#     }
-#   } else {
-#     # If you later want to enforce "no actor attrs when nodes missing", add it here.
-#   }
-
-#   # ---------------------------------------------------------------------------
-#   # Dyads: conformity checks (only if present)
-#   # ---------------------------------------------------------------------------
-#   dyads_att <- meta_nw %n% "dyads"
-#   if (isTRUE(debug)) {
-#     .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] dyads_mode=%s", if (is.null(dyads_mode)) "NULL" else as.character(dyads_mode)))
-#     .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] dyads_data is %s", if (is.null(dyads_data)) "NULL" else "non-NULL"))
-#     .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] meta_dyads is %s | nw%%n%%'dyads' is %s",
-#                  if (is.null(meta_dyads)) "NULL" else "non-NULL",
-#                  if (is.null(dyads_att)) "NULL" else "non-NULL"))
-#     if (!is.null(meta_dyads) && length(meta_dyads)) {
-#       .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] meta_dyads names=%s", paste(names(meta_dyads), collapse = ",")))
-#     }
-#     if (!is.null(dyads_att) && length(dyads_att)) {
-#       .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] attached dyads names=%s", paste(names(dyads_att), collapse = ",")))
-#     }
-#   }
-
-#   if (!is.null(meta_dyads)) {
-#     if (!is.list(meta_dyads)) {
-#       stop("[ERPM_PLE][CHECK] meta_dyads must be a list when non-NULL.")
-#     }
-#     if (length(meta_dyads) && (is.null(names(meta_dyads)) || any(!nzchar(names(meta_dyads))))) {
-#       stop("[ERPM_PLE][CHECK] meta_dyads must be a NAMED list (e.g., fm=..., Z1=...).")
-#     }
-
-#     if (is.null(dyads_att)) {
-#       stop("[ERPM_PLE][CHECK] meta_dyads is non-NULL but meta_nw %n% 'dyads' is NULL.")
-#     }
-#     if (!is.list(dyads_att)) {
-#       stop("[ERPM_PLE][CHECK] meta_nw %n% 'dyads' must be a list.")
-#     }
-#     if (!setequal(names(dyads_att), names(meta_dyads))) {
-#       stop("[ERPM_PLE][CHECK] meta_nw %n% 'dyads' names differ from meta_dyads names.")
-#     }
-
-#     for (nm in names(meta_dyads)) {
-#       M <- meta_dyads[[nm]]
-
-#       if (!is.matrix(M)) {
-#         stop(sprintf("[ERPM_PLE][CHECK] meta_dyads[['%s']] must be a matrix.", nm))
-#       }
-#       if (!is.numeric(M)) {
-#         stop(sprintf("[ERPM_PLE][CHECK] meta_dyads[['%s']] must be numeric.", nm))
-#       }
-#       if (nrow(M) != nA || ncol(M) != nA) {
-#         stop(sprintf(
-#           "[ERPM_PLE][CHECK] meta_dyads[['%s']] has dim %dx%d but expected %dx%d.",
-#           nm, nrow(M), ncol(M), nA, nA
-#         ))
-#       }
-#       if (any(!is.finite(M))) {
-#         stop(sprintf("[ERPM_PLE][CHECK] meta_dyads[['%s']] contains non-finite values.", nm))
-#       }
-
-#       if (!isTRUE(all.equal(dyads_att[[nm]], M))) {
-#         if (isTRUE(debug)) {
-#           .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] dyads mismatch '%s': attached vs meta_dyads", nm))
-#           .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] attached dim=%dx%d | meta dim=%dx%d",
-#                        nrow(dyads_att[[nm]]), ncol(dyads_att[[nm]]), nrow(M), ncol(M)))
-#         }
-#         stop(sprintf("[ERPM_PLE][CHECK] meta_nw %%n%% 'dyads'[['%s']] differs from meta_dyads.", nm))
-#       }
-
-#       if (isTRUE(debug)) {
-#         .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] dyads '%s': dim=%dx%d | finite=%s",
-#                      nm, nrow(M), ncol(M), as.character(all(is.finite(M)))))
-#         .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] dyads '%s' sample [1:4,1:4]=%s",
-#                      nm,
-#                      paste(as.vector(M[seq_len(min(4L, nrow(M))), seq_len(min(4L, ncol(M)))]), collapse = ",")))
-#       }
-#     }
-#   } else {
-#     if (!is.null(dyads_att) && length(dyads_att)) {
-#       stop("[ERPM_PLE][CHECK] meta_dyads is NULL but meta_nw %n% 'dyads' is non-empty.")
-#     }
-#   }
-
-#   # ---------------------------------------------------------------------------
-#   # Input-mode invariants (weak checks; helps catch wrong plumbing)
-#   # ---------------------------------------------------------------------------
-#   if (is.null(nodes_n) && !is.null(meta_nodes_df)) {
-#     stop("[ERPM_PLE][CHECK] meta_nodes_df is non-NULL but built$nodes_n is NULL (unexpected).")
-#   }
-
-#   if (is.null(dyads_mode) && !is.null(meta_dyads)) {
-#     stop("[ERPM_PLE][CHECK] meta_dyads is non-NULL but dyads_mode is NULL (unexpected).")
-#   }
-
-#   if (!is.null(dyads_mode) && !identical(dyads_mode, "timeline")) {
-#     stop(sprintf("[ERPM_PLE][CHECK] dyads_mode='%s' (expected NULL or 'timeline').", dyads_mode))
-#   }
-
-#   if (!is.null(dyads_data)) {
-#     if (!is.list(dyads_data) || (length(dyads_data) && (is.null(names(dyads_data)) || any(!nzchar(names(dyads_data)))))) {
-#       stop("[ERPM_PLE][CHECK] dyads_data must be a named list when non-NULL.")
-#     }
-#     if (length(dyads_data)) {
-#       for (nm in names(dyads_data)) {
-#         x <- dyads_data[[nm]]
-#         if (!is.list(x)) {
-#           stop(sprintf("[ERPM_PLE][CHECK] dyads_data[['%s']] must be a list (timeline).", nm))
-#         }
-#         if (isTRUE(debug)) {
-#           .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] dyads_data[['%s']] timeline length=%d", nm, length(x)))
-#         }
-#       }
-#     }
-#   }
-
-#   .dbg("[ERPM_PLE][CHECK][DEBUG] OK")
-#   invisible(TRUE)
-# }
 
 # ==============================================================================
 # Module 2: build and attach timeblock
@@ -1259,7 +895,8 @@
                                            dyads = NULL,
                                            group_labels = NULL,
                                            directed = FALSE,
-                                           verbose = FALSE) {
+                                           verbose = FALSE,
+                                           debug   = FALSE) {
 
   if (!is.list(partitions) || !length(partitions)) {
     stop("[ERPM_PLE] partitions must be a non-empty list.")
@@ -1277,6 +914,14 @@
   # Blocks included in the meta-network
   selected_partition_indices<- if (inertial_present) seq.int(d + 1L, T) else seq_len(T)
 
+  .erpm_long_vcat(verbose, sprintf("[ERPM_PLE] selected_partition_indices=%s",
+                                  paste(selected_partition_indices, collapse = ",")))
+  .erpm_long_dcat(debug, sprintf("[ERPM_PLE][DEBUG] T=%d | d=%d | inertial_present=%s",
+                                T, d, as.character(inertial_present)))
+  .erpm_long_dcat(debug, sprintf("[ERPM_PLE][DEBUG] nodes=%s | dyads=%s",
+                                if (is.null(nodes)) "NULL" else "non-NULL",
+                                if (is.null(dyads)) "NULL" else "non-NULL"))
+
   # ---------------------------------------------------------------------------
   # 1) Standard meta-network build
   # ---------------------------------------------------------------------------
@@ -1289,7 +934,17 @@
     verbose      = verbose
   )
 
-  .erpm_ple_check_meta_network_actors_groups(b, debug=TRUE)
+  .erpm_long_vcat(verbose, sprintf("[ERPM_PLE] meta built: bipartite(nA)=%d | size=%d | edges=%d",
+                                  as.integer(b$meta_nw %n% "bipartite"),
+                                  network::network.size(b$meta_nw),
+                                  network::network.edgecount(b$meta_nw)))
+  .erpm_long_dcat(debug, sprintf("[ERPM_PLE][DEBUG] dyads_mode=%s",
+                                if (is.null(b$dyads_mode)) "NULL" else as.character(b$dyads_mode)))
+  if (!is.null(b$meta_dyads)) {
+    .erpm_long_dcat(debug, sprintf("[ERPM_PLE][DEBUG] meta_dyads names=%s", paste(names(b$meta_dyads), collapse=",")))
+  }
+
+  .erpm_ple_check_meta_network_actors_groups(b, debug=debug)
 
   meta_nw <- b$meta_nw
 

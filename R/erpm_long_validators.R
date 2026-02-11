@@ -1,502 +1,451 @@
 ################################################################################
-# FILE: R/erpm_long_validate.R
-# OBJECT: Validation utilities for PLE-only erpm_long()
+# FILE: R/erpm_long_validators.R
+# OBJECT: Validation utilities for erpm_long()
 # NOTES :
-#   - Centralises all user-facing validation.
-#   - No PLS logic.
-#   - Fails early and explicitly when meta-network construction is impossible.
+#   - One helper per argument (modular).
+#   - Enforces the input formats you specified.
+#   - Adds inter-input coherence checks (T consistency, dims).
 ################################################################################
 
-# ------------------------------------------------------------------------------
-# Validate partitions input
-# ------------------------------------------------------------------------------
-.erpm_long_validate_partitions <- function(partitions) {
+# ==============================================================================
+# Usage blocks (error messages)
+# ==============================================================================
+
+.erpm_long_usage_nodes <- function() {
+  paste(
+    "Expected: nodes = NULL or list(data.frame) of length T, one data.frame per time.",
+    "Each data.frame must have:",
+    "  - a 'label' column (character or atomic),",
+    "  - at least one covariate column besides 'label',",
+    "  - nrow(nodes[[t]]) == length(partitions[[t]]).",
+    "",
+    "Example:",
+    "nodes <- list(",
+    "  data.frame(label=c('A','B','C','D'), gender=c(1,1,2,1), age=c(20,22,25,30)),",
+    "  data.frame(label=c('FT','AZ','JI','DO'), gender=c(2,1,2,2), age=c(10,42,25,30)),",
+    "  data.frame(label=c('H','Z','S','A'),  gender=c(1,1,1,1), age=c(27,26,25,28))",
+    ")",
+    sep = "\n"
+  )
+}
+
+.erpm_long_usage_dyads <- function() {
+  paste(
+    "Expected: dyads = NULL or list(list(matrix)) of length T.",
+    "Format: dyads[[t]] is a NAMED list of dyadic matrices (e.g., fm=..., Z1=...).",
+    "Constraints:",
+    "  - length(dyads) == T",
+    "  - names(dyads[[t]]) must be non-empty",
+    "  - each dyads[[t]][[name]] must be a numeric matrix",
+    "  - each matrix must be square with dim nA_t x nA_t where nA_t = length(partitions[[t]]).",
+    "",
+    "Example:",
+    "dyads <- list(",
+    "  list(fm=matrix(..., nrow=4, byrow=TRUE), Z1=matrix(..., nrow=4, byrow=TRUE)),",
+    "  list(fm=matrix(..., nrow=4, byrow=TRUE), Z1=matrix(..., nrow=4, byrow=TRUE)),",
+    "  list(fm=matrix(..., nrow=4, byrow=TRUE), Z1=matrix(..., nrow=4, byrow=TRUE))",
+    ")",
+    sep = "\n"
+  )
+}
+
+# ==============================================================================
+# Small helpers
+# ==============================================================================
+
+.erpm_long_stop <- function(...) stop(sprintf(...), call. = FALSE)
+
+.erpm_long_is_scalar_logical <- function(x) {
+  is.logical(x) && length(x) == 1L && !is.na(x)
+}
+
+.erpm_long_is_scalar_character_or_null <- function(x) {
+  is.null(x) || (is.character(x) && length(x) == 1L && !is.na(x))
+}
+
+# ==============================================================================
+# Argument validators (one per argument)
+# ==============================================================================
+
+# ---- mode --------------------------------------------------------------------
+
+.erpm_long_validate_mode <- function(mode) {
+  # Accepts: PLE/PLS/empile/sequential (case-insensitive), with synonyms:
+  # PLE == empile ; PLS == sequential.
+  if (is.null(mode)) .erpm_long_stop("[ERPM_LONG] mode must be provided.")
+
+  if (length(mode) != 1L || is.na(mode)) {
+    .erpm_long_stop("[ERPM_LONG] mode must be a single string among: PLE, empile, PLS, sequential.")
+  }
+
+  m <- tolower(as.character(mode))
+
+  if (m %in% c("ple", "empile")) {
+    return(list(mode_user = mode, mode_norm = "PLE"))
+  }
+
+  if (m %in% c("pls", "sequential")) {
+    .erpm_long_stop("[ERPM_LONG] PLS/sequential mode is not implemented yet. Use PLE/empile.")
+  }
+
+  .erpm_long_stop("[ERPM_LONG] Invalid mode='%s'. Allowed: PLE, empile, PLS, sequential.", as.character(mode))
+}
+
+# ---- formula + partitions + rhs ----------------------------------------------
+
+.erpm_long_validate_formula <- function(formula) {
+  if (!inherits(formula, "formula")) {
+    .erpm_long_stop("[ERPM_LONG] formula must be a formula.")
+  }
+  if (length(formula) < 3L) {
+    .erpm_long_stop("[ERPM_LONG] formula must be of the form: partitions_list ~ terms")
+  }
+  invisible(TRUE)
+}
+
+.erpm_long_eval_partitions_from_lhs <- function(formula) {
+  lhs <- formula[[2L]]
+  if (is.null(lhs)) .erpm_long_stop("[ERPM_LONG] Missing LHS in formula.")
+
+  partitions <- eval(lhs, envir = parent.frame())
+
   if (!is.list(partitions) || !length(partitions)) {
-    stop("[ERPM_LONG] partitions must be a non-empty list.")
+    .erpm_long_stop("[ERPM_LONG] LHS must evaluate to a non-empty list of partitions.")
   }
 
-  nA_ref <- length(partitions[[1L]])
-  if (nA_ref == 0L) {
-    stop("[ERPM_LONG] partitions[[1]] is empty.")
+  if (length(partitions) == 1L) {
+    .erpm_long_stop("[ERPM_LONG] Only one partition provided (T=1). Use erpm() instead of erpm_long().")
   }
 
+  # Per your rule: list of partitions; atomic; no NA.
   for (t in seq_along(partitions)) {
     p <- partitions[[t]]
-    if (!is.vector(p) || is.list(p)) {
-      stop(sprintf("[ERPM_LONG] partitions[[%d]] must be an atomic vector.", t))
+    if (is.null(p) || is.list(p) || !is.atomic(p)) {
+      .erpm_long_stop("[ERPM_LONG] partitions[[%d]] must be an atomic vector (not a list).", t)
     }
-    if (length(p) != nA_ref) {
-      stop(sprintf(
-        "[ERPM_LONG] partitions[[%d]] length (%d) != partitions[[1]] length (%d).",
-        t, length(p), nA_ref
-      ))
+    if (!length(p)) {
+      .erpm_long_stop("[ERPM_LONG] partitions[[%d]] is empty.", t)
     }
-    if (any(is.na(p))) {
-      stop(sprintf("[ERPM_LONG] partitions[[%d]] contains NA values.", t))
+    if (anyNA(p)) {
+      .erpm_long_stop("[ERPM_LONG] partitions[[%d]] contains NA values.", t)
     }
+  }
+
+  partitions
+}
+
+.erpm_long_validate_rhs <- function(formula) {
+  rhs <- formula[[3L]]
+  if (is.null(rhs)) .erpm_long_stop("[ERPM_LONG] Missing RHS in formula.")
+
+  # tt <- terms(rhs)
+  # labels <- attr(tt, "term.labels")
+  tt <- terms(as.formula(call("~", rhs)))
+  term_labels <- attr(tt, "term.labels")
+
+  if (is.null(term_labels) || !length(term_labels)) {
+    .erpm_long_stop("[ERPM_LONG] RHS must contain at least one term (use '+').")
+  }
+
+  rhs
+}
+
+# ---- inertial detection + past_influence -------------------------------------
+
+.erpm_long_detect_inertial <- function(rhs) {
+  # Conservative: recognizes inertia_groups(...) only (your current behavior).
+  # tt <- terms(rhs)
+  # labels <- attr(tt, "term.labels")
+  tt <- terms(as.formula(call("~", rhs)))
+  term_labels <- attr(tt, "term.labels")
+
+  idx <- grep("^inertia_groups\\b", term_labels)
+  if (!length(idx)) return(list(inertial_present = FALSE, d = 0L))
+
+  dmax <- 1L
+
+  for (lab in term_labels[idx]) {
+    expr <- try(parse(text = lab)[[1L]], silent = TRUE)
+    if (inherits(expr, "try-error") || !is.call(expr)) next
+    if (!identical(as.character(expr[[1L]]), "inertia_groups")) next
+
+    args <- as.list(expr)[-1L]
+
+    # Default past_influence=1 if missing
+    d_i <- 1L
+
+    # Allowed aliases (based on your current wrapper behavior)
+    if (length(args)) {
+      if ("past_influence" %in% names(args)) {
+        d_i <- suppressWarnings(as.integer(round(eval(args[["past_influence"]], parent.frame()))))
+      } else if ("pi" %in% names(args)) {
+        d_i <- suppressWarnings(as.integer(round(eval(args[["pi"]], parent.frame()))))
+      } else if ("d" %in% names(args)) {
+        d_i <- suppressWarnings(as.integer(round(eval(args[["d"]], parent.frame()))))
+      } else {
+        d_i <- suppressWarnings(as.integer(round(eval(args[[1L]], parent.frame()))))
+      }
+      if (is.na(d_i)) d_i <- 1L
+    }
+
+    if (d_i < 1L) {
+      .erpm_long_stop("[ERPM_LONG] inertia_groups: past_influence must be >= 1.")
+    }
+
+    dmax <- max(dmax, d_i)
+  }
+
+  list(inertial_present = TRUE, d = as.integer(dmax))
+}
+
+.erpm_long_validate_past_influence_vs_T <- function(T, inertial_present, d) {
+  if (!isTRUE(inertial_present)) return(invisible(TRUE))
+  if (is.na(d) || d < 1L) {
+    .erpm_long_stop("[ERPM_LONG] past_influence must be >= 1 when inertial terms are present.")
+  }
+  if (T < (d + 1L)) {
+    .erpm_long_stop("[ERPM_LONG] T=%d but past_influence=%d: need at least T >= past_influence + 1.", T, d)
+  }
+  invisible(TRUE)
+}
+
+# ---- simple flags ------------------------------------------------------------
+
+.erpm_long_validate_eval_call <- function(eval.call) {
+  if (!.erpm_long_is_scalar_logical(eval.call)) {
+    .erpm_long_stop("[ERPM_LONG] eval.call must be TRUE or FALSE.")
+  }
+  invisible(TRUE)
+}
+
+.erpm_long_validate_verbose <- function(verbose) {
+  if (!.erpm_long_is_scalar_logical(verbose)) {
+    .erpm_long_stop("[ERPM_LONG] verbose must be TRUE or FALSE.")
+  }
+  invisible(TRUE)
+}
+
+.erpm_long_validate_debug <- function(debug) {
+  if (!.erpm_long_is_scalar_logical(debug)) {
+    .erpm_long_stop("[ERPM_LONG] debug must be TRUE or FALSE.")
+  }
+  invisible(TRUE)
+}
+
+# ---- seed --------------------------------------------------------------------
+
+.erpm_long_validate_seed <- function(seed) {
+  if (is.null(seed)) return(invisible(TRUE))
+
+  if (length(seed) != 1L || is.na(seed)) {
+    .erpm_long_stop("[ERPM_LONG] seed must be NULL or a scalar value compatible with set.seed().")
+  }
+
+  ok <- TRUE
+  old <- NULL
+  if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
+    old <- get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+  }
+  on.exit({
+    if (!is.null(old)) assign(".Random.seed", old, envir = .GlobalEnv)
+  }, add = TRUE)
+
+  ok <- !inherits(try(set.seed(seed), silent = TRUE), "try-error")
+  if (!ok) {
+    .erpm_long_stop("[ERPM_LONG] seed is not compatible with set.seed(): got class=%s.", paste(class(seed), collapse = "/"))
   }
 
   invisible(TRUE)
 }
 
-# ------------------------------------------------------------------------------
-# Validate nodes (monadic covariates)
-# ------------------------------------------------------------------------------
+# ---- group_labels ------------------------------------------------------------
+
+.erpm_long_validate_group_labels <- function(group_labels) {
+  if (!.erpm_long_is_scalar_character_or_null(group_labels)) {
+    .erpm_long_stop("[ERPM_LONG] group_labels must be NULL or a single character string.")
+  }
+  invisible(TRUE)
+}
+
+# ---- nodes -------------------------------------------------------------------
+
 .erpm_long_validate_nodes <- function(nodes, partitions) {
   if (is.null(nodes)) return(invisible(TRUE))
 
   T <- length(partitions)
+
   if (!is.list(nodes) || length(nodes) != T) {
-    stop("[ERPM_LONG] nodes must be NULL or a list of length T (one data.frame per partition).")
+    .erpm_long_stop("[ERPM_LONG] Invalid nodes.\n\n%s", .erpm_long_usage_nodes())
   }
 
-  nA <- length(partitions[[1L]])
-
-  ref_cols <- NULL
-  ref_label <- NULL
+  cols_ref <- NULL
 
   for (t in seq_len(T)) {
     df <- nodes[[t]]
-    if (!is.data.frame(df)) stop(sprintf("[ERPM_LONG] nodes[[%d]] must be a data.frame.", t))
-    if (nrow(df) != nA) {
-      stop(sprintf("[ERPM_LONG] nodes[[%d]] has %d rows but partitions have %d actors.", t, nrow(df), nA))
-    }
-    if (!("label" %in% colnames(df))) {
-      stop(sprintf("[ERPM_LONG] nodes[[%d]] must contain a 'label' column.", t))
-    }
-    cov_names <- setdiff(colnames(df), "label")
-    if (!length(cov_names)) {
-      stop(sprintf("[ERPM_LONG] nodes[[%d]] must have at least one covariate column besides 'label'.", t))
+    if (!is.data.frame(df)) {
+      .erpm_long_stop("[ERPM_LONG] Invalid nodes: nodes[[%d]] must be a data.frame.\n\n%s", t, .erpm_long_usage_nodes())
     }
 
-    if (is.null(ref_cols)) {
-      ref_cols <- colnames(df)
-      ref_label <- as.character(df[["label"]])
-      if (anyNA(ref_label) || any(ref_label == "")) stop("[ERPM_LONG] nodes[[1]]$label contains NA/empty values.")
-    } else {
-      if (!identical(colnames(df), ref_cols)) {
-        stop(sprintf("[ERPM_LONG] nodes[[%d]] column names differ from nodes[[1]].", t))
-      }
-      lab <- as.character(df[["label"]])
-      if (!identical(lab, ref_label)) {
-        stop(sprintf("[ERPM_LONG] nodes[[%d]]$label differs from nodes[[1]]$label. Actor ordering must be stable across time.", t))
-      }
+    nA_t <- length(partitions[[t]])
+    if (nrow(df) != nA_t) {
+      .erpm_long_stop(
+        "[ERPM_LONG] Invalid nodes: nodes[[%d]] has %d rows but partitions[[%d]] has %d actors.\n\n%s",
+        t, nrow(df), t, nA_t, .erpm_long_usage_nodes()
+      )
+    }
+
+    if (!("label" %in% colnames(df))) {
+      .erpm_long_stop("[ERPM_LONG] Invalid nodes: nodes[[%d]] must contain a 'label' column.\n\n%s", t, .erpm_long_usage_nodes())
+    }
+
+    cov_names <- setdiff(colnames(df), "label")
+    if (!length(cov_names)) {
+      .erpm_long_stop("[ERPM_LONG] Invalid nodes: nodes[[%d]] must have at least one covariate besides 'label'.\n\n%s", t, .erpm_long_usage_nodes())
+    }
+
+    # Enforce schema consistency (same columns in same order) across time
+    if (is.null(cols_ref)) cols_ref <- colnames(df)
+    if (!identical(colnames(df), cols_ref)) {
+      .erpm_long_stop("[ERPM_LONG] Invalid nodes: column schema differs at t=%d (must match t=1).", t)
+    }
+
+    lab <- df[["label"]]
+    if (anyNA(lab) || any(!nzchar(as.character(lab)))) {
+      .erpm_long_stop("[ERPM_LONG] Invalid nodes: nodes[[%d]]$label contains NA/empty values.", t)
     }
   }
 
   invisible(TRUE)
 }
-# .erpm_long_validate_nodes <- function(nodes, partitions) {
-#   if (is.null(nodes)) return(invisible(TRUE))
 
-#   T <- length(partitions)
+# ---- dyads -------------------------------------------------------------------
 
-#   if (!is.list(nodes) || length(nodes) != T) {
-#     stop("[ERPM_LONG] nodes must be NULL or a list of length T (one data.frame per partition).")
-#   }
-
-#   nA <- length(partitions[[1L]])
-
-#   ref_names <- NULL
-#   for (t in seq_len(T)) {
-#     df <- nodes[[t]]
-#     if (!is.data.frame(df)) {
-#       stop(sprintf("[ERPM_LONG] nodes[[%d]] must be a data.frame.", t))
-#     }
-#     if (nrow(df) != nA) {
-#       stop(sprintf(
-#         "[ERPM_LONG] nodes[[%d]] has %d rows but partitions have %d actors.",
-#         t, nrow(df), nA
-#       ))
-#     }
-
-#     if (is.null(ref_names)) {
-#       ref_names <- colnames(df)
-#       if (!length(ref_names)) {
-#         stop("[ERPM_LONG] nodes data.frames must have at least one column.")
-#       }
-#     } else {
-#       if (!identical(colnames(df), ref_names)) {
-#         stop(sprintf(
-#           "[ERPM_LONG] nodes[[%d]] column names differ from nodes[[1]].",
-#           t
-#         ))
-#       }
-#     }
-#   }
-
-#   invisible(TRUE)
-# }
-
-# ------------------------------------------------------------------------------
-# Validate dyads (dyadic covariates)
-# ------------------------------------------------------------------------------
 .erpm_long_validate_dyads <- function(dyads, partitions) {
   if (is.null(dyads)) return(invisible(TRUE))
 
   T <- length(partitions)
-  nA <- length(partitions[[1L]])
 
-  check_mat <- function(M, label, t) {
-    if (!is.matrix(M)) {
-      stop(sprintf("[ERPM_LONG] dyads '%s' at t=%d is not a matrix.", label, t))
-    }
-    if (nrow(M) != nA || ncol(M) != nA) {
-      stop(sprintf(
-        "[ERPM_LONG] dyads '%s' at t=%d has dim %dx%d; expected %dx%d.",
-        label, t, nrow(M), ncol(M), nA, nA
-      ))
-    }
+  if (!is.list(dyads) || length(dyads) != T) {
+    .erpm_long_stop("[ERPM_LONG] Invalid dyads.\n\n%s", .erpm_long_usage_dyads())
   }
 
-  # Single matrix (ambiguous except T=1)
-  if (is.matrix(dyads)) {
-    if (T != 1L) {
-      stop("[ERPM_LONG] dyads given as a matrix but T>1. Use a list of length T.")
-    }
-    check_mat(dyads, "Z", 1L)
-    return(invisible(TRUE))
-  }
+  for (t in seq_len(T)) {
+    dt <- dyads[[t]]
 
-  if (!is.list(dyads)) {
-    stop("[ERPM_LONG] dyads must be NULL, a matrix, or a list.")
-  }
-
-  # Unnamed list of matrices: interpreted as single attribute over time
-  if (is.null(names(dyads))) {
-    if (length(dyads) != T) {
-      stop("[ERPM_LONG] dyads list must have length T.")
+    if (!is.list(dt) || !length(dt) || is.null(names(dt)) || any(!nzchar(names(dt)))) {
+      .erpm_long_stop("[ERPM_LONG] Invalid dyads: dyads[[%d]] must be a NAMED list of matrices.\n\n%s", t, .erpm_long_usage_dyads())
     }
-    for (t in seq_len(T)) {
-      check_mat(dyads[[t]], "Z", t)
-    }
-    return(invisible(TRUE))
-  }
 
-  # Named list: one attribute per name
-  for (nm in names(dyads)) {
-    x <- dyads[[nm]]
-    if (is.matrix(x)) {
-      if (T != 1L) {
-        stop(sprintf(
-          "[ERPM_LONG] dyads[['%s']] is a matrix but T>1. Use list of length T.",
-          nm
-        ))
+    nA_t <- length(partitions[[t]])
+
+    for (nm in names(dt)) {
+      M <- dt[[nm]]
+      if (!is.matrix(M)) {
+        .erpm_long_stop("[ERPM_LONG] Invalid dyads: dyads[[%d]][['%s']] must be a matrix.\n\n%s", t, nm, .erpm_long_usage_dyads())
       }
-      check_mat(x, nm, 1L)
-    } else if (is.list(x)) {
-      if (length(x) != T) {
-        stop(sprintf(
-          "[ERPM_LONG] dyads[['%s']] must be a list of length T.", nm
-        ))
+      if (!is.numeric(M)) {
+        .erpm_long_stop("[ERPM_LONG] Invalid dyads: dyads[[%d]][['%s']] must be numeric.", t, nm)
       }
-      for (t in seq_len(T)) {
-        check_mat(x[[t]], nm, t)
+      if (nrow(M) != nA_t || ncol(M) != nA_t) {
+        .erpm_long_stop(
+          "[ERPM_LONG] Invalid dyads: dyads[[%d]][['%s']] has dim %dx%d; expected %dx%d (nA_t=%d).",
+          t, nm, nrow(M), ncol(M), nA_t, nA_t, nA_t
+        )
       }
-    } else {
-      stop(sprintf(
-        "[ERPM_LONG] dyads[['%s']] must be a matrix or a list of matrices.", nm
-      ))
+      if (any(!is.finite(M))) {
+        .erpm_long_stop("[ERPM_LONG] Invalid dyads: dyads[[%d]][['%s']] contains non-finite values.", t, nm)
+      }
     }
   }
 
   invisible(TRUE)
 }
 
-# ------------------------------------------------------------------------------
-# Validate past_influence feasibility
-# ------------------------------------------------------------------------------
-.erpm_long_validate_past_influence <- function(T, inertial_present, d) {
-  if (!inertial_present) return(invisible(TRUE))
-  if (d < 0L) {
-    stop("[ERPM_LONG] past_influence must be >= 0.")
+# ==============================================================================
+# Inter-input coherence checks
+# ==============================================================================
+
+.erpm_long_validate_coherence <- function(partitions, nodes, dyads) {
+  # At this point:
+  # - partitions is list length T>=2
+  # - nodes is NULL or list length T with consistent schema and row counts
+  # - dyads is NULL or list length T with per-time matrices dim matching partitions[[t]]
+  # This module is for any additional consistency rules.
+
+  T <- length(partitions)
+
+  if (!is.null(nodes) && length(nodes) != T) {
+    .erpm_long_stop("[ERPM_LONG] Coherence error: nodes length != T.")
   }
-  if (d >= T) {
-    stop(sprintf(
-      "[ERPM_LONG] past_influence=%d but T=%d: need d <= T-1.",
-      d, T
-    ))
+
+  if (!is.null(dyads) && length(dyads) != T) {
+    .erpm_long_stop("[ERPM_LONG] Coherence error: dyads length != T.")
   }
+
   invisible(TRUE)
 }
 
-# ################################################################################
-# # FILE: R/erpm_long_validators.R
-# ################################################################################
-# #' ERPM longitudinal validators (internal)
-# #'
-# #' @name erpm_long_validators
-# #' @note erpm_long_validators.R
-# #'
-# #' @description
-# #' Small validators used by \code{erpm_long()} for:
-# #' \itemize{
-# #'   \item reproducibility seed normalization;
-# #'   \item time-indexed nodes input integrity.
-# #' }
-# #'
-# #' @keywords ERPM ERGM longitudinal internal helpers
-# NULL
+# ==============================================================================
+# Orchestrator: main validator called by erpm_long()
+# ==============================================================================
+.erpm_long_validate_inputs <- function(formula,
+                                      mode,
+                                      eval.call,
+                                      verbose,
+                                      debug,
+                                      estimate,
+                                      eval.loglik,
+                                      control,
+                                      timeout,
+                                      seed,
+                                      nodes,
+                                      dyads,
+                                      group_labels) {
 
-# # ============================================================================
-# # Seed validator (internal)
-# # ============================================================================
+  # Formula shape
+  .erpm_long_validate_formula(formula)
 
-# #' Validate and normalize a seed for reproducible evaluation
-# #'
-# #' Ensures compatibility with \code{set.seed()} and returns a normalized integer.
-# #'
-# #' @noRd
-# .erpm_long_validate_seed <- function(seed) {
-#   if (is.null(seed)) return(NULL)
+  # Mode normalization + (PLS stop)
+  m <- .erpm_long_validate_mode(mode)
 
-#   if (!(is.numeric(seed) && length(seed) == 1L && is.finite(seed))) {
-#     stop("[ERPM_LONG] `seed` must be a single finite numeric value (integer-like) or NULL.", call. = FALSE)
-#   }
+  # LHS/RHS
+  partitions <- .erpm_long_eval_partitions_from_lhs(formula)
+  rhs        <- .erpm_long_validate_rhs(formula)
 
-#   si <- as.integer(round(seed))
-#   if (!isTRUE(all.equal(seed, si))) {
-#     stop("[ERPM_LONG] `seed` must be integer-valued (e.g., 1, 2, 42).", call. = FALSE)
-#   }
+  # Flags
+  .erpm_long_validate_eval_call(eval.call)
+  .erpm_long_validate_verbose(verbose)
+  .erpm_long_validate_debug(debug)
 
-#   # Base R expects a non-negative integer in practice.
-#   # (R stores RNG seed as integer vector; negative is not a valid user seed here.)
-#   if (si < 0L) {
-#     stop("[ERPM_LONG] `seed` must be >= 0.", call. = FALSE)
-#   }
+  # seed + group_labels
+  .erpm_long_validate_seed(seed)
+  .erpm_long_validate_group_labels(group_labels)
 
-#   # Be explicit about the usual integer range used by R RNG.
-#   # This guards against accidental double seeds > 2^31-1.
-#   if (si > .Machine$integer.max) {
-#     stop(sprintf("[ERPM_LONG] `seed` must be <= %d.", .Machine$integer.max), call. = FALSE)
-#   }
+  # nodes/dyads formats
+  .erpm_long_validate_nodes(nodes, partitions)
+  .erpm_long_validate_dyads(dyads, partitions)
 
-#   si
-# }
+  # inertial detection + past_influence constraints
+  inert <- .erpm_long_detect_inertial(rhs)
+  inertial_present <- isTRUE(inert$inertial_present)
+  d <- as.integer(inert$d)
 
-# # ============================================================================
-# # Nodes validator (internal)
-# # ============================================================================
+  .erpm_long_validate_past_influence_vs_T(T = length(partitions), inertial_present = inertial_present, d = d)
 
-# #' Validate nodes input for erpm_long()
-# #'
-# #' Accepted:
-# #' - NULL
-# #' - one data.frame (shared across time)
-# #' - list of length T of data.frame (time-indexed)
-# #'
-# #' This validator checks structure only; size consistency vs partitions is checked
-# #' at engine level (PLS/PLE) when the partition length is known for a given t.
-# #'
-# #' @noRd
-# # .erpm_long_validate_nodes_input <- function(nodes, T = NULL) {
+  # coherence across inputs
+  .erpm_long_validate_coherence(partitions, nodes, dyads)
 
-# #   if (is.null(nodes)) return(invisible(TRUE))
+  # You asked: estimate/eval.loglik/control/timeout pass-through without checks:
+  # => do nothing here.
 
-# #   # Shared nodes: single data.frame
-# #   if (is.data.frame(nodes)) {
-# #     ok <- try(.erpm_check_nodes_df(nodes), silent = TRUE)
-# #     if (inherits(ok, "try-error")) {
-# #       stop(
-# #         paste0("[ERPM_LONG] Invalid `nodes` data.frame: ",
-# #                conditionMessage(attr(ok, "condition"))),
-# #         call. = FALSE
-# #       )
-# #     }
-# #     return(invisible(TRUE))
-# #   }
-
-# #   if (is.list(nodes) && !is.data.frame(nodes)) {
-# #     if (length(nodes) && (is.null(names(nodes)) || any(!nzchar(names(nodes))))) {
-# #         stop("[ERPM_LONG] `nodes` as list must be named (e.g., list(colors=..., shapes=...)).", call. = FALSE)
-# #       }
-# #       if (length(nodes) && !all(vapply(nodes, is.atomic, logical(1)))) {
-# #         stop("[ERPM_LONG] `nodes` list must contain only atomic vectors.", call. = FALSE)
-# #       }
-# #       return(invisible(TRUE))
-# #   }
-
-# #   # Time-indexed nodes: list(T) of data.frame
-# #   if (!is.list(nodes)) {
-# #     stop("[ERPM_LONG] `nodes` must be NULL, a data.frame, or a list of data.frames.", call. = FALSE)
-# #   }
-
-# #   if (!is.null(T)) {
-# #     if (!(length(nodes) == T)) {
-# #       stop(sprintf("[ERPM_LONG] `nodes` as a list must have length T=%d.", T), call. = FALSE)
-# #     }
-# #   }
-
-# #   for (t in seq_along(nodes)) {
-# #     nt <- nodes[[t]]
-# #     if (is.null(nt)) next  # allow explicit NULL per time point
-# #     if (is.list(nt) && !is.data.frame(nt)) {
-# #       if (length(nt) && (is.null(names(nt)) || any(!nzchar(names(nt))))) {
-# #         stop(sprintf("[ERPM_LONG] nodes[[%d]] as list must be named (e.g., list(colors=..., shapes=...)).", t), call. = FALSE)
-# #       }
-# #       if (length(nt) && !all(vapply(nt, is.atomic, logical(1)))) {
-# #         stop(sprintf("[ERPM_LONG] nodes[[%d]] list must contain only atomic vectors.", t), call. = FALSE)
-# #       }
-# #       next
-# #     }
-# #     ok <- try(.erpm_check_nodes_df(nt), silent = TRUE)
-# #     if (inherits(ok, "try-error")) {
-# #       stop(
-# #         paste0("[ERPM_LONG] Invalid nodes[[", t, "]] data.frame: ",
-# #                conditionMessage(attr(ok, "condition"))),
-# #         call. = FALSE
-# #       )
-# #     }
-# #   }
-
-# #   invisible(TRUE)
-# # }
-# .erpm_long_validate_nodes_input <- function(nodes, T = NULL) {
-
-#   if (is.null(nodes)) return(invisible(TRUE))
-
-#   # Shared nodes: single data.frame
-#   if (is.data.frame(nodes)) {
-#     ok <- try(.erpm_check_nodes_df(nodes), silent = TRUE)
-#     if (inherits(ok, "try-error")) {
-#       stop(
-#         paste0("[ERPM_LONG] Invalid `nodes` data.frame: ",
-#                conditionMessage(attr(ok, "condition"))),
-#         call. = FALSE
-#       )
-#     }
-#     return(invisible(TRUE))
-#   }
-
-#   # From here: must be a list (either shared list-of-vectors OR list(T) time-indexed)
-#   if (!is.list(nodes)) {
-#     stop("[ERPM_LONG] `nodes` must be NULL, a data.frame, a named list of vectors, or a list of such objects (per time).", call. = FALSE)
-#   }
-
-#   # -------------------------------------------------------------------------
-#   # Shared nodes: named list of vectors (e.g., list(colors=..., shapes=...))
-#   #
-#   # IMPORTANT:
-#   # Do NOT misclassify a time-indexed list(T) as a shared attribute list.
-#   # If T is known and length(nodes)==T, we treat it as time-indexed.
-#   # -------------------------------------------------------------------------
-#   is_time_indexed <- !is.null(T) && length(nodes) == T
-
-#   if (!is_time_indexed) {
-#     # Accept empty list() as a degenerate shared nodes spec (will become label-only later)
-#     if (length(nodes) == 0L) return(invisible(TRUE))
-
-#     if (is.null(names(nodes)) || any(!nzchar(names(nodes)))) {
-#       stop("[ERPM_LONG] `nodes` as list must be named (e.g., list(colors=..., shapes=...)).", call. = FALSE)
-#     }
-#     if (!all(vapply(nodes, is.atomic, logical(1)))) {
-#       stop("[ERPM_LONG] `nodes` list must contain only atomic vectors.", call. = FALSE)
-#     }
-#     return(invisible(TRUE))
-#   }
-
-#   # -------------------------------------------------------------------------
-#   # Time-indexed nodes: list(T) of data.frame OR named list-of-vectors OR NULL
-#   # -------------------------------------------------------------------------
-#     for (t in seq_along(nodes)) {
-#     nt <- nodes[[t]]
-#     if (is.null(nt)) next  # allow explicit NULL per time point
-
-#     # Allow per-time list inputs:
-#     #   - named list of atomic vectors (colors/shapes/...)
-#     #   - OR list(actors=<df>, groups=<df>) where each df is validated
-#     if (is.list(nt) && !is.data.frame(nt)) {
-
-#       # Case A: list(actors=df, groups=df) (or a subset)
-#       if (!is.null(names(nt)) && any(names(nt) %in% c("actors", "groups"))) {
-#         bad_names <- setdiff(names(nt), c("actors", "groups"))
-#         if (length(bad_names) > 0L) {
-#           stop(sprintf(
-#             "[ERPM_LONG] nodes[[%d]] list may only contain 'actors'/'groups' when using data.frame mode (found: %s).",
-#             t, paste(bad_names, collapse = ", ")
-#           ), call. = FALSE)
-#         }
-
-#         if (!is.null(nt$actors)) {
-#           if (!is.data.frame(nt$actors)) {
-#             stop(sprintf("[ERPM_LONG] nodes[[%d]]$actors must be a data.frame or NULL.", t), call. = FALSE)
-#           }
-#           ok <- try(.erpm_check_nodes_df(nt$actors), silent = TRUE)
-#           if (inherits(ok, "try-error")) {
-#             stop(
-#               paste0("[ERPM_LONG] Invalid nodes[[", t, "]]$actors data.frame: ",
-#                      conditionMessage(attr(ok, "condition"))),
-#               call. = FALSE
-#             )
-#           }
-#         }
-
-#         if (!is.null(nt$groups)) {
-#           if (!is.data.frame(nt$groups)) {
-#             stop(sprintf("[ERPM_LONG] nodes[[%d]]$groups must be a data.frame or NULL.", t), call. = FALSE)
-#           }
-#           ok <- try(.erpm_check_nodes_df(nt$groups), silent = TRUE)
-#           if (inherits(ok, "try-error")) {
-#             stop(
-#               paste0("[ERPM_LONG] Invalid nodes[[", t, "]]$groups data.frame: ",
-#                      conditionMessage(attr(ok, "condition"))),
-#               call. = FALSE
-#             )
-#           }
-#         }
-
-#         next
-#       }
-
-#       # Case B: named list of atomic vectors (colors/shapes/...)
-#       if (length(nt) && (is.null(names(nt)) || any(!nzchar(names(nt))))) {
-#         stop(sprintf("[ERPM_LONG] nodes[[%d]] as list must be named (e.g., list(colors=..., shapes=...)).", t), call. = FALSE)
-#       }
-#       if (length(nt) && !all(vapply(nt, is.atomic, logical(1)))) {
-#         stop(sprintf("[ERPM_LONG] nodes[[%d]] list must contain only atomic vectors.", t), call. = FALSE)
-#       }
-#       next
-#     }
-
-#     # data.frame case
-#     ok <- try(.erpm_check_nodes_df(nt), silent = TRUE)
-#     if (inherits(ok, "try-error")) {
-#       stop(
-#         paste0("[ERPM_LONG] Invalid nodes[[", t, "]] data.frame: ",
-#                conditionMessage(attr(ok, "condition"))),
-#         call. = FALSE
-#       )
-#     }
-#   }
-#   # for (t in seq_along(nodes)) {
-#   #   nt <- nodes[[t]]
-#   #   if (is.null(nt)) next  # allow explicit NULL per time point
-
-#   #   # Allow per-time named list-of-vectors
-#   #   if (is.list(nt) && !is.data.frame(nt)) {
-#   #     if (length(nt) && (is.null(names(nt)) || any(!nzchar(names(nt))))) {
-#   #       stop(sprintf("[ERPM_LONG] nodes[[%d]] as list must be named (e.g., list(colors=..., shapes=...)).", t), call. = FALSE)
-#   #     }
-#   #     if (length(nt) && !all(vapply(nt, is.atomic, logical(1)))) {
-#   #       stop(sprintf("[ERPM_LONG] nodes[[%d]] list must contain only atomic vectors.", t), call. = FALSE)
-#   #     }
-#   #     next
-#   #   }
-
-#   #   # data.frame case
-#   #   if (!is.data.frame(nt)) {
-#   #     stop(sprintf("[ERPM_LONG] nodes[[%d]] must be a data.frame, a named list of vectors, or NULL.", t), call. = FALSE)
-#   #   }
-
-#   #   ok <- try(.erpm_check_nodes_df(nt), silent = TRUE)
-#   #   if (inherits(ok, "try-error")) {
-#   #     stop(
-#   #       paste0("[ERPM_LONG] Invalid nodes[[", t, "]] data.frame: ",
-#   #              conditionMessage(attr(ok, "condition"))),
-#   #       call. = FALSE
-#   #     )
-#   #   }
-#   # }
-
-#   invisible(TRUE)
-# }
+  list(
+    lhs              = formula[[2L]],
+    rhs              = rhs,
+    partitions       = partitions,
+    T                = length(partitions),
+    inertial_present = inertial_present,
+    past_influence   = if (inertial_present) d else 0L,
+    mode_user        = mode,
+    mode_norm        = m$mode_norm
+  )
+}
