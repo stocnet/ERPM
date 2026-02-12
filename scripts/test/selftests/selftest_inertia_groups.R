@@ -791,7 +791,7 @@ cat("===========================================================================
         dyads     = dyads_arg,
         mode      = "empile",
         verbose   = TRUE,
-        debug     = NULL,
+        debug     = TRUE,
         eval.call = FALSE
       ),
       error = function(e) e

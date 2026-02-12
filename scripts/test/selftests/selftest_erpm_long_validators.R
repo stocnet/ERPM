@@ -21,7 +21,10 @@ suppressPackageStartupMessages({
 })
 
 # Load ERPM in dev mode (adjust if you prefer library(ERPM))
-devtools::load_all(".")
+options(keep.source = TRUE)
+options(keep.source.pkgs = TRUE)
+Sys.setenv(R_KEEP_PKG_SOURCE = "yes")
+# devtools::load_all(".")
 
 cat("=== SELFTEST erpm_long validators (PLE only) ===\n")
 
