@@ -6,29 +6,30 @@
 #' @note erpm_wrapper.R
 #'
 #' @description
-#' This module provides the main ERPM wrapper around \pkg{ergm} to:
+#' This file provides the main ERPM wrapper around \pkg{ergm}. It is responsible for:
 #' \enumerate{
-#'   \item Build a bipartite network from a partition, with optional node and dyadic inputs.
-#'   \item Translate ERPM RHS terms (e.g., \code{groups}, \code{cov_match}, \code{cliques})
-#'         into \pkg{ergm} terms, with optional encapsulations (\code{Proj1}, \code{B}).
-#'   \item Compose a standard call \code{ergm(nw ~ <translated RHS>, constraints = ~ b1part, ...)}.
-#'   \item Either return the call (dry-run) or evaluate it and return the fitted model.
+#'   \item resolving the formula LHS (partition vector vs pre-built bipartite network);
+#'   \item building a bipartite network from a partition when needed, with optional
+#'         node and dyadic inputs;
+#'   \item translating ERPM RHS terms (e.g., \code{groups}, \code{cov_match}, \code{cliques})
+#'         into \pkg{ergm} terms, including optional wrappers (\code{Proj1}, \code{B});
+#'   \item assembling a standard \code{ergm()} call with explicit constraints and control;
+#'   \item either returning the call (dry-run) or evaluating it and returning the fitted model.
 #' }
 #'
 #' All user-facing console messages are in English for consistency with \pkg{ergm}.
 #'
 #' @note
-#' This wrapper assumes that the user has attached the \pkg{ergm} and \pkg{network} packages
-#' (or that they are available in the search path) and that the \code{b1part}
-#' constraint is meaningful for the constructed network.
-#'
-#' @note 
-#' A new argument `constraints` is supported.
-#' - If provided, it is forwarded to ergm().
-#' - Otherwise the historical default is used: constraints = ~ b1part.
-#' This change is required for PLE/stacked meta-networks where blockdiag() must be enforced.
+#' The argument \code{constraints} is supported:
+#' \itemize{
+#'   \item if NULL, historical behavior is preserved (\code{constraints = ~ b1part});
+#'   \item otherwise, it must be a constraints formula forwarded to \code{ergm()}.
+#' }
+#' This extension is required for PLE meta-networks where block-diagonal constraints may
+#' need to be enforced.
 #'
 #' @keywords ERPM ERGM wrapper bipartite translation
+################################################################################
 
 # ============================================================================
 # Bootstrap (dev script support)
@@ -42,7 +43,14 @@ if (!exists(".erpm_parse_formula", mode = "function") &&
 # Small internal pipeline helpers (testable units)
 # ============================================================================
 
-#' Resolve LHS: build network if needed, and build a unique eval_env (internal helper)
+#' Resolve LHS and build a dedicated evaluation environment (internal helper)
+#' @param lhs_val Evaluated LHS value (partition vector or network).
+#' @param rhs_expr RHS expression.
+#' @param env0 Original calling environment.
+#' @param nodes Optional node table.
+#' @param dyads Optional dyadic inputs.
+#' @param group_labels Optional group labels.
+#' @return List describing the resolved LHS kind and the updated formula/env.
 #' @noRd
 .erpm_resolve_lhs <- function(lhs_val, rhs_expr, env0, nodes, dyads, group_labels = NULL) {
   if (!(inherits(lhs_val, "error")) &&
@@ -92,6 +100,9 @@ if (!exists(".erpm_parse_formula", mode = "function") &&
 }
 
 #' Validate one translated term (internal helper)
+#' @param term_call A translated term call.
+#' @param env_eval Evaluation environment for term arguments.
+#' @return The validated term call (unchanged) or stops on invalid args.
 #' @noRd
 .erpm_validate_translated_term <- function(term_call, env_eval) {
   if (is.symbol(term_call)) term_call <- as.call(list(term_call))
@@ -117,7 +128,13 @@ if (!exists(".erpm_parse_formula", mode = "function") &&
   term_call
 }
 
-#' Translate the RHS through a clear pipeline (internal helper)
+#' Translate the RHS through a strict pipeline (internal helper)
+#' @param rhs_expr RHS expression.
+#' @param rename_map Term rename map.
+#' @param wrap_proj1 Wrap terms with Proj1().
+#' @param wrap_B Wrap terms with B().
+#' @param env_eval Evaluation environment.
+#' @return A single RHS expression (call or symbol).
 #' @noRd
 .erpm_translate_rhs_pipeline <- function(rhs_expr,
                                         rename_map,
@@ -142,6 +159,14 @@ if (!exists(".erpm_parse_formula", mode = "function") &&
 }
 
 #' Translate RHS and inject into formula (internal helper)
+#' @param new_formula Working formula.
+#' @param eval_env Evaluation environment.
+#' @param effect_rename_map Rename map.
+#' @param wrap_with_proj1 Wrapper flags.
+#' @param wrap_with_B Wrapper flags.
+#' @param verbose Verbose flag.
+#' @param user_formula_str User formula rendered as a single string.
+#' @return Updated formula with translated RHS.
 #' @noRd
 .erpm_translate_rhs <- function(new_formula,
                                eval_env,
@@ -175,6 +200,10 @@ if (!exists(".erpm_parse_formula", mode = "function") &&
 }
 
 #' Build control object (internal helper)
+#' @param control User control input.
+#' @param new_formula Translated formula.
+#' @param constraints Effective constraints formula.
+#' @return control.ergm object (or NULL).
 #' @noRd
 .erpm_build_control <- function(control, new_formula, constraints) {
   if (is.null(control)) return(NULL)
@@ -182,13 +211,7 @@ if (!exists(".erpm_parse_formula", mode = "function") &&
   ctrl <- if (inherits(control, "control.ergm")) control
   else do.call(ergm::control.ergm, as.list(control))
 
-  # -------------------------------------------------------------------------
-  # CHANGE (justified):
-  # Previously we hard-coded constraints=~b1part when computing k=number of stats.
-  # With the new `constraints` argument, we must compute k under the *effective*
-  # constraints, otherwise we may incorrectly drop/init or keep an incompatible init.
-  # This is backward compatible because constraints defaults to ~b1part.
-  # -------------------------------------------------------------------------
+  # Compute k under effective constraints to keep init length consistent
   k <- length(summary(new_formula, constraints = constraints))
   if (!is.null(ctrl$init) && length(ctrl$init) != k) ctrl$init <- NULL
 
@@ -196,6 +219,13 @@ if (!exists(".erpm_parse_formula", mode = "function") &&
 }
 
 #' Evaluate or return call with ERPM error formatting (internal helper)
+#' @param ergm_call The ergm() call.
+#' @param eval.call Logical: evaluate or return call.
+#' @param timeout Optional timeout in seconds.
+#' @param seed Optional RNG seed.
+#' @param eval_env Evaluation environment.
+#' @param user_formula_str User call string (for error messages).
+#' @return Either the call or the evaluated result.
 #' @noRd
 .erpm_eval_or_return <- function(ergm_call, eval.call, timeout, seed, eval_env, user_formula_str) {
   if (!isTRUE(eval.call)) return(ergm_call)
@@ -262,13 +292,7 @@ erpm <- function(formula,
                  group_labels = NULL,
                  constraints  = NULL) {
 
-  # -------------------------------------------------------------------------
-  # CHANGE (justified):
-  # New argument `constraints`:
-  # - if NULL: keep historical behavior constraints = ~ b1part
-  # - else: must be a formula like ~ b1part + blockdiag(timeblock)
-  # This is the minimal extension required to let erpm_long (PLE) enforce blockdiag.
-  # -------------------------------------------------------------------------
+  # Resolve constraints (default remains ~ b1part)
   if (is.null(constraints)) {
     constraints <- as.formula(~ b1part)
   } else {
@@ -397,7 +421,6 @@ erpm <- function(formula,
       estimate         = estimate,
       eval.loglik      = eval.loglik,
       control          = ctrl,
-      # CHANGE (justified): constraints string must reflect the effective constraints.
       constraints_str  = paste(deparse(constraints, width.cutoff = 500L), collapse = " ")
     )
   }

@@ -1,16 +1,37 @@
 ################################################################################
 # FILE: R/erpm_long_validators.R
-# OBJECT: Validation utilities for erpm_long()
-# NOTES :
-#   - One helper per argument (modular).
-#   - Enforces the input formats you specified.
-#   - Adds inter-input coherence checks (T consistency, dims).
+################################################################################
+#' ERPM long validators: input checks and derived settings for erpm_long()
+#'
+#' @name erpm_long_validators
+#' @note erpm_long_validators.R
+#'
+#' @description
+#' This file implements the validation layer used by \code{erpm_long()} before any
+#' meta-network construction happens.
+#'
+#' The validator is organized as:
+#' \itemize{
+#'   \item \strong{usage helpers}: reusable, user-facing format expectations;
+#'   \item \strong{atomic validators}: one helper per argument (easy to test);
+#'   \item \strong{coherence checks}: cross-argument consistency rules;
+#'   \item \strong{orchestrator}: a single entry point returning normalized settings.
+#' }
+#'
+#' The intent is to fail early with explicit messages whenever the inputs would
+#' produce ambiguous or broken meta-networks (wrong T, schema mismatch, bad dyads
+#' dimensions, invalid past influence).
+#'
+#' @keywords ERPM ERGM longitudinal validators PLE
 ################################################################################
 
 # ==============================================================================
 # Usage blocks (error messages)
 # ==============================================================================
 
+#' Usage string for the nodes argument (internal helper)
+#' @return Character scalar, multi-line usage hint.
+#' @noRd
 .erpm_long_usage_nodes <- function() {
   paste(
     "Expected: nodes = NULL or list(data.frame) of length T, one data.frame per time.",
@@ -29,6 +50,9 @@
   )
 }
 
+#' Usage string for the dyads argument (internal helper)
+#' @return Character scalar, multi-line usage hint.
+#' @noRd
 .erpm_long_usage_dyads <- function() {
   paste(
     "Expected: dyads = NULL or list(list(matrix)) of length T.",
@@ -138,8 +162,6 @@
   rhs <- formula[[3L]]
   if (is.null(rhs)) .erpm_long_stop("[ERPM_LONG] Missing RHS in formula.")
 
-  # tt <- terms(rhs)
-  # labels <- attr(tt, "term.labels")
   tt <- terms(as.formula(call("~", rhs)))
   term_labels <- attr(tt, "term.labels")
 
@@ -154,8 +176,6 @@
 
 .erpm_long_detect_inertial <- function(rhs) {
   # Conservative: recognizes inertia_groups(...) only (your current behavior).
-  # tt <- terms(rhs)
-  # labels <- attr(tt, "term.labels")
   tt <- terms(as.formula(call("~", rhs)))
   term_labels <- attr(tt, "term.labels")
 
@@ -241,7 +261,6 @@
     .erpm_long_stop("[ERPM_LONG] seed must be NULL or a scalar value compatible with set.seed().")
   }
 
-  ok <- TRUE
   old <- NULL
   if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
     old <- get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
@@ -303,7 +322,7 @@
       .erpm_long_stop("[ERPM_LONG] Invalid nodes: nodes[[%d]] must have at least one covariate besides 'label'.\n\n%s", t, .erpm_long_usage_nodes())
     }
 
-    # Enforce schema consistency (same columns in same order) across time
+    # Enforce schema consistency (same columns, same order) across time
     if (is.null(cols_ref)) cols_ref <- colnames(df)
     if (!identical(colnames(df), cols_ref)) {
       .erpm_long_stop("[ERPM_LONG] Invalid nodes: column schema differs at t=%d (must match t=1).", t)
@@ -367,10 +386,10 @@
 
 .erpm_long_validate_coherence <- function(partitions, nodes, dyads) {
   # At this point:
-  # - partitions is list length T>=2
-  # - nodes is NULL or list length T with consistent schema and row counts
-  # - dyads is NULL or list length T with per-time matrices dim matching partitions[[t]]
-  # This module is for any additional consistency rules.
+  # - partitions: list length T>=2
+  # - nodes: NULL or list length T with consistent schema and row counts
+  # - dyads: NULL or list length T with per-time square matrices matching partitions[[t]]
+  # This function keeps any cross-argument rules in one place.
 
   T <- length(partitions)
 
@@ -388,6 +407,7 @@
 # ==============================================================================
 # Orchestrator: main validator called by erpm_long()
 # ==============================================================================
+
 .erpm_long_validate_inputs <- function(formula,
                                       mode,
                                       eval.call,
@@ -435,9 +455,7 @@
   # coherence across inputs
   .erpm_long_validate_coherence(partitions, nodes, dyads)
 
-  # You asked: estimate/eval.loglik/control/timeout pass-through without checks:
-  # => do nothing here.
-
+  # estimate/eval.loglik/control/timeout: pass-through by design
   list(
     lhs              = formula[[2L]],
     rhs              = rhs,

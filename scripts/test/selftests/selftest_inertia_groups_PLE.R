@@ -1,24 +1,44 @@
-# ======================================================================================
-# File    : scripts/test/selftests/selftest_inertia_groups_PLE.R
-# Object  : Self-test (PLE only) for ERPM inertial term `inertia_groups`
-# Run     : Rscript scripts/test/selftests/selftest_inertia_groups_PLE.R
-#
-# Notes
-#   - PLE ("empile") only. No PLS. No inertial endogenous variant.
-#   - No blockdiag() in constraints (known broken with b1part in current setup).
-#     All summary()/fit calls below use constraints = ~ b1part only.
-#   - Two explicit datasets:
-#       * Dataset #1: n=4, dyads {fm, Z1}, nodes {label, gender, age}
-#       * Dataset #2: n=5, dyads {Y, X1}, nodes {id, sex, age_years}
-#   - The file is organized as:
-#       SECTION 1) DRY-RUN: build meta-network + verify erpm() call (dataset #1, many scenarios)
-#       SECTION 3) SUMMARY: build meta-network via erpm_long() then compare summary() vs offline expected (datasets #1 and #2)
-#       SECTION 4) FIT: run erpm_long() (eval.call=FALSE) on the same scenario grid (datasets #1 and #2)
-# ======================================================================================
+################################################################################
+# FILE: scripts/test/selftests/selftest_inertia_groups_PLE.R
+################################################################################
+#' Self-test suite (PLE only) for ERPM inertial term `inertia_groups`
+#' @name selftest_inertia_groups_PLE
+#' @note scripts/test/selftests/selftest_inertia_groups_PLE.R
+#'
+#' @description
+#' This script is an integration-style self-test for the *stacked* longitudinal
+#' engine (PLE / "empile") and the ERPM inertial ERGM term \code{inertia_groups}.
+#'
+#' Scope and constraints:
+#' \itemize{
+#'   \item PLE ("empile") only: no PLS path is exercised here.
+#'   \item Only the exogenous inertial variant is targeted (no endogenous inertial mode).
+#'   \item No \code{blockdiag()} in constraints: in the current setup, \code{blockdiag + b1part}
+#'         is known to be broken, so all \code{summary()} / \code{ergm()} calls rely on
+#'         \code{constraints = ~ b1part} only.
+#' }
+#'
+#' Datasets:
+#' \enumerate{
+#'   \item Dataset #1: \eqn{n=4}, \eqn{T=3}, dyads \{fm, Z1\}, nodes \{label, gender, age\}.
+#'   \item Dataset #2: \eqn{n=5}, \eqn{T=3}, dyads \{Y, X1\}, nodes \{id, sex, age_years\}.
+#' }
+#'
+#' Organization:
+#' \enumerate{
+#'   \item DRY-RUN: build the PLE meta-network and validate the returned \code{erpm()} call
+#'         (dataset #1; multiple RHS scenarios).
+#'   \item SUMMARY: build the meta-network via \code{erpm_long()}, run \code{summary()},
+#'         and cross-check against offline expected computations (datasets #1 and #2).
+#'   \item FIT: run \code{erpm_long()} with estimation enabled over the same scenario grid
+#'         (datasets #1 and #2). Failures are logged but must not abort the whole script.
+#' }
+#'
+#' @keywords ERPM ERGM selftest longitudinal PLE inertia_groups
 
-# --------------------------------------------------------------------------------------
-# Préambule
-# --------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# Preamble (locale, packages, and reproducibility knobs)
+# ------------------------------------------------------------------------------
 Sys.setenv(LANG = "fr_FR.UTF-8")
 invisible(try(Sys.setlocale("LC_CTYPE", "fr_FR.UTF-8"), silent = TRUE))
 
@@ -41,9 +61,9 @@ Sys.setenv(R_KEEP_PKG_SOURCE = "yes")
 # devtools::load_all(".")
 
 
-# --------------------------------------------------------------------------------------
-# Debug + warnings capture (selftest)
-# --------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# Debug helpers and warning capture utilities
+# ------------------------------------------------------------------------------
 dbg <- TRUE
 dbgcat <- function(...) if (dbg) cat("[selftest_inertia_groups_PLE][DEBUG] ", ..., "\n", sep = "")
 
@@ -68,9 +88,9 @@ dbgcat <- function(...) if (dbg) cat("[selftest_inertia_groups_PLE][DEBUG] ", ..
   if (length(w)) cat(paste0("[WARN] ", w, collapse = "\n"), "\n")
 }
 
-# --------------------------------------------------------------------------------------
-# Patch ERGM (optionnel, ne doit pas faire échouer le selftest)
-# --------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# Optional ERGM patch: never fail the selftest if the patch is unavailable/broken
+# ------------------------------------------------------------------------------
 root <- tryCatch(
   rprojroot::find_root(rprojroot::is_r_package),
   error = function(e) getwd()
@@ -101,10 +121,9 @@ if (!file.exists(patch_path)) {
 
 cat("=== SELFTEST inertia_groups (PLE only) | constraints: b1part only | NO blockdiag ===\n")
 
-# ======================================================================================
-# DATASET #1 (n=4, T=3)
-# ======================================================================================
-
+# ==============================================================================
+# DATASET #1 (n=4, T=3): explicit nodes, dyads, and partitions
+# ==============================================================================
 # Nodes (explicit, per time)
 nodes <- list(
   data.frame(
@@ -177,10 +196,9 @@ partitions <- list(
   c(1, 1, 3, 3)
 )
 
-# ======================================================================================
-# DATASET #2 (n=5, T=3)
-# ======================================================================================
-
+# ==============================================================================
+# DATASET #2 (n=5, T=3): explicit nodes, dyads, and partitions
+# ==============================================================================
 # Nodes (explicit, per time) — size = 5
 nodes2 <- list(
   data.frame(
@@ -259,15 +277,15 @@ partitions2 <- list(
   c(2, 2, 3, 3, 1)
 )
 
-# ======================================================================================
-# Offline helpers (expected)
+# ==============================================================================
+# Offline helpers (expected values for summary cross-checks)
+#
+# Notation:
 #   - cliques(k=2): sum_g choose(n_g, 2)
-#   - cov_match("gender"/"sex", k=2, normalized="none"): sum_g sum_r choose(n_{g,r}, 2)
-#   - dyadcov("Z1"/"X1", k=2, normalize=FALSE): sum_g sum_{i<j in g} (Zij + Zji)
-#   - inertia_groups(pi=d): count current groups whose exact membership matches
-#     at least one past group signature at EACH lag 1..d (strict intersection over lags)
-# ======================================================================================
-
+#   - cov_match(<attr>, k=2, normalized="none"): sum_g sum_r choose(n_{g,r}, 2)
+#   - dyadcov(<name>, k=2, normalize=FALSE): sum_g sum_{i<j in g} (Zij + Zji)
+#   - inertia_groups(pi=d): strict intersection across lags 1..d (PLE storage convention)
+# ==============================================================================
 .get_group_members_actor_ids <- function(nw, gv, n1) {
   nb <- network::get.neighborhood(nw, gv, type = "all")
   ids <- sort(unique(as.integer(nb)))
@@ -387,9 +405,9 @@ partitions2 <- list(
   cnt
 }
 
-# ======================================================================================
-# Internal entry point lookup (engine)
-# ======================================================================================
+# ------------------------------------------------------------------------------
+# Locate the PLE meta-network builder (internal engine entry point)
+# ------------------------------------------------------------------------------
 .f_empile_build <- get0(".erpm_long_empile_build_meta_nw", mode = "function", inherits = TRUE)
 if (is.null(.f_empile_build) && "ERPM" %in% loadedNamespaces()) {
   .f_empile_build <- get0(".erpm_long_empile_build_meta_nw", envir = asNamespace("ERPM"),
@@ -397,23 +415,24 @@ if (is.null(.f_empile_build) && "ERPM" %in% loadedNamespaces()) {
 }
 if (is.null(.f_empile_build)) stop("[selftest] Cannot find .erpm_long_empile_build_meta_nw().", call. = FALSE)
 
-# ======================================================================================
+# ==============================================================================
 # SECTION 1) DRY-RUN (dataset #1)
-#   Objective:
-#     - verify meta-network construction (light structural checks)
-#     - verify erpm() call returned by erpm_long(eval.call=TRUE)
-#   Scenarios (as requested):
-#     1) partitions ok ; nodes=NULL ; dyads=NULL ; cliques
-#     2) partitions ok ; nodes=NULL ; dyads=NULL ; inertia_groups
-#     3) partitions ok ; nodes=NULL ; dyads=NULL ; cliques + inertia_groups
-#     4) partitions ok ; nodes=filled ; dyads=NULL ; cov_match
-#     5) partitions ok ; nodes=filled ; dyads=NULL ; inertia_groups
-#     6) partitions ok ; nodes=filled ; dyads=NULL ; cov_match + inertia_groups
-#     7) partitions ok ; nodes=filled ; dyads=filled ; dyadcov
-#     8) partitions ok ; nodes=filled ; dyads=filled ; inertia_groups
-#     9) partitions ok ; nodes=filled ; dyads=filled ; dyadcov + inertia_groups
-# ======================================================================================
-
+#
+# Goal:
+#   - exercise the PLE builder directly and validate a few structural invariants
+#   - check that erpm_long(eval.call=TRUE) returns a sane erpm() call for the same RHS
+#
+# Scenario grid (dataset #1), as requested:
+#   1) partitions ok ; nodes=NULL ; dyads=NULL ; cliques
+#   2) partitions ok ; nodes=NULL ; dyads=NULL ; inertia_groups
+#   3) partitions ok ; nodes=NULL ; dyads=NULL ; cliques + inertia_groups
+#   4) partitions ok ; nodes=filled ; dyads=NULL ; cov_match
+#   5) partitions ok ; nodes=filled ; dyads=NULL ; inertia_groups
+#   6) partitions ok ; nodes=filled ; dyads=NULL ; cov_match + inertia_groups
+#   7) partitions ok ; nodes=filled ; dyads=filled ; dyadcov
+#   8) partitions ok ; nodes=filled ; dyads=filled ; inertia_groups
+#   9) partitions ok ; nodes=filled ; dyads=filled ; dyadcov + inertia_groups
+# ==============================================================================
 cat("\n================================================================================\n")
 cat("SECTION 1) DRY-RUN: build meta-network + verify erpm() call (dataset #1)\n")
 cat("================================================================================\n")
@@ -428,20 +447,7 @@ cat("===========================================================================
   inert <- grepl("\\binertia_groups\\b", paste(deparse(rhs), collapse = " "))
   d <- if (inert) 1L else 0L
 
-  # 1) Build meta-network via engine (construction check)
-
-  # built <- .f_empile_build(
-  #   partitions       = partitions,
-  #   rhs              = rhs,
-  #   inertial_present = inert,
-  #   past_influence   = d,
-  #   nodes            = nodes_arg,
-  #   dyads            = dyads_arg,
-  #   group_labels     = NULL,
-  #   directed         = FALSE,
-  #   verbose          = TRUE
-  # )
-
+  # Build the PLE meta-network via the engine builder (structural validation only)
   built <- tryCatch(
     .f_empile_build(
       partitions       = partitions,
@@ -470,20 +476,18 @@ cat("===========================================================================
 
   dbgcat("meta network: N=", N, " | n1(bipartite)=", n1, " | selected_partition_indices={", paste(built$selected_partition_indices, collapse = ","), "}")
 
-  # light sanity checks
+  # Sanity-check vertex timeblock attribute (expected for stacked networks)
   tb <- network::get.vertex.attribute(nw, "timeblock")
   if (is.null(tb) || length(tb) != N) stop("[DRY] missing/invalid vertex attr 'timeblock'.", call. = FALSE)
 
   if (!is.null(nodes_arg)) {
-    # node covariates become vertex attributes; just verify presence by name on actor side
-    # Dataset #1 uses: gender, age, label_raw (label is overwritten by builder)
+    # When nodes are provided, their covariates must be materialized as vertex attributes
     if (is.null(network::get.vertex.attribute(nw, "gender"))) stop("[DRY] missing vertex attr 'gender'.", call. = FALSE)
     if (is.null(network::get.vertex.attribute(nw, "age")))    stop("[DRY] missing vertex attr 'age'.", call. = FALSE)
   }
 
   if (!is.null(dyads_arg)) {
-    # at least one dyad matrix should be reachable by dyadcov initializer policy
-    # verify either as nw %n% "<name>" or via nw %n% "dyads" list
+    # Dyads may be attached either directly (legacy) or under nw %n% "dyads" (preferred)
     z1 <- tryCatch(nw %n% "Z1", error = function(e) NULL)
     dy <- tryCatch(nw %n% "dyads", error = function(e) NULL)
     okZ1 <- is.matrix(z1) || (is.list(dy) && !is.null(dy[["Z1"]]))
@@ -491,14 +495,14 @@ cat("===========================================================================
   }
 
   if (inert) {
-    # inertia_groups PLE attrs must exist
+    # inertia_groups in PLE requires a specific set of network attributes
     if (is.null(tryCatch(nw %n% "erpm_block_past_partitions", error = function(e) NULL)))
       stop("[DRY] missing nw %n% 'erpm_block_past_partitions' (required by inertia_groups).", call. = FALSE)
     if (!identical(as.character(tryCatch(nw %n% "erpm_mode", error = function(e) "")), "empile"))
       stop("[DRY] missing/invalid nw %n% 'erpm_mode' for PLE.", call. = FALSE)
   }
 
-  # 2) Verify erpm() call returned by erpm_long(eval.call=TRUE)
+  # Verify the call object produced by erpm_long(eval.call=TRUE) for the same RHS
   call_erpm <- tryCatch(
     erpm_long(
       partitions ~ rhs,
@@ -523,7 +527,7 @@ cat("===========================================================================
   invisible(list(meta_nw = nw, call = call_erpm))
 }
 
-# Scenario grid (dataset #1)
+# Build RHS expressions explicitly to keep term ordering deterministic
 rhs1 <- quote(cliques(k = 2))
 rhs2 <- quote(inertia_groups(past_influence = 1))
 rhs3 <- quote(cliques(k = 2) + inertia_groups(past_influence = 1))
@@ -546,26 +550,26 @@ rhs9 <- quote(dyadcov("Z1", clique_size = 2, normalize = FALSE) + inertia_groups
 
 cat("\nSECTION 1 DONE.\n")
 
-# ======================================================================================
+# ==============================================================================
 # SECTION 3) SUMMARY vs OFFLINE COMPUTATION
-#   - For each dataset, build a meta-network via erpm_long(eval.call=FALSE),
-#     then run:
-#       summary(nw ~ terms, constraints = ~ b1part)
-#     and compare to offline expected computed on the exact same nw.
 #
-#   Scenario grid (for each dataset), as requested:
-#     A) nodes=NULL; dyads=NULL; cliques
-#     B) nodes=NULL; dyads=NULL; inertia_groups
-#     C) nodes=NULL; dyads=NULL; cliques + inertia_groups
-#     D) nodes=filled; dyads=NULL; cov_match
-#     E) nodes=filled; dyads=NULL; inertia_groups
-#     F) nodes=filled; dyads=NULL; cov_match + inertia_groups
-#     G) nodes=filled; dyads=filled; dyadcov
-#     H) nodes=filled; dyads=filled; inertia_groups
-#     I) nodes=filled; dyads=filled; dyadcov + inertia_groups
-#     J) nodes=filled; dyads=filled; cliques + cov_match + dyadcov + inertia_groups
-# ======================================================================================
-
+# For each dataset:
+#   - build the PLE meta-network via erpm_long(eval.call=FALSE)
+#   - run summary(nw ~ terms, constraints = ~ b1part)
+#   - compute expected values on the *exact same* network object and compare
+#
+# Scenario grid (for each dataset), as requested:
+#   A) nodes=NULL; dyads=NULL; cliques
+#   B) nodes=NULL; dyads=NULL; inertia_groups
+#   C) nodes=NULL; dyads=NULL; cliques + inertia_groups
+#   D) nodes=filled; dyads=NULL; cov_match
+#   E) nodes=filled; dyads=NULL; inertia_groups
+#   F) nodes=filled; dyads=NULL; cov_match + inertia_groups
+#   G) nodes=filled; dyads=filled; dyadcov
+#   H) nodes=filled; dyads=filled; inertia_groups
+#   I) nodes=filled; dyads=filled; dyadcov + inertia_groups
+#   J) nodes=filled; dyads=filled; cliques + cov_match + dyadcov + inertia_groups
+# ==============================================================================
 cat("\n================================================================================\n")
 cat("SECTION 3) SUMMARY vs OFFLINE COMPUTATION (datas5====================================\n")
 
@@ -577,7 +581,7 @@ cat("SECTION 3) SUMMARY vs OFFLINE COMPUTATION (datas5==========================
          " | dyads: ", if (is.null(dyads_arg)) "NULL" else "filled",
          " | rhs: ", deparse(rhs_expr))
 
-  # build via erpm_long, but keep it cheap: estimate not forced; only need network output
+  # Build via erpm_long (we only need the constructed network, not a fit object)
   formula <- as.formula(call("~", quote(partitions), rhs_expr))
   
   .warn_flush()
@@ -611,7 +615,7 @@ cat("SECTION 3) SUMMARY vs OFFLINE COMPUTATION (datas5==========================
   N  <- network::network.size(nw)
   dbgcat("built nw: N=", N, " | n1=", n1)
 
-  # summary() on that network
+  # Run summary() under b1part only (no blockdiag in this selftest)
   .warn_flush()
   sres <- .capture_warnings(
     tryCatch(
@@ -631,8 +635,7 @@ cat("SECTION 3) SUMMARY vs OFFLINE COMPUTATION (datas5==========================
   s <- sres$value
   print(s)
 
-  # offline expected vector in the same order as rhs_expr terms are written below
-  # (we enforce a fixed rhs building pattern per case to avoid ambiguity)
+  # Compute offline expected stats, matching the RHS term order used above
   rhs_txt <- paste(deparse(rhs_expr), collapse = " ")
 
   want_cliques <- grepl("\\bcliques\\b", rhs_txt)
@@ -762,15 +765,15 @@ cat("\n--- DATASET #2 (n=5) ---\n")
 
 cat("\nSECTION 3 DONE.\n")
 
-# ======================================================================================
+# ==============================================================================
 # SECTION 4) FITS via erpm_long() (eval.call=FALSE)
-#   - No control / no estimate passed: let ergm choose.
-#   - constraints blockdiag + b1part still broken: only b1part is used internally.
-#   - We run the same scenario grid as SECTION 3 for both datasets.
-#   - This section is allowed to fail on some cases (separation / constant stats / etc),
-#     but must never abort the entire selftest: we log errors and continue.
-# ======================================================================================
-
+#
+# Notes:
+#   - No explicit control/estimate tuning here: let ergm defaults apply.
+#   - Only b1part is used internally (blockdiag is intentionally avoided here).
+#   - This section is allowed to fail on some scenarios (separation, constant stats, etc.),
+#     but the script must keep going: errors are logged and swallowed.
+# ==============================================================================
 cat("\n================================================================================\n")
 cat("SECTION 4) FITS: erpm_long() eval.call=FALSE (datasets #1 and #2)\n")
 cat("================================================================================\n")
@@ -838,6 +841,9 @@ cat("\n--- DATASET #2 FITS (n=5) ---\n")
 
 cat("\nSELFTEST DONE.\n")
 
+# ------------------------------------------------------------------------------
+# Cleanup: disable patch if it was enabled (best-effort only)
+# ------------------------------------------------------------------------------
 if (.patch_enabled && exists("ergm_patch_disable", mode = "function")) {
   try(ergm_patch_disable(), silent = TRUE)
 }

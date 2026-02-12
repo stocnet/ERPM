@@ -1,32 +1,41 @@
 ################################################################################
 # FILE: R/erpm_long_empile_engine.R
 ################################################################################
-
-#' ERPM PLE engine: build stacked (empile) meta-network and attach attributes
+#' ERPM PLE engine: build stacked meta-network and attach PLE attributes
 #'
 #' @name erpm_long_empile_engine
 #' @note erpm_long_empile_engine.R
 #'
 #' @description
-#' This module provides the PLE-only engine used by \code{erpm_long()}.
-#' The engine is intentionally split into three explicit modules:
+#' This file implements the PLE ("empile") engine used by \code{erpm_long()} to
+#' turn a timeline of partitions into a single stacked bipartite meta-network.
+#' The engine is deliberately structured as three modules:
 #' \enumerate{
-#'   \item build a standard bipartite meta-network by aggregating partitions/nodes/dyads;
-#'   \item build and attach a \code{timeblock} vertex attribute;
-#'   \item if inertial terms are present, attach additional network attributes
-#'         required by inertial InitErgmTerms (e.g., \code{inertia_groups}).
+#'   \item \strong{Standard meta-network build}: concatenate selected partitions into a
+#'         single partition, optionally bind node tables, and block-diagonalize dyadic
+#'         matrices, then call \code{build_bipartite_from_inputs()}.
+#'   \item \strong{Timeblock construction}: attach a \code{timeblock} vertex attribute so
+#'         each actor/group vertex can be mapped back to its originating time index.
+#'   \item \strong{Inertial plumbing}: when inertial terms are present, attach the
+#'         additional network attributes expected by inertial InitErgmTerms
+#'         (currently tailored to \code{inertia_groups} in PLE mode).
 #' }
 #'
-#' The current code preserves your existing behavior; only structure and
-#' nomenclature are targeted here.
+#' The implementation is intentionally explicit about sizes, offsets, and invariants
+#' (actor ranges per block, disjoint group-id ranges, dyads dimensional checks) to make
+#' debugging PLE construction failures straightforward.
 #'
-#' @keywords ERPM ERGM PLE empile engine
+#' @keywords ERPM ERGM longitudinal PLE empile engine
+################################################################################
 
 # ==============================================================================
 # Low-level helpers (existing behavior)
 # ==============================================================================
 
 #' Enforce constant actor block size across estimation blocks (internal helper)
+#' @param partitions Timeline of partitions (list).
+#' @param selected_partition_indices Integer vector of time indices included in the meta-network.
+#' @return Integer scalar: the common actor count per selected block.
 #' @noRd
 .erpm_ple_assert_constant_nbr_actors_per_selected_partition <- function(partitions, selected_partition_indices) {
   nbr_actors_by_t <- vapply(partitions, length, integer(1))
@@ -40,7 +49,12 @@
   nbr_actors_per_selected_partition
 }
 
-#' Build per-block past partitions container expected by inertia_groups (internal helper)
+#' Build the per-block past-partitions container expected by inertia_groups (internal helper)
+#' @param partitions Timeline of partitions (list).
+#' @param selected_partition_indices Integer vector of current-time indices used for estimation.
+#' @param d Past influence depth (number of lags).
+#' @param nbr_actors_per_selected_partition Actor count per selected block.
+#' @return List of length B; each element is a list of length d with past partitions.
 #' @noRd
 .erpm_ple_make_erpm_block_past_partitions <- function(partitions, selected_partition_indices, d, nbr_actors_per_selected_partition) {
   B <- length(selected_partition_indices)
@@ -77,20 +91,25 @@
 }
 
 #' Count observed groups in a partition (bookkeeping helper)
+#' @param partition Atomic partition vector.
+#' @return Integer scalar: number of observed groups (by first occurrence order).
 #' @noRd
 .erpm_ple_G_obs <- function(partition) {
   f <- factor(partition, levels = unique(partition))
   nlevels(f)
 }
 
-#' Build concatenated+shifted meta partition (internal helper)
+#' Build concatenated + shifted meta partition (internal helper)
+#' @param partitions Timeline of partitions (list).
+#' @param selected_partition_indices Integer vector of time indices included in the meta-network.
+#' @return List with meta_partition and offset bookkeeping vectors.
 #' @noRd
 .erpm_ple_make_meta_partition <- function(partitions, selected_partition_indices) {
-  
-  nbr_actors_by_t <- vapply(partitions, length, integer(1)) # Better than sapply because we can can force the output type 
+
+  nbr_actors_by_t <- vapply(partitions, length, integer(1)) # vapply enforces the output type
   nbr_actors_by_selected_partitions <- nbr_actors_by_t[selected_partition_indices]
   actor_start_index_by_block <- c(0L, cumsum(nbr_actors_by_selected_partitions))[seq_along(nbr_actors_by_selected_partitions)]  # length B
-  actor_start_index_by_t <- rep(NA_integer_, length(nbr_actors_by_t)) # actor_start_index_by_t[t] is defined for t in selected_partition_indices, NA otherwise
+  actor_start_index_by_t <- rep(NA_integer_, length(nbr_actors_by_t)) # defined only for selected times
   actor_start_index_by_t[selected_partition_indices] <- actor_start_index_by_block
 
   meta <- integer(0)
@@ -119,6 +138,10 @@
 }
 
 #' Build meta nodes data.frame for build_bipartite_from_inputs (internal helper)
+#' @param nodes NULL or list of per-time node data.frames.
+#' @param partitions Timeline of partitions (list).
+#' @param selected_partition_indices Integer vector of time indices included in the meta-network.
+#' @return NULL or a single bound data.frame (one row per meta-actor).
 #' @noRd
 .erpm_ple_make_meta_nodes_df <- function(nodes, partitions, selected_partition_indices) {
   if (is.null(nodes)) return(NULL)
@@ -142,7 +165,7 @@
       stop(sprintf("[ERPM_PLE] nodes[[%d]] must contain a 'label' column.", t))
     }
 
-    # Enforce schema consistency (same columns in same order)
+    # Enforce schema consistency (same columns, same order) across selected times
     if (is.null(cols_ref)) {
       cols_ref <- colnames(df)
     } else if (!identical(colnames(df), cols_ref)) {
@@ -167,6 +190,10 @@
 }
 
 #' Block-diagonal bind of a timeline of square matrices (internal helper)
+#' @param mats List of matrices (timeline).
+#' @param idx Integer vector of indices to extract and bind.
+#' @param label Label used in error messages.
+#' @return Numeric block-diagonal matrix.
 #' @noRd
 .erpm_ple_blockdiag_mats <- function(mats, idx, label = "dyads") {
   if (!is.list(mats)) stop(sprintf("[ERPM_PLE] %s: mats must be a list.", label))
@@ -178,7 +205,7 @@
     stop(sprintf("[ERPM_PLE] %s: missing matrix for t=%s.", label, paste(bad, collapse = ",")))
   }
 
-  # check square + numeric
+  # Basic structural checks (square + numeric)
   dims <- lapply(blocks, dim)
   if (any(vapply(dims, function(d) length(d) != 2L, logical(1)))) {
     stop(sprintf("[ERPM_PLE] %s: some blocks have no dim().", label))
@@ -207,6 +234,11 @@
 }
 
 #' Build meta dyads (block-diagonal over selected_partition_indices) (internal helper)
+#' @param dyads_mode Either "timeline" or "meta".
+#' @param dyads_data Normalized dyads container (depends on dyads_mode).
+#' @param partitions Timeline of partitions (list).
+#' @param selected_partition_indices Integer vector of selected times.
+#' @return Named list of meta dyadic matrices, or NULL.
 #' @noRd
 .erpm_ple_make_meta_dyads <- function(dyads_mode, dyads_data, partitions, selected_partition_indices) {
   if (is.null(dyads_data)) return(NULL)
@@ -256,18 +288,17 @@
 #' Build a standard bipartite meta-network (PLE module 1)
 #'
 #' @description
-#' Aggregates partitions/nodes/dyads across selected blocks (selected_partition_indices) and builds a
-#' bipartite meta-network using \code{build_bipartite_from_inputs()}.
+#' Aggregates partitions/nodes/dyads across selected blocks and builds a bipartite
+#' meta-network using \code{build_bipartite_from_inputs()}.
 #'
 #' @param partitions List of partitions (timeline).
-#' @param selected_partition_indicesInteger vector of selected time indices included in meta-network.
+#' @param selected_partition_indices Integer vector of selected time indices included in meta-network.
 #' @param nodes NULL or list length T of per-time node data.frames.
 #' @param dyads NULL or dyadic timeline input (current behavior preserved).
 #' @param group_labels Group labels (currently not used in meta build; preserved for API).
-#' @param verbose Verbosity.
+#' @param verbose Verbosity flag.
 #'
-#' @return A list containing \code{meta_nw} plus derived objects used downstream.
-#'
+#' @return List containing \code{meta_nw} plus derived objects used downstream.
 #' @noRd
 .erpm_long_empile_build_standard_meta_network <- function(partitions,
                                                          selected_partition_indices,
@@ -275,9 +306,7 @@
                                                          dyads,
                                                          group_labels,
                                                          verbose) {
-  # ---------------------------------------------------------------------------
-  # NOTE: current dyads normalization behavior is kept as-is (structure-only).
-  # ---------------------------------------------------------------------------
+  # NOTE: dyads normalization behavior is preserved; only the comment structure is updated.
   nodes_n <- nodes
 
   dyads_mode <- if (is.null(dyads)) NULL else "timeline"
@@ -294,7 +323,7 @@
                     T, paste(selected_partition_indices, collapse = ",")))
   }
 
-  # --- Meta partition (concatenate + shift) ----------------------------------
+  # Meta partition (concatenate + shift)
   mp <- .erpm_ple_make_meta_partition(partitions, selected_partition_indices= selected_partition_indices)
   meta_partition <- mp$meta_partition
   nbr_actors_by_t        <- mp$nbr_actors_by_t
@@ -303,11 +332,11 @@
   actor_start_index_by_block    <- mp$actor_start_index_by_block
   nbr_actors_meta        <- sum(nbr_actors_by_selected_partitions)
 
-  # --- Meta nodes / dyads -----------------------------------------------------
+  # Meta nodes / dyads
   meta_nodes_df <- .erpm_ple_make_meta_nodes_df(nodes_n, partitions, selected_partition_indices= selected_partition_indices)
   meta_dyads    <- .erpm_ple_make_meta_dyads(dyads_mode, dyads_data, partitions, selected_partition_indices= selected_partition_indices)
 
-  # --- Canonical bipartite build ---------------------------------------------
+  # Canonical bipartite build
   built_meta <- build_bipartite_from_inputs(
     partition    = meta_partition,
     nodes        = meta_nodes_df,
@@ -332,28 +361,19 @@
   )
 }
 
-#' Sanity checks for PLE meta-network actor/group construction
+#' Sanity checks for PLE meta-network actor/group construction (internal helper)
 #'
-#' @param built Result of .erpm_long_empile_build_standard_meta_network()
+#' This is a defensive validator for the meta-network plumbing:
+#' sizes, labels, membership edges, per-block disjointness, node attributes, and dyads.
 #'
-#' @noRd
-#' Sanity checks for PLE meta-network actor/group construction
-#'
-#' @param built Result of .erpm_long_empile_build_standard_meta_network()
-#'
-#' @noRd
-#' Sanity checks for PLE meta-network actor/group construction
-#'
-#' @param built Result of .erpm_long_empile_build_standard_meta_network()
+#' @param built Result of .erpm_long_empile_build_standard_meta_network().
 #' @param debug Logical. If TRUE, print detailed state to console.
-#'
+#' @return TRUE (invisibly) if all checks pass; otherwise stops with an error.
 #' @noRd
 .erpm_ple_check_meta_network_actors_groups <- function(built, debug = FALSE) {
   .dbg <- function(...) if (isTRUE(debug)) message(...)
 
-  # ---------------------------------------------------------------------------
   # Unpack
-  # ---------------------------------------------------------------------------
   meta_nw  <- built$meta_nw
   meta_partition <- built$meta_partition
   nbr_actors_by_selected_partitions <- built$nbr_actors_by_selected_partitions
@@ -368,9 +388,7 @@
   .dbg("[ERPM_PLE][CHECK][DEBUG] ---- built keys ----")
   .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] names(built)=%s", paste(names(built), collapse = ", ")))
 
-  # ---------------------------------------------------------------------------
   # Helpers
-  # ---------------------------------------------------------------------------
   .stopf <- function(fmt, ...) stop(sprintf(fmt, ...), call. = FALSE)
 
   .as_char_head <- function(x, n = 20L) {
@@ -381,8 +399,7 @@
     paste(utils::head(x, n), collapse = ",")
   }
 
-  # Compare dyads robustly: ignore attributes (dimnames, etc.), coerce to double,
-  # and tolerate tiny numerical differences.
+  # Compare dyads robustly: ignore attributes, coerce to double, allow tiny tolerance
   .dyads_equal <- function(A, B, tol = 0) {
     if (is.null(A) || is.null(B)) return(FALSE)
     if (!is.matrix(A) || !is.matrix(B)) return(FALSE)
@@ -393,15 +410,13 @@
     dimnames(A) <- NULL
     dimnames(B) <- NULL
 
-    # Fast path exact
-    if (identical(A, B)) return(TRUE)
+    if (identical(A, B)) return(TRUE) # fast path
 
-    # all.equal without attributes, then fallback on max|diff|
     ok <- isTRUE(all.equal(A, B, check.attributes = FALSE, tolerance = tol))
     if (ok) return(TRUE)
 
     fin <- is.finite(A) & is.finite(B)
-    if (!any(fin)) return(TRUE) # both all non-finite in same places not expected here, but don't crash
+    if (!any(fin)) return(TRUE)
     maxdiff <- max(abs(A[fin] - B[fin]))
     maxdiff <= tol
   }
@@ -417,9 +432,7 @@
     max(abs(A[fin] - B[fin]))
   }
 
-  # ---------------------------------------------------------------------------
   # Global sizes
-  # ---------------------------------------------------------------------------
   nA <- meta_nw %n% "bipartite"
   if (is.na(nA)) .stopf("[ERPM_PLE][CHECK] meta_nw has no 'bipartite' attribute.")
 
@@ -441,9 +454,7 @@
     .stopf("[ERPM_PLE][CHECK] meta_nw must have exactly one edge per actor.")
   }
 
-  # ---------------------------------------------------------------------------
   # Actor / group indices
-  # ---------------------------------------------------------------------------
   actors_idx <- seq_len(nA)
   groups_idx <- (nA + 1L):(2L * nA)
 
@@ -466,9 +477,7 @@
     .stopf("[ERPM_PLE][CHECK] group labels are not G1..Gn.")
   }
 
-  # ---------------------------------------------------------------------------
   # Meta partition consistency
-  # ---------------------------------------------------------------------------
   .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] length(meta_partition)=%d | nA=%d", length(meta_partition), nA))
   if (isTRUE(debug)) {
     .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] meta_partition head=%s", paste(utils::head(meta_partition, 20L), collapse = ",")))
@@ -483,9 +492,7 @@
     .stopf("[ERPM_PLE][CHECK] meta_partition contains invalid group ids.")
   }
 
-  # ---------------------------------------------------------------------------
   # Edge list consistency: actor i -> group nA + meta_partition[i]
-  # ---------------------------------------------------------------------------
   el <- network::as.edgelist(meta_nw)
   if (isTRUE(debug)) {
     .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] edgelist dim=%dx%d", nrow(el), ncol(el)))
@@ -509,9 +516,7 @@
     .stopf("[ERPM_PLE][CHECK] edge list inconsistent with meta_partition.")
   }
 
-  # ---------------------------------------------------------------------------
-  # Block structure: disjoint group-id ranges per block
-  # ---------------------------------------------------------------------------
+  # Block structure: group-id ranges must be disjoint across blocks
   if (isTRUE(debug)) {
     .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] B=%d blocks | nbr_actors_by_selected_partitions=%s",
                  length(nbr_actors_by_selected_partitions),
@@ -536,9 +541,7 @@
     }
   }
 
-  # ---------------------------------------------------------------------------
   # Nodes: conformity checks (only if present)
-  # ---------------------------------------------------------------------------
   if (isTRUE(debug)) {
     .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] nodes_n class=%s | meta_nodes_df class=%s",
                  paste(class(nodes_n), collapse = "/"),
@@ -569,7 +572,6 @@
         va <- network::get.vertex.attribute(meta_nw, a)
         if (is.null(va)) .stopf("[ERPM_PLE][CHECK] actor attribute '%s' missing on meta_nw.", a)
 
-        # Compare actor side only (builder pads groups with NA)
         if (!isTRUE(all.equal(va[actors_idx], meta_nodes_df[[a]], check.attributes = FALSE))) {
           if (isTRUE(debug)) {
             .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] mismatch attr='%s' actor-side", a))
@@ -579,7 +581,6 @@
           .stopf("[ERPM_PLE][CHECK] actor attribute '%s' differs from meta_nodes_df.", a)
         }
 
-        # Group side must be NA padding
         if (any(!is.na(va[groups_idx]))) {
           if (isTRUE(debug)) {
             bad <- utils::head(which(!is.na(va[groups_idx])), 20L)
@@ -592,136 +593,116 @@
     }
   }
 
-    # ---------------------------------------------------------------------------
-    # Dyads: conformity checks (only if present)
-    # ---------------------------------------------------------------------------
-    dyads_att <- tryCatch(meta_nw %n% "dyads", error = function(e) NULL)
+  # Dyads: conformity checks (only if present)
+  dyads_att <- tryCatch(meta_nw %n% "dyads", error = function(e) NULL)
 
-    .dbg_block <- function(lines, prefix = "[ERPM_PLE][CHECK][DEBUG] ") {
-      if (!isTRUE(debug)) return(invisible(NULL))
-      if (!length(lines)) return(invisible(NULL))
-      for (ln in lines) .dbg(paste0(prefix, ln))
-      invisible(NULL)
+  .dbg_block <- function(lines, prefix = "[ERPM_PLE][CHECK][DEBUG] ") {
+    if (!isTRUE(debug)) return(invisible(NULL))
+    if (!length(lines)) return(invisible(NULL))
+    for (ln in lines) .dbg(paste0(prefix, ln))
+    invisible(NULL)
+  }
+
+  .dbg_matrix <- function(M, title, max_print = Inf) {
+    if (!isTRUE(debug)) return(invisible(NULL))
+    if (is.null(M)) {
+      .dbg(paste0("[ERPM_PLE][CHECK][DEBUG] ", title, " = NULL"))
+      return(invisible(NULL))
+    }
+    if (!is.matrix(M)) {
+      .dbg(paste0("[ERPM_PLE][CHECK][DEBUG] ", title, " (not a matrix) class=", paste(class(M), collapse = "/")))
+      return(invisible(NULL))
     }
 
-    .dbg_matrix <- function(M, title, max_print = Inf) {
-      if (!isTRUE(debug)) return(invisible(NULL))
-      if (is.null(M)) {
-        .dbg(paste0("[ERPM_PLE][CHECK][DEBUG] ", title, " = NULL"))
-        return(invisible(NULL))
-      }
-      if (!is.matrix(M)) {
-        .dbg(paste0("[ERPM_PLE][CHECK][DEBUG] ", title, " (not a matrix) class=", paste(class(M), collapse = "/")))
-        return(invisible(NULL))
-      }
+    oldw <- getOption("width")
+    oldm <- getOption("max.print")
+    options(width = max(200L, oldw), max.print = if (is.finite(max_print)) max_print else 1e9)
+    on.exit(options(width = oldw, max.print = oldm), add = TRUE)
 
-      # Impression propre, stable, sans troncature “bizarre”
-      oldw <- getOption("width")
-      oldm <- getOption("max.print")
-      options(width = max(200L, oldw), max.print = if (is.finite(max_print)) max_print else 1e9)
-      on.exit(options(width = oldw, max.print = oldm), add = TRUE)
+    out <- capture.output(print(M))
+    .dbg(paste0("[ERPM_PLE][CHECK][DEBUG] ", title, " (", nrow(M), "x", ncol(M), ")"))
+    .dbg_block(out)
+    invisible(NULL)
+  }
 
-      out <- capture.output(print(M))
-      .dbg(paste0("[ERPM_PLE][CHECK][DEBUG] ", title, " (", nrow(M), "x", ncol(M), ")"))
-      .dbg_block(out)
-      invisible(NULL)
+  if (isTRUE(debug)) {
+    .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] dyads_mode=%s", if (is.null(dyads_mode)) "NULL" else as.character(dyads_mode)))
+    .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] dyads_data is %s", if (is.null(dyads_data)) "NULL" else "non-NULL"))
+    .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] meta_dyads is %s | nw%%n%%'dyads' is %s",
+                if (is.null(meta_dyads)) "NULL" else "non-NULL",
+                if (is.null(dyads_att)) "NULL" else "non-NULL"))
+    if (!is.null(meta_dyads) && length(meta_dyads)) .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] meta_dyads names=%s", paste(names(meta_dyads), collapse = ",")))
+    if (!is.null(dyads_att) && length(dyads_att))   .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] attached dyads names=%s", paste(names(dyads_att), collapse = ",")))
+  }
+
+  if (!is.null(meta_dyads)) {
+    if (!is.list(meta_dyads)) .stopf("[ERPM_PLE][CHECK] meta_dyads must be a list when non-NULL.")
+    if (length(meta_dyads) && (is.null(names(meta_dyads)) || any(!nzchar(names(meta_dyads))))) {
+      .stopf("[ERPM_PLE][CHECK] meta_dyads must be a NAMED list (e.g., fm=..., Z1=...).")
     }
 
-    if (isTRUE(debug)) {
-      .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] dyads_mode=%s", if (is.null(dyads_mode)) "NULL" else as.character(dyads_mode)))
-      .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] dyads_data is %s", if (is.null(dyads_data)) "NULL" else "non-NULL"))
-      .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] meta_dyads is %s | nw%%n%%'dyads' is %s",
-                  if (is.null(meta_dyads)) "NULL" else "non-NULL",
-                  if (is.null(dyads_att)) "NULL" else "non-NULL"))
-      if (!is.null(meta_dyads) && length(meta_dyads)) .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] meta_dyads names=%s", paste(names(meta_dyads), collapse = ",")))
-      if (!is.null(dyads_att) && length(dyads_att))   .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] attached dyads names=%s", paste(names(dyads_att), collapse = ",")))
+    if (is.null(dyads_att)) .stopf("[ERPM_PLE][CHECK] meta_dyads is non-NULL but meta_nw %%n%% 'dyads' is NULL.")
+    if (!is.list(dyads_att)) .stopf("[ERPM_PLE][CHECK] meta_nw %%n%% 'dyads' must be a list.")
+    if (!setequal(names(dyads_att), names(meta_dyads))) {
+      .stopf("[ERPM_PLE][CHECK] meta_nw %%n%% 'dyads' names differ from meta_dyads names.")
     }
 
-    if (!is.null(meta_dyads)) {
-      if (!is.list(meta_dyads)) .stopf("[ERPM_PLE][CHECK] meta_dyads must be a list when non-NULL.")
-      if (length(meta_dyads) && (is.null(names(meta_dyads)) || any(!nzchar(names(meta_dyads))))) {
-        .stopf("[ERPM_PLE][CHECK] meta_dyads must be a NAMED list (e.g., fm=..., Z1=...).")
+    for (nm in names(meta_dyads)) {
+      M <- meta_dyads[[nm]]
+      A <- dyads_att[[nm]]
+
+      if (!is.matrix(M))  .stopf("[ERPM_PLE][CHECK] meta_dyads[['%s']] must be a matrix.", nm)
+      if (!is.numeric(M)) .stopf("[ERPM_PLE][CHECK] meta_dyads[['%s']] must be numeric.", nm)
+      if (nrow(M) != nA || ncol(M) != nA) {
+        .stopf("[ERPM_PLE][CHECK] meta_dyads[['%s']] has dim %dx%d but expected %dx%d.", nm, nrow(M), ncol(M), nA, nA)
+      }
+      if (any(!is.finite(M))) .stopf("[ERPM_PLE][CHECK] meta_dyads[['%s']] contains non-finite values.", nm)
+
+      if (is.null(A) || !is.matrix(A)) {
+        .stopf("[ERPM_PLE][CHECK] meta_nw %%n%% 'dyads'[['%s']] is missing or not a matrix.", nm)
+      }
+      if (!identical(dim(A), c(nA, nA))) {
+        .stopf("[ERPM_PLE][CHECK] meta_nw %%n%% 'dyads'[['%s']] dim %dx%d but expected %dx%d.",
+              nm, nrow(A), ncol(A), nA, nA)
       }
 
-      if (is.null(dyads_att)) .stopf("[ERPM_PLE][CHECK] meta_dyads is non-NULL but meta_nw %%n%% 'dyads' is NULL.")
-      if (!is.list(dyads_att)) .stopf("[ERPM_PLE][CHECK] meta_nw %%n%% 'dyads' must be a list.")
-      if (!setequal(names(dyads_att), names(meta_dyads))) {
-        .stopf("[ERPM_PLE][CHECK] meta_nw %%n%% 'dyads' names differ from meta_dyads names.")
+      if (isTRUE(debug)) {
+        .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] dyads '%s': dim=%dx%d | finite=%s",
+                    nm, nrow(M), ncol(M), as.character(all(is.finite(M)))))
+        .dbg_matrix(A, paste0("meta_nw %n% 'dyads'[['", nm, "']]"))
       }
 
-      for (nm in names(meta_dyads)) {
-        M <- meta_dyads[[nm]]
-        A <- dyads_att[[nm]]
-
-        # --- Validate M ---
-        if (!is.matrix(M))  .stopf("[ERPM_PLE][CHECK] meta_dyads[['%s']] must be a matrix.", nm)
-        if (!is.numeric(M)) .stopf("[ERPM_PLE][CHECK] meta_dyads[['%s']] must be numeric.", nm)
-        if (nrow(M) != nA || ncol(M) != nA) {
-          .stopf("[ERPM_PLE][CHECK] meta_dyads[['%s']] has dim %dx%d but expected %dx%d.", nm, nrow(M), ncol(M), nA, nA)
-        }
-        if (any(!is.finite(M))) .stopf("[ERPM_PLE][CHECK] meta_dyads[['%s']] contains non-finite values.", nm)
-
-        # --- Validate A ---
-        if (is.null(A) || !is.matrix(A)) {
-          .stopf("[ERPM_PLE][CHECK] meta_nw %%n%% 'dyads'[['%s']] is missing or not a matrix.", nm)
-        }
-        if (!identical(dim(A), c(nA, nA))) {
-          .stopf("[ERPM_PLE][CHECK] meta_nw %%n%% 'dyads'[['%s']] dim %dx%d but expected %dx%d.",
-                nm, nrow(A), ncol(A), nA, nA)
-        }
-
+      if (!.dyads_equal(A, M, tol = 0)) {
         if (isTRUE(debug)) {
-          .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] dyads '%s': dim=%dx%d | finite=%s",
-                      nm, nrow(M), ncol(M), as.character(all(is.finite(M)))))
-          # Affiche TOUTES les matrices (meta + attached)
-          # .dbg_matrix(M, paste0("meta_dyads[['", nm, "']]"))
-          .dbg_matrix(A, paste0("meta_nw %n% 'dyads'[['", nm, "']]"))
-        }
+          .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] dyads mismatch '%s': attached vs meta_dyads", nm))
+          .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] max|diff|=%s", as.character(.dyads_diff_max(A, M))))
 
-        # --- Compare values ignoring dimnames/attrs ---
-        if (!.dyads_equal(A, M, tol = 0)) {
-          if (isTRUE(debug)) {
-            .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] dyads mismatch '%s': attached vs meta_dyads", nm))
-            .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] max|diff|=%s", as.character(.dyads_diff_max(A, M))))
-
-            # Option: afficher positions des plus gros écarts (utile si matrices grandes)
-            # On garde ça compact: top 20 différences non-nulles.
-            AA <- A; MM <- M
-            storage.mode(AA) <- "double"; storage.mode(MM) <- "double"
-            dimnames(AA) <- NULL; dimnames(MM) <- NULL
-            D <- abs(AA - MM)
-            D[!is.finite(D)] <- NA_real_
-            if (any(D > 0, na.rm = TRUE)) {
-              ord <- order(D, decreasing = TRUE, na.last = NA)
-              ord <- utils::head(ord, 20L)
-              ij  <- arrayInd(ord, dim(D))
-              lines <- vapply(seq_len(nrow(ij)), function(k) {
-                i <- ij[k, 1L]; j <- ij[k, 2L]
-                sprintf("diff[%d,%d]=%g (attached=%g, meta=%g)", i, j, D[i,j], AA[i,j], MM[i,j])
-              }, character(1))
-              .dbg_block(lines)
-            }
+          AA <- A; MM <- M
+          storage.mode(AA) <- "double"; storage.mode(MM) <- "double"
+          dimnames(AA) <- NULL; dimnames(MM) <- NULL
+          D <- abs(AA - MM)
+          D[!is.finite(D)] <- NA_real_
+          if (any(D > 0, na.rm = TRUE)) {
+            ord <- order(D, decreasing = TRUE, na.last = NA)
+            ord <- utils::head(ord, 20L)
+            ij  <- arrayInd(ord, dim(D))
+            lines <- vapply(seq_len(nrow(ij)), function(k) {
+              i <- ij[k, 1L]; j <- ij[k, 2L]
+              sprintf("diff[%d,%d]=%g (attached=%g, meta=%g)", i, j, D[i,j], AA[i,j], MM[i,j])
+            }, character(1))
+            .dbg_block(lines)
           }
-          .stopf("[ERPM_PLE][CHECK] meta_nw %%n%% 'dyads'[['%s']] differs from meta_dyads.", nm)
         }
-      }
-    } else {
-      if (!is.null(dyads_att) && length(dyads_att)) {
-        .stopf("[ERPM_PLE][CHECK] meta_dyads is NULL but meta_nw %%n%% 'dyads' is non-empty.")
+        .stopf("[ERPM_PLE][CHECK] meta_nw %%n%% 'dyads'[['%s']] differs from meta_dyads.", nm)
       }
     }
-
-    # Timeline debug (inchangé, mais plus clair)
-    if (!is.null(dyads_data) && isTRUE(debug) && length(dyads_data)) {
-      for (nm in names(dyads_data)) {
-        x <- dyads_data[[nm]]
-        .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] dyads_data[['%s']] timeline length=%d", nm, length(x)))
-      }
+  } else {
+    if (!is.null(dyads_att) && length(dyads_att)) {
+      .stopf("[ERPM_PLE][CHECK] meta_dyads is NULL but meta_nw %%n%% 'dyads' is non-empty.")
     }
+  }
 
-  # ---------------------------------------------------------------------------
-  # Input-mode invariants (weak checks; helps catch wrong plumbing)
-  # ---------------------------------------------------------------------------
+  # Input-mode invariants (light checks to catch plumbing mistakes)
   if (is.null(nodes_n) && !is.null(meta_nodes_df)) {
     .stopf("[ERPM_PLE][CHECK] meta_nodes_df is non-NULL but built$nodes_n is NULL (unexpected).")
   }
@@ -738,19 +719,11 @@
     if (!is.list(dyads_data) || (length(dyads_data) && (is.null(names(dyads_data)) || any(!nzchar(names(dyads_data)))))) {
       .stopf("[ERPM_PLE][CHECK] dyads_data must be a named list when non-NULL.")
     }
-    # if (length(dyads_data)) {
-    #   for (nm in names(dyads_data)) {
-    #     x <- dyads_data[[nm]]
-    #     if (!is.list(x)) .stopf("[ERPM_PLE][CHECK] dyads_data[['%s']] must be a list (timeline).", nm)
-    #     if (isTRUE(debug)) .dbg(sprintf("[ERPM_PLE][CHECK][DEBUG] dyads_data[['%s']] timeline length=%d", nm, length(x)))
-    #   }
-    # }
   }
 
   .dbg("[ERPM_PLE][CHECK][DEBUG] OK")
   invisible(TRUE)
 }
-
 
 # ==============================================================================
 # Module 2: build and attach timeblock
@@ -759,15 +732,13 @@
 #' Build timeblock for PLE meta-networks (internal helper)
 #'
 #' @description
-#' With \code{build_bipartite_from_inputs()}, the meta-network has \code{2*nbr_actors_meta}
-#' vertices: actors (1..nbr_actors_meta) and padded groups (nbr_actors_meta+1 .. 2*nbr_actors_meta).
-#' This helper assigns a time index to each actor and each padded group.
+#' The meta-network has \code{2 * nbr_actors_meta} vertices: actors
+#' (1..nbr_actors_meta) and padded groups (nbr_actors_meta+1 .. 2*nbr_actors_meta).
+#' This helper assigns the originating time index to each actor and each padded group.
 #'
-#' @param selected_partition_indicesSelected time indices included in meta-network.
+#' @param selected_partition_indices Selected time indices included in meta-network.
 #' @param nbr_actors_by_t Actor counts per time.
-#'
-#' @return Integer vector of length \code{2*nbr_actors_meta}.
-#'
+#' @return Integer vector of length \code{2 * nbr_actors_meta}.
 #' @noRd
 .erpm_ple_make_timeblock <- function(selected_partition_indices, nbr_actors_by_t) {
   nbr_actors_by_selected_partitions  <- nbr_actors_by_t[selected_partition_indices]
@@ -794,6 +765,10 @@
 }
 
 #' Attach timeblock to meta-network (PLE module 2)
+#' @param meta_nw Meta-network (bipartite).
+#' @param selected_partition_indices Selected time indices included in meta-network.
+#' @param nbr_actors_by_t Actor counts per time.
+#' @return Updated meta-network with \code{timeblock} vertex attribute.
 #' @noRd
 .erpm_long_empile_attach_timeblock <- function(meta_nw, selected_partition_indices, nbr_actors_by_t) {
   timeblock <- .erpm_ple_make_timeblock(selected_partition_indices, nbr_actors_by_t = nbr_actors_by_t)
@@ -808,9 +783,17 @@
 #' Attach inertial attributes required by inertial InitErgmTerms (PLE module 3)
 #'
 #' @description
-#' Current behavior is tailored to \code{inertia_groups} and attaches the exact
-#' network attributes expected by your InitErgmTerm implementation.
+#' This module currently targets \code{inertia_groups} in PLE mode.
+#' It attaches the exact network attributes expected by your InitErgmTerm:
+#' \code{erpm_mode}, \code{erpm_B}, \code{erpm_n}, \code{erpm_G},
+#' and \code{erpm_block_past_partitions}.
 #'
+#' @param meta_nw Meta-network to decorate.
+#' @param partitions Timeline of partitions (list).
+#' @param selected_partition_indices Selected time indices (estimation blocks).
+#' @param d Past influence depth.
+#' @param verbose Verbosity flag.
+#' @return Updated meta-network with inertial attributes attached.
 #' @noRd
 .erpm_long_empile_attach_inertial_attributes <- function(meta_nw,
                                                         partitions,
@@ -862,11 +845,11 @@
 #' Build PLE meta-network and attach required attributes (engine entry point)
 #'
 #' @description
-#' Orchestrates the three PLE modules:
+#' Orchestrates the PLE engine pipeline:
 #' \enumerate{
-#'   \item build standard bipartite meta-network;
-#'   \item attach timeblock;
-#'   \item attach inertial attributes if needed.
+#'   \item build standard bipartite meta-network (partitions/nodes/dyads);
+#'   \item attach \code{timeblock} vertex attribute;
+#'   \item attach inertial attributes if inertial terms were detected.
 #' }
 #'
 #' @param partitions List of partitions.
@@ -877,15 +860,10 @@
 #' @param dyads Dyadic inputs.
 #' @param group_labels Group labels (kept for API compatibility).
 #' @param directed Kept for compatibility.
-#' @param verbose Verbosity.
+#' @param verbose Verbosity flag.
+#' @param debug Debug flag.
 #'
-#' @return A list with at least:
-#' \itemize{
-#'   \item \code{meta_nw}: the built meta-network
-#'   \item \code{selected_partition_indices}: indices of blocks included in meta-network
-#'   \item \code{rhs}: passthrough RHS
-#' }
-#'
+#' @return List with at least: \code{meta_nw}, \code{selected_partition_indices}, \code{rhs}.
 #' @noRd
 .erpm_long_empile_build_meta_nw <- function(partitions,
                                            rhs,
@@ -904,9 +882,9 @@
 
   T <- length(partitions)
   d <- as.integer(past_influence)
-  
+
   if (is.na(d) || d < 0L) stop("[ERPM_PLE] past_influence must be a non-negative integer.")
-  
+
   if (inertial_present && d >= T) {
     stop(sprintf("[ERPM_PLE] past_influence=%d but T=%d: cannot build estimable meta-network.", d, T))
   }

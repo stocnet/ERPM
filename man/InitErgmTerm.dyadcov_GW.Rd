@@ -8,12 +8,12 @@
 InitErgmTerm.dyadcov_GW(nw, arglist, ...)
 }
 \arguments{
-\item{dyadcov}{Matrix or character. Either a numeric matrix, or the name of a
-network-level attribute containing such a matrix (retrieved as \code{nw \%n\% dyadcov}).
-In ERPM usage, the matrix can also come from \code{nw \%n\% "dyads"} (a named list),
-i.e. \code{(nw \%n\% "dyads")[[dyadcov]]}.}
+\item{nw}{A \pkg{network} object.}
 
-\item{lambda}{Numeric scalar. Geometric weight parameter \eqn{\lambda > 0}.}
+\item{arglist}{A named list of term arguments. Expected components include
+\code{dyadcov} (matrix or character) and \code{lambda} (numeric scalar).}
+
+\item{...}{Passed through by \pkg{ergm}; not used.}
 }
 \description{
 \code{dyadcov_GW} is an ERGM term for bipartite networks that aggregates a

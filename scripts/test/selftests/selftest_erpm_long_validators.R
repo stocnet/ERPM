@@ -1,15 +1,27 @@
 #!/usr/bin/env Rscript
-# ======================================================================================
-# File    : scripts/test/selftests/selftest_erpm_long_validators_min.R
-# Object  : Minimal selftest for erpm_long() validators (PLE only) with intentional bad inputs
-# Run     : Rscript scripts/test/selftests/selftest_erpm_long_validators_min.R
-#
-# Notes   :
-#   - Does NOT test engine correctness, summary(), nor fits.
-#   - Only checks that validators fail (or pass) as expected on ~15 scenarios.
-#   - Uses dataset #1 and #2 shapes (n=4 and n=5, T=3).
-#   - Expects erpm_long() to call .erpm_long_validate_inputs() early.
-# ======================================================================================
+################################################################################
+# FILE: scripts/test/selftests/selftest_erpm_long_validators.R
+################################################################################
+#' Selftest: erpm_long() validators (PLE only)
+#'
+#' @name selftest_erpm_long_validators
+#' @note scripts/test/selftests/selftest_erpm_long_validators.R
+#'
+#' @description
+#' Minimal selftest for \code{erpm_long()} validators in PLE mode, using deliberately
+#' bad inputs to assert that errors are raised with the expected messages.
+#'
+#' This script focuses on input validation only:
+#' \itemize{
+#'   \item it does not test the PLE engine correctness;
+#'   \item it does not check summary() values;
+#'   \item it does not run fits (it forces \code{eval.call=FALSE} in the wrapper call).
+#' }
+#'
+#' Two small datasets are used (n=4 and n=5, T=3) to cover shape variation.
+#'
+#' @keywords ERPM selftest erpm_long validators PLE
+################################################################################
 
 Sys.setenv(LANG = "fr_FR.UTF-8")
 invisible(try(Sys.setlocale("LC_CTYPE", "fr_FR.UTF-8"), silent = TRUE))
@@ -28,6 +40,7 @@ cat("=== SELFTEST erpm_long validators (PLE only) ===\n")
 # --------------------------------------------------------------------------------------
 # Helpers
 # --------------------------------------------------------------------------------------
+
 .capture_error <- function(expr) {
   tryCatch(
     list(ok = TRUE,  err = NULL, val = eval.parent(substitute(expr))),

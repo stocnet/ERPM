@@ -4,13 +4,15 @@
 \alias{erpm_wrapper}
 \title{ERPM main wrapper: translate ERPM formulas to \pkg{ergm} calls and optionally fit}
 \description{
-This module provides the main ERPM wrapper around \pkg{ergm} to:
+This file provides the main ERPM wrapper around \pkg{ergm}. It is responsible for:
 \enumerate{
-\item Build a bipartite network from a partition, with optional node and dyadic inputs.
-\item Translate ERPM RHS terms (e.g., \code{groups}, \code{cov_match}, \code{cliques})
-into \pkg{ergm} terms, with optional encapsulations (\code{Proj1}, \code{B}).
-\item Compose a standard call \code{ergm(nw ~ <translated RHS>, constraints = ~ b1part, ...)}.
-\item Either return the call (dry-run) or evaluate it and return the fitted model.
+\item resolving the formula LHS (partition vector vs pre-built bipartite network);
+\item building a bipartite network from a partition when needed, with optional
+node and dyadic inputs;
+\item translating ERPM RHS terms (e.g., \code{groups}, \code{cov_match}, \code{cliques})
+into \pkg{ergm} terms, including optional wrappers (\code{Proj1}, \code{B});
+\item assembling a standard \code{ergm()} call with explicit constraints and control;
+\item either returning the call (dry-run) or evaluating it and returning the fitted model.
 }
 
 All user-facing console messages are in English for consistency with \pkg{ergm}.
@@ -18,12 +20,13 @@ All user-facing console messages are in English for consistency with \pkg{ergm}.
 \note{
 erpm_wrapper.R
 
-This wrapper assumes that the user has attached the \pkg{ergm} and \pkg{network} packages
-(or that they are available in the search path) and that the \code{b1part}
-constraint is meaningful for the constructed network.
-
-The main wrapper is exercised in self-tests and MWEs under \code{scripts/test}
-by comparing ERPM-based fits to direct \pkg{ergm} calls on constructed bipartite networks.
+The argument \code{constraints} is supported:
+\itemize{
+\item if NULL, historical behavior is preserved (\code{constraints = ~ b1part});
+\item otherwise, it must be a constraints formula forwarded to \code{ergm()}.
+}
+This extension is required for PLE meta-networks where block-diagonal constraints may
+need to be enforced.
 }
 \keyword{ERGM}
 \keyword{ERPM}

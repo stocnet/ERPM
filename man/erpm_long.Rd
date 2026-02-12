@@ -2,127 +2,92 @@
 % Please edit documentation in R/erpm_long.R
 \name{erpm_long}
 \alias{erpm_long}
-\title{ERPM longitudinal wrapper: sequential ERGM fits with history covariates}
+\title{ERPM pseudo-longitudinal wrapper (PLE-only)}
 \usage{
 erpm_long(
   formula,
+  mode = "empile",
   eval.call = TRUE,
-  verbose = TRUE,
+  verbose = FALSE,
   debug = FALSE,
   estimate = NULL,
   eval.loglik = NULL,
   control = NULL,
   timeout = NULL,
+  seed = NULL,
   nodes = NULL,
-  dyads = list(),
+  dyads = NULL,
   group_labels = NULL
 )
 }
 \arguments{
-\item{formula}{A formula \code{parts ~ <ERPM terms>}, where \code{parts} evaluates to a list of
-partitions (one per time point). Each partition is an atomic vector of group ids.}
+\item{formula}{ERGM/ERPM formula. LHS must evaluate to a list of partitions
+(length \eqn{T}). RHS is a shared model specification.}
 
-\item{eval.call}{Logical. If TRUE, evaluate each resulting \code{ergm()} call. If FALSE, return the
-unevaluated calls (dry-run) for all time points.}
+\item{mode}{Kept for compatibility; only \code{"empile"} / \code{"PLE"} supported.}
 
-\item{verbose}{Logical. If TRUE, print a compact per-time translation log and the effective options.
-When explicitly provided, its value is also forwarded to \code{ergm(verbose = ...)} via \code{erpm()}.}
+\item{eval.call}{If TRUE, returns the \code{erpm()} call instead of evaluating.}
 
-\item{debug}{Logical. If TRUE, emit additional diagnostic messages about inertial-term activation and
-attribute construction.}
+\item{verbose}{Verbosity.}
 
-\item{estimate}{Character or NULL. Forwarded to \code{erpm()} (and then to \code{ergm(estimate = ...)}),
-after the same light normalization used by \code{erpm()} (e.g., mapping \code{"MCMLE"} to \code{"MLE"}).}
+\item{debug}{Reserved for compatibility (passed through to \code{erpm()}).}
 
-\item{eval.loglik}{Logical or NULL. Forwarded to \code{erpm()} (and then to \code{ergm(eval.loglik = ...)}).}
+\item{estimate}{Passed through to \code{erpm()}.}
 
-\item{control}{A list, a \code{control.ergm} object, or NULL. Forwarded to \code{erpm()} for each time
-point, with the same safeguards regarding incompatible \code{init} lengths.}
+\item{eval.loglik}{Passed through to \code{erpm()}.}
 
-\item{timeout}{Numeric seconds or NULL. If set, each evaluation is run under \code{R.utils::withTimeout()}
-with \code{onTimeout="silent"}.}
+\item{control}{Passed through to \code{erpm()}.}
 
-\item{nodes}{Optional \code{data.frame} for actor attributes and labels, used when building each bipartite
-network from a partition.}
+\item{timeout}{Passed through to \code{erpm()}.}
 
-\item{dyads}{Optional named list of \eqn{n\times n} matrices to attach to each network as a dedicated network
-attribute (currently \code{\%n\% "dyads"}), used when building each bipartite network from a partition.}
+\item{seed}{Passed through to \code{erpm()}.}
 
-\item{group_labels}{Optional character vector (or NULL) forwarded to \code{build_bipartite_from_inputs()} to
-set readable group vertex labels in each padded bipartite network.}
+\item{nodes}{NULL or list length T of data.frames of monadic covariates.}
+
+\item{dyads}{NULL or dyadic covariates (engine-dependent format).}
+
+\item{group_labels}{Optional group labels (passed to the engine when relevant).}
 }
 \value{
-A list of length \eqn{T}. If \code{eval.call=TRUE}, each element is a fitted \pkg{ergm} model for
-time \eqn{t}. If \code{eval.call=FALSE}, each element is the unevaluated \code{ergm()} call produced for
-time \eqn{t}.
+Result of \code{erpm()} (or the call if \code{eval.call=TRUE}).
+The built meta-network is attached as \code{attr(out, "meta_nw")} when evaluated.
 }
 \description{
-This file implements the longitudinal wrapper \code{erpm_long()}.
-It runs a sequence of ERPM/ERGM fits over time by:
-\enumerate{
-\item evaluating the LHS into a list of partitions (length \eqn{T});
-\item detecting which RHS terms are inertial (history-dependent) using an internal registry;
-\item building a bipartite membership network for each time \eqn{t};
-\item attaching history covariates as network attributes for each required lag
-(one attribute per lag, with no aggregation across lags);
-\item calling \code{erpm()} at each \eqn{t} with a time-specific RHS composed of
-static terms plus the inertial terms that are active at that time.
+This file provides \code{erpm_long()}, a pragmatic pseudo-longitudinal wrapper
+that operates in PLE ("empile") mode only.
+
+The user supplies:
+\itemize{
+\item a timeline of partitions on the LHS (a list of length \eqn{T \ge 2});
+\item a shared RHS ERPM/ERGM specification (applied to all estimated blocks).
 }
 
-This function:
+The wrapper then:
 \enumerate{
-\item Interprets the LHS of a formula as a list of partitions \code{parts} of length \eqn{T},
-where each element is a partition vector at time \eqn{t};
-\item Splits the shared RHS into \emph{static terms} (always active) and \emph{inertial terms}
-(activated only when enough past partitions exist), using an internal declarative
-registry (see \code{R/erpm_long_inertia_specs.R});
-\item Iterates over time points \eqn{t = 1,\dots,T} and, at each step:
-\enumerate{
-\item Builds a padded bipartite membership \pkg{network} from the current partition
-(via \code{build_bipartite_from_inputs()}, with optional \code{nodes}, \code{dyads},
-and \code{group_labels});
-\item For each inertial term present in the RHS, reads its \code{past_influence = d}
-argument and activates the term only when \eqn{t > d};
-\item When an inertial term is active, computes the term-specific required summaries on
-past partitions independently for each lag \eqn{\ell \in \{1,\dots,d\}}, and attaches
-\eqn{d} distinct network attributes to the current network (one attribute per lag,
-with no aggregation across lags);
-\item Constructs a time-specific RHS \code{RHS(t)} consisting of static terms plus the inertial
-terms that are active at time \eqn{t};
-\item Calls \code{erpm()} on the current network and \code{RHS(t)}, either as a dry-run
-(\code{eval.call = FALSE}) or as an evaluated \pkg{ergm} fit (\code{eval.call = TRUE}).
+\item validates inputs and derives settings (notably inertial presence and the
+effective maximum \code{past_influence});
+\item builds a stacked bipartite meta-network (PLE engine);
+\item delegates call construction and optional evaluation to \code{erpm()}.
 }
-\item Returns the list of \eqn{T} time-specific results (calls or fitted models), reflecting the fact
-that inertial terms are intentionally absent at early time points until their
-\code{past_influence} requirement is met.
-}
+
+In PLE, the first \code{d} time points are not estimated when inertial terms with
+depth \code{d} are present, since those blocks do not have enough past context.
 }
 \note{
 erpm_long.R
-
-Inertial terms are detected and handled via \code{R/erpm_long_inertia_specs.R}. Each inertial term can
-request \code{past_influence = d} lags, which are materialized as \eqn{d} separate network attributes on
-the current network (one per lag), without combining information across lags.
-
-This wrapper delegates model construction, translation, and constraint handling to \code{erpm()} at each
-time point, ensuring a consistent call structure and shared safeguards across static and longitudinal use.
 }
 \examples{
 \dontrun{
-  parts <- list(
-    c(1, 1, 2, 2, 3),
-    c(1, 2, 2, 3, 3),
-    c(1, 1, 1, 2, 3)
-  )
-
-  # Dry-run: inspect per-time translated calls and inertial activation
-  calls <- erpm_long(parts ~ groups + inertia_term(past_influence = 2), eval.call = FALSE)
-
-  # Fit sequentially with shared RHS and inertial activation when eligible
-  fits <- erpm_long(parts ~ groups + inertia_term(past_influence = 2), estimate = "MLE")
+  partitions <- list(c(1,1,2), c(1,2,2), c(2,2,1))
+  fit <- erpm_long(partitions ~ cliques(k=2), eval.call=FALSE)
 }
 
 }
+\keyword{(PLE-only)}
 \keyword{ERGM}
 \keyword{ERPM}
+\keyword{PLE}
+\keyword{Pseudo-longitudinal}
+\keyword{empile}
 \keyword{longitudinal}
+\keyword{wrapper}
