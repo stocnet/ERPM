@@ -1,6 +1,6 @@
 /**
  * @file changestat_squared_sizes.c
- * @brief Change statistic for the ERPM term `squared_sizes` (one-toggle form).
+ * @brief Change statistic for the ERPM term `squared_sizes` (multi-toggle form).
  *
  * @details
  *  This file implements the \pkg{ergm} change statistic for the ERPM effect
@@ -31,111 +31,46 @@
  *
  *      Stat = sum_over_groups f(deg_g).
  *
- *  A single membership toggle affects exactly one group g and changes its
+ *  A membership toggle affects exactly one group g and changes its
  *  size from deg_old to deg_new = deg_old ± 1. The local change in the
  *  statistic is therefore:
  *
  *      Δ = f(deg_new) − f(deg_old).
  *
- *  The function implemented here computes this Δ and accumulates it
- *  in CHANGE_STAT[0].
+ *  In multi-toggle mode, multiple toggles can affect the same group.
+ *  Therefore, this D_ change-statistic processes toggles sequentially,
+ *  temporarily applying each toggle to keep subsequent degrees consistent,
+ *  and then undoes the temporary toggles before returning.
  *
  *  ------------------------------------------------------------
- *  Implementation in \pkg{ergm} (one-toggle)
+ *  Implementation in \pkg{ergm} (multi-toggle)
  *  ------------------------------------------------------------
  *
- *  - A bipartite network is assumed:
- *      - the actor mode occupies the first BIPARTITE vertices,
- *      - the group mode occupies the remaining vertices.
- *  - Each membership toggle connects exactly one actor-mode vertex and one
- *    group-mode vertex.
- *  - This change-statistic function:
- *      1. Identifies the group-mode vertex affected by the toggle.
- *      2. Reads its current size deg_old from OUT_DEG + IN_DEG.
- *      3. Derives deg_new = deg_old ± 1 from the @p edgestate flag.
- *      4. Reads the parameters:
- *           - pow     = INPUT_PARAM[0]        (scalar exponent),
- *           - K       = INPUT_PARAM[1]        (number of admissible sizes),
- *           - sizes_k = INPUT_PARAM[2 + k]    (k = 0..K-1).
- *      5. Computes:
+ *  - The function is declared with ::D_CHANGESTAT_FN and receives:
+ *      - ntoggles : number of toggles in the proposal,
+ *      - tails/heads arrays: endpoints of each toggle.
  *
- *           Δ = f(deg_new) − f(deg_old),
+ *  - For each toggle i:
+ *      1. Read endpoints (t, h).
+ *      2. Determine current edge state edgestate BEFORE toggling.
+ *      3. Identify the affected group-mode vertex v2.
+ *      4. Read deg_old from current network state.
+ *      5. Compute deg_new = deg_old ± 1 based on edgestate.
+ *      6. Accumulate Δ = f(deg_new) − f(deg_old).
+ *      7. Temporarily apply the toggle if more toggles remain, so that
+ *         later toggles see updated degrees.
  *
- *         where
- *
- *           f(d) = d^pow if d == sizes_k for some k, and 0 otherwise.
- *
- *         This Δ is then added to CHANGE_STAT[0].
- *
- *  - The macro ::C_CHANGESTAT_FN declares the function with the signature
- *    required by \pkg{ergm} and exposes:
- *      - N_CHANGE_STATS  (number of statistics, expected to be 1 here),
- *      - INPUT_PARAM     (packed parameters),
- *      - CHANGE_STAT     (output buffer).
- *
- *  Parameter packing:
- *  - The R-side initialiser (InitErgmTerm.squared_sizes) constructs:
- *
- *        INPUT_PARAM = c(pow, K, sizes_1, ..., sizes_K)
- *
- *    so that:
- *
- *        INPUT_PARAM[0] = pow        (integer >= 1)
- *        INPUT_PARAM[1] = K          (number of admissible sizes)
- *        INPUT_PARAM[2 + k] = sizes_{k+1} (k = 0..K-1).
+ *  - At the end, undo all temporary toggles, restoring the original network.
  *
  *  ------------------------------------------------------------
- *  Complexity
+ *  Parameter packing (R side)
  *  ------------------------------------------------------------
  *
- *  - O(K) par toggle:
- *      - un lookup de degré pour le groupe touché,
- *      - au plus deux scans du vecteur des tailles admissibles (deg_old / deg_new),
- *        avec au plus deux exponentiations (pour deg_old, deg_new).
- *  - Pas de parcours d’adjacence, pas de scan sur les autres groupes.
+ *  INPUT_PARAM = c(pow, K, sizes_1, ..., sizes_K)
  *
- *  ------------------------------------------------------------
- *  R interface and usage
- *  ------------------------------------------------------------
- *
- *  On the R side, the corresponding ERPM term can be accessed via the wrapper.
- *
- *  @example Usage (R)
- *  @code{.r}
- *  library(ERPM)
- *
- *  # Example: partition of 6 actors into 3 groups
- *  part <- c(1, 1, 2, 2, 3, 3)
- *
- *  # Model with a squared_sizes term on group sizes equal to 2 or 3
- *  fit <- erpm(
- *    partition ~ squared_sizes(sizes = c(2L, 3L), pow = 2L)
- *  )
- *  summary(fit)
- *
- *  # Interpretation of one toggle:
- *  # Suppose a sampler proposes to add an actor to a group of current size 2:
- *  #   deg_old = 2
- *  #   deg_new = 3
- *  #
- *  # For sizes ∈ {2,3}, pow = 2:
- *  #   f(deg_old) = 2^2 = 4
- *  #   f(deg_new) = 3^2 = 9
- *  #
- *  #   Δ = f(deg_new) - f(deg_old) = 9 - 4 = 5
- *  #
- *  # This is exactly what c_squared_sizes adds to CHANGE_STAT[0].
- *  @endcode
- *
- *  @test
- *  A self-test can:
- *    - build small bipartite networks from known partitions,
- *    - compute the reference statistic by summing d^pow over group sizes
- *      belonging to the target set of sizes,
- *    - call `summary()` on an ERGM/ERPM model with `squared_sizes`,
- *    - compare the reported statistic to the reference value,
- *    - apply a series of single-edge toggles and verify that the incremental
- *      changes match Δ = f(deg_new) − f(deg_old).
+ *    INPUT_PARAM[0] = pow
+ *    INPUT_PARAM[1] = K
+ *    INPUT_PARAM[2 + k] = sizes_{k+1}, k = 0..K-1
  */
 
 #include <math.h>
@@ -145,7 +80,7 @@
 
 /**
  * @def DEBUG_SQUARED_SIZES
- * @brief Enable or disable verbose debugging for ::c_squared_sizes.
+ * @brief Enable or disable verbose debugging for ::d_squared_sizes.
  *
  * Set this macro to 1 to print diagnostic information to the R console
  * for each toggle:
@@ -180,139 +115,110 @@ static inline double ipow_int(int base, int exp){
   if(exp <= 0) return 1.0;
   double r = 1.0, b = (double)base;
   while(exp){
-    if(exp & 1) r *= b;  // when the current bit is set, multiply the accumulator
-    b *= b;              // square the base for the next bit
-    exp >>= 1;           // shift to the next bit
+    if(exp & 1) r *= b;
+    b *= b;
+    exp >>= 1;
   }
   return r;
 }
 
 /* -------------------------------------------------------------------------- */
-/* Change statistic: squared_sizes                                            */
+/* Change statistic: squared_sizes (multi-toggle)                              */
 /* -------------------------------------------------------------------------- */
 
 /**
- * @brief Change statistic for the ERPM term `squared_sizes(sizes, pow)`.
+ * @brief Change statistic for the ERPM term `squared_sizes(sizes, pow)` (multi-toggle).
  *
  * @details
- *  This function is registered via ::C_CHANGESTAT_FN as ::c_squared_sizes.
- *  It processes a single membership toggle between an actor-mode vertex and
- *  a group-mode vertex in a bipartite network and computes the local change
- *  in the aggregated `squared_sizes` statistic:
+ *  See file header for the mathematical definition and the multi-toggle logic.
  *
- *      T(y) = sum_{g in G} 1[deg(g) in sizes] * deg(g)^pow.
- *
- *  Actor / group modes:
- *  - The actor mode is represented by the first BIPARTITE vertices.
- *  - The group mode is represented by all remaining vertices.
- *
- *  Parameter packing (R side):
- *  - The R-side initializer constructs
- *
- *        INPUT_PARAM = c(pow, K, sizes_1, ..., sizes_K)
- *
- *    where:
- *      - pow       = common exponent (integer >= 1),
- *      - K         = number of admissible group sizes,
- *      - sizes_i   = i-th admissible group size (integer >= 1).
- *
- *  For each toggle:
- *  - The function:
- *      1. Zeros the CHANGE_STAT buffer (single component).
- *      2. Identifies the group-mode vertex affected by the toggle.
- *      3. Reads the group size before the toggle:
- *           deg_old = OUT_DEG[v2] + IN_DEG[v2].
- *      4. Determines if the toggle is an addition or a deletion via @p edgestate
- *         and sets:
- *           deg_new = deg_old + 1  (addition),
- *           deg_new = deg_old - 1  (deletion).
- *      5. Checks whether deg_old and deg_new belong to the set `sizes`.
- *      6. Computes:
- *
- *           Δ = 1[deg_new in sizes] * deg_new^pow
- *             − 1[deg_old in sizes] * deg_old^pow,
- *
- *         and adds Δ to CHANGE_STAT[0].
+ *  Key design point:
+ *    - Multi-toggle proposals (swap/split/merge decomposed into multiple edge
+ *      toggles) must be handled consistently when several toggles affect the
+ *      same group node. We therefore evaluate toggles sequentially and
+ *      temporarily apply them (TOGGLE_IF_MORE_TO_COME) so that degree arrays
+ *      reflect the intermediate state.
  */
-C_CHANGESTAT_FN(c_squared_sizes){
+D_CHANGESTAT_FN(d_squared_sizes){
 
-  /* 1) Always reset the output buffer for THIS call.
-   *
-   * \pkg{ergm} sums the vectors returned by successive calls. Here we only
-   * compute the local contribution of the current toggle.
-   */
+#if DEBUG_SQUARED_SIZES
+  static int seen = 0;
+  if(ntoggles > 1 && seen < 10){
+    Rprintf("[squared_sizes] MULTI-TOGGLE ntoggles=%d\n", (int)ntoggles);
+    seen++;
+  }
+#endif
+
+  /* 1) Reset output buffer. */
   ZERO_ALL_CHANGESTATS();
 
-  /* 2) Number of vertices in the actor mode.
-   *
-   * In a bipartite network, BIPARTITE is the number of actor-mode vertices.
-   * All vertices with index > BIPARTITE belong to the group mode.
-   */
+  /* 2) Actor-mode size in bipartite networks. */
   const int n1 = BIPARTITE;
 
-  /* 3) Read the endpoints of the current toggle. */
-  Vertex t = tail;
-  Vertex h = head;
-
-  /* 4) Identify the group-mode vertex.
-   *
-   * The toggle involves exactly one actor-mode vertex and one group-mode vertex.
-   * The group vertex is the one whose index is strictly greater than n1.
-   */
-  Vertex v2 = (t > n1) ? t : h;
-
-  /* 5) Group size before and after the toggle (local computation).
-   *
-   * OUT_DEG and IN_DEG are internal degree arrays obtained from nwp.
-   * The group size is the sum of outgoing and incoming degrees of v2.
-   * The new size is obtained by incrementing or decrementing by 1, depending
-   * on whether the edge is being added or removed.
-   */
-  int deg_old = (int)(OUT_DEG[v2] + IN_DEG[v2]);
-  int delta   = edgestate ? -1 : +1;   // present -> deletion (-1), absent -> addition (+1)
-  int deg_new = deg_old + delta;
-
-  /* Defensive note: in a consistent chain, deg_new should stay non-negative.
-   * Any negative value would signal an inconsistency between edgestate and
-   * the internal network representation.
-   */
-
-  /* 6) Aggregated statistic over a set of admissible sizes.
-   *
-   * INPUT_PARAM layout (length = K + 2):
-   *   INPUT_PARAM[0]         = pow        (exponent, integer >= 1)
-   *   INPUT_PARAM[1]         = K          (number of admissible sizes)
-   *   INPUT_PARAM[2..(K+1)]  = sizes_1..K (admissible group sizes)
-   *
-   * There is a single ERGM statistic component (N_CHANGE_STATS == 1),
-   * which aggregates the contributions of all admissible sizes.
-   */
+  /* 3) Read parameters. */
   const int power = (int)INPUT_PARAM[0];
   const int K     = (int)INPUT_PARAM[1];
 
-  int match_old = 0;
-  int match_new = 0;
+  /* 4) Process toggles sequentially. */
+  int i = 0;
+  FOR_EACH_TOGGLE(i){
 
-  for(int i = 0; i < K; ++i){
-    int size_i = (int)INPUT_PARAM[2 + i];
-    if(deg_old == size_i) match_old = 1;
-    if(deg_new == size_i) match_new = 1;
-  }
+    Vertex t = TAIL(i);
+    Vertex h = HEAD(i);
 
-  double d = 0.0;
+    /* Determine current edge state before toggling.
+     *
+     * - For directed networks, use IS_OUTEDGE(t,h).
+     * - For undirected (including typical bipartite memberships), we can use
+     *   IS_UNDIRECTED_EDGE(t,h), which is robust to endpoint order.
+     */
+    int edgestate = DIRECTED ? IS_OUTEDGE(t, h) : IS_UNDIRECTED_EDGE(t, h);
 
-  if(match_new)
-    d += ipow_int(deg_new, power);
-
-  if(match_old)
-    d -= ipow_int(deg_old, power);
-
-  CHANGE_STAT[0] += d;
+    /* Identify the group-mode vertex (index > n1). */
+    Vertex v2 = (t > n1) ? t : h;
 
 #if DEBUG_SQUARED_SIZES
-  Rprintf("[C:c_squared_sizes] tail=%d head=%d | group=%d | edgestate=%d | "
-          "deg_old=%d -> deg_new=%d | K=%d pow=%d | Δ=%.2f | cumul=%.2f\n",
-          (int)t, (int)h, (int)v2, (int)edgestate,
-          deg_old, deg_new, K, power, d, CHANGE_STAT[0]);
+    if(v2 <= n1){
+      Rprintf("[d_squared_sizes][WARN] toggle #%d has no group endpoint: tail=%d head=%d (n1=%d)\n",
+              i, (int)t, (int)h, n1);
+    }
 #endif
+
+    /* Read current group size from degree arrays (current intermediate state). */
+    int deg_old = (int)(OUT_DEG[v2] + IN_DEG[v2]);
+
+    /* Present -> deletion (-1), absent -> addition (+1). */
+    int delta   = edgestate ? -1 : +1;
+    int deg_new = deg_old + delta;
+
+    /* Membership test: does deg belong to admissible sizes? */
+    int match_old = 0;
+    int match_new = 0;
+
+    for(int k = 0; k < K; ++k){
+      int size_k = (int)INPUT_PARAM[2 + k];
+      if(deg_old == size_k) match_old = 1;
+      if(deg_new == size_k) match_new = 1;
+    }
+
+    /* Compute local delta for this toggle under current intermediate state. */
+    double d = 0.0;
+    if(match_new) d += ipow_int(deg_new, power);
+    if(match_old) d -= ipow_int(deg_old, power);
+
+    CHANGE_STAT[0] += d;
+
+#if DEBUG_SQUARED_SIZES
+    Rprintf("[D:d_squared_sizes] i=%d tail=%d head=%d | group=%d | edgestate=%d | "
+            "deg_old=%d -> deg_new=%d | K=%d pow=%d | Δ=%.2f | cumul=%.2f\n",
+            i, (int)t, (int)h, (int)v2, (int)edgestate,
+            deg_old, deg_new, K, power, d, CHANGE_STAT[0]);
+#endif
+
+    /* Temporarily apply this toggle so subsequent toggles see updated degrees. */
+    TOGGLE_IF_MORE_TO_COME(i);
+  }
+
+  /* 5) Undo temporary toggles to restore the original network state. */
+  UNDO_PREVIOUS_TOGGLES(i);
 }
