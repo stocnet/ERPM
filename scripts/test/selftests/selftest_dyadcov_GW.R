@@ -2,6 +2,21 @@
 # Fichier : scripts/test/selftests/selftest_dyadcov_GW.R
 # Objet   : Self-test autonome pour l'effet ERPM/ERGM `dyadcov_GW`
 # Exécution: Rscript scripts/test/selftests/selftest_dyadcov_GW.R
+#
+# But du fichier
+#   - PHASE 1 (SUMMARY) : valider summary() (réseau explicite vs ERPM traduit).
+#   - PHASE 2 (ERPM FIT): valider qu'un fit erpm() passe et renvoie des coefs finis.
+#   - PHASE 3 (MCMC)    : diagnostic "multi-toggle" (intérêt principal ici) :
+#                         déclencher des étapes MCMC pouvant contenir ntoggles>1,
+#                         et observer les traces C si DEBUG_DYADCOV_GW=1 côté C.
+#
+# Important (multi-toggle / D_CHANGESTAT_FN)
+#   - dyadcov_GW est maintenant un terme multi-toggle (D_ changestat).
+#   - Donc InitErgmTerm.dyadcov_GW doit renvoyer d_func=TRUE (sinon crash).
+#   - La PHASE 3 ne “prouve” pas mathématiquement le multi-toggle ; elle sert à
+#     déclencher le chemin MCMC où ergm peut proposer plusieurs toggles d'un coup
+#     (selon MCMC.prop / contraintes) et à vérifier visuellement la présence
+#     des logs de type "MULTI-TOGGLE ntoggles=...".
 # ======================================================================================
 
 # --------------------------------------------------------------------------------------
@@ -14,17 +29,19 @@ invisible(try(Sys.setlocale("LC_CTYPE","fr_FR.UTF-8"), silent = TRUE))
 suppressPackageStartupMessages({
   if (!requireNamespace("network", quietly = TRUE)) stop("Package 'network' requis.")
   if (!requireNamespace("ergm",    quietly = TRUE)) stop("Package 'ergm' requis.")
+  if (!requireNamespace("rprojroot", quietly = TRUE)) stop("Package 'rprojroot' requis.")
 })
 
 suppressMessages(suppressPackageStartupMessages({
-  library(network, quietly = TRUE, warn.conflicts = FALSE)
-  library(ergm,    quietly = TRUE, warn.conflicts = FALSE)
+  library(network,  quietly = TRUE, warn.conflicts = FALSE)
+  library(ergm,     quietly = TRUE, warn.conflicts = FALSE)
+  library(rprojroot,quietly = TRUE, warn.conflicts = FALSE)
 }))
 
 # Patch ERGM optionnel
 if (file.exists("scripts/ergm_patch.R")) {
   source("scripts/ergm_patch.R")
-  ergm_patch_enable()
+  if (exists("ergm_patch_enable", mode = "function")) ergm_patch_enable()
 }
 
 # Charger le package et le wrapper ERPM
@@ -41,25 +58,26 @@ if (!exists("erpm", mode = "function")) {
 if (!exists("build_bipartite_from_inputs", mode = "function")) {
   stop("build_bipartite_from_inputs() indisponible. Il doit être exporté par R/erpm_wrapper.R.")
 }
-
-options(ergm.loglik.warn_dyads = FALSE)
-
-# --------------------------------------------------------------------------------------
-# Logging local
-# --------------------------------------------------------------------------------------
-.get_script_dir <- function() {
-  a <- commandArgs(trailingOnly = FALSE)
-  i <- grep("^--file=", a)
-  if (length(i)) return(dirname(normalizePath(sub("^--file=", "", a[i[1]]))))
-  fs <- sys.frames()
-  ofiles <- vapply(fs, function(f) if (!is.null(f$ofile)) f$ofile else NA_character_, "")
-  if (any(!is.na(ofiles))) {
-    j <- which.max(nchar(ofiles))
-    return(dirname(normalizePath(ofiles[j])))
-  }
-  normalizePath(getwd())
+if (!exists("InitErgmTerm.dyadcov_GW", mode = "function")) {
+  stop("InitErgmTerm.dyadcov_GW introuvable après load_all().")
 }
 
+# ======================================================================================
+# Réglages de run (point clé du fichier)
+# ======================================================================================
+RUN <- list(
+  phase1_summary = FALSE,
+  phase2_fit     = TRUE,
+  phase3_mcmc    = FALSE,
+
+  # "quiet" réduit la pollution console des phases 1/2 sans les supprimer.
+  quiet_phase1   = FALSE,
+  quiet_phase2   = FALSE
+)
+
+# ======================================================================================
+# Logging local (fichier .log + console)
+# ======================================================================================
 root <- tryCatch(
   rprojroot::find_root(rprojroot::is_r_package),
   error = function(e) getwd()
@@ -67,6 +85,7 @@ root <- tryCatch(
 log_path <- file.path(root, "scripts", "test", "selftests", "selftest_dyadcov_GW.log")
 dir.create(dirname(log_path), recursive = TRUE, showWarnings = FALSE)
 if (file.exists(log_path)) unlink(log_path, force = TRUE)
+
 con_out <- file(log_path, open = "wt")
 con_err <- file(log_path, open = "at")
 sink(con_out, split = TRUE)
@@ -84,15 +103,12 @@ cat("==> Log:", log_path, "\n")
 # Données de test
 # ======================================================================================
 
-# Partitions de test (tailles réduites)
-
 partitions <- list(
   P1 = c(1L, 1L, 2L, 2L, 3L),   # tailles groupes: 2,2,1
   P2 = c(1L, 2L, 2L, 3L, 3L),   # tailles groupes: 1,2,2
   P3 = c(1L, 1L, 2L, 3L)        # tailles groupes: 2,1,1
 )
 
-# Nodes "muets" pour satisfaire le builder
 .make_nodes_df_for_partition <- function(part) {
   n <- length(part)
   data.frame(
@@ -101,17 +117,10 @@ partitions <- list(
   )
 }
 
-# Matrices dyadiques totalement écrites en dur
-# - diagonales strictement nulles
-# - Z1 : symétrique
-# - Z2 : éventuellement non symétrique
 .make_dyads_for_partition <- function(part) {
   n <- length(part)
 
   if (n == 5L) {
-    # -------------------------------------------------------------------------
-    # Cas n = 5 (P1 et P2)
-    # -------------------------------------------------------------------------
     Z1 <- matrix(
       c(
         0.0, 1.0, 0.5, 0.3, 0.8,
@@ -135,9 +144,6 @@ partitions <- list(
     )
 
   } else if (n == 4L) {
-    # -------------------------------------------------------------------------
-    # Cas n = 4 (P3)
-    # -------------------------------------------------------------------------
     Z1 <- matrix(
       c(
         0.0, 0.9, 0.4, 0.7,
@@ -162,17 +168,13 @@ partitions <- list(
     stop("Taille de partition non supportée dans .make_dyads_for_partition(): n = ", n)
   }
 
-  # Forcer des diagonales strictement nulles (contrainte globale des effets ERPM)
   diag(Z1) <- 0
   diag(Z2) <- 0
-
-  # Garde-fous : on exige des diagonales nulles
   stopifnot(all(diag(Z1) == 0), all(diag(Z2) == 0))
 
   list(Z1 = Z1, Z2 = Z2)
 }
 
-# Petit helper de debug : afficher partition / nodes / extrait des dyads
 print_debug_partition_nodes_dyads <- function(name, part, nodes_df, dyads_list) {
   cat(sprintf("\n[DEBUG] --- Cas %s ---\n", name))
   cat("[DEBUG] partition :", paste(part, collapse = ","), "\n")
@@ -217,7 +219,7 @@ make_formula_for_network_summary <- function(nw, rhs_txt) {
 }
 
 # ======================================================================================
-# Fonctions explicitement nommées pour SUMMARY et ERPM (dyadcov_GW)
+# SUMMARY helpers (réseau vs ERPM traduit)
 # ======================================================================================
 
 run_one_network_summary_case_for_dyadcov_GW <- function(partition_vec, nodes_df, dyads_list, rhs_txt) {
@@ -291,16 +293,17 @@ cases_summary <- c(
 # ======================================================================================
 
 ctrl <- control.ergm(
-  # MCMC.samplesize = 10000,
-  # MCMLE.maxit     = 10
+  # (laisser vide par défaut ici ; le wrapper peut injecter ses réglages)
 )
 
 # ======================================================================================
 # Phase 1: SUMMARY comparatifs (réseau explicite vs ERPM)
 # ======================================================================================
 
-run_phase1_summary_equivalence_checks_dyadcov_GW <- function() {
+run_phase1_summary_equivalence_checks_dyadcov_GW <- function(quiet = FALSE) {
   cat("=== PHASE 1 : Summary(nw via builder) vs Summary(ERPM-traduit) [dyadcov_GW] ===\n")
+  if (isTRUE(quiet)) cat("  [mode quiet] sortie console réduite\n")
+
   total <- 0L; ok <- 0L
   for (nm in names(partitions)) {
     part  <- partitions[[nm]]
@@ -310,7 +313,7 @@ run_phase1_summary_equivalence_checks_dyadcov_GW <- function() {
     cat(sprintf("\n--- Partition %s ---  n=%d | groupes=%d | tailles: %s\n",
                 nm, length(part), length(unique(part)), paste(sort(table(part)), collapse=",")))
 
-    print_debug_partition_nodes_dyads(nm, part, nodes, dyads)
+    if (!isTRUE(quiet)) print_debug_partition_nodes_dyads(nm, part, nodes, dyads)
 
     res <- check_summary_equivalence_network_vs_erpm_dyadcov_GW(
       partition_vec = part,
@@ -333,9 +336,9 @@ run_phase1_summary_equivalence_checks_dyadcov_GW <- function() {
 
 run_one_erpm_fit_with_return_dyadcov_GW <- function(partition_vec, nodes_df, dyads_list,
                                                     rhs_txt, fit_name,
-                                                    estimate = NULL,
                                                     eval.loglik = TRUE,
-                                                    control = ctrl) {
+                                                    control = ctrl,
+                                                    quiet = FALSE) {
   if (!exists("erpm", mode = "function")) {
     cat(sprintf("[ERPM-FIT %-20s] SKIP (erpm() indisponible)\n", fit_name))
     return(list(ok = NA, error = TRUE, coef = NA, fit = NULL, aic = NA, bic = NA))
@@ -344,17 +347,15 @@ run_one_erpm_fit_with_return_dyadcov_GW <- function(partition_vec, nodes_df, dya
   f <- as.formula(paste0("partition ~ ", rhs_txt))
   environment(f) <- list2env(list(partition = partition_vec, nodes = nodes_df), parent = parent.frame())
 
-  cat(sprintf("[ERPM-FIT %-20s] n=%-3d RHS=%s  | estimate=%s eval.loglik=%s\n",
-              fit_name, length(partition_vec), rhs_txt, estimate, as.character(eval.loglik)))
+  cat(sprintf("[ERPM-FIT %-20s] n=%-3d RHS=%s  | eval.loglik=%s\n",
+              fit_name, length(partition_vec), rhs_txt, as.character(eval.loglik)))
 
-  print_debug_partition_nodes_dyads(paste0("FIT_", fit_name), partition_vec, nodes_df, dyads_list)
+  if (!isTRUE(quiet)) print_debug_partition_nodes_dyads(paste0("FIT_", fit_name), partition_vec, nodes_df, dyads_list)
 
   fit <- try(
     erpm(
       f,
-      # estimate    = estimate,
       eval.loglik = eval.loglik,
-      # control     = control,
       verbose     = FALSE,
       nodes       = nodes_df,
       dyads       = dyads_list
@@ -400,27 +401,15 @@ run_one_erpm_fit_with_return_dyadcov_GW <- function(partition_vec, nodes_df, dya
   )
 }
 
-run_phase2_erpm_fits_and_print_summaries_dyadcov_GW <- function() {
+run_phase2_erpm_fits_and_print_summaries_dyadcov_GW <- function(quiet = FALSE) {
   cat("\n=== PHASE 2 : Fits erpm() ( + logLik ) [dyadcov_GW] ===\n")
+  if (isTRUE(quiet)) cat("  [mode quiet] sortie console réduite\n")
 
-  # On définit explicitement les cas de fit :
-  #  - P1_R1 : P1 + Z1, lambda=2
-  #  - P1_R2 : P1 + Z2, lambda=2
-  #  - P2_R2 : P2 + Z2, lambda=2
-  #  - P3_R1 : P3 + Z1, lambda=2
   fit_specs <- list(
-    list(key = "P1_R1",
-         part = partitions$P1,
-         rhs  = "dyadcov_GW('Z1', lambda = 2)"),
-    list(key = "P1_R2",
-         part = partitions$P1,
-         rhs  = "dyadcov_GW('Z2', lambda = 2)"),
-    list(key = "P2_R2",
-         part = partitions$P2,
-         rhs  = "dyadcov_GW('Z2', lambda = 2)"),
-    list(key = "P3_R1",
-         part = partitions$P3,
-         rhs  = "dyadcov_GW('Z1', lambda = 2)")
+    list(key = "P1_R1", part = partitions$P1, rhs = "dyadcov_GW('Z1', lambda = 2)"),
+    list(key = "P1_R2", part = partitions$P1, rhs = "dyadcov_GW('Z2', lambda = 2)"),
+    list(key = "P2_R2", part = partitions$P2, rhs = "dyadcov_GW('Z2', lambda = 2)"),
+    list(key = "P3_R1", part = partitions$P3, rhs = "dyadcov_GW('Z1', lambda = 2)")
   )
 
   fit_results <- list()
@@ -439,7 +428,8 @@ run_phase2_erpm_fits_and_print_summaries_dyadcov_GW <- function() {
       dyads_list    = dyads,
       rhs_txt       = rhs,
       fit_name      = key,
-      eval.loglik   = TRUE
+      eval.loglik   = TRUE,
+      quiet         = quiet
     )
   }
 
@@ -451,30 +441,22 @@ run_phase2_erpm_fits_and_print_summaries_dyadcov_GW <- function() {
 
   cat("\n=== Tableau AIC/BIC pour les fits ERPM (dyadcov_GW) ===\n")
   tab <- data.frame(
-    fit = character(0),
-    ok  = logical(0),
-    AIC = numeric(0),
-    BIC = numeric(0),
+    fit = names(fit_results),
+    ok  = vapply(fit_results, function(x) isTRUE(x$ok), logical(1)),
+    AIC = vapply(fit_results, function(x) as.numeric(x$aic), numeric(1)),
+    BIC = vapply(fit_results, function(x) as.numeric(x$bic), numeric(1)),
     stringsAsFactors = FALSE
   )
-  for (nm in names(fit_results)) {
-    fr <- fit_results[[nm]]
-    tab <- rbind(tab, data.frame(
-      fit = nm,
-      ok  = fr$ok,
-      AIC = fr$aic,
-      BIC = fr$bic,
-      stringsAsFactors = FALSE
-    ))
-  }
   print(tab)
 
-  cat("\n=== Résumés détaillés des fits ERPM réussis (dyadcov_GW) ===\n")
-  for (nm in names(fit_results)) {
-    fr <- fit_results[[nm]]
-    if (isTRUE(fr$ok) && inherits(fr$coef, "numeric") && !is.null(fr$fit)) {
-      cat(sprintf("\n--- Résumé fit %s ---\n", nm))
-      print(summary(fr$fit))
+  if (!isTRUE(quiet)) {
+    cat("\n=== Résumés détaillés des fits ERPM réussis (dyadcov_GW) ===\n")
+    for (nm in names(fit_results)) {
+      fr <- fit_results[[nm]]
+      if (isTRUE(fr$ok) && !is.null(fr$fit)) {
+        cat(sprintf("\n--- Résumé fit %s ---\n", nm))
+        print(summary(fr$fit))
+      }
     }
   }
 
@@ -483,13 +465,114 @@ run_phase2_erpm_fits_and_print_summaries_dyadcov_GW <- function() {
 }
 
 # ======================================================================================
-# Exécution
+# Phase 3: MCMC multi-toggle probe (diagnostic)
 # ======================================================================================
 
-set.seed(1)
-cat("=== TEST ERPM: dyadcov_GW ===\n")
-run_phase1_summary_equivalence_checks_dyadcov_GW()
-fit_results <- run_phase2_erpm_fits_and_print_summaries_dyadcov_GW()
+.run_mcmc_multitoggle_probe_dyadcov_GW <- function(nw, dyad_key = "Z1", lambda = 2) {
+  # Objectif:
+  #   - déclencher la MCMC
+  #   - potentiellement observer des pas multi-toggle (ntoggles>1)
+  #   - si le C est compilé avec DEBUG_DYADCOV_GW=1, voir passer :
+  #       "[dyadcov_GW] MULTI-TOGGLE ntoggles=..."
+  #
+  # Remarque:
+  #   - selon la combinaison (contraintes/proposals), ergm peut rester en 1-toggle.
+  #   - ce probe est un “smoke test” pour le chemin D_ changestat + logs.
+  #
+  # Pour augmenter les chances:
+  #   - on utilise une proposal réputée susceptible d'agréger des toggles
+  #     (ex: ~ sparse) et on laisse verbose=TRUE.
+  ctrl <- control.simulate.formula(
+    MCMC.burnin   = 1000,
+    MCMC.interval = 1,
+    MCMC.prop     = ~ sparse
+  )
 
-on.exit(try(ergm_patch_disable(), silent = TRUE), add = TRUE)
+  rhs <- sprintf("dyadcov_GW('%s', lambda=%s)", dyad_key, format(lambda, digits = 6))
+  f <- as.formula(paste0("nw ~ ", rhs))
+  environment(f) <- list2env(list(nw = nw), parent = parent.frame())
+
+  sim <- simulate(
+    f,
+    nsim    = 1,
+    control = ctrl,
+    verbose = TRUE,
+    constraints = ~ b1part
+  )
+
+  print(sim)
+  invisible(sim)
+}
+
+run_phase3_mcmc_probe <- function(part_probe, dyads_probe, quiet = FALSE) {
+  cat("\n=== PHASE 3: MCMC MULTI-TOGGLE PROBE (dyadcov_GW) ===\n")
+  cat("Objectif: déclencher le chemin multi-toggle (D_) et observer les traces C si activées.\n")
+  cat("Pour activer les traces C: compiler avec DEBUG_DYADCOV_GW=1 dans changestat_dyadcov_GW.c.\n")
+  cat("Note: selon MCMC.prop/contraintes, tu peux ne voir que des 1-toggle.\n\n")
+
+  nodes <- .make_nodes_df_for_partition(part_probe)
+  nw    <- make_network_from_partition_and_dyads(part_probe, nodes, dyads_probe)
+
+  if (!isTRUE(quiet)) {
+    cat("[PHASE 3] Réseau probe construit. n=", length(part_probe),
+        " | groupes=", length(unique(part_probe)),
+        " | tailles=", paste(sort(table(part_probe)), collapse=","), "\n", sep = "")
+  }
+
+  # Probe 1: Z1, lambda=2
+  .run_mcmc_multitoggle_probe_dyadcov_GW(nw, dyad_key = "Z1", lambda = 2)
+
+  cat("\nSi tu vois '[dyadcov_GW] MULTI-TOGGLE ntoggles=...' en console, probe OK.\n")
+  invisible(TRUE)
+}
+
+# ======================================================================================
+# Run principal
+# ======================================================================================
+
+run_all_tests_dyadcov_GW <- function() {
+  set.seed(1)
+  cat("=== TEST ERPM: dyadcov_GW ===\n")
+  cat("R:", paste(R.version$major, R.version$minor, sep="."), "\n")
+  cat("ergm:", as.character(utils::packageVersion("ergm")), "\n")
+
+  # PHASE 1
+  if (isTRUE(RUN$phase1_summary)) {
+    run_phase1_summary_equivalence_checks_dyadcov_GW(quiet = isTRUE(RUN$quiet_phase1))
+  } else {
+    cat("\n=== PHASE 1: SUMMARY ===\nSKIP (désactivée via RUN$phase1_summary = FALSE)\n")
+  }
+
+  # PHASE 2
+  fit_results <- NULL
+  if (isTRUE(RUN$phase2_fit)) {
+    fit_results <- run_phase2_erpm_fits_and_print_summaries_dyadcov_GW(quiet = isTRUE(RUN$quiet_phase2))
+  } else {
+    cat("\n=== PHASE 2: ERPM FIT ===\nSKIP (désactivée via RUN$phase2_fit = FALSE)\n")
+  }
+
+  # PHASE 3
+  if (isTRUE(RUN$phase3_mcmc)) {
+    # On probe sur P1 (n=5) avec dyads hardcodées correspondantes.
+    dyads_probe <- .make_dyads_for_partition(partitions$P1)
+    run_phase3_mcmc_probe(part_probe = partitions$P1, dyads_probe = dyads_probe, quiet = FALSE)
+  } else {
+    cat("\n=== PHASE 3: MCMC MULTI-TOGGLE PROBE ===\nSKIP (désactivée via RUN$phase3_mcmc = FALSE)\n")
+  }
+
+  invisible(list(fit_results = fit_results))
+}
+
+# Exécution quand lancé en script
+if (identical(environment(), globalenv())) {
+  run_all_tests_dyadcov_GW()
+}
+
+# --------------------------------------------------------------------------------------
+# Fin de script: on désactive le patch si présent
+# --------------------------------------------------------------------------------------
+if (exists("ergm_patch_disable", mode = "function")) {
+  ergm_patch_disable()
+}
+
 cat("\nTous les tests dyadcov_GW ont passé.\n")

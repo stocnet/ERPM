@@ -1,11 +1,34 @@
 /**
  * @file changestat_cov_match_GW.c
- * @brief  Change statistic for the ERPM term `cov_match_GW` (one-toggle form).
+ * @brief  Change statistic for the ERPM term `cov_match_GW` (multi-toggle form).
  *
  * @details
  *  This file implements the \pkg{ergm} change statistic for the ERPM effect
  *  `cov_match_GW`, which applies a geometrically weighted transform to
  *  group-level category counts for a categorical actor covariate.
+ *
+ *  ------------------------------------------------------------
+ *  IMPORTANT (multi-toggle / D_CHANGESTAT_FN)
+ *  ------------------------------------------------------------
+ *  This changestat is implemented in the D_ API (multi-toggle):
+ *
+ *      D_CHANGESTAT_FN(d_cov_match_GW)
+ *
+ *  because ERPM/partition moves (swap/split/merge) can be represented as a
+ *  list of membership toggles. Several toggles may touch the same group in a
+ *  single proposal, so we must evaluate them sequentially on the intermediate
+ *  state:
+ *
+ *    - For each toggle i, compute the local Δ using the CURRENT intermediate
+ *      network state (i.e. after toggles 0..i-1 have been temporarily applied).
+ *    - Then apply the toggle temporarily if more toggles remain:
+ *        TOGGLE_IF_MORE_TO_COME(i)
+ *    - At the end, undo all temporary toggles:
+ *        UNDO_PREVIOUS_TOGGLES(i)
+ *
+ *  If you implement this as a one-toggle C_CHANGESTAT_FN and your proposal
+ *  generates multi-toggle moves, the statistic will be wrong (or ergm may call
+ *  the function with the wrong signature if d_func=TRUE is missing on the R side).
  *
  *  ------------------------------------------------------------
  *  Statistical principle (actor mode, group mode)
@@ -25,13 +48,6 @@
  *  For a given decay parameter λ ≥ 1, define:
  *
  *      r_λ = (λ - 1) / λ  ∈ [0, 1).
- *
- *  A generic geometrically weighted transform at group level can be written as:
- *
- *      S_g(λ; c) = ∑_r f_λ(n_{g,r}),
- *
- *  where f_λ(·) is a function of the category counts n_{g,r} that is
- *  chosen so that local changes can be expressed using simple powers of r_λ.
  *
  *  In this implementation, the ERPM effect is encoded so that a membership
  *  toggle of an actor with category r* produces a local contribution for the
@@ -90,10 +106,6 @@
  *    - exactly one actor vertex (index in 1..n1),
  *    - exactly one group vertex (index > n1).
  *
- *  This convention is used to split the dyad (tail, head) into:
- *    - v_actor in the actor mode,
- *    - v_group in the group mode.
- *
  *  ------------------------------------------------------------
  *  INPUT_PARAM layout
  *  ------------------------------------------------------------
@@ -110,16 +122,6 @@
  *        z_codes[1:n1]
  *      )
  *
- *  where:
- *    - n1          = number of actors,
- *    - K           = number of λ values (vectorised),
- *    - norm_mode   = 0 (none), 1 (by_group), 2 (global),
- *    - has_kappa   = 0 (no target category) or 1 (targeted),
- *    - kappa_code  = integer code of the targeted category (if has_kappa = 1),
- *    - lambdas     = vector of λ_j ≥ 1 (length K),
- *    - z_codes     = integer codes of the categorical covariate on actors:
- *                      z_codes[i] = category code of actor i, 0 if NA.
- *
  *  At C level:
  *
  *    P[0]          = n1
@@ -131,62 +133,6 @@
  *    P[5+K .. ]    = z_codes[0 .. n1-1]
  *
  *  N_CHANGE_STATS is equal to K, one statistic per λ_j.
- *
- *  ------------------------------------------------------------
- *  Complexity
- *  ------------------------------------------------------------
- *
- *  For each membership toggle:
- *    - building the neighbour list for the touched group is O(deg(group)),
- *    - building the histogram of category codes is O(deg(group)),
- *    - the per-λ updates use only scalar operations (O(K)).
- *
- *  No state is cached across toggles. This is sufficient for small and
- *  medium-sized groups and can be optimised later if needed.
- *
- *  ------------------------------------------------------------
- *  R interface
- *  ------------------------------------------------------------
- *
- *  The R initialiser (InitErgmTerm.cov_match_GW):
- *    - validates λ > 1 and the actor-level covariate,
- *    - encodes the actor categories as integer codes z_codes,
- *    - packs the λ values into INPUT_PARAM,
- *    - sets emptynwstats = 0 and vectorised coef.names,
- *    - ensures N_CHANGE_STATS = length(lambdas).
- *
- *  ------------------------------------------------------------
- *  @example Usage (R)
- *  ------------------------------------------------------------
- *  @code{.r}
- *  library(ERPM)
- *
- *  # Example partition: 6 actors into 3 groups
- *  part <- c(1, 1, 2, 2, 3, 3)
- *
- *  # Categorical covariate on actors
- *  color <- c("red", "red", "blue", "blue", "red", "blue")
- *
- *  # Geometrically weighted cov_match over all categories
- *  fit1 <- erpm(partition ~ cov_match_GW(lambda = 2, attr = color))
- *  summary(fit1)
- *
- *  # Targeted and group-normalised version:
- *  #   emphasises groups where the share of "red" actors is high, with
- *  #   a geometric down-weighting controlled by lambda.
- *  fit2 <- erpm(partition ~ cov_match_GW(lambda    = 2,
- *                                        attr      = color,
- *                                        category  = "red",
- *                                        normalize = "by_group"))
- *  summary(fit2)
- *
- *  # Internally, each membership toggle between an actor and a group
- *  # calls c_cov_match_GW() once, which:
- *  #   - reconstructs the category counts in the touched group,
- *  #   - computes the local Δ for each requested lambda,
- *  #   - applies the chosen normalisation mode,
- *  #   - updates the corresponding components of CHANGE_STAT[].
- *  @endcode
  */
 
 #include <R_ext/Print.h>
@@ -197,28 +143,18 @@
 
 /**
  * @def DEBUG_COV_MATCH_GW
- * @brief Enable verbose debugging output for ::c_cov_match_GW.
+ * @brief Enable verbose debugging output for ::d_cov_match_GW.
  *
  * Set this macro to 1 to print diagnostic information to the R console
  * during `summary()` or MCMC runs:
- *  - actor and group vertices for the current toggle,
- *  - group size and category counts before the toggle,
- *  - intermediate non-normalised and normalised deltas per λ.
+ *  - actor and group vertices for each toggle,
+ *  - group size and relevant category counts before the toggle,
+ *  - intermediate non-normalised and normalised deltas per λ,
+ *  - a one-line "MULTI-TOGGLE" banner when ntoggles > 1.
  *
  * When set to 0, the compiled code does not emit any debug traces.
  */
 #define DEBUG_COV_MATCH_GW 0
-
-/**
- * @def UNUSED_WARNING
- * @brief Mark a variable as intentionally unused.
- *
- * @param x Identifier of the unused variable.
- *
- * This macro is used to silence compiler warnings when a parameter or
- * variable is required by the interface but not accessed in the code.
- */
-#define UNUSED_WARNING(x) (void)x
 
 /* -------------------------------------------------------------------------- */
 /* Helper: category code lookup                                               */
@@ -228,74 +164,61 @@
  * @brief Retrieve the integer category code for a given actor.
  *
  * @details
- *  The array @p z_codes is indexed consistently with actor vertices:
- *    - actor vertices are 1-based (1..n1),
- *    - z_codes is stored as a double array and cast to int on access.
- *  Values ≤ 0 are interpreted as “no category” (e.g., NA).
- *
- * @param i        Actor vertex index (1..n1).
- * @param z_codes  Pointer to the array of category codes (length n1).
- *
- * @return Integer category code for actor @p i, or 0 if undefined.
+ *  Actors are indexed 1..n1; z_codes is packed as a double array of length n1.
+ *  Values <= 0 are interpreted as “no category” (e.g., NA) and ignored.
  */
 static inline int code_of_actor(Vertex i, const double *z_codes){
-  /* Actors are indexed 1..n1; convert to 0-based index in z_codes. */
-  return (int)z_codes[(size_t)(i-1)]; // actors indexed 1..n1
+  return (int)z_codes[(size_t)(i-1)];
 }
 
 /* -------------------------------------------------------------------------- */
-/* Helper: neighbours of a group in the actor mode                            */
+/* Helper: neighbours of a group in the actor mode (unique)                   */
 /* -------------------------------------------------------------------------- */
 
 /**
- * @brief Collect unique actor neighbours of a given group vertex.
+ * @brief Collect unique actor neighbours of a group vertex g.
  *
  * @details
- *  For a group vertex @p g in the group mode, this function:
- *    - walks through outgoing edges from g and records actor neighbours,
- *    - walks through incoming edges to g and records actor neighbours,
- *    - deduplicates actor neighbours using a temporary bitmap @p seen,
- *    - writes the resulting list of actors into the @p actors buffer.
+ *  This version is multi-toggle friendly and avoids O(n1) memset by using a
+ *  stamp array:
+ *    - stamp[idx] stores the last "mark" seen for actor idx.
+ *    - To deduplicate within one call, we increment mark and compare.
  *
- *  Only neighbours whose vertex index is ≤ n1 are considered actors.
- *
- * @param nwp     Pointer to the \pkg{ergm} Network structure.
- * @param g       Group vertex whose actor neighbours are queried.
- * @param actors  Output buffer that will receive actor vertex indices.
- * @param n1      Number of actors (size of the actor mode).
- *
- * @return The number of unique actor neighbours stored in @p actors.
+ * @param nwp    Network pointer.
+ * @param g      Group vertex.
+ * @param actors Output buffer (size at least n1).
+ * @param n1     Actor-mode size.
+ * @param stamp  int[n1] stamp array (persistent across calls).
+ * @param mark   current mark value (incremented by caller per call).
+ * @return number of unique actor neighbours written to actors[].
  */
-static int neighbors_actors_of_group(Network *nwp, Vertex g, Vertex *actors, int n1){
+static int neighbors_actors_of_group_stamped(Network *nwp, Vertex g,
+                                             Vertex *actors, int n1,
+                                             int *stamp, int mark){
   int cnt = 0;
-  /* Temporary bitmap indicating whether an actor index has been seen. */
-  unsigned char *seen = (unsigned char*)R_Calloc(n1, unsigned char); // 0-inited
   Vertex h;
   Edge e;
 
-  /* Traverse outgoing edges from g (group -> actor). */
   STEP_THROUGH_OUTEDGES(g, e, h){
     if(h <= (Vertex)n1){
       int idx = (int)h - 1;
-      if(!seen[idx]){
-        seen[idx]=1;
-        actors[cnt++]=h;
+      if(stamp[idx] != mark){
+        stamp[idx] = mark;
+        actors[cnt++] = h;
       }
     }
   }
 
-  /* Traverse incoming edges to g (actor -> group). */
   STEP_THROUGH_INEDGES(g, e, h){
     if(h <= (Vertex)n1){
       int idx = (int)h - 1;
-      if(!seen[idx]){
-        seen[idx]=1;
-        actors[cnt++]=h;
+      if(stamp[idx] != mark){
+        stamp[idx] = mark;
+        actors[cnt++] = h;
       }
     }
   }
 
-  R_Free(seen);
   return cnt;
 }
 
@@ -307,38 +230,30 @@ static int neighbors_actors_of_group(Network *nwp, Vertex g, Vertex *actors, int
  * @brief Build a histogram of category codes for actors in a group.
  *
  * @details
- *  Given an array of actor vertices belonging to a group, this function:
- *    - looks up the integer category code for each actor via ::code_of_actor,
- *    - ignores codes ≤ 0 (e.g., NA),
- *    - accumulates counts per distinct category into @p codes and @p counts.
+ *  codes[] / counts[] are filled for distinct codes encountered among actors[].
+ *  This is O(na * m) with m distinct categories in the group, which is fine for
+ *  small/medium groups; can be optimised later if needed.
  *
- *  The arrays @p codes and @p counts must be large enough to hold all
- *  distinct categories that may appear (up to @p na).
- *
- * @param actors   Array of actor vertices in the group.
- * @param na       Number of actors in @p actors.
- * @param z_codes  Pointer to the actor category code array (length n1).
- * @param codes    Output array for distinct category codes.
- * @param counts   Output array for counts per category code.
- *
- * @return The number of distinct categories written into @p codes and @p counts.
+ * @return number of distinct categories written (m).
  */
-static int histogram_codes(const Vertex *actors, int na, const double *z_codes, int *codes, int *counts){
+static int histogram_codes(const Vertex *actors, int na,
+                           const double *z_codes,
+                           int *codes, int *counts){
   int m = 0;
   for(int a=0; a<na; ++a){
     int code = code_of_actor(actors[a], z_codes);
-    if(code<=0) continue; // ignore NA / undefined
+    if(code <= 0) continue;
     int found = 0;
     for(int j=0; j<m; ++j){
-      if(codes[j]==code){
+      if(codes[j] == code){
         counts[j]++;
-        found=1;
+        found = 1;
         break;
       }
     }
     if(!found){
-      codes[m]=code;
-      counts[m]=1;
+      codes[m]  = code;
+      counts[m] = 1;
       m++;
     }
   }
@@ -346,286 +261,214 @@ static int histogram_codes(const Vertex *actors, int na, const double *z_codes, 
 }
 
 /* -------------------------------------------------------------------------- */
-/* Change statistic: cov_match_GW (one-toggle)                                */
+/* Change statistic: cov_match_GW (multi-toggle)                              */
 /* -------------------------------------------------------------------------- */
 
-/**
- * @brief Change statistic for the ERPM term `cov_match_GW`.
- *
- * @details
- *  This is the \pkg{ergm} change-statistic function registered as
- *  ::c_cov_match_GW via ::C_CHANGESTAT_FN. It implements the one-toggle
- *  update for the geometrically weighted covariate-matching effect, with:
- *
- *    - potentially multiple λ values vectorised (one per statistic),
- *    - an optional targeted category κ,
- *    - three normalisation modes (none, by_group, global).
- *
- *  For each membership toggle between an actor and a group:
- *
- *    1. The function reads global parameters from INPUT_PARAM:
- *         - n1, K, norm_mode, has_kappa, kappa_code,
- *         - lambdas[0..K-1],
- *         - z_codes[0..n1-1] (actor categories).
- *
- *    2. It identifies:
- *         - v_actor as the endpoint in the actor mode (vertex index ≤ n1),
- *         - v_group as the endpoint in the group mode (vertex index > n1).
- *
- *    3. It constructs the membership of v_group in the actor mode by:
- *         - traversing incoming and outgoing edges touching v_group,
- *         - deduplicating actor neighbours,
- *         - building a local histogram of categories in the group.
- *
- *    4. It extracts:
- *         - n_g_old  = group size (number of actors in v_group),
- *         - n_{g,r*} = count of actors with the same category as v_actor,
- *         - n_{g,κ}  = count of actors with category κ (if has_kappa = 1).
- *
- *    5. For each λ_j in the vector:
- *         - computes r_λj = (λ_j - 1) / λ_j,
- *         - builds a non-normalised local delta Δ_non_norm as:
- *             * targeted:  based on n_{g,κ},
- *             * non-targeted: based on n_{g,r*},
- *           with addition/removal rules:
- *             - addition:  Δ_non_norm = r_λ^{m},
- *             - deletion:  Δ_non_norm = -r_λ^{m-1},
- *           where m is the relevant count before the toggle.
- *
- *    6. Applies normalisation:
- *         - none:      Δ = Δ_non_norm,
- *         - by_group:  Δ = (Num_after/Den_after) - (Num_before/Den_before),
- *         - global:    Δ = Δ_non_norm / [λ (1 - r_λ^{n1})].
- *
- *    7. Accumulates the result:
- *
- *          CHANGE_STAT[j] += Δ
- *
- *       for the j-th component corresponding to λ_j.
- *
- *  The parameter @p edgestate indicates whether the edge currently exists:
- *    - edgestate = 0 → the edge is absent (toggle = addition),
- *    - edgestate = 1 → the edge is present (toggle = deletion).
- *
- *  In this implementation, the network is not explicitly toggled; the
- *  computation is based on the current state and on the sign inferred
- *  from @p edgestate.
- *
- * @param tail       Tail vertex of the toggled edge (actor or group).
- * @param head       Head vertex of the toggled edge (actor or group).
- * @param mtp        Pointer to the model term parameters (unused directly
- *                   but required by the macro).
- * @param nwp        Pointer to the network-plus workspace, providing access
- *                   to adjacency and degree information.
- * @param edgestate  Current state of the edge:
- *                   - 0 if the edge is absent (toggle = addition),
- *                   - 1 if the edge is present (toggle = deletion).
- */
-C_CHANGESTAT_FN(c_cov_match_GW){
-  /* 1) Reset the output buffer for THIS toggle.
-   *
-   * \pkg{ergm} accumulates change-statistics across multiple toggles, but this
-   * function computes the local Δ only for the current membership toggle.
-   */
-  ZERO_ALL_CHANGESTATS(0);
-  UNUSED_WARNING(edgestate);
+D_CHANGESTAT_FN(d_cov_match_GW){
 
-  /* 2) Read packed parameters from INPUT_PARAM.
-   *
-   * Layout:
-   *   P[0]   = n1
-   *   P[1]   = K
-   *   P[2]   = norm_mode (0 none, 1 by_group, 2 global)
-   *   P[3]   = has_kappa (0/1)
-   *   P[4]   = kappa_code
-   *   P[5..] = lambdas[0..K-1]
-   *   P[5+K..] = z_codes[0..n1-1]
-   */
+#if DEBUG_COV_MATCH_GW
+  static int seen_multi = 0;
+  if(ntoggles > 1 && seen_multi < 20){
+    Rprintf("[cov_match_GW] MULTI-TOGGLE ntoggles=%d\n", (int)ntoggles);
+    seen_multi++;
+  }
+#endif
+
+  /* 1) Reset output buffer (this proposal may contain multiple toggles). */
+  ZERO_ALL_CHANGESTATS();
+
+  /* 2) Read packed parameters from INPUT_PARAM. */
   const double *P = INPUT_PARAM;
 
   const int n1         = (int)P[0];
   const int K          = (int)P[1];
-  const int norm_mode  = (int)P[2]; // 0 none, 1 by_group, 2 global
-  const int has_kappa  = (int)P[3]; // 0/1
+  const int norm_mode  = (int)P[2]; /* 0 none, 1 by_group, 2 global */
+  const int has_kappa  = (int)P[3]; /* 0/1 */
   const int kappa_code = (int)P[4];
 
   const double *lambdas = P + 5;
   const double *z_codes = P + 5 + K;
 
-  /* 3) Identify the actor and group vertices involved in the toggle.
-   *
-   * Exactly one endpoint is in the actor mode (vertex index ≤ n1),
-   * the other is in the group mode (vertex index > n1).
-   */
-  Vertex t = tail, h = head;
-  Vertex v_actor = (t <= n1) ? t : h;
-  Vertex v_group = (t >  n1) ? t : h;
+  /* 3) Allocate per-proposal working buffers (size n1). */
+  Vertex *actors_buf = (Vertex*)R_Calloc((size_t)n1, Vertex);
+  int    *codes_buf  = (int*)   R_Calloc((size_t)n1, int);
+  int    *counts_buf = (int*)   R_Calloc((size_t)n1, int);
+  int    *stamp      = (int*)   R_Calloc((size_t)n1, int);
 
-  /* Minimal sanity checks: ensure we truly have an actor and a group. */
-  if(v_actor<=0 || v_actor>n1) return;
-  if(v_group<=n1) return;
+  /* Stamp init: 0 means "never seen". */
+  for(int i=0;i<n1;++i) stamp[i]=0;
+  int mark = 1;
 
-  /* 4) Determine whether this toggle is an addition or a deletion.
-   *
-   *   edgestate = 1 → edge exists → toggle = deletion,
-   *   edgestate = 0 → edge absent → toggle = addition.
-   */
-  const int is_add = edgestate ? 0 : 1; // 1=addition, 0=deletion
+  /* 4) Process toggles sequentially on the intermediate state. */
+  int i = 0;
+  FOR_EACH_TOGGLE(i){
 
-  #if DEBUG_COV_MATCH_GW
-    Rprintf("[cov_match_GW:toggle] actor=%d group=%d is_add=%d OUT_DEG[g]=%d IN_DEG[g]=%d\n",
-            (int)v_actor, (int)v_group, is_add,
-            (int)OUT_DEG[v_group], (int)IN_DEG[v_group]);
-  #endif
+    Vertex t = TAIL(i);
+    Vertex h = HEAD(i);
 
-  /* 5) Build local information for the group affected by the toggle.
-   *
-   *  - actors_buf: list of actor neighbours of v_group,
-   *  - codes_buf, counts_buf: histogram of category codes in that group.
-   */
-  int maxbuf = n1 < 8192 ? n1 : 8192;
-  Vertex actors_buf[8192];
-  int    codes_buf[8192];
-  int    counts_buf[8192];
+    /* Determine current edge state BEFORE toggling (intermediate state). */
+    int edgestate = DIRECTED ? IS_OUTEDGE(t, h) : IS_UNDIRECTED_EDGE(t, h);
+    const int is_add = edgestate ? 0 : 1; /* 1=addition, 0=deletion */
 
-  int na = neighbors_actors_of_group(nwp, v_group, actors_buf, n1);
-  if(na>maxbuf) na = maxbuf; /* soft cap to avoid overflow */
+    /* Identify actor and group endpoints. */
+    Vertex v_actor = (t <= (Vertex)n1) ? t : h;
+    Vertex v_group = (t >  (Vertex)n1) ? t : h;
 
-  int m = histogram_codes(actors_buf, na, z_codes, codes_buf, counts_buf);
+    /* Minimal sanity checks: ensure we truly have an actor and a group. */
+    if(v_actor <= 0 || v_actor > (Vertex)n1) goto toggle_apply;
+    if(v_group <= (Vertex)n1) goto toggle_apply;
 
-  /* 6) Extract the category code and count for the actor in the toggle. */
-  const int r_star = code_of_actor(v_actor, z_codes);
-  int n_gr_old = 0;
-  for(int j=0;j<m;++j){
-    if(codes_buf[j]==r_star){
-      n_gr_old = counts_buf[j];
-      break;
-    }
-  }
-  const int n_g_old = na;
+    /* Build group membership in the actor mode (unique actors). */
+    int na = neighbors_actors_of_group_stamped(nwp, v_group, actors_buf, n1, stamp, mark++);
+    const int n_g_old = na;
 
-  /* 7) Pre-compute n_{g,κ} if a target category κ is requested. */
-  int n_gk_old = 0;
-  if(has_kappa && kappa_code>0){
-    for(int u=0; u<m; ++u){
-      if(codes_buf[u]==kappa_code){
-        n_gk_old = counts_buf[u];
-        break;
-      }
-    }
-  }
+    /* Histogram of codes in the group (based on current intermediate state). */
+    int m = histogram_codes(actors_buf, na, z_codes, codes_buf, counts_buf);
 
-  #if DEBUG_COV_MATCH_GW
-    Rprintf("[cov_match_GW:group] n_g_old=%d r*=%d n_gr_old=%d m=%d n_gk_old=%d (kappa=%d)\n",
-            n_g_old, r_star, n_gr_old, m, n_gk_old, kappa_code);
-  #endif
+    /* Actor category code and its count in the group. */
+    const int r_star = code_of_actor(v_actor, z_codes);
 
-  /* 8) Main loop over λ values (vectorised statistics). */
-  for(int j=0; j<K; ++j){
-    const double lambda = lambdas[j];
-    const double rlam   = (lambda - 1.0) / lambda; // r_λ in [0,1)
-    double delta_non_norm = 0.0;
-
-    /* 8.a Compute the non-normalised local change Δ_non_norm. */
-    if(has_kappa){
-      /* Targeted version: only the count n_{g,κ} contributes. */
-      if(r_star==kappa_code){
-        if(is_add){
-          /* addition: m = n_gk_old → Δ = r_λ^{m} */
-          delta_non_norm = pow(rlam, (double)n_gk_old);
-        }else{
-          /* deletion: m = n_gk_old → Δ = -r_λ^{m-1} (m≥1 if edge exists) */
-          delta_non_norm = -pow(rlam, (double)(n_gk_old-1));
-        }
-      }else{
-        /* Actor category is not κ → no contribution. */
-        delta_non_norm = 0.0;
-      }
-    }else{
-      /* Non-targeted: use the count for the actor's own category r*. */
-      if(is_add){
-        delta_non_norm = pow(rlam, (double)n_gr_old);
-      }else{
-        delta_non_norm = -pow(rlam, (double)(n_gr_old-1));
-      }
-    }
-
-    double delta = delta_non_norm;
-
-    /* 8.b Apply normalisation, if requested. */
-    if(norm_mode==1){
-      /* Group-level normalisation:
-       *
-       *   Δ = (Num_after / Den_after) - (Num_before / Den_before),
-       *
-       * where:
-       *   Num(g) = ∑_r λ (1 - r_λ^{n_{g,r}})    (or λ (1 - r_λ^{n_{g,κ}})
-       *                                             in targeted version),
-       *   Den(g) = λ (1 - r_λ^{n_g}).
-       */
-
-      /* Compute Num_before and Den_before from local histogram. */
-      double N_minus = 0.0;
-      if(has_kappa){
-        N_minus = lambda * (1.0 - pow(rlam, (double)n_gk_old));
-      }else{
-        for(int u=0; u<m; ++u){
-          N_minus += lambda * (1.0 - pow(rlam, (double)counts_buf[u]));
+    int n_gr_old = 0;
+    if(r_star > 0){
+      for(int j=0; j<m; ++j){
+        if(codes_buf[j] == r_star){
+          n_gr_old = counts_buf[j];
+          break;
         }
       }
-      double D_minus = lambda * (1.0 - pow(rlam, (double)n_g_old));
+    }
 
-      /* Group size after the toggle. */
-      const int n_g_new  = n_g_old + (is_add ? +1 : -1);
+    /* Target category count (if applicable). */
+    int n_gk_old = 0;
+    if(has_kappa && kappa_code > 0){
+      for(int j=0; j<m; ++j){
+        if(codes_buf[j] == kappa_code){
+          n_gk_old = counts_buf[j];
+          break;
+        }
+      }
+    }
 
-      /* Update Num and Den locally to obtain Num_after, Den_after. */
-      double N_plus = N_minus;
+#if DEBUG_COV_MATCH_GW
+    Rprintf("[cov_match_GW:toggle] i=%d tail=%d head=%d | actor=%d group=%d | edgestate=%d is_add=%d | n_g_old=%d r*=%d n_gr_old=%d n_gk_old=%d (kappa=%d)\n",
+            i, (int)t, (int)h, (int)v_actor, (int)v_group,
+            edgestate, is_add, n_g_old, r_star, n_gr_old, n_gk_old, kappa_code);
+#endif
+
+    /* Main loop over lambdas (vectorised statistics). */
+    for(int j=0; j<K; ++j){
+      const double lambda = lambdas[j];
+      const double rlam   = (lambda - 1.0) / lambda;
+
+      /* 1) Non-normalised delta. */
+      double delta_non_norm = 0.0;
+
       if(has_kappa){
-        /* Only the κ-cell changes. */
-        if(r_star==kappa_code){
+        /* Targeted version: only the count n_{g,kappa} contributes. */
+        if(r_star == kappa_code && r_star > 0){
           if(is_add){
-            N_plus += lambda * pow(rlam,(double)n_gk_old);
+            delta_non_norm = pow(rlam, (double)n_gk_old);
           }else{
-            N_plus -= lambda * pow(rlam,(double)(n_gk_old-1));
+            /* If edge exists, n_gk_old >= 1 for a valid deletion. */
+            delta_non_norm = -pow(rlam, (double)(n_gk_old - 1));
+          }
+        }else{
+          delta_non_norm = 0.0;
+        }
+      }else{
+        /* Non-targeted: use count for actor's own category r*. */
+        if(r_star > 0){
+          if(is_add){
+            delta_non_norm = pow(rlam, (double)n_gr_old);
+          }else{
+            delta_non_norm = -pow(rlam, (double)(n_gr_old - 1));
+          }
+        }else{
+          /* Undefined category -> no contribution. */
+          delta_non_norm = 0.0;
+        }
+      }
+
+      /* 2) Apply normalisation. */
+      double delta = delta_non_norm;
+
+      if(norm_mode == 1){
+        /* By-group normalisation:
+         *   Δ = (Num_after/Den_after) - (Num_before/Den_before)
+         */
+        double N_minus = 0.0;
+
+        if(has_kappa){
+          N_minus = lambda * (1.0 - pow(rlam, (double)n_gk_old));
+        }else{
+          for(int u=0; u<m; ++u){
+            N_minus += lambda * (1.0 - pow(rlam, (double)counts_buf[u]));
           }
         }
-      }else{
-        /* Only the cell for r* changes. */
-        if(is_add){
-          N_plus += lambda * pow(rlam,(double)n_gr_old);
+
+        const double D_minus = lambda * (1.0 - pow(rlam, (double)n_g_old));
+        const int n_g_new = n_g_old + (is_add ? +1 : -1);
+
+        /* Update Num for the single affected cell. */
+        double N_plus = N_minus;
+
+        if(has_kappa){
+          if(r_star == kappa_code && r_star > 0){
+            if(is_add){
+              N_plus += lambda * pow(rlam, (double)n_gk_old);
+            }else{
+              N_plus -= lambda * pow(rlam, (double)(n_gk_old - 1));
+            }
+          }
         }else{
-          N_plus -= lambda * pow(rlam,(double)(n_gr_old-1));
+          if(r_star > 0){
+            if(is_add){
+              N_plus += lambda * pow(rlam, (double)n_gr_old);
+            }else{
+              N_plus -= lambda * pow(rlam, (double)(n_gr_old - 1));
+            }
+          }
         }
+
+        const double D_plus = lambda * (1.0 - pow(rlam, (double)n_g_new));
+
+        const double ratio_minus = (D_minus > 0.0) ? (N_minus / D_minus) : 0.0;
+        const double ratio_plus  = (D_plus  > 0.0) ? (N_plus  / D_plus ) : 0.0;
+
+        delta = ratio_plus - ratio_minus;
+
+#if DEBUG_COV_MATCH_GW
+        Rprintf("[cov_match_GW][by_group] i=%d j=%d lambda=%g N-=%g D-=%g N+=%g D+=%g delta=%g\n",
+                i, j, lambda, N_minus, D_minus, N_plus, D_plus, delta);
+#endif
+
+      }else if(norm_mode == 2){
+        /* Global normalisation:
+         *   Δ = Δ_non_norm / [λ (1 - r_λ^{n1})]
+         */
+        const double Dglob = lambda * (1.0 - pow(rlam, (double)n1));
+        delta = (Dglob > 0.0) ? (delta_non_norm / Dglob) : 0.0;
+
+#if DEBUG_COV_MATCH_GW
+        Rprintf("[cov_match_GW][global] i=%d j=%d lambda=%g Dglob=%g delta_non_norm=%g delta=%g\n",
+                i, j, lambda, Dglob, delta_non_norm, delta);
+#endif
       }
-      double D_plus = lambda * (1.0 - pow(rlam, (double)n_g_new));
 
-      double ratio_minus = (D_minus>0.0) ? (N_minus/D_minus) : 0.0;
-      double ratio_plus  = (D_plus >0.0) ? (N_plus /D_plus ) : 0.0;
-
-      delta = ratio_plus - ratio_minus;
-
-      #if DEBUG_COV_MATCH_GW
-        Rprintf("[cov_match_GW][by_group] j=%d lambda=%g N-=%g D-=%g N+=%g D+=%g delta=%g\n",
-                j, lambda, N_minus, D_minus, N_plus, D_plus, delta);
-      #endif
-
-    }else if(norm_mode==2){
-      /* Global normalisation:
-       *
-       *   Δ = Δ_non_norm / [λ (1 - r_λ^{N_actors})],
-       *
-       * with N_actors = n1.
-       */
-      const double Dglob = lambda * (1.0 - pow(rlam, (double)n1));
-      delta = (Dglob>0.0) ? (delta_non_norm / Dglob) : 0.0;
-
-      #if DEBUG_COV_MATCH_GW
-        Rprintf("[cov_match_GW][global] j=%d lambda=%g Dglob=%g delta_non_norm=%g delta=%g\n",
-                j, lambda, Dglob, delta_non_norm, delta);
-      #endif
+      CHANGE_STAT[j] += delta;
     }
 
-    /* 9) Accumulate the contribution for the j-th statistic. */
-    CHANGE_STAT[j] += delta;
+toggle_apply:
+    /* Temporarily apply this toggle so subsequent toggles see updated degrees. */
+    TOGGLE_IF_MORE_TO_COME(i);
   }
+
+  /* 5) Undo temporary toggles to restore the original network state. */
+  UNDO_PREVIOUS_TOGGLES(i);
+
+  /* 6) Free buffers. */
+  R_Free(stamp);
+  R_Free(counts_buf);
+  R_Free(codes_buf);
+  R_Free(actors_buf);
 }

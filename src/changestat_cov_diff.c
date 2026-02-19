@@ -1,6 +1,6 @@
 /**
  * @file changestat_cov_diff.c
- * @brief  Change statistic for the ERPM term `cov_diff` (one-toggle form).
+ * @brief  Change statistic for the ERPM term `cov_diff` (multi-toggle form).
  *
  * @details
  *  This file implements the \pkg{ergm} change statistic for the ERPM effect
@@ -107,7 +107,7 @@
  *  Local change under a toggle
  *  ------------------------------------------------------------
  *
- *  A single toggle flips membership of one actor in one group:
+ *  A membership toggle flips membership of one actor in one group:
  *    - addition  : actor becomes member of the group,
  *    - deletion  : actor leaves the group.
  *
@@ -125,6 +125,29 @@
  *    3. computing D(S) = max(x_i) - min(x_i) for each subset S,
  *    4. summing over all subsets and optionally dividing by C(n_g, k)
  *       or by n_g.
+ *
+ *  ------------------------------------------------------------
+ *  Multi-toggle / D_CHANGESTAT_FN (CRITICAL)
+ *  ------------------------------------------------------------
+ *
+ *  This effect MUST support proposals decomposed into multiple toggles
+ *  (swap/split/merge → a list of membership edge flips). When multiple
+ *  toggles touch the same group, we must evaluate them in sequence under
+ *  the correct intermediate state.
+ *
+ *  Therefore:
+ *    - the change statistic is implemented using D_CHANGESTAT_FN,
+ *    - toggles are processed sequentially,
+ *    - after processing a toggle i, we temporarily apply it with
+ *      TOGGLE_IF_MORE_TO_COME(i) so later toggles see updated degrees,
+ *    - at the end, we restore the original network with UNDO_PREVIOUS_TOGGLES.
+ *
+ *  IMPORTANT:
+ *  - We still compute "before/after" for each toggle via a *virtual* TOGGLE
+ *    (apply, compute, undo) because group_covdiff() reconstructs neighbors
+ *    from the current network state.
+ *  - Then, TOGGLE_IF_MORE_TO_COME(i) applies the toggle *for real* only for
+ *    i < ntoggles-1, so the intermediate state is correct.
  *
  *  ------------------------------------------------------------
  *  Complexity
@@ -146,7 +169,8 @@
  *    - validates the numeric covariate on the actor mode,
  *    - sets k ≥ 2 and norm_mode ∈ {0,1,2},
  *    - packs n1, k, norm_mode and x into INPUT_PARAM,
- *    - sets emptynwstats and a single coef.name.
+ *    - sets emptynwstats and a single coef.name,
+ *    - sets d_func = TRUE so ergm calls the D_ entrypoint.
  *
  *  ------------------------------------------------------------
  *  @example Usage (R)
@@ -172,12 +196,8 @@
  *  fit3 <- erpm(partition ~ cov_diff(attr = x, k = 2, normalized = "global"))
  *  summary(fit3)
  *
- *  # Internally, each membership toggle between an actor and a group
- *  # calls c_cov_diff(), which:
- *  #   - recomputes the cov_diff contribution of the affected group
- *  #     before and after a virtual toggle,
- *  #   - applies the chosen normalisation,
- *  #   - updates CHANGE_STAT[0] by the difference.
+ *  # Internally, the MCMC proposal may produce multi-toggle moves. This effect
+ *  # is implemented as a D_ changestat and remains consistent under such moves.
  *  @endcode
  */
 
@@ -188,26 +208,27 @@
 
 /**
  * @def DEBUG_COV_DIFF
- * @brief Enable verbose debugging output for ::c_cov_diff.
+ * @brief Enable verbose debugging output for ::d_cov_diff.
  *
  * Set this macro to 1 to print diagnostic information to the R console
  * during `summary()` or MCMC runs:
  *  - group sizes for cov_diff,
  *  - values of k and norm_mode,
- *  - local contribution of the affected group.
+ *  - local contribution of the affected group,
+ *  - multi-toggle traces (ntoggles, sequential deltas).
  *
  * When set to 0, the compiled code does not emit any debug traces.
  */
 #define DEBUG_COV_DIFF 0
 
 /**
- * @def UNUSED_WARNING
+ * @def UNUSED_VARIABLE
  * @brief Utility macro to explicitly mark unused parameters.
  *
  * @param x Parameter or variable that is intentionally unused in a
  *          particular compilation unit or function.
  */
-#define UNUSED_WARNING(x) (void)(x)
+#define UNUSED_VARIABLE(x) (void)(x)
 
 /* -------------------------------------------------------------------------- */
 /* Helper: recursive enumeration of k-subsets                                 */
@@ -418,17 +439,17 @@ static double group_covdiff(Vertex g,
 }
 
 /* -------------------------------------------------------------------------- */
-/* Change statistic: cov_diff (one-toggle)                                    */
+/* Change statistic: cov_diff (multi-toggle)                                  */
 /* -------------------------------------------------------------------------- */
 
 /**
- * @brief Change statistic for the ERPM term `cov_diff`.
+ * @brief Change statistic for the ERPM term `cov_diff` (multi-toggle).
  *
  * @details
  *  This is the \pkg{ergm} change-statistic function registered as
- *  ::c_cov_diff via ::C_CHANGESTAT_FN. It computes the local change
- *  Δ in the cov_diff statistic for a single membership toggle between
- *  an actor and a group.
+ *  ::d_cov_diff via ::D_CHANGESTAT_FN. It computes the local change
+ *  Δ in the cov_diff statistic for a multi-toggle proposal, i.e. a list
+ *  of membership toggles between actors and groups.
  *
  *  The layout of INPUT_PARAM is:
  *
@@ -437,33 +458,33 @@ static double group_covdiff(Vertex g,
  *    INPUT_PARAM[2]     = norm_mode  (0 raw, 1 by-group, 2 global)
  *    INPUT_PARAM[3..]   = x[0..n1-1] (numeric covariate on actors)
  *
- *  For each toggle:
+ *  For each toggle i (processed sequentially under the intermediate state):
  *    1. Identify the actor vertex and the group vertex using the
  *       bipartite boundary between actor mode and group mode.
- *    2. Evaluate the group contribution before the virtual toggle
- *       via group_covdiff().
- *    3. Apply a virtual toggle (TOGGLE) on the actor–group edge.
- *    4. Evaluate the group contribution after the virtual toggle.
- *    5. Undo the virtual toggle.
- *    6. Update:
+ *    2. Evaluate the group contribution BEFORE the toggle via group_covdiff().
+ *    3. Apply a *virtual* toggle (TOGGLE), evaluate AFTER, then undo it.
+ *    4. Accumulate Δ_i = AFTER - BEFORE into CHANGE_STAT[0].
+ *    5. Temporarily apply the toggle (TOGGLE_IF_MORE_TO_COME(i)) so that
+ *       later toggles see updated membership degrees and neighborhoods.
  *
- *         CHANGE_STAT[0] += F_after - F_before.
+ *  At the end, undo the temporary toggles (UNDO_PREVIOUS_TOGGLES).
  *
- *  The parameter @p edgestate is unused here, because the function
- *  explicitly performs a virtual TOGGLE to obtain the "after" state.
- *
- * @param tail       Tail vertex of the toggled edge.
- * @param head       Head vertex of the toggled edge.
- * @param mtp        Pointer to the model term parameters (unused here,
- *                   but required by the macro signature).
- * @param nwp        Pointer to the current network-plus workspace, providing
- *                   adjacency and degree information.
- * @param edgestate  Current state of the edge (unused in this implementation).
+ *  IMPORTANT:
+ *  - The edgestate is not required because we explicitly do a virtual TOGGLE
+ *    to compute the "after" state for the current toggle.
  */
-C_CHANGESTAT_FN(c_cov_diff){
-  /* 1) Reset the output buffer for THIS toggle. */
-  ZERO_ALL_CHANGESTATS(0);
-  UNUSED_WARNING(edgestate);
+D_CHANGESTAT_FN(d_cov_diff){
+
+#if DEBUG_COV_DIFF
+  static int seen = 0;
+  if(ntoggles > 1 && seen < 10){
+    Rprintf("[cov_diff] MULTI-TOGGLE ntoggles=%d\n", (int)ntoggles);
+    seen++;
+  }
+#endif
+
+  /* 1) Reset the output buffer for THIS proposal. */
+  ZERO_ALL_CHANGESTATS();
 
   /* 2) Read inputs from INPUT_PARAM. */
   const double *ip       = INPUT_PARAM;
@@ -472,36 +493,51 @@ C_CHANGESTAT_FN(c_cov_diff){
   const int norm_mode    = (int)ip[2];   /* 0 raw, 1 by-group, 2 global */
   const double *x        = ip + 3;       /* actor covariate values */
 
-  #if DEBUG_COV_DIFF
-    Rprintf("[cov_diff] n1=%d k=%d norm_mode=%d\n", n1, k, norm_mode);
-  #endif
+#if DEBUG_COV_DIFF
+  Rprintf("[cov_diff] n1=%d k=%d norm_mode=%d | BIPARTITE=%d\n",
+          n1, k, norm_mode, (int)BIPARTITE);
+#endif
 
-  /* 3) Identify actor and group vertices for the current toggle.
-   *
-   * Actor vertices are 1..n1 (actor mode).
-   * Group vertices are > n1 (group mode).
-   */
-  Vertex a = tail, b = head;
-  Vertex actor = (a <= (Vertex)n1) ? a : b;  /* actor vertex in the actor mode */
-  Vertex group = (a <= (Vertex)n1) ? b : a;  /* group vertex in the group mode */
-  UNUSED_WARNING(actor);
+  /* 3) Process toggles sequentially under the intermediate state. */
+  int i = 0;
+  FOR_EACH_TOGGLE(i){
 
-  /* 4) Evaluate group contribution before and after a virtual toggle. */
-  double F_before = group_covdiff(group, n1, k, norm_mode, x, nwp);
+    Vertex a = TAIL(i);
+    Vertex b = HEAD(i);
 
-  /* Apply a virtual toggle (single-edge API). */
-  TOGGLE(a, b);
+    /* Identify actor and group vertices (actor <= n1, group > n1). */
+    Vertex actor = (a <= (Vertex)n1) ? a : b;
+    Vertex group = (a <= (Vertex)n1) ? b : a;
 
-  double F_after  = group_covdiff(group, n1, k, norm_mode, x, nwp);
+    UNUSED_VARIABLE(actor);
 
-  /* Undo the virtual toggle to restore the original state. */
-  TOGGLE(a, b);
+#if DEBUG_COV_DIFF
+    if(actor > (Vertex)n1 || group <= (Vertex)n1){
+      Rprintf("[cov_diff][WARN] toggle #%d endpoints not (actor,group): tail=%d head=%d | actor=%d group=%d (n1=%d)\n",
+              i, (int)a, (int)b, (int)actor, (int)group, n1);
+    }
+#endif
 
-  /* 5) Update change statistic: Δ = F_after - F_before. */
-  CHANGE_STAT[0] += (F_after - F_before);
+    /* BEFORE under current intermediate state. */
+    double F_before = group_covdiff(group, n1, k, norm_mode, x, nwp);
 
-  #if DEBUG_COV_DIFF
-    Rprintf("[cov_diff] a=%d b=%d group=%d before=%g after=%g delta=%g\n",
-            (int)a, (int)b, (int)group, F_before, F_after, (F_after - F_before));
-  #endif
+    /* Virtual toggle to get AFTER. */
+    TOGGLE(a, b);
+    double F_after  = group_covdiff(group, n1, k, norm_mode, x, nwp);
+    TOGGLE(a, b);
+
+    double delta = (F_after - F_before);
+    CHANGE_STAT[0] += delta;
+
+#if DEBUG_COV_DIFF
+    Rprintf("[D:d_cov_diff] i=%d tail=%d head=%d | group=%d | before=%g after=%g | Δ=%g | cumul=%g\n",
+            i, (int)a, (int)b, (int)group, F_before, F_after, delta, CHANGE_STAT[0]);
+#endif
+
+    /* Apply this toggle for real if more toggles remain (intermediate state). */
+    TOGGLE_IF_MORE_TO_COME(i);
+  }
+
+  /* 4) Restore the original network state (undo temporary toggles). */
+  UNDO_PREVIOUS_TOGGLES(i);
 }

@@ -2,6 +2,26 @@
 # Fichier : scripts/test/selftests/selftest_dyadcov.R
 # Objet   : Self-test autonome pour l'effet ERPM/ERGM `dyadcov`
 # Exécution: Rscript scripts/test/selftests/selftest_dyadcov.R
+#
+# But du fichier
+#   - PHASE 0 (ANALYTIQUE) : valider la définition via une référence R directe
+#                            (partition + Z + cliques k) sur un cas simple.
+#   - PHASE 1 (SUMMARY)    : summary(nw ~ dyadcov(...)) vs summary(ERPM-traduit).
+#   - PHASE 2 (ERPM FIT)   : valider que erpm() construit des modèles et renvoie des coefs finis.
+#   - PHASE 3 (MCMC)       : diagnostic "multi-toggle" : déclencher le D_CHANGESTAT_FN
+#                            et vérifier que le chemin multi-toggle est pris.
+#
+# IMPORTANT (multi-toggle / D_CHANGESTAT_FN)
+#   - Le changestat dyadcov est désormais un D_CHANGESTAT_FN (multi-toggle).
+#   - Côté R, InitErgmTerm.dyadcov DOIT retourner d_func = TRUE.
+#   - Sans cela, ergm peut appeler une mauvaise signature (C_ au lieu de D_) -> crash.
+#
+# Notes
+#   - Les phases 0/1/2 peuvent spammer la console (print de dataframes + summaries).
+#   - Pour bosser proprement sur la phase 3, on peut désactiver 0/1/2 via RUN.
+#   - PHASE 3 vise à provoquer des propositions multi-toggle (ntoggles>1) :
+#       * on utilise un MCMC.prop de type ~ sparse, qui peut proposer des toggles multiples.
+#       * pour voir les traces, activer DEBUG_DYADCOV côté C (macro) et recompiler.
 # ======================================================================================
 
 # --------------------------------------------------------------------------------------
@@ -24,7 +44,7 @@ suppressMessages(suppressPackageStartupMessages({
 # Patch ERGM optionnel
 if (file.exists("scripts/ergm_patch.R")) {
   source("scripts/ergm_patch.R")
-  ergm_patch_enable()
+  if (exists("ergm_patch_enable", mode = "function")) ergm_patch_enable()
 }
 
 # Charger le package et le wrapper ERPM
@@ -77,6 +97,20 @@ on.exit({
   flush.console()
 }, add = TRUE)
 cat("==> Log:", log_path, "\n")
+
+# ======================================================================================
+# Réglages de run (le point clé du fichier)
+# ======================================================================================
+RUN <- list(
+  phase0_analytic = FALSE,
+  phase1_summary  = FALSE,
+  phase2_fit      = TRUE,
+  phase3_mcmc     = FALSE,
+
+  quiet_phase0    = FALSE,
+  quiet_phase1    = FALSE,
+  quiet_phase2    = FALSE
+)
 
 # ======================================================================================
 # Données de test
@@ -196,9 +230,6 @@ Z2_P2 <- matrix(c(
 dyads_P2 <- list(Z1 = Z1_P2, Z2 = Z2_P2)
 
 # ----- Partition P3 (n = 11) -----
-# Z1_P3 : symétrique
-# Z2_P3 : asymétrique (Z2[i,j] != Z2[j,i] en général)
-
 Z1_P3 <- matrix(c(
   0, 1.1, 1.4, 1.7, 2, 2.3, 2.6, 2.9, 3.2, 3.5, 3.8,
   1.1, 0, 1.1, 1.4, 1.7, 2, 2.3, 2.6, 2.9, 3.2, 3.5,
@@ -229,21 +260,13 @@ Z2_P3 <- matrix(c(
 
 dyads_P3 <- list(Z1 = Z1_P3, Z2 = Z2_P3)
 
-# Sélecteur de matrices dyadiques prédéfinies
 .make_dyads_for_partition <- function(part) {
-  if (length(part) == length(partitions$P1) && identical(as.integer(part), partitions$P1)) {
-    return(dyads_P1)
-  }
-  if (length(part) == length(partitions$P2) && identical(as.integer(part), partitions$P2)) {
-    return(dyads_P2)
-  }
-  if (length(part) == length(partitions$P3) && identical(as.integer(part), partitions$P3)) {
-    return(dyads_P3)
-  }
+  if (length(part) == length(partitions$P1) && identical(as.integer(part), partitions$P1)) return(dyads_P1)
+  if (length(part) == length(partitions$P2) && identical(as.integer(part), partitions$P2)) return(dyads_P2)
+  if (length(part) == length(partitions$P3) && identical(as.integer(part), partitions$P3)) return(dyads_P3)
   stop("Aucune matrice dyadique prédéfinie pour cette partition.")
 }
 
-# Sanity check: diagonales nulles
 stopifnot(all(diag(dyads_P1$Z1) == 0),
           all(diag(dyads_P1$Z2) == 0),
           all(diag(dyads_P2$Z1) == 0),
@@ -297,9 +320,18 @@ print_debug_partition_nodes_dyads <- function(name, part, nodes_df, dyads_list) 
   stopifnot(all(diag(Z1) == 0), all(diag(Z2) == 0))
 }
 
+.maybe_print <- function(x, quiet = FALSE) {
+  if (!isTRUE(quiet)) print(x)
+  invisible(NULL)
+}
+
 # ======================================================================================
 # Référence R directe de la stat dyadcov
 # ======================================================================================
+# IMPORTANT: cette référence couvre ici:
+#   - le cas "normalized = FALSE" (raw sum)
+#   - le cas "normalized = TRUE"  (historique: 1/n_g, i.e. mode "global")
+# Pour le mode "by_group" (1/choose(n_g,k)), la référence est ajoutée plus bas.
 
 dyadcov_reference_from_partition <- function(partition_vec, Z, k, normalized = FALSE) {
   n <- length(partition_vec)
@@ -338,8 +370,39 @@ dyadcov_reference_from_partition <- function(partition_vec, Z, k, normalized = F
   as.numeric(total)
 }
 
-run_phase0_analytic_checks_dyadcov <- function() {
+dyadcov_reference_by_group_from_partition <- function(partition_vec, Z, k) {
+  groups <- sort(unique(partition_vec))
+  total <- 0
+  for (g in groups) {
+    idx_g <- which(partition_vec == g)
+    n_g   <- length(idx_g)
+    if (n_g < k) next
+
+    S_g <- 0
+    comb_mat <- utils::combn(idx_g, k)
+    if (!is.matrix(comb_mat)) comb_mat <- matrix(comb_mat, nrow = k)
+
+    for (col in seq_len(ncol(comb_mat))) {
+      clique <- comb_mat[, col]
+      prod_C <- 1
+      for (p in 1:(k - 1L)) {
+        i <- clique[p]
+        for (q in (p + 1L):k) {
+          j <- clique[q]
+          prod_C <- prod_C * (Z[i, j] + Z[j, i])
+        }
+      }
+      S_g <- S_g + prod_C
+    }
+
+    total <- total + S_g / choose(n_g, k)
+  }
+  as.numeric(total)
+}
+
+run_phase0_analytic_checks_dyadcov <- function(quiet = FALSE) {
   cat("=== PHASE 0 : Vérifications analytiques directes [dyadcov] ===\n")
+  if (isTRUE(quiet)) cat("  [mode quiet] sortie console réduite\n")
 
   part  <- partitions$P1
   nodes <- .make_nodes_df_for_partition(part)
@@ -349,30 +412,39 @@ run_phase0_analytic_checks_dyadcov <- function() {
   nw <- make_network_from_partition_and_dyads(part, nodes, dyads)
 
   tests <- list(
-    list(Zname = "Z1", Z = Z1, k = 2L, normalized = FALSE),
-    list(Zname = "Z1", Z = Z1, k = 2L, normalized = TRUE),
-    list(Zname = "Z1", Z = Z1, k = 3L, normalized = FALSE),
-    list(Zname = "Z1", Z = Z1, k = 3L, normalized = TRUE)
+    list(Zname = "Z1", Z = Z1, k = 2L, normalize = "none"),
+    list(Zname = "Z1", Z = Z1, k = 2L, normalize = "global"),
+    list(Zname = "Z1", Z = Z1, k = 3L, normalize = "none"),
+    list(Zname = "Z1", Z = Z1, k = 3L, normalize = "global"),
+    list(Zname = "Z1", Z = Z1, k = 3L, normalize = "by_group")
   )
 
   for (ts in tests) {
-    rhs <- sprintf("dyadcov('%s', clique_size = %d, normalized = %s)",
-                   ts$Zname, ts$k, if (ts$normalized) "TRUE" else "FALSE")
+    rhs <- sprintf("dyadcov('%s', clique_size = %d, normalize = '%s')",
+                   ts$Zname, ts$k, ts$normalize)
+
     f   <- make_formula_for_network_summary(nw, rhs)
     val_summary <- as.numeric(suppressMessages(summary(f, constraints = ~ b1part)))
-    val_ref     <- dyadcov_reference_from_partition(part, ts$Z, ts$k, ts$normalized)
 
-    cat(sprintf("[ANALYTIC-CHECK] k=%d normalized=%s  summary=%g  ref=%g  diff=%g\n",
-                ts$k, ts$normalized, val_summary, val_ref, val_summary - val_ref))
+    if (ts$normalize == "none") {
+      val_ref <- dyadcov_reference_from_partition(part, ts$Z, ts$k, normalized = FALSE)
+    } else if (ts$normalize == "global") {
+      val_ref <- dyadcov_reference_from_partition(part, ts$Z, ts$k, normalized = TRUE)
+    } else {
+      val_ref <- dyadcov_reference_by_group_from_partition(part, ts$Z, ts$k)
+    }
+
+    cat(sprintf("[ANALYTIC-CHECK] k=%d normalize=%-8s summary=%g  ref=%g  diff=%g\n",
+                ts$k, ts$normalize, val_summary, val_ref, val_summary - val_ref))
 
     if (!is.finite(val_summary) || !is.finite(val_ref) ||
         abs(val_summary - val_ref) > 1e-8) {
-      stop(sprintf("Mismatch analytique dyadcov: k=%d normalized=%s diff=%g",
-                   ts$k, ts$normalized, val_summary - val_ref))
+      stop(sprintf("Mismatch analytique dyadcov: k=%d normalize=%s diff=%g",
+                   ts$k, ts$normalize, val_summary - val_ref))
     }
   }
 
-  cat("=== Phase 0 OK: définition dyadcov (normalisation 1/n_g) validée sur cas simples ===\n\n")
+  cat("=== Phase 0 OK: définition dyadcov validée (none/global/by_group) sur cas simple ===\n\n")
   invisible(NULL)
 }
 
@@ -419,7 +491,7 @@ check_summary_equivalence_network_vs_erpm_dyadcov <- function(partition_vec, nod
   for (rhs in rhs_vec) {
     s_net  <- run_one_network_summary_case_for_dyadcov(partition_vec, nodes_df, dyads_list, rhs)
     s_erpm <- run_one_erpm_translated_summary_case_for_dyadcov(partition_vec, nodes_df, dyads_list, rhs)
-    cat(sprintf("[SUMMARY-CHECK] n=%-3d RHS=%-50s net=%s  erpm=%s\n",
+    cat(sprintf("[SUMMARY-CHECK] n=%-3d RHS=%-65s net=%s  erpm=%s\n",
                 length(partition_vec), rhs,
                 paste(s_net,  collapse=","), paste(s_erpm, collapse=",")))
     if (any(!is.finite(s_net)) || any(!is.finite(s_erpm)) ||
@@ -433,16 +505,19 @@ check_summary_equivalence_network_vs_erpm_dyadcov <- function(partition_vec, nod
 }
 
 cases_summary <- c(
-  "dyadcov('Z1', clique_size = 2, normalized = FALSE)",
-  "dyadcov('Z1', clique_size = 2, normalized = TRUE)",
-  "dyadcov('Z1', clique_size = 3, normalized = FALSE)",
-  "dyadcov('Z1', clique_size = 3, normalized = TRUE)",
-  "dyadcov('Z2', clique_size = 2, normalized = FALSE)",
-  "dyadcov('Z2', clique_size = 2, normalized = TRUE)"
+  "dyadcov('Z1', clique_size = 2, normalize = 'none')",
+  "dyadcov('Z1', clique_size = 2, normalize = 'global')",
+  "dyadcov('Z1', clique_size = 3, normalize = 'none')",
+  "dyadcov('Z1', clique_size = 3, normalize = 'global')",
+  "dyadcov('Z1', clique_size = 3, normalize = 'by_group')",
+  "dyadcov('Z2', clique_size = 2, normalize = 'none')",
+  "dyadcov('Z2', clique_size = 2, normalize = 'global')"
 )
 
-run_phase1_summary_equivalence_checks_dyadcov <- function() {
+run_phase1_summary_equivalence_checks_dyadcov <- function(quiet = FALSE) {
   cat("=== PHASE 1 : Summary(nw via builder) vs Summary(ERPM-traduit) [dyadcov] ===\n")
+  if (isTRUE(quiet)) cat("  [mode quiet] sortie console réduite\n")
+
   total <- 0L; ok <- 0L
   for (nm in names(partitions)) {
     part  <- partitions[[nm]]
@@ -452,7 +527,7 @@ run_phase1_summary_equivalence_checks_dyadcov <- function() {
     cat(sprintf("\n--- Partition %s ---  n=%d | groupes=%d | tailles: %s\n",
                 nm, length(part), length(unique(part)), paste(sort(table(part)), collapse=",")))
 
-    print_debug_partition_nodes_dyads(nm, part, nodes, dyads)
+    if (!isTRUE(quiet)) print_debug_partition_nodes_dyads(nm, part, nodes, dyads)
 
     res <- check_summary_equivalence_network_vs_erpm_dyadcov(
       partition_vec = part,
@@ -474,7 +549,7 @@ run_phase1_summary_equivalence_checks_dyadcov <- function() {
 # ======================================================================================
 
 run_one_erpm_fit_with_return_dyadcov <- function(partition_vec, nodes_df, dyads_list,
-                                                 rhs_txt, fit_name) {
+                                                 rhs_txt, fit_name, quiet = FALSE) {
   if (!exists("erpm", mode = "function")) {
     cat(sprintf("[ERPM-FIT %-20s] SKIP (erpm() indisponible)\n", fit_name))
     return(list(ok = NA, error = TRUE, coef = NA, fit = NULL, aic = NA, bic = NA))
@@ -486,7 +561,7 @@ run_one_erpm_fit_with_return_dyadcov <- function(partition_vec, nodes_df, dyads_
   cat(sprintf("[ERPM-FIT %-20s] n=%-3d RHS=%s\n",
               fit_name, length(partition_vec), rhs_txt))
 
-  print_debug_partition_nodes_dyads(paste0("FIT_", fit_name), partition_vec, nodes_df, dyads_list)
+  if (!isTRUE(quiet)) print_debug_partition_nodes_dyads(paste0("FIT_", fit_name), partition_vec, nodes_df, dyads_list)
 
   fit <- try(
     erpm(
@@ -536,13 +611,15 @@ run_one_erpm_fit_with_return_dyadcov <- function(partition_vec, nodes_df, dyads_
   )
 }
 
-run_phase2_erpm_fits_and_print_summaries_dyadcov <- function() {
+run_phase2_erpm_fits_and_print_summaries_dyadcov <- function(quiet = FALSE) {
   cat("\n=== PHASE 2 : Fits erpm() [dyadcov] ===\n")
+  if (isTRUE(quiet)) cat("  [mode quiet] sortie console réduite\n")
 
   rhs_list <- list(
-    R1 = "dyadcov('Z2', clique_size = 3, normalized = FALSE) + cliques",
-    R2 = "dyadcov('Z1', clique_size = 2, normalized = FALSE) + cliques",
-    R3 = "dyadcov('Z1', clique_size = 2, normalized = TRUE) + cliques"
+    R1 = "dyadcov('Z2', clique_size = 3, normalize = 'none') + cliques",
+    R2 = "dyadcov('Z1', clique_size = 2, normalize = 'none') + cliques",
+    R3 = "dyadcov('Z1', clique_size = 2, normalize = 'global') + cliques",
+    R4 = "dyadcov('Z1', clique_size = 3, normalize = 'by_group') + cliques"
   )
 
   parts <- list(
@@ -552,12 +629,12 @@ run_phase2_erpm_fits_and_print_summaries_dyadcov <- function() {
   )
 
   fit_results <- list()
-  # On garde les deux fits stables sur P1/P2 et deux fits sur P3
   combos <- list(
     list(p = "P1", r = "R1"),
     list(p = "P2", r = "R1"),
     list(p = "P3", r = "R2"),
-    list(p = "P3", r = "R3")
+    list(p = "P3", r = "R3"),
+    list(p = "P1", r = "R4")
   )
 
   for (cb in combos) {
@@ -570,11 +647,12 @@ run_phase2_erpm_fits_and_print_summaries_dyadcov <- function() {
       nodes_df      = nodes,
       dyads_list    = dyads,
       rhs_txt       = rhs_list[[cb$r]],
-      fit_name      = nmfit
+      fit_name      = nmfit,
+      quiet         = quiet
     )
   }
 
-  ok_raw  <- vapply(fit_results, function(x) x$ok,    logical(1))
+  ok_raw  <- vapply(fit_results, function(x) x$ok, logical(1))
   n_ok    <- sum(ok_raw, na.rm = TRUE)
   n_tot   <- sum(!is.na(ok_raw))
 
@@ -582,36 +660,26 @@ run_phase2_erpm_fits_and_print_summaries_dyadcov <- function() {
 
   cat("\n=== Tableau AIC/BIC pour les fits ERPM (dyadcov) ===\n")
   tab <- data.frame(
-    fit   = character(0),
-    ok    = logical(0),
-    AIC   = numeric(0),
-    BIC   = numeric(0),
+    fit   = names(fit_results),
+    ok    = ok_raw,
+    AIC   = vapply(fit_results, function(x) x$aic, numeric(1)),
+    BIC   = vapply(fit_results, function(x) x$bic, numeric(1)),
     stringsAsFactors = FALSE
   )
-  for (nm in names(fit_results)) {
-    fr <- fit_results[[nm]]
-    tab <- rbind(tab, data.frame(
-      fit = nm,
-      ok  = fr$ok,
-      AIC = fr$aic,
-      BIC = fr$bic,
-      stringsAsFactors = FALSE
-    ))
-  }
   print(tab)
 
-  cat("\n=== Résumés détaillés des fits ERPM réussis (dyadcov) ===\n")
-  for (nm in names(fit_results)) {
-    fit_obj <- fit_results[[nm]]
-    if (isTRUE(fit_obj$ok) && inherits(fit_obj$coef, "numeric") && !is.null(fit_obj$fit)) {
-      cat(sprintf("\n--- Résumé fit %s ---\n", nm))
-      print(summary(fit_obj$fit))
+  if (!isTRUE(quiet)) {
+    cat("\n=== Résumés détaillés des fits ERPM réussis (dyadcov) ===\n")
+    for (nm in names(fit_results)) {
+      fit_obj <- fit_results[[nm]]
+      if (isTRUE(fit_obj$ok) && !is.null(fit_obj$fit)) {
+        cat(sprintf("\n--- Résumé fit %s ---\n", nm))
+        print(summary(fit_obj$fit))
+      }
     }
   }
 
-  # Ici tu peux réajuster le seuil selon ce que tu veux imposer
   required_ok <- n_tot
-
   if (n_ok < required_ok) {
     stop(sprintf("Echec fits: seulement %d modèles convergents (seuil=%d).",
                  n_ok, required_ok))
@@ -624,14 +692,88 @@ run_phase2_erpm_fits_and_print_summaries_dyadcov <- function() {
 }
 
 # ======================================================================================
+# PHASE 3 — MCMC multi-toggle (diagnostic)
+# ======================================================================================
+# Objectif:
+#   - déclencher le chemin D_CHANGESTAT_FN(d_dyadcov)
+#   - provoquer des propositions multi-toggle (ntoggles > 1)
+#   - observer les traces de debug côté C
+#
+# IMPORTANT:
+#   - Pour voir des traces, recompiler avec DEBUG_DYADCOV = 1 dans changestat_dyadcov.c
+#   - Si tu ne vois jamais ntoggles>1, augmente un peu la longueur, ou change de proposal.
+
+.run_mcmc_multitoggle_probe_dyadcov <- function(nw, rhs_txt) {
+  ctrl <- control.simulate.formula(
+    MCMC.burnin   = 1000,
+    MCMC.interval = 1,
+    MCMC.prop     = ~ sparse
+  )
+
+  f <- as.formula(paste0("nw ~ ", rhs_txt))
+  environment(f) <- list2env(list(nw = nw), parent = parent.frame())
+
+  sim <- simulate(
+    f,
+    nsim    = 1,
+    control = ctrl,
+    verbose = TRUE
+  )
+
+  print(sim)
+  invisible(sim)
+}
+
+run_phase3_mcmc_multitoggle_probe_dyadcov <- function(part_probe, rhs_probe) {
+  cat("\n=== PHASE 3: MCMC MULTI-TOGGLE PROBE [dyadcov] ===\n")
+  cat("Objectif: voir passer des traces multi-toggle dans la console.\n")
+  cat(" - Activer DEBUG_DYADCOV côté C (macro) puis recompiler.\n")
+  cat(" - Chercher des lignes du type: '[dyadcov] MULTI-TOGGLE ntoggles=...'\n\n")
+
+  nodes <- .make_nodes_df_for_partition(part_probe)
+  dyads <- .make_dyads_for_partition(part_probe)
+  nw    <- make_network_from_partition_and_dyads(part_probe, nodes, dyads)
+
+  .run_mcmc_multitoggle_probe_dyadcov(nw, rhs_probe)
+
+  cat("\nSi tu vois 'MULTI-TOGGLE ntoggles=...' au moins une fois, test multi-toggle OK.\n")
+  invisible(TRUE)
+}
+
+# ======================================================================================
 # Exécution
 # ======================================================================================
 
 set.seed(1)
 cat("=== TEST ERPM: dyadcov ===\n")
-run_phase0_analytic_checks_dyadcov()
-run_phase1_summary_equivalence_checks_dyadcov()
-fit_results <- run_phase2_erpm_fits_and_print_summaries_dyadcov()
+
+if (isTRUE(RUN$phase0_analytic)) {
+  run_phase0_analytic_checks_dyadcov(quiet = isTRUE(RUN$quiet_phase0))
+} else {
+  cat("=== PHASE 0: ANALYTIQUE ===\nSKIP (RUN$phase0_analytic = FALSE)\n\n")
+}
+
+if (isTRUE(RUN$phase1_summary)) {
+  run_phase1_summary_equivalence_checks_dyadcov(quiet = isTRUE(RUN$quiet_phase1))
+} else {
+  cat("=== PHASE 1: SUMMARY ===\nSKIP (RUN$phase1_summary = FALSE)\n\n")
+}
+
+fit_results <- NULL
+if (isTRUE(RUN$phase2_fit)) {
+  fit_results <- run_phase2_erpm_fits_and_print_summaries_dyadcov(quiet = isTRUE(RUN$quiet_phase2))
+} else {
+  cat("=== PHASE 2: ERPM FIT ===\nSKIP (RUN$phase2_fit = FALSE)\n\n")
+}
+
+if (isTRUE(RUN$phase3_mcmc)) {
+  # Probe simple et stable:
+  # - P1 (n=15) + Z1 + k=2 raw
+  rhs_probe <- "dyadcov('Z1', clique_size = 2, normalize = 'none')"
+  run_phase3_mcmc_multitoggle_probe_dyadcov(part_probe = partitions$P1, rhs_probe = rhs_probe)
+} else {
+  cat("=== PHASE 3: MCMC MULTI-TOGGLE PROBE ===\nSKIP (RUN$phase3_mcmc = FALSE)\n\n")
+}
 
 on.exit(try(ergm_patch_disable(), silent = TRUE), add = TRUE)
 cat("\nTous les tests dyadcov ont passé.\n")

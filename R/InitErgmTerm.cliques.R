@@ -1,3 +1,10 @@
+# ==============================================================================
+# File    : R/InitErgmTerm.cliques.R
+# Purpose : Declare the ERGM term 'cliques' for bipartite actor-group networks
+#           (counts k-actor cliques induced by group sizes).
+# Project : ERPM / ERGM extensions
+# ==============================================================================
+
 #' ERGM term: cliques (k-actor cliques via group sizes)
 #'
 #' @name InitErgmTerm.cliques
@@ -30,193 +37,37 @@
 #'   \item \eqn{k \ge 1}, where:
 #'     \itemize{
 #'       \item for \eqn{k \ge 2}, \eqn{T_k(y)} is the number of k-actor cliques;
-#'       \item for \eqn{k = 1}, \eqn{T_1(y)} is the number of groups of size 1
-#'             (equivalently, the number of actors that belong to exactly one
-#'             singleton group in the projection semantics).
+#'       \item for \eqn{k = 1}, \eqn{T_1(y)} is the number of groups of size 1.
 #'     }
 #'   \item an optional group-size-based normalization that rescales \eqn{T_k(y)}
 #'         by the group sizes \eqn{n_g}.
 #' }
 #'
 #' @details
-#' The term is implemented as a native ERGM C change-statistic, declared in the
-#' compiled code under a symbol compatible with \code{name = "cliques"}. The R
-#' initializer:
+#' The term is implemented as a native ERGM C change-statistic.
+#'
+#' IMPORTANT (multi-toggle / D_CHANGESTAT_FN):
+#' - This term MUST support multi-toggle moves (swap/split/merge represented as
+#'   a list of membership-edge toggles).
+#' - Therefore, the compiled change-statistic is implemented using the
+#'   D_CHANGESTAT_FN API (multi-toggle).
+#' - On the R side, we MUST advertise this to ergm by returning `d_func = TRUE`.
+#'   Otherwise ergm will try to call the changestat as a one-toggle C_CHANGESTAT_FN,
+#'   causing a signature mismatch and typically a segfault.
+#'
+#' Compiled symbol naming convention:
+#' - Recommended: implement the C function as `d_cliques` via
+#'   D_CHANGESTAT_FN(d_cliques).
+#' - Avoid exposing a symbol named `c_cliques` with a D-signature, because ergm
+#'   may resolve it as a one-toggle entrypoint and crash.
+#'
+#' The R initializer:
 #' \itemize{
-#'   \item enforces that the network is bipartite via \code{nw \%n\% "bipartite"};
+#'   \item enforces bipartite network;
+#'   \item normalizes argument names (positional, clique_size -> k);
 #'   \item accepts one or several values of \code{k} (vectorized interface);
-#'   \item optionally applies a group-size-based normalization;
-#'   \item packs \code{k} and an internal scaling/flag parameter into a compact
-#'         \code{INPUT_PARAM} layout for the C layer.
-#' }
-#'
-#' Internally, the actor mode is identified by \code{nw \%n\% "bipartite"} and the
-#' group mode is defined as the complementary set of nodes. The C
-#' change-statistic only updates the group node(s) whose membership changes
-#' after a toggle, using an un-toggle computation on the degree of the affected
-#' group(s).
-#'
-#' The initializer is vectorized in \code{k}: each entry \eqn{k_j} produces one
-#' scalar statistic \eqn{T_{k_j}(y)} (possibly normalized) and one coefficient
-#' name.
-#'
-#' The \code{INPUT_PARAM} vector passed to the C layer has the layout
-#' \deqn{
-#'   \text{INPUT\_PARAM}
-#'   =
-#'   (k_1, \text{scale}_1, k_2, \text{scale}_2, \dots, k_J, \text{scale}_J),
-#' }
-#' where:
-#' \itemize{
-#'   \item \eqn{k_j} are the requested clique sizes;
-#'   \item \eqn{\text{scale}_j} is a scalar used internally by the C layer:
-#'         \itemize{
-#'           \item \eqn{\text{scale}_j > 0} selects the raw statistic
-#'                 \eqn{T_k(y)};
-#'           \item \eqn{\text{scale}_j < 0} selects the group-size-normalized
-#'                 statistic described below (the C layer uses \eqn{|\text{scale}_j|}
-#'                 as an additional multiplicative factor).
-#'         }
-#' }
-#'
-#' @section Mathematical definition:
-#' Let:
-#' \itemize{
-#'   \item \eqn{A} be the set of actor-mode nodes;
-#'   \item \eqn{G} be the set of group-mode nodes;
-#'   \item \eqn{B} the bipartite adjacency matrix between actors and groups,
-#'         with \eqn{B_{ig} = 1} if actor \eqn{i} belongs to group \eqn{g};
-#'   \item \eqn{A_g = \{ i \in A : B_{ig} = 1 \}} the set of actors in group
-#'         \eqn{g};
-#'   \item \eqn{n_g = |A_g|} the size of group \eqn{g}.
-#' }
-#' For a given integer \eqn{k \ge 1}, define the raw statistic
-#' \deqn{
-#'   T_k(y)
-#'   =
-#'   \sum_{g \in G} \binom{n_g}{k}.
-#' }
-#' When \code{normalized = FALSE}, the ERGM term returns the vector
-#' \eqn{(T_{k_1}(y),\dots,T_{k_J}(y))} for all requested values \eqn{k_1,\dots,k_J}.
-#'
-#' When \code{normalized = TRUE} and \eqn{k \ge 2}, the ERGM term returns the
-#' group-size-normalized statistic
-#' \deqn{
-#'   T_k^{\mathrm{grp}}(y)
-#'   =
-#'   \sum_{g \in G}
-#'   \frac{\binom{n_g}{k}}{n_g},
-#' }
-#' with the convention that the contribution of a group is zero whenever
-#' \eqn{n_g < k} or \eqn{n_g = 0}. For \eqn{k = 1}, we have
-#' \eqn{T_1^{\mathrm{grp}}(y) = T_1(y)}, since \eqn{n_g = 1} for contributing
-#' groups.
-#'
-#' Internally, the C implementation uses the sign of \code{scale_j} to select
-#' between the raw and group-size-normalized definitions, and the absolute value
-#' of \code{scale_j} as an additional multiplicative factor.
-#'
-#' @section Usage:
-#' Typical usage with \pkg{ergm} on a bipartite network \code{nw}:
-#' \preformatted{
-#'   # Count 2-actor cliques induced by groups
-#'   summary(nw ~ cliques(k = 2))
-#'
-#'   # Group-size-normalized 3-actor cliques
-#'   summary(nw ~ cliques(k = 3, normalized = TRUE))
-#'
-#'   # Vectorized k: 2-, 3- and 4-actor cliques in a single term
-#'   summary(nw ~ cliques(k = c(2, 3, 4)))
-#' }
-#'
-#' When using the ERPM wrapper on a partition-based workflow, the term can be
-#' invoked indirectly as:
-#' \preformatted{
-#'   erpm(partition ~ cliques(k = 2))
-#'   erpm(partition ~ cliques(k = c(2, 3), normalized = TRUE))
-#' }
-#' provided that the wrapper builds a consistent actor-group bipartite network
-#' from the partition.
-#'
-#' @note
-#' The network must be strictly bipartite:
-#' \itemize{
-#'   \item the actor mode size is given by \code{nw \%n\% "bipartite"} and must be
-#'         a strictly positive integer;
-#'   \item the group mode consists of the remaining nodes and represents groups;
-#'   \item the \code{cliques} term only depends on degrees of group-mode nodes
-#'         and the actor-group incidence.
-#' }
-#'
-#' The initializer is tolerant with respect to the argument name for
-#' \code{k}: it accepts positional usage \code{cliques(2)}, the legacy
-#' \code{clique_size} name, as well as the explicit \code{k} argument. All
-#' values of \code{k} must be integers greater than or equal to 1.
-#'
-#' @param nw A \pkg{network} object.
-#' @param arglist A named list of term arguments passed by \pkg{ergm}. Expected
-#'   components include \code{k} (or legacy \code{clique_size}) and
-#'   \code{normalized}.
-#' @param ... Passed through by \pkg{ergm}; not used.
-#' @param version ERGM API version; not used.
-#'
-#' @examples
-#' \dontrun{
-#'   library(network)
-#'   library(ergm)
-#'
-#'   # Build a small bipartite network: 4 actors, 3 groups
-#'   n_actors <- 4
-#'   n_groups <- 3
-#'   n_total  <- n_actors + n_groups
-#'
-#'   # Adjacency matrix: actors 1..4, groups 5..7
-#'   adj <- matrix(0, n_total, n_total)
-#'
-#'   # Group 5: actors {1, 2}
-#'   adj[1, 5] <- adj[5, 1] <- 1
-#'   adj[2, 5] <- adj[5, 2] <- 1
-#'
-#'   # Group 6: actors {2, 3, 4}
-#'   adj[2, 6] <- adj[6, 2] <- 1
-#'   adj[3, 6] <- adj[6, 3] <- 1
-#'   adj[4, 6] <- adj[6, 4] <- 1
-#'
-#'   # Group 7: singleton {1}
-#'   adj[1, 7] <- adj[7, 1] <- 1
-#'
-#'   nw <- network(adj, directed = FALSE, matrix.type = "adjacency")
-#'   nw \%n\% "bipartite" <- n_actors  # actor mode size
-#'
-#'   # Inspect the number of 2-actor and 3-actor cliques
-#'   summary(nw ~ cliques(k = c(2, 3)))
-#'
-#'   # Group-size-normalized version for k = 2
-#'   summary(nw ~ cliques(k = 2, normalized = TRUE))
-#'
-#'   # Fit a simple ERGM with the term
-#'   fit <- ergm(nw ~ cliques(k = 2))
-#'   summary(fit)
-#' }
-#'
-#' @section Tests:
-#' Self-tests for \code{cliques} construct small bipartite networks with known
-#' group sizes and compare:
-#' \itemize{
-#'   \item the ERGM summary
-#'         \code{summary(nw ~ cliques(k = k_vec, normalized = FALSE))};
-#'   \item a direct evaluation of
-#'         \eqn{\sum_{g} \binom{n_g}{k}} from the group-mode degrees.
-#' }
-#' Additional checks verify that:
-#' \itemize{
-#'   \item the normalized version matches
-#'         \eqn{\sum_{g} \binom{n_g}{k} / n_g} for each \eqn{k \ge 2};
-#'   \item toggling an actor-group tie changes the statistic by exactly the
-#'         increment implied by the local change in the size of the affected
-#'         group(s);
-#'   \item the vectorized interface over multiple values of \code{k} returns
-#'         consistent coefficients and statistics.
+#'   \item optionally selects group-size-normalized mode via a sign-flag on scale;
+#'   \item packs \code{k} and \code{scale} into \code{INPUT_PARAM} for the C layer.
 #' }
 #'
 #' @keywords ERGM term bipartite groups cliques
@@ -226,7 +77,19 @@
 InitErgmTerm.cliques <- function(nw, arglist, ..., version = packageVersion("ergm")) {
   termname <- "cliques"
 
-  # Normalize user arguments so that the initializer consistently sees 'k':
+  # ---------------------------------------------------------------------------
+  # Debug helpers
+  # ---------------------------------------------------------------------------
+  # Global option:
+  #   options(ERPM.cliques.debug = TRUE/FALSE)
+  dbg    <- isTRUE(getOption("ERPM.cliques.debug", TRUE))
+  dbgcat <- function(...) if (dbg) cat("[cliques][DEBUG]", ..., "\n", sep = "")
+
+  dbgcat("InitErgmTerm.cliques called with args: ", paste(names(arglist), collapse = ", "))
+
+  # ---------------------------------------------------------------------------
+  # Normalize user arguments so that the initializer consistently sees 'k'
+  # ---------------------------------------------------------------------------
   # - cliques(1)             -> k = 1
   # - cliques(clique_size=1) -> k = 1
   # - cliques(k=1)           -> k = 1
@@ -237,25 +100,23 @@ InitErgmTerm.cliques <- function(nw, arglist, ..., version = packageVersion("erg
       arglist <- list(k = arglist[[1L]])
     }
   }
+
+  # Backward compatibility: accept 'clique_size' and rename it to 'k'
   if (!is.null(names(arglist)) && "clique_size" %in% names(arglist)) {
-    # Backward compatibility: accept 'clique_size' and rename it to 'k'
     arglist[["k"]] <- arglist[["clique_size"]]
     arglist[["clique_size"]] <- NULL
   }
 
-  # Retrieve the actor-mode size N_A from the bipartite attribute.
-  # This is the number of actors; the remaining nodes form the group mode.
-  n1 <- network::get.network.attribute(nw, "bipartite")
-  if (is.null(n1) || is.na(n1)) {
-    ergm_Init_stop(sQuote(termname), ": non-bipartite network or missing 'bipartite' attribute.")
+  # Guard: common typo "size" instead of "k"
+  if (!is.null(names(arglist)) && "size" %in% names(arglist) && !"k" %in% names(arglist)) {
+    ergm_Init_stop(sQuote(termname), ": argument 'size' is not supported; did you mean 'k'?")
   }
-  n1 <- as.integer(n1)
-  if (n1 <= 1L) ergm_Init_stop(sQuote(termname), ": biparti invalide (N1 <= 1).")
 
-  # Run standard ERGM term checks:
-  # - enforce bipartite network;
-  # - expect arguments 'k' and 'normalized';
-  # - let \pkg{ergm} handle generic validations.
+  # ---------------------------------------------------------------------------
+  # Base validation and structural requirements
+  # ---------------------------------------------------------------------------
+  # - Enforce a bipartite network (actor mode / group mode).
+  # - Declare allowed arguments: k, normalized.
   a <- check.ErgmTerm(
     nw, arglist,
     directed      = NULL,
@@ -269,41 +130,67 @@ InitErgmTerm.cliques <- function(nw, arglist, ..., version = packageVersion("erg
   k  <- a$k
   nz <- a$normalized
 
-  # Validate k and normalized:
-  # - require at least one value of k;
-  # - enforce integer k >= 1;
-  # - enforce scalar logical normalized.
+  # ---------------------------------------------------------------------------
+  # Validate k and normalized
+  # ---------------------------------------------------------------------------
   if (length(k) < 1L)
     ergm_Init_stop(sQuote(termname), ": specify at least one value of k.")
+  if (any(is.na(k)))
+    ergm_Init_stop(sQuote(termname), ": 'k' must not contain NA.")
   if (any(k != as.integer(k) | k < 1))
     ergm_Init_stop(sQuote(termname), ": 'k' must contain integers >= 1.")
   if (length(nz) != 1L || is.na(nz))
     ergm_Init_stop(sQuote(termname), ": 'normalized' must be a scalar boolean.")
 
-  # Prepare scaling / mode flags for the C layer:
+  k <- as.integer(k)
+  nz <- isTRUE(nz)
+
+  # ---------------------------------------------------------------------------
+  # Retrieve the actor-mode size N_A from the bipartite attribute
+  # ---------------------------------------------------------------------------
+  n1 <- network::get.network.attribute(nw, "bipartite")
+  if (is.null(n1) || is.na(n1))
+    ergm_Init_stop(sQuote(termname), ": non-bipartite network or missing 'bipartite' attribute.")
+  n1 <- as.integer(n1)
+  if (!is.finite(n1) || n1 < 1L)
+    ergm_Init_stop(sQuote(termname), ": invalid bipartite attribute (must be positive integer).")
+
+  dbgcat("bipartite attribute (n1) =", n1)
+  dbgcat("k (validated) =", paste(k, collapse = ","), " | normalized =", nz)
+
+  # ---------------------------------------------------------------------------
+  # Prepare scaling / mode flags for the C layer
+  # ---------------------------------------------------------------------------
   # - if normalized = FALSE: scale_j > 0 (raw T_k statistic);
   # - if normalized = TRUE : scale_j < 0 (group-size-normalized statistic),
   #   with the absolute value used as an extra multiplicative factor.
   scale <- rep(1, length(k))
-  if (isTRUE(nz)) {
-    # Here we simply encode the "normalized by group size" mode via a negative
-    # scale, with |scale| = 1. This keeps the INPUT_PARAM layout unchanged.
-    scale <- rep(-1, length(k))
-  }
+  if (nz) scale <- rep(-1, length(k))
 
-  # Build coefficient names and INPUT_PARAM for the C layer:
+  # ---------------------------------------------------------------------------
+  # Coefficient names and INPUT_PARAM layout
+  # ---------------------------------------------------------------------------
   # - one coefficient per k;
   # - INPUT_PARAM = (k_1, scale_1, k_2, scale_2, ...).
-  coef.names <- if (isTRUE(nz)) paste0("cliques_k", k, "_grp") else paste0("cliques_k", k)
+  coef.names <- if (nz) paste0("cliques_k", k, "_grp") else paste0("cliques_k", k)
   inputs <- c(rbind(as.integer(k), as.double(scale)))
 
-  # Return the ERGM term specification expected by \pkg{ergm}.
-  # The field 'name' must match the C change-statistic symbol 'cliques'.
+  dbgcat("coef.names =", paste(coef.names, collapse = " | "))
+  dbgcat("inputs length =", length(inputs), " (", length(k), " stats)")
+
+  # ---------------------------------------------------------------------------
+  # Standard ERGM term initialization return value
+  # ---------------------------------------------------------------------------
+  # IMPORTANT:
+  # - `d_func = TRUE` tells ergm to call the multi-toggle (D_) changestat entrypoint.
+  # - Without it, ergm assumes a one-toggle C_ changestat and will call the function
+  #   with the wrong signature if you compiled only a D_ function (=> segfault).
   list(
     name         = "cliques",
     coef.names   = coef.names,
     inputs       = inputs,
     dependence   = TRUE,
+    d_func       = TRUE,                 # <-- REQUIRED for D_CHANGESTAT_FN (multi-toggle)
     emptynwstats = numeric(length(k))
   )
 }

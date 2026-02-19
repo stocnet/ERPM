@@ -1,6 +1,6 @@
 /**
  * @file changestat_cov_diff_GW.c
- * @brief  Change statistic for the ERPM term `cov_diff_GW` (one-toggle form).
+ * @brief  Change statistic for the ERPM term `cov_diff_GW` (multi-toggle form).
  *
  * @details
  *  This file implements the \pkg{ergm} change statistic for the ERPM effect
@@ -98,7 +98,7 @@
  *  Local change under a toggle
  *  ------------------------------------------------------------
  *
- *  A single toggle flips membership of one actor in one group:
+ *  A membership toggle flips membership of one actor in one group:
  *    - addition  : actor becomes a member of the group,
  *    - deletion  : actor leaves the group.
  *
@@ -121,6 +121,30 @@
  *    2. Enumerate all k-subsets for k = 2..n_g and sum D(S).
  *    3. Store the values c_k(g) into arrays ck_before[k] and ck_after[k].
  *    4. Combine them with the weights (-1/λ)^{k-1}.
+ *
+ *  ------------------------------------------------------------
+ *  Implementation in \pkg{ergm} (multi-toggle / D_CHANGESTAT_FN)
+ *  ------------------------------------------------------------
+ *
+ *  IMPORTANT:
+ *  - This effect MUST support multi-toggle proposals (swap/split/merge), which
+ *    ergm decomposes into a sequence of edge toggles (tails/heads arrays).
+ *  - Therefore, the changestat is implemented with D_CHANGESTAT_FN (D_ entrypoint),
+ *    and processes toggles sequentially.
+ *
+ *  Sequential evaluation rule (same pattern as squared_sizes):
+ *    - For each toggle i:
+ *        1) Compute the delta for THAT toggle under the current intermediate state.
+ *        2) Temporarily apply the toggle (TOGGLE_IF_MORE_TO_COME) so subsequent
+ *           toggles see updated degrees/adjs if they touch the same group.
+ *    - At the end, UNDO_PREVIOUS_TOGGLES restores the original network state.
+ *
+ *  Key subtlety:
+ *    - To compute "before" and "after" contributions for a toggle, we apply a
+ *      virtual TOGGLE(t,h) twice (toggle-on then toggle-off). This is local and
+ *      leaves the network unchanged.
+ *    - Then, separately, TOGGLE_IF_MORE_TO_COME(i) applies the actual toggle
+ *      persistently in the intermediate state.
  *
  *  ------------------------------------------------------------
  *  Complexity
@@ -148,61 +172,31 @@
  *    - validates λ values (λ > 1) and the numeric covariate on actors,
  *    - encodes the actor covariate as a numeric vector,
  *    - packs n1, L, the λ vector and the covariate into INPUT_PARAM,
- *    - sets emptynwstats = numeric(L) and L coefficient names.
- *
- *  ------------------------------------------------------------
- *  @example Usage (R)
- *  ------------------------------------------------------------
- *  @code{.r}
- *  library(ERPM)
- *
- *  # Example partition of actors into groups
- *  part <- c(1, 1, 2, 2, 3, 3)  # 6 actors, 3 groups
- *
- *  # Numeric covariate on actors (actor mode)
- *  x <- c(1.0, 2.0, 0.5, 0.9, 1.5, 1.8)
- *
- *  # Geometrically weighted cov_diff with one lambda
- *  fit1 <- erpm(
- *    partition ~ cov_diff_GW(attr = x, lambda = 2),
- *    control = control.erpm(seed = 1)
- *  )
- *  summary(fit1)
- *
- *  # Multiple lambda values (vectorised term)
- *  fit2 <- erpm(
- *    partition ~ cov_diff_GW(attr = x, lambda = c(2, 3, 4)),
- *    control = control.erpm(seed = 1)
- *  )
- *  summary(fit2)
- *
- *  # Internally, each membership toggle between an actor and a group
- *  # calls c_cov_diff_GW(), which:
- *  #   - recomputes c_k(g) for the affected group for all k >= 2
- *  #     before and after a virtual toggle,
- *  #   - combines the differences with the weights (-1/lambda)^(k-1),
- *  #   - updates CHANGE_STAT[l] for each lambda[l].
- *  @endcode
+ *    - sets emptynwstats = numeric(L), L coefficient names,
+ *    - MUST return d_func = TRUE so ergm calls the D_ changestat entrypoint.
  */
 
 #include "ergm_changestat.h"
 #include "ergm_storage.h"
 #include <R_ext/Print.h>
 #include <math.h>
+#include <string.h> /* memset */
 
 /**
  * @def DEBUG_COV_DIFF_GW
- * @brief Enable verbose debugging output for ::c_cov_diff_GW.
+ * @brief Enable verbose debugging output for ::d_cov_diff_GW.
  *
  * Set this macro to 1 to print diagnostic information to the R console
  * during `summary()` or MCMC runs:
  *  - actor and group sizes for the affected group,
  *  - local c_k(g) values before and after a toggle,
- *  - local Δ T_GW for each lambda.
+ *  - local Δ T_GW for each lambda,
+ *  - multi-toggle markers (ntoggles).
  *
  * When set to 0, the compiled code does not emit any debug traces.
  */
 #define DEBUG_COV_DIFF_GW 0
+#define UNUSED_VARIABLE(x) (void)x
 
 /**
  * @def UNUSED_WARNING
@@ -401,17 +395,16 @@ static void group_covdiff_allk(Vertex g,
 }
 
 /* -------------------------------------------------------------------------- */
-/* Change statistic: cov_diff_GW (one-toggle)                                 */
+/* Change statistic: cov_diff_GW (multi-toggle / D_CHANGESTAT_FN)             */
 /* -------------------------------------------------------------------------- */
 
 /**
- * @brief Change statistic for the ERPM term `cov_diff_GW`.
+ * @brief Change statistic for the ERPM term `cov_diff_GW` (multi-toggle).
  *
  * @details
- *  This is the \pkg{ergm} change-statistic function registered as
- *  ::c_cov_diff_GW via ::C_CHANGESTAT_FN. It computes the local change
- *  Δ T_GW(λ_ℓ) for each λ_ℓ when a single membership edge between an actor
- *  (actor mode) and a group (group mode) is toggled.
+ *  This is the \pkg{ergm} multi-toggle change-statistic function registered as
+ *  ::d_cov_diff_GW via ::D_CHANGESTAT_FN. It computes the total change
+ *  Δ T_GW(λ_ℓ) for each λ_ℓ over a proposal that may contain multiple toggles.
  *
  *  The layout of INPUT_PARAM is:
  *
@@ -420,38 +413,31 @@ static void group_covdiff_allk(Vertex g,
  *    INPUT_PARAM[2..1+L]     = lambda[0..L-1]
  *    INPUT_PARAM[2+L..]      = x[0..n1-1] (numeric covariate on actors)
  *
- *  For each toggle:
- *    1. Identify the actor vertex and the group vertex using the boundary
- *       between actor mode and group mode.
- *    2. Compute c_k^-(g) for all k ≥ 2 via group_covdiff_allk() on the
- *       current network (before toggle).
- *    3. Apply a virtual toggle (TOGGLE) on the actor–group edge.
- *    4. Compute c_k^+(g) for all k ≥ 2 via group_covdiff_allk().
- *    5. Undo the virtual toggle.
- *    6. For each λ_ℓ:
+ *  For each toggle i in the proposal:
+ *    1. Identify the actor vertex and the group vertex using n1.
+ *    2. Compute c_k^-(g) for all k ≥ 2 in the CURRENT intermediate state.
+ *    3. Apply a local virtual toggle (TOGGLE) on the actor–group edge.
+ *    4. Compute c_k^+(g) for all k ≥ 2.
+ *    5. Undo the virtual toggle (TOGGLE again).
+ *    6. Combine the differences with weights (-1/λ_ℓ)^{k-1} and accumulate
+ *       into CHANGE_STAT[ℓ].
+ *    7. Temporarily apply the actual toggle (TOGGLE_IF_MORE_TO_COME) so that
+ *       later toggles see updated degrees/adjs.
  *
- *         Δ T_GW(λ_ℓ)
- *           = ∑_{k=2}^{K_max} (-1/λ_ℓ)^{k-1} ( c_k^+(g) - c_k^-(g) ),
- *
- *       where K_max = max(n_g^-, n_g^+), and update:
- *
- *         CHANGE_STAT[ℓ] += Δ T_GW(λ_ℓ).
- *
- *  The parameter @p edgestate is not used in this implementation, as the
- *  virtual TOGGLE explicitly constructs both "before" and "after" states.
- *
- * @param tail       Tail vertex of the toggled edge.
- * @param head       Head vertex of the toggled edge.
- * @param mtp        Pointer to the model term parameters (unused here,
- *                   but required by the macro signature).
- * @param nwp        Pointer to the current network-plus workspace, providing
- *                   adjacency and degree information.
- * @param edgestate  Current state of the edge (unused in this implementation).
+ *  At the end, UNDO_PREVIOUS_TOGGLES restores the original network.
  */
-C_CHANGESTAT_FN(c_cov_diff_GW){
-  /* 1) Reset the output buffer for THIS toggle. */
-  ZERO_ALL_CHANGESTATS(0);
-  UNUSED_WARNING(edgestate);
+D_CHANGESTAT_FN(d_cov_diff_GW){
+
+#if DEBUG_COV_DIFF_GW
+  static int seen = 0;
+  if(ntoggles > 1 && seen < 10){
+    Rprintf("[cov_diff_GW] MULTI-TOGGLE ntoggles=%d\n", (int)ntoggles);
+    seen++;
+  }
+#endif
+
+  /* 1) Reset output buffer for the whole proposal. */
+  ZERO_ALL_CHANGESTATS();
 
   /* 2) Read inputs from INPUT_PARAM. */
   const double *ip     = INPUT_PARAM;
@@ -465,77 +451,81 @@ C_CHANGESTAT_FN(c_cov_diff_GW){
           n1, L, (L > 0 ? lambda[0] : NA_REAL));
 #endif
 
-  /* 3) Identify actor and group vertices for the current toggle.
-   *
-   * Actor vertices are 1..n1 (actor mode).
-   * Group vertices are > n1 (group mode).
-   */
-  Vertex a = tail, b = head;
-  Vertex actor = (a <= (Vertex)n1) ? a : b;  /* actor vertex in the actor mode */
-  Vertex group = (a <= (Vertex)n1) ? b : a;  /* group vertex in the group mode */
-  UNUSED_WARNING(actor);
-
-  /* 4) Allocate buffers for c_k(g) before and after, and for actor indices. */
-  double *ck_before = (double *)R_Calloc(n1 + 1, double);
-  double *ck_after  = (double *)R_Calloc(n1 + 1, double);
+  /* 3) Allocate reusable buffers once (per proposal). */
+  const int ck_len = n1 + 1;
+  double *ck_before = (double *)R_Calloc(ck_len, double);
+  double *ck_after  = (double *)R_Calloc(ck_len, double);
   int    *idxs      = (int    *)R_Calloc(n1,     int);
 
-  int ng_before = 0;
-  int ng_after  = 0;
+  /* 4) Process toggles sequentially. */
+  int i = 0;
+  FOR_EACH_TOGGLE(i){
 
-  /* 5) c_k(g) before the toggle. */
-  group_covdiff_allk(group, n1, x, nwp, &ng_before, ck_before, n1 + 1, idxs);
+    Vertex t = TAIL(i);
+    Vertex h = HEAD(i);
 
-  /* Apply the virtual toggle (single-edge API). */
-  TOGGLE(a, b);
-
-  /* c_k(g) after the toggle. */
-  group_covdiff_allk(group, n1, x, nwp, &ng_after, ck_after, n1 + 1, idxs);
-
-  /* Undo the virtual toggle to restore original state. */
-  TOGGLE(a, b);
-
-  /* 6) Local maximum group size for this group: Kmax = max(ng_before, ng_after). */
-  int Kmax = (ng_before > ng_after) ? ng_before : ng_after;
-  if(Kmax < 2){
-    /* No contribution if the group has size < 2 in both states. */
-    R_Free(ck_before);
-    R_Free(ck_after);
-    R_Free(idxs);
-    return;
-  }
-
-  /* 7) For each lambda_ℓ, compute Δ T_GW(λ_ℓ) as:
-   *
-   *      Δ T_GW(λ_ℓ)
-   *        = ∑_{k=2}^{Kmax} (-1/λ_ℓ)^{k-1} (c_k^+ - c_k^-).
-   */
-  for(int l = 0; l < L; l++){
-    double lam  = lambda[l];
-    double base = -1.0 / lam;  /* weight base for k = 2 */
-    double pow  = base;        /* current power corresponds to (k-1) for k=2 */
-    double deltaT = 0.0;
-
-    for(int k = 2; k <= Kmax; k++){
-      double ckB = ck_before[k];
-      double ckA = ck_after[k];
-      double dck = ckA - ckB;
-      if(dck != 0.0){
-        deltaT += pow * dck;
-      }
-      /* Update weight for next k: (-1/λ)^{(k+1)-1} = (-1/λ)^k. */
-      pow *= base;
-    }
-
-    CHANGE_STAT[l] += deltaT;
+    /* Identify actor and group vertices for the current toggle. */
+    Vertex actor = (t <= (Vertex)n1) ? t : h;
+    Vertex group = (t <= (Vertex)n1) ? h : t;
 
 #if DEBUG_COV_DIFF_GW
-    Rprintf("[cov_diff_GW] a=%d b=%d group=%d lambda[%d]=%g -> DeltaT=%g\n",
-            (int)a, (int)b, (int)group, l+1, lam, deltaT);
+    if(!(actor <= (Vertex)n1 && group > (Vertex)n1)){
+      Rprintf("[cov_diff_GW][WARN] toggle #%d not (actor,group): tail=%d head=%d (n1=%d)\n",
+              i, (int)t, (int)h, n1);
+    }
 #endif
+
+    /* Clear ck buffers (defensive: avoids stale values for k > ng). */
+    memset(ck_before, 0, (size_t)ck_len * sizeof(double));
+    memset(ck_after,  0, (size_t)ck_len * sizeof(double));
+
+    int ng_before = 0;
+    int ng_after  = 0;
+
+    /* c_k(g) before the toggle (current intermediate state). */
+    group_covdiff_allk(group, n1, x, nwp, &ng_before, ck_before, ck_len, idxs);
+
+    /* Virtual toggle on this dyad (compute "after"). */
+    TOGGLE(t, h);
+    group_covdiff_allk(group, n1, x, nwp, &ng_after, ck_after, ck_len, idxs);
+    TOGGLE(t, h); /* undo virtual toggle */
+
+    /* Local maximum group size for this group. */
+    int Kmax = (ng_before > ng_after) ? ng_before : ng_after;
+    if(Kmax >= 2){
+
+      /* For each lambda_ℓ, compute Δ T_GW(λ_ℓ). */
+      for(int l = 0; l < L; l++){
+        double lam  = lambda[l];
+        double base = -1.0 / lam;  /* weight base for k = 2 */
+        double pw   = base;        /* (-1/lam)^(k-1) with k=2 => power 1 */
+        double deltaT = 0.0;
+
+        for(int k = 2; k <= Kmax; k++){
+          double dck = ck_after[k] - ck_before[k];
+          if(dck != 0.0){
+            deltaT += pw * dck;
+          }
+          pw *= base;
+        }
+
+        CHANGE_STAT[l] += deltaT;
+
+#if DEBUG_COV_DIFF_GW
+        Rprintf("[D:cov_diff_GW] i=%d tail=%d head=%d | group=%d | ng=%d->%d | lambda[%d]=%g | Δ=%g | cumul=%g\n",
+                i, (int)t, (int)h, (int)group, ng_before, ng_after, l+1, lam, deltaT, CHANGE_STAT[l]);
+#endif
+      }
+    }
+
+    /* Apply the actual toggle temporarily so later toggles see updated state. */
+    TOGGLE_IF_MORE_TO_COME(i);
   }
 
-  /* 8) R_Free local buffers. */
+  /* 5) Undo temporary toggles to restore the original network state. */
+  UNDO_PREVIOUS_TOGGLES(i);
+
+  /* 6) Release buffers. */
   R_Free(ck_before);
   R_Free(ck_after);
   R_Free(idxs);

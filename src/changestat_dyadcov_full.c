@@ -1,6 +1,6 @@
 /**
  * @file changestat_dyadcov_full.c
- * @brief  Change statistic for the ERPM term `dyadcov_full` (one-toggle form).
+ * @brief  Change statistic for the ERPM term `dyadcov_full` (MULTI-TOGGLE form).
  *
  * @details
  *  This file implements the \pkg{ergm} change statistic for the ERPM effect
@@ -44,34 +44,32 @@
  *  If S is empty (no size filter), all groups with n_g ≥ 2 contribute.
  *
  *  ------------------------------------------------------------
- *  Implementation outline (one-toggle)
+ *  Implementation outline (MULTI-TOGGLE / D_CHANGESTAT_FN)
  *  ------------------------------------------------------------
  *
- *  The change statistic is computed in “one-toggle” form:
+ *  Why multi-toggle:
+ *    - In ERPM / constrained bipartite proposals, one conceptual move
+ *      (swap/split/merge) is often represented as a list of membership toggles.
+ *    - Several toggles can affect the same group, so we must evaluate changes
+ *      under the evolving intermediate state.
  *
- *    1. A single membership toggle connects one actor (actor mode) and
- *       one group (group mode).
+ *  Strategy:
+ *    - We compute, for each toggle, the group-level change:
  *
- *    2. For the affected group g:
- *         - reconstruct its actor members from the current network,
- *         - compute F_before = F_g(Z) under the current membership.
+ *          Δ_i = F_after - F_before
  *
- *    3. Apply a virtual toggle (::TOGGLE) for (actor, group):
- *         - reconstruct the actor members again,
- *         - compute F_after = F_g(Z) under the virtually updated membership.
+ *      where F_before is evaluated on the current intermediate network,
+ *      and F_after is evaluated on the network with the toggle applied.
  *
- *    4. Undo the virtual toggle (::TOGGLE) to restore the network.
+ *    - For toggles 1..(ntoggles-1), we apply the toggle "for real" in the
+ *      intermediate state using TOGGLE_IF_MORE_TO_COME(i), so subsequent toggles
+ *      see updated memberships.
  *
- *    5. The local change is:
+ *    - For the last toggle, TOGGLE_IF_MORE_TO_COME(i) does not apply it (by design),
+ *      so we apply a local virtual TOGGLE only to measure F_after, then undo it.
  *
- *         Δ = F_after − F_before.
- *
- *    6. The scalar change statistic is updated as:
- *
- *         CHANGE_STAT[0] += Δ.
- *
- *  The \pkg{ergm} engine accumulates Δ over all toggles to obtain the
- *  total statistic during MCMC or summary evaluation.
+ *    - At the end, UNDO_PREVIOUS_TOGGLES(i) restores the original network state
+ *      by undoing the intermediate toggles applied via TOGGLE_IF_MORE_TO_COME.
  *
  *  ------------------------------------------------------------
  *  INPUT_PARAM layout
@@ -117,49 +115,24 @@
 
 /**
  * @def DEBUG_DYADCOV_FULL
- * @brief Enable verbose debugging output for ::c_dyadcov_full.
+ * @brief Enable verbose debugging output for ::d_dyadcov_full.
  *
  * Set this macro to 1 to print diagnostic information to the R console
  * during `summary()` or MCMC runs:
- *  - group sizes and membership lists,
- *  - group-wise sums of dyadic covariates,
- *  - F_before, F_after and the local Δ.
+ *  - multi-toggle detection (ntoggles>1),
+ *  - toggle endpoints and touched group,
+ *  - F_before / F_after / Δ per toggle.
  *
  * When set to 0, the compiled code does not emit any debug traces.
  */
 #define DEBUG_DYADCOV_FULL 0   /* set to 0 to disable debug output */
 
-/**
- * @def UNUSED_WARNING
- * @brief Mark a parameter as intentionally unused.
- *
- * @param x Identifier of the unused variable.
- *
- * This macro is used to silence compiler warnings when a parameter is required
- * by the interface but not directly accessed in the implementation.
- */
 #define UNUSED_WARNING(x) (void)x
 
 /* -------------------------------------------------------------------------- */
 /* Size filter: in_sizes                                                      */
 /* -------------------------------------------------------------------------- */
 
-/**
- * @brief Check whether a group size is contained in the allowed size set.
- *
- * @details
- *  The size filter S is represented by a vector @p sizes of length @p L.
- *  The effective rule is:
- *    - if L == 0, all sizes are accepted;
- *    - otherwise, a size @p n is accepted iff it matches one of the values
- *      in @p sizes (after casting to int).
- *
- * @param n      Group size to test.
- * @param L      Length of the filter vector @p sizes.
- * @param sizes  Pointer to a vector of length @p L containing allowed sizes.
- *
- * @return 1 if @p n is allowed, 0 otherwise.
- */
 static inline int in_sizes(int n, int L, const double *sizes){
   if(L == 0) return 1;
   for(int i = 0; i < L; i++){
@@ -169,46 +142,9 @@ static inline int in_sizes(int n, int L, const double *sizes){
 }
 
 /* -------------------------------------------------------------------------- */
-/* Group-level functional: group_dyadcov                                     */
+/* Group-level functional: group_dyadcov                                      */
 /* -------------------------------------------------------------------------- */
 
-/**
- * @brief Compute the dyadic covariate sum for one group vertex.
- *
- * @details
- *  For a group vertex @p g in the group mode, this function:
- *
- *    1. Identifies all actor neighbours connected to @p g via outgoing
- *       and incoming edges.
- *
- *    2. Counts them to obtain the group size n_g.
- *
- *    3. Applies the size filter:
- *         - if n_g <= 1, or
- *         - if n_g is not in the allowed size set S,
- *       then the contribution is 0.
- *
- *    4. Otherwise, collects the actor vertex indices in an array and
- *       computes:
- *
- *         ∑_{i != j, i,j ∈ A(g)} z_ij,
- *
- *       where Z is a n1 × n1 dyadic covariate matrix in column-major order.
- *
- *    For symmetric Z, this is equal to 2 × ∑_{i<j} z_ij. No division by 2 is
- *    applied.
- *
- * @param g       Group vertex whose actor members define the group.
- * @param n1      Number of actors (dimension of the actor mode).
- * @param L       Length of the size filter vector @p sizes.
- * @param sizes   Pointer to the vector of allowed group sizes (may have L=0).
- * @param Z       Pointer to the dyadic covariate matrix (n1*n1, column-major).
- * @param nwp     Pointer to the \pkg{ergm} Network structure (provides edges).
- *
- * @return The sum of z_ij over all ordered actor pairs i != j inside group
- *         @p g that satisfy the size filter, or 0.0 if n_g <= 1 or n_g is not
- *         allowed.
- */
 static double group_dyadcov(Vertex g,
                             int n1, int L, const double *sizes,
                             const double *Z,
@@ -245,8 +181,7 @@ static double group_dyadcov(Vertex g,
   /* Empty/singleton group or filtered out by size -> zero contribution. */
   if(ng <= 1 || !in_sizes(ng, L, sizes)){
 #if DEBUG_DYADCOV_FULL
-    Rprintf("[dyadcov_full][group_dyadcov] g=%d ng=%d -> 0 (empty/singleton/not in S)\n",
-            (int)g, ng);
+    Rprintf("[dyadcov_full][group] g=%d ng=%d -> 0\n", (int)g, ng);
 #endif
     R_Free(seen);
     return 0.0;
@@ -263,7 +198,10 @@ static double group_dyadcov(Vertex g,
 
   double sum = 0.0;
 
-  /* Sum over all ordered actor pairs i != j inside group g. */
+  /* Sum over all ordered actor pairs i != j inside group g.
+   *
+   * We compute it as sum_{i<j} (z_ij + z_ji).
+   */
   for(int p = 0; p < ng; p++){
     int i = actors[p];             /* 1..n1 */
     int row = i - 1;               /* 0..n1-1 */
@@ -281,8 +219,7 @@ static double group_dyadcov(Vertex g,
   }
 
 #if DEBUG_DYADCOV_FULL
-  Rprintf("[dyadcov_full][group_dyadcov] g=%d ng=%d -> sum=%g\n",
-          (int)g, ng, sum);
+  Rprintf("[dyadcov_full][group] g=%d ng=%d -> sum=%g\n", (int)g, ng, sum);
 #endif
 
   R_Free(actors);
@@ -292,101 +229,95 @@ static double group_dyadcov(Vertex g,
 }
 
 /* -------------------------------------------------------------------------- */
-/* Change statistic: dyadcov_full (one-toggle)                                */
+/* Change statistic: dyadcov_full (MULTI-TOGGLE)                               */
 /* -------------------------------------------------------------------------- */
 
 /**
- * @brief Change statistic for the ERPM term `dyadcov_full`.
+ * @brief Change statistic for the ERPM term `dyadcov_full` (multi-toggle).
  *
  * @details
  *  This is the \pkg{ergm} change-statistic function registered as
- *  ::c_dyadcov_full via ::C_CHANGESTAT_FN. It implements the one-toggle
- *  update for the dyadic covariate statistic over actor pairs inside
- *  groups, with optional size filtering.
+ *  ::d_dyadcov_full via ::D_CHANGESTAT_FN.
  *
- *  For a membership toggle (actor, group):
+ *  The function processes the list of toggles sequentially. For each toggle,
+ *  it computes the local change in the statistic for the unique touched group:
  *
- *    - It identifies the actor vertex (actor mode) and the group vertex
- *      (group mode) from the tail/head pair and the actor count n1.
+ *      Δ = F_after − F_before
  *
- *    - It computes F_before = F_g(Z) for the group in the current
- *      network using ::group_dyadcov().
+ *  with:
+ *    - F_before evaluated on the current intermediate network,
+ *    - F_after evaluated on the network where the toggle is applied.
  *
- *    - It applies a virtual toggle (::TOGGLE) for (actor, group) and
- *      computes F_after = F_g(Z) on the virtually updated network.
+ *  Intermediate state handling:
+ *    - For toggles i < ntoggles-1:
+ *        we apply the toggle via TOGGLE_IF_MORE_TO_COME(i), then evaluate F_after
+ *        on the updated intermediate network.
+ *    - For the last toggle:
+ *        TOGGLE_IF_MORE_TO_COME(i) does not apply the toggle. We therefore apply
+ *        a local virtual TOGGLE only to evaluate F_after, then immediately undo it.
  *
- *    - It restores the network by toggling the edge back (::TOGGLE).
- *
- *    - The local change is:
- *
- *          Δ = F_after − F_before,
- *
- *      and this is added to the single scalar statistic:
- *
- *          CHANGE_STAT[0] += Δ.
- *
- * @param tail       Tail vertex of the toggled edge (actor or group).
- * @param head       Head vertex of the toggled edge (actor or group).
- * @param mtp        Pointer to the model term structure (unused directly
- *                   here but required by the macro signature).
- * @param nwp        Pointer to the network-plus workspace (used by
- *                   ::group_dyadcov to inspect edges).
- * @param edgestate  Current state of the edge:
- *                   - 0 if the edge is absent (toggle = addition),
- *                   - 1 if the edge is present (toggle = deletion).
- *
- * @note
- *  - The actor mode is determined by n1 from INPUT_PARAM; vertices with
- *    index ≤ n1 are actors, vertices with index > n1 are groups.
- *  - The term is non-vectorised: N_CHANGE_STATS == 1 and only
- *    CHANGE_STAT[0] is written.
- *  - The parameter @p edgestate is not used explicitly; the function
- *    relies on virtual toggling to obtain “before” and “after” values.
+ *  Finally, UNDO_PREVIOUS_TOGGLES(i) restores the original network state by
+ *  undoing the intermediate toggles applied by TOGGLE_IF_MORE_TO_COME.
  */
-C_CHANGESTAT_FN(c_dyadcov_full){
-  /* 1) Reset the output buffer for THIS toggle. */
-  ZERO_ALL_CHANGESTATS(0);
-  UNUSED_WARNING(edgestate);
+D_CHANGESTAT_FN(d_dyadcov_full){
 
-  /* 2) Decode INPUT_PARAM layout:
-   *    [0]      = n1
-   *    [1]      = L
-   *    [2..1+L] = sizes[L]
-   *    [2+L..]  = Z[n1*n1] (column-major).
-   */
+#if DEBUG_DYADCOV_FULL
+  static int seen_multi = 0;
+  if(ntoggles > 1 && seen_multi < 20){
+    Rprintf("[dyadcov_full] MULTI-TOGGLE ntoggles=%d\n", (int)ntoggles);
+    seen_multi++;
+  }
+#endif
+
+  /* 1) Reset output buffer (vector length = N_CHANGE_STATS, here 1). */
+  ZERO_ALL_CHANGESTATS();
+
+  /* 2) Decode INPUT_PARAM layout. */
   const double *ip    = INPUT_PARAM;
   const int n1        = (int)ip[0];
   const int L         = (int)ip[1];
   const double *sizes = ip + 2;
   const double *Z     = ip + 2 + L;
 
+  /* 3) Process toggles sequentially. */
+  int i = 0;
+  FOR_EACH_TOGGLE(i){
+
+    Vertex a = TAIL(i);
+    Vertex b = HEAD(i);
+
+    /* Identify actor/group endpoints for this toggle (robust to order). */
+    Vertex actor = (a <= (Vertex)n1) ? a : b;
+    Vertex group = (a <= (Vertex)n1) ? b : a;
+    UNUSED_WARNING(actor);
+
+    /* Evaluate before on the current intermediate state. */
+    double F_before = group_dyadcov(group, n1, L, sizes, Z, nwp);
+
+    /* Apply intermediate toggle if more toggles remain. */
+    TOGGLE_IF_MORE_TO_COME(i);
+
+    double F_after = 0.0;
+
+    if(i < (int)ntoggles - 1){
+      /* Toggle already applied to intermediate network. */
+      F_after = group_dyadcov(group, n1, L, sizes, Z, nwp);
+    } else {
+      /* Last toggle: not applied by TOGGLE_IF_MORE_TO_COME. Do a local virtual toggle. */
+      TOGGLE(a, b);
+      F_after = group_dyadcov(group, n1, L, sizes, Z, nwp);
+      TOGGLE(a, b);
+    }
+
+    double delta = (F_after - F_before);
+    CHANGE_STAT[0] += delta;
+
 #if DEBUG_DYADCOV_FULL
-  Rprintf("[dyadcov_full] n1=%d L=%d\n", n1, L);
+    Rprintf("[D:d_dyadcov_full] i=%d tail=%d head=%d | group=%d | before=%g after=%g Δ=%g | cumul=%g\n",
+            i, (int)a, (int)b, (int)group, F_before, F_after, delta, CHANGE_STAT[0]);
 #endif
+  }
 
-  /* 3) Identify the actor and group vertices for this toggle. */
-  Vertex a = tail, b = head;
-  Vertex actor = (a <= (Vertex)n1) ? a : b;
-  Vertex group = (a <= (Vertex)n1) ? b : a;
-  UNUSED_WARNING(actor);  /* actor is not used further explicitly. */
-
-  /* 4) Group contribution BEFORE the virtual toggle. */
-  double F_before = group_dyadcov(group, n1, L, sizes, Z, nwp);
-
-  /* 5) Virtual toggle: temporarily change the membership edge. */
-  TOGGLE(a, b);
-
-  /* 6) Group contribution AFTER the virtual toggle. */
-  double F_after = group_dyadcov(group, n1, L, sizes, Z, nwp);
-
-  /* 7) Restore the original network by undoing the virtual toggle. */
-  TOGGLE(a, b);
-
-  /* 8) Compute and accumulate the local change Δ. */
-  CHANGE_STAT[0] += (F_after - F_before);
-
-#if DEBUG_DYADCOV_FULL
-  Rprintf("[dyadcov_full] a=%d b=%d group=%d before=%g after=%g delta=%g\n",
-          (int)a, (int)b, (int)group, F_before, F_after, (F_after - F_before));
-#endif
+  /* 4) Restore original network state (undo intermediate toggles). */
+  UNDO_PREVIOUS_TOGGLES(i);
 }

@@ -1,6 +1,11 @@
-/**
+/* ============================================================================
+ * File    : src/changestat_cov_ingroup.c
+ * Purpose : Change statistic for the ERPM term `cov_ingroup` (MULTI-TOGGLE form).
+ * Project : ERPM / ERGM extensions
+ * ============================================================================
+ *
  * @file changestat_cov_ingroup.c
- * @brief  Change statistic for the ERPM term `cov_ingroup` (one-toggle form).
+ * @brief  Change statistic for the ERPM term `cov_ingroup` (multi-toggle form).
  *
  * @details
  *  This file implements the \pkg{ergm} change statistic for the ERPM effect
@@ -63,8 +68,25 @@
  *      Δ = T_after(g) - T_before(g)
  *        = (n' * X' * w(n')) - (n * X * w(n)).
  *
- *  All other groups are unchanged by this toggle and contribute zero
- *  to the change statistic.
+ *  ------------------------------------------------------------
+ *  IMPORTANT (multi-toggle / D_CHANGESTAT_FN)
+ *  ------------------------------------------------------------
+ *
+ *  This term MUST support multi-toggle moves (swap/split/merge proposals)
+ *  represented as a list of toggles in ergm’s MCMC.
+ *
+ *  Therefore:
+ *    - the compiled change-statistic is implemented using D_CHANGESTAT_FN,
+ *      with the symbol name: d_cov_ingroup
+ *    - the R initializer MUST return d_func = TRUE so ergm calls the
+ *      multi-toggle entrypoint with the correct signature.
+ *
+ *  Multi-toggle correctness constraint:
+ *    - multiple toggles may affect the same group in the same proposal;
+ *    - we must process toggles sequentially and TEMPORARILY apply them
+ *      (TOGGLE_IF_MORE_TO_COME) so subsequent toggles see updated degrees
+ *      and neighbourhoods;
+ *    - we must UNDO_PREVIOUS_TOGGLES at the end to restore the original state.
  *
  *  ------------------------------------------------------------
  *  Bipartite structure and actors/groups
@@ -78,10 +100,6 @@
  *    - the number of actors n1 stored in INPUT_PARAM[0] matches BIPARTITE,
  *    - each membership toggle connects exactly one actor (vertex ≤ n1)
  *      and one group (vertex > n1).
- *
- *  The group vertex is detected as the endpoint in the group mode
- *  (vertex index > BIPARTITE), and the actor vertex as the endpoint
- *  in the actor mode (vertex index ≤ BIPARTITE).
  *
  *  ------------------------------------------------------------
  *  INPUT_PARAM layout (from InitErgmTerm.cov_ingroup)
@@ -102,95 +120,42 @@
  *    - sizes[ ]    = allowed group sizes (as doubles, cast to int),
  *    - x[1..n1]    = numeric covariate values on the actor mode.
  *
- *  In C, this becomes:
- *
- *    INPUT_PARAM[0]          = n1
- *    INPUT_PARAM[1]          = L
- *    INPUT_PARAM[2..2+L-1]   = sizes[0..L-1]
- *    INPUT_PARAM[2+L..]      = x[0..n1-1]
- *
  *  Special case:
  *    - If L == 0, every group size is accepted (no filter).
  *
  *  The term returns a single scalar statistic:
- *
  *    - N_CHANGE_STATS = 1,
- *    - CHANGE_STAT[0] is updated by the local Δ at each toggle.
- *
- *  ------------------------------------------------------------
- *  Implementation notes
- *  ------------------------------------------------------------
- *
- *  For each toggle:
- *    1. Identify the actor vertex v1 and the group vertex v2.
- *    2. Read the current degree of v2 as:
- *         deg_old = OUT_DEG[v2] + IN_DEG[v2],
- *       which equals n_g before the toggle.
- *    3. Compute X = ∑_{i ∈ A(g)} x_i by traversing neighbours of v2
- *       in the actor mode. In the implementation below, this is done by
- *       summing both outgoing and incoming edges via a helper macro
- *       that is agnostic to edge orientation.
- *    4. Build the "after" quantities:
- *         n_new = deg_old ± 1,
- *         X_new = X ± x_i,
- *       depending on whether the toggle is an addition or deletion.
- *    5. Check the size filter S on n and n_new, via in_sizes_set().
- *    6. Compute:
- *         Δ = (n_new * X_new * w_new) - (deg_old * X * w_old),
- *       and add it to CHANGE_STAT[0].
- *
- *  The code does not toggle the edge inside the network; it uses the
- *  current adjacency combined with the sign derived from edgestate.
+ *    - CHANGE_STAT[0] is updated by the local Δ at each toggle (and accumulated
+ *      over all toggles in the proposal).
  *
  *  ------------------------------------------------------------
  *  Complexity
  *  ------------------------------------------------------------
  *
- *  For a single toggle involving group g:
+ *  For each toggle involving group g (under the current intermediate state):
  *    - retrieving deg_old is O(1),
  *    - building X is O(deg(g)) via neighbour traversal,
  *    - all scalar operations are O(1).
- *
- *  No persistent state is stored across toggles; recomputation is
- *  local to the affected group.
  *
  *  ------------------------------------------------------------
  *  R interface
  *  ------------------------------------------------------------
  *
  *  The R initialiser (InitErgmTerm.cov_ingroup):
- *    - validates the actor attribute x and the size filter S,
+ *    - validates the actor covariate vector and the size filter S,
  *    - packs n1, L, sizes, and x into INPUT_PARAM,
+ *    - sets d_func = TRUE (REQUIRED for this D_ changestat),
  *    - sets emptynwstats = 0 and a single coef.name.
  *
  *  ------------------------------------------------------------
- *  @example Usage (R)
+ *  Debugging
  *  ------------------------------------------------------------
- *  @code{.r}
- *  library(ERPM)
  *
- *  # Example partition: 6 actors into 3 groups
- *  part <- c(1, 1, 2, 2, 3, 3)
- *
- *  # Numeric covariate on actors (e.g., a score or weight)
- *  x <- c(1.0, 2.0, 0.5, 1.5, 3.0, 2.5)
- *
- *  # Unfiltered cov_ingroup: all group sizes contribute
- *  fit1 <- erpm(partition ~ cov_ingroup(attr = x))
- *  summary(fit1)
- *
- *  # Filtered version: only groups with size 2 or 3 contribute
- *  fit2 <- erpm(partition ~ cov_ingroup(attr = x, size = c(2, 3)))
- *  summary(fit2)
- *
- *  # Internally, each membership toggle between an actor and a group
- *  # calls c_cov_ingroup(), which:
- *  #   - reconstructs the sum of x in the affected group,
- *  #   - computes the before/after quantities n * X,
- *  #   - applies the size filter,
- *  #   - updates CHANGE_STAT[0] by the local Δ.
- *  @endcode
- */
+ *  Compile-time debug macro DEBUG_COV_INGROUP:
+ *    - if set to 1, prints per-toggle diagnostics.
+ *    - prints an explicit "MULTI-TOGGLE ntoggles=..." banner (limited to a few).
+ *  This is intentionally compile-time (like squared_sizes) to avoid runtime cost.
+ * ============================================================================ */
 
 #include <math.h>
 #include "ergm_changestat.h"
@@ -199,7 +164,7 @@
 
 /**
  * @def DEBUG_COV_INGROUP
- * @brief Enable or disable verbose debugging output for ::c_cov_ingroup.
+ * @brief Enable or disable verbose debugging output for ::d_cov_ingroup.
  *
  * When set to 1, the change-statistic function prints diagnostic information
  * to the R console for each toggle:
@@ -235,7 +200,6 @@
  */
 static inline int in_sizes_set(int n, const double *in, int L){
   if(L <= 0) return 1; /* no filter: all sizes accepted */
-  /* in[0..L-1] stores allowed sizes as doubles, cast to int for comparison */
   for(int k = 0; k < L; ++k){
     if((int)in[k] == n) return 1;
   }
@@ -250,38 +214,32 @@ static inline int in_sizes_set(int n, const double *in, int L){
  * @brief Sum x over all actor neighbours of a group vertex v2.
  *
  * @details
- *  This helper is orientation-agnostic: it traverses both outgoing and
- *  incoming edges of v2 and accumulates the covariate x on actor-mode
- *  vertices 1..n1. It assumes:
+ *  Orientation-agnostic: traverses both outgoing and incoming edges of v2 and
+ *  accumulates x on actor-mode vertices 1..n1.
  *
- *    - actors have indices 1..n1,
- *    - groups have indices n1+1..N_NODES.
- *
- *  It relies on \pkg{ergm}'s STEP_THROUGH_OUTEDGES and STEP_THROUGH_INEDGES
- *  macros and the conventional Network* pointer named `nwp`.
+ *  This must be correct under the CURRENT INTERMEDIATE STATE in multi-toggle
+ *  mode (i.e., after some previous toggles have been temporarily applied).
  *
  * @param v2  Group vertex index (group mode).
  * @param x   Pointer to covariate values x[0..n1-1] on actors.
  * @param n1  Number of actors (size of actor mode).
- * @param nwp Network workspace pointer (required by \pkg{ergm} macros).
+ * @param nwp Network workspace pointer (required by ergm macros).
  *
  * @return Sum of x_i over all actor neighbours i of v2.
  */
 static inline double SAFE_SUM_GROUP(Vertex v2, const double *x, int n1, Network *nwp){
-  (void)nwp; /* silence unused warning in case macros don't reference it explicitly */
+  (void)nwp;
 
   double X = 0.0;
   Vertex h;
   Edge e;
 
-  /* Outgoing edges from group vertex v2 */
   STEP_THROUGH_OUTEDGES(v2, e, h){
     if(h >= (Vertex)1 && h <= (Vertex)n1){
       X += x[(int)h - 1];
     }
   }
 
-  /* Incoming edges to group vertex v2 */
   STEP_THROUGH_INEDGES(v2, e, h){
     if(h >= (Vertex)1 && h <= (Vertex)n1){
       X += x[(int)h - 1];
@@ -292,129 +250,109 @@ static inline double SAFE_SUM_GROUP(Vertex v2, const double *x, int n1, Network 
 }
 
 /* -------------------------------------------------------------------------- */
-/* Change statistic: cov_ingroup (one-toggle)                                 */
+/* Change statistic: cov_ingroup (multi-toggle)                               */
 /* -------------------------------------------------------------------------- */
 
 /**
- * @brief Change statistic for the ERPM term `cov_ingroup`.
+ * @brief Change statistic for the ERPM term `cov_ingroup` (multi-toggle).
  *
  * @details
- *  This is the \pkg{ergm} change-statistic function registered as
- *  ::c_cov_ingroup via ::C_CHANGESTAT_FN. It computes the local change
- *  Δ for the ingroup covariate statistic when a single membership edge
- *  between an actor and a group is toggled.
+ *  Implemented as ::D_CHANGESTAT_FN(d_cov_ingroup).
  *
- *  The layout of INPUT_PARAM is:
+ *  For each toggle in the proposal (under the current intermediate state):
+ *    1. Identify the actor vertex v1 and the group vertex v2.
+ *    2. Read deg_old (current group size).
+ *    3. Recompute X (current sum of x in the group).
+ *    4. Infer n_new and X_new after applying this toggle.
+ *    5. Apply the size filter on deg_old and n_new.
+ *    6. Accumulate Δ = (n_new*X_new*w_new) - (deg_old*X*w_old).
+ *    7. Temporarily apply the toggle so later toggles see updated state.
  *
- *    INPUT_PARAM[0]        = n1               (number of actors, actor mode)
- *    INPUT_PARAM[1]        = L                (size of the size filter S)
- *    INPUT_PARAM[2..2+L-1] = sizes[0..L-1]    (allowed group sizes, as doubles)
- *    INPUT_PARAM[2+L..]    = x[0..n1-1]       (numeric covariate on actors)
- *
- *  The function:
- *    - identifies the actor vertex v1 and the group vertex v2 for the
- *      current toggle,
- *    - reconstructs the group size and sum of x in the group,
- *    - infers n_new and X_new after the hypothetical toggle,
- *    - applies the size filter before and after,
- *    - computes:
- *
- *          Δ = (n_new * X_new * w_new) - (deg_old * X * w_old),
- *
- *      and adds Δ to CHANGE_STAT[0].
- *
- *  The parameter @p edgestate indicates whether the edge currently exists:
- *    - edgestate = 0 → edge is absent (toggle = addition),
- *    - edgestate = 1 → edge is present (toggle = deletion).
- *
- *  The network itself is not modified; only the sign and magnitude of
- *  the change are computed based on the current state.
- *
- * @param tail       Tail vertex of the toggled edge.
- * @param head       Head vertex of the toggled edge.
- * @param mtp        Pointer to the model term parameters (unused here,
- *                   but required by the macro signature).
- * @param nwp        Pointer to the network-plus workspace, providing
- *                   adjacency and degree information.
- * @param edgestate  Current state of the edge:
- *                   - 0 if the edge is absent (toggle = addition),
- *                   - 1 if the edge is present (toggle = deletion).
+ *  At the end: UNDO_PREVIOUS_TOGGLES to restore the original network state.
  */
-C_CHANGESTAT_FN(c_cov_ingroup){
-  /* 1) Reset the output buffer for THIS toggle.
-   *
-   * \pkg{ergm} accumulates contributions across multiple toggles; this function
-   * sets the local Δ for the current one.
-   */
-  ZERO_ALL_CHANGESTATS(0);
-
-  /* 2) Read inputs from INPUT_PARAM. */
-  const int n1 = (int)INPUT_PARAM[0];  /* number of actors in actor mode */
-  const int L  = (int)INPUT_PARAM[1];  /* length of size filter S */
-
-  /* sizes[] points to the allowed size set S, if any; x[] to actor covariates. */
-  const double *sizes = (L > 0) ? (&INPUT_PARAM[2])      : NULL;
-  const double *x     = (L > 0) ? (&INPUT_PARAM[2+L])    : (&INPUT_PARAM[2]);
-
-  /* 3) Identify the actor vertex v1 and the group vertex v2 for this toggle.
-   *
-   * The boundary between actor mode and group mode is BIPARTITE, which
-   * must coincide with n1.
-   *
-   *  - actor vertices: 1 .. n1,
-   *  - group vertices: n1+1 .. N_NODES.
-   */
-  const Vertex n1_lim = (Vertex)BIPARTITE; /* should coincide with n1 */
-  Vertex v2 = (tail > n1_lim) ? tail : head; /* group vertex in the group mode */
-  Vertex v1 = (tail > n1_lim) ? head : tail; /* actor vertex in the actor mode */
-
-  /* Safety check: v1 must be a valid actor index in [1..n1]. */
-  if(v1 < (Vertex)1 || v1 > (Vertex)n1){
-    CHANGE_STAT[0] += 0.0;
-    return;
-  }
-
-  /* 4) Compute the group size and the sum of x in the group BEFORE the toggle.
-   *
-   *  - deg_old: degree of v2, equals n_g before the toggle.
-   *  - X:       sum of x_i over all actors connected to v2.
-   */
-  int deg_old = (int)(OUT_DEG[v2] + IN_DEG[v2]);
-
-  double X = SAFE_SUM_GROUP(v2, x, n1, nwp);
-
-  /* 5) Compute "after-toggle" quantities.
-   *
-   * edgestate = 0 → addition:  n_new = n + 1, X_new = X + x_i
-   * edgestate = 1 → deletion:  n_new = n - 1, X_new = X - x_i
-   */
-  const int is_add   = (edgestate == 0);          /* 1 if addition, 0 if deletion */
-  const int n_new    = deg_old + (is_add ? +1 : -1);
-  const double xi    = x[(int)v1 - 1];
-  const double X_new = X + (is_add ? +xi : -xi);
-
-  /* 6) Evaluate the size filter S before and after the toggle. */
-  const int w_old = in_sizes_set(deg_old, sizes, L);  /* 1 if deg_old ∈ S */
-  const int w_new = in_sizes_set(n_new,  sizes, L);   /* 1 if n_new  ∈ S */
-
-  /* 7) Compute the local change Δ and add it to CHANGE_STAT[0].
-   *
-   *    Δ = (n_new * X_new * w_new) - (deg_old * X * w_old).
-   */
-  double d = 0.0;
-  d = (w_new ? ((double)n_new * X_new) : 0.0)
-    - (w_old ? ((double)deg_old * X)   : 0.0);
-
-  CHANGE_STAT[0] += d;
+D_CHANGESTAT_FN(d_cov_ingroup){
 
 #if DEBUG_COV_INGROUP
-  Rprintf(
-    "[c_cov_ingroup] v1=%d v2=%d is_add=%d "
-    "deg_old=%d n_new=%d xi=%.6f X=%.6f X_new=%.6f "
-    "w_old=%d w_new=%d d=%.6f stat=%.6f\n",
-    (int)v1, (int)v2, is_add,
-    deg_old, n_new, xi, X, X_new,
-    w_old, w_new, d, CHANGE_STAT[0]
-  );
+  static int seen = 0;
+  if(ntoggles > 1 && seen < 10){
+    Rprintf("[cov_ingroup] MULTI-TOGGLE ntoggles=%d\n", (int)ntoggles);
+    seen++;
+  }
 #endif
+
+  /* 1) Reset output buffer for the whole proposal. */
+  ZERO_ALL_CHANGESTATS();
+
+  /* 2) Read inputs from INPUT_PARAM. */
+  const int n1 = (int)INPUT_PARAM[0];  /* number of actors (actor mode size) */
+  const int L  = (int)INPUT_PARAM[1];  /* length of size filter S */
+
+  const double *sizes = (L > 0) ? (&INPUT_PARAM[2])      : NULL;
+  const double *x     = (L > 0) ? (&INPUT_PARAM[2 + L])  : (&INPUT_PARAM[2]);
+
+  /* 3) Actor/group boundary. */
+  const Vertex n1_lim = (Vertex)BIPARTITE; /* should coincide with n1 */
+
+  /* 4) Process toggles sequentially (multi-toggle). */
+  int i = 0;
+  FOR_EACH_TOGGLE(i){
+
+    Vertex t = TAIL(i);
+    Vertex h = HEAD(i);
+
+    /* Determine current edge state BEFORE toggling (intermediate state). */
+    int edgestate = DIRECTED ? IS_OUTEDGE(t, h) : IS_UNDIRECTED_EDGE(t, h);
+
+    /* Identify endpoints: v2 = group, v1 = actor. */
+    Vertex v2 = (t > n1_lim) ? t : h;
+    Vertex v1 = (t > n1_lim) ? h : t;
+
+    /* Safety: must toggle an actor-group edge. */
+    if(v1 < (Vertex)1 || v1 > (Vertex)n1 || v2 <= n1_lim){
+      /* Ignore invalid toggle; still apply temp toggle for consistency? No. */
+#if DEBUG_COV_INGROUP
+      Rprintf("[d_cov_ingroup][WARN] invalid toggle #%d: tail=%d head=%d (n1=%d bip=%d)\n",
+              i, (int)t, (int)h, n1, (int)n1_lim);
+#endif
+      TOGGLE_IF_MORE_TO_COME(i);
+      continue;
+    }
+
+    /* Current group size and ingroup sum under the intermediate state. */
+    int deg_old = (int)(OUT_DEG[v2] + IN_DEG[v2]);
+    double X    = SAFE_SUM_GROUP(v2, x, n1, nwp);
+
+    /* Addition if absent; deletion if present. */
+    const int is_add   = (edgestate == 0);
+    const int n_new    = deg_old + (is_add ? +1 : -1);
+    const double xi    = x[(int)v1 - 1];
+    const double X_new = X + (is_add ? +xi : -xi);
+
+    /* Apply size filter. */
+    const int w_old = in_sizes_set(deg_old, sizes, L);
+    const int w_new = in_sizes_set(n_new,  sizes, L);
+
+    /* Local delta for this toggle under current intermediate state. */
+    double d = 0.0;
+    d = (w_new ? ((double)n_new * X_new) : 0.0)
+      - (w_old ? ((double)deg_old * X)   : 0.0);
+
+    CHANGE_STAT[0] += d;
+
+#if DEBUG_COV_INGROUP
+    Rprintf(
+      "[D:d_cov_ingroup] i=%d tail=%d head=%d | v1=%d v2=%d | edgestate=%d is_add=%d | "
+      "deg_old=%d -> n_new=%d | xi=%.6f | X=%.6f -> X_new=%.6f | "
+      "w_old=%d w_new=%d | Δ=%.6f | cumul=%.6f\n",
+      i, (int)t, (int)h, (int)v1, (int)v2, (int)edgestate, is_add,
+      deg_old, n_new, xi, X, X_new, w_old, w_new, d, CHANGE_STAT[0]
+    );
+#endif
+
+    /* Temporarily apply this toggle so subsequent toggles see updated state. */
+    TOGGLE_IF_MORE_TO_COME(i);
+  }
+
+  /* 5) Undo temporary toggles to restore the original network state. */
+  UNDO_PREVIOUS_TOGGLES(i);
 }

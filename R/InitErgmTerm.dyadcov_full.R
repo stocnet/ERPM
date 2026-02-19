@@ -10,7 +10,16 @@
 #   c(n1, L, sizes[L], Z[n1*n1])  with Z in column-major order
 #
 # Debugging:
-#   options(ERPM.dyadcov_full.debug = TRUE) to enable debug logs
+#   options(ERPM.dyadcov_full.debug = TRUE) to enable debug logs (R side)
+#
+# IMPORTANT (multi-toggle / D_CHANGESTAT_FN):
+#   - dyadcov_full is intended to support multi-toggle proposals (swap/split/merge)
+#     decomposed into a list of toggles.
+#   - Therefore, the compiled change-statistic MUST be implemented as D_CHANGESTAT_FN,
+#     and the R initializer MUST advertise this by returning `d_func = TRUE`.
+#   - Symbol naming convention:
+#       C side: D_CHANGESTAT_FN(d_dyadcov_full)
+#       R side: d_func=TRUE and name="dyadcov_full"
 # ==============================================================================
 
 #' ERGM term: dyadcov_full (within-group dyadic covariate sums)
@@ -46,25 +55,31 @@
 #'   \item enforces bipartiteness and retrieves the actor-mode size \eqn{n_A};
 #'   \item accepts \code{dyadcov} either as a literal matrix or as the name of a
 #'         network-level attribute (\code{nw \%n\% "..."});
+#'   \item supports the ERPM convention where dyadic matrices are stored in
+#'         \code{nw \%n\% "dyads"} as a named list (e.g. \code{"Z1"}, \code{"Z2"});
 #'   \item truncates \code{dyadcov} to its top-left \code{n1 x n1} block if larger;
 #'   \item checks that \code{dyadcov} is numeric and free of \code{NA};
 #'   \item parses \code{size} into a sorted, distinct set of positive integers.
 #' }
 #'
 #' @section Implementation and change-statistic:
-#' The term is implemented as a native ERGM C change-statistic, exposed under the
-#' symbol \code{c_dyadcov_full}. The R initializer below:
+#' The term is implemented as a native ERGM C change-statistic in MULTI-TOGGLE form,
+#' exposed under the symbol \code{d_dyadcov_full} via \code{D_CHANGESTAT_FN}.
+#'
+#' IMPORTANT:
+#' \itemize{
+#'   \item The initializer MUST return \code{d_func = TRUE}.
+#'   \item Otherwise, \pkg{ergm} will assume a one-toggle \code{C_CHANGESTAT_FN}
+#'         entrypoint and call the function with the wrong signature.
+#' }
+#'
+#' The R initializer below:
 #' \itemize{
 #'   \item packages \code{n1}, \code{L}, \code{sizes[1:L]} and the flattened
 #'         \code{dyadcov} matrix into \code{INPUT_PARAM};
-#'   \item declares the term as dependent (\code{dependence = TRUE}) with no
-#'         finite \code{minval}/\code{maxval};
+#'   \item declares the term as dependent (\code{dependence = TRUE});
 #'   \item sets the empty-network statistic to \code{0}.
 #' }
-#'
-#' For each toggle of an actor-group edge, the C change-statistic recomputes
-#' the within-group dyadic covariate sum for the unique group touched by the
-#' toggle, respecting the size filter \eqn{S} when present.
 #'
 #' @section Arguments:
 #' The initializer is not called directly by users; it is invoked automatically
@@ -77,26 +92,14 @@
 #'     \item \code{dyadcov}: matrix or character. Either a numeric matrix of size at least
 #'           \code{n1 x n1} (with \code{n1 = nw \%n\% "bipartite"}), or the name of a
 #'           network-level attribute containing such a matrix (retrieved as
-#'           \code{nw \%n\% dyadcov}). The matrix is truncated, if necessary, to its
-#'           top-left \code{n1 x n1} block.
+#'           \code{nw \%n\% dyadcov}). Preferably, use ERPM convention:
+#'           \code{nw \%n\% "dyads"} as a named list and pass \code{"Z1"} / \code{"Z2"}.
 #'     \item \code{size}: optional numeric/integer vector. If provided, only groups whose
 #'           actor-degree is in \code{size} contribute to the statistic.
 #'   }
 #' @param ... Passed through by \pkg{ergm}; not used.
 #'
-#' @return
-#' A standard \pkg{ergm} term initialization list with components:
-#' \itemize{
-#'   \item \code{name}         = \code{"dyadcov_full"};
-#'   \item \code{coef.names}   = a single coefficient name encoding
-#'         \code{dyadcov} label and the size filter;
-#'   \item \code{inputs}       = numeric vector
-#'         \code{c(n1, L, sizes[1:L], as.double(Z))};
-#'   \item \code{dependence}   = \code{TRUE};
-#'   \item \code{minval}       = \code{-Inf};
-#'   \item \code{maxval}       = \code{Inf};
-#'   \item \code{emptynwstats} = \code{0}.
-#' }
+#' @return A standard \pkg{ergm} term initialization list.
 #'
 #' @keywords ERGM term bipartite dyadic covariate
 #' @md
@@ -106,7 +109,7 @@ InitErgmTerm.dyadcov_full <- function(nw, arglist, ...) {
   # ---------------------------------------------------------------------------
   # Debug helpers
   # ---------------------------------------------------------------------------
-  dbg    <- isTRUE(getOption("ERPM.dyadcov_full.debug", FALSE))
+  dbg    <- isTRUE(getOption("ERPM.dyadcov_full.debug", TRUE))
   dbgcat <- function(...) if (dbg) cat("[dyadcov_full][DEBUG]", ..., "\n", sep = "")
 
   # ---------------------------------------------------------------------------
@@ -126,8 +129,9 @@ InitErgmTerm.dyadcov_full <- function(nw, arglist, ...) {
   # Actor-mode size (n1) from the bipartite attribute
   # ---------------------------------------------------------------------------
   n1 <- as.integer(nw %n% "bipartite")
-  if (is.na(n1) || n1 <= 0L)
+  if (is.na(n1) || n1 <= 0L) {
     stop(termname, ": strictly bipartite network required (attribut %n% 'bipartite' manquant ou invalide).")
+  }
   dbgcat("n1 = ", n1)
 
   # ---------------------------------------------------------------------------
@@ -152,28 +156,31 @@ InitErgmTerm.dyadcov_full <- function(nw, arglist, ...) {
     } else {
       dyad_mat   <- nw %n% dyad_raw
       dyad_label <- dyad_raw
-      if (is.null(dyad_mat))
-        stop(termname, ": dyadic matrix not found: ",
-             sQuote(dyad_raw),
-             " (looked up in nw %n% 'dyads', then in nw %n%. ", sQuote(dyad_raw), ").")
+      if (is.null(dyad_mat)) {
+        stop(
+          termname, ": dyadic matrix not found: ", sQuote(dyad_raw),
+          " (looked up in nw %n% 'dyads', then in nw %n% ", sQuote(dyad_raw), ")."
+        )
+      }
       dbgcat("dyadcov source = network attribute ", sQuote(dyad_label))
     }
   } else {
     # Case: matrix passed literally as an argument
     dyad_mat   <- dyad_raw
     dyad_label <- "dyadcov"
-    dbgcat("dyadcov source = literal matrix ")
+    dbgcat("dyadcov source = literal matrix")
   }
 
-  if (!is.matrix(dyad_mat))
+  if (!is.matrix(dyad_mat)) {
     stop(termname, ": 'dyadcov' must be a matrix or the name of a network-level attribute.")
+  }
 
   nr <- nrow(dyad_mat)
   nc <- ncol(dyad_mat)
 
-  if (nr < n1 || nc < n1)
-    stop(termname, ": dyadic matrix dimension (", nr, "x", nc,
-         ") insuffisantes pour n1 = ", n1, ".")
+  if (nr < n1 || nc < n1) {
+    stop(termname, ": dyadic matrix dimension (", nr, "x", nc, ") insuffisantes pour n1 = ", n1, ".")
+  }
 
   # If larger than needed, restrict to the top-left n1 x n1 block
   if (nr > n1 || nc > n1) {
@@ -184,11 +191,8 @@ InitErgmTerm.dyadcov_full <- function(nw, arglist, ...) {
   # ---------------------------------------------------------------------------
   # Numeric coercion and fail-fast on NA
   # ---------------------------------------------------------------------------
-  if (!is.numeric(dyad_mat))
-    stop(termname, ": dyadic matrix must be numeric.")
-
-  if (anyNA(dyad_mat))
-    stop(termname, ": NA values are not allowed in the dyadic matrix.")
+  if (!is.numeric(dyad_mat)) stop(termname, ": dyadic matrix must be numeric.")
+  if (anyNA(dyad_mat))       stop(termname, ": NA values are not allowed in the dyadic matrix.")
 
   dbgcat("dyadcov dim = ", paste(dim(dyad_mat), collapse = "x"),
          " | sample = ",
@@ -199,19 +203,18 @@ InitErgmTerm.dyadcov_full <- function(nw, arglist, ...) {
   # ---------------------------------------------------------------------------
   sizes_raw <- a$size
   if (is.null(sizes_raw) || length(sizes_raw) == 0L) {
-    sizes_vec <- numeric(0L)
-    L <- 0L
+    sizes_vec  <- numeric(0L)
+    L          <- 0L
     size_label <- ""
   } else {
-    if (!is.numeric(sizes_raw))
-      stop(termname, ": 'size' must be numeric ou entier.")
+    if (!is.numeric(sizes_raw)) stop(termname, ": 'size' must be numeric ou entier.")
     iv <- as.integer(round(sizes_raw))
     if (any(!is.finite(sizes_raw)) || any(iv <= 0L) || !isTRUE(all.equal(sizes_raw, iv))) {
       stop(termname, ": 'size' must contain positive integers.")
     }
     iv <- sort(unique(iv))
-    sizes_vec <- as.double(iv)
-    L <- length(iv)
+    sizes_vec  <- as.double(iv)
+    L          <- length(iv)
     size_label <- paste0("_size", paste(iv, collapse = "_"))
   }
 
@@ -242,11 +245,16 @@ InitErgmTerm.dyadcov_full <- function(nw, arglist, ...) {
   # ---------------------------------------------------------------------------
   # Standard ERGM term initialization return value
   # ---------------------------------------------------------------------------
+  # IMPORTANT:
+  # - `d_func = TRUE` tells ergm to call the multi-toggle (D_) changestat entrypoint.
+  # - Without it, ergm assumes a one-toggle C_ changestat and will call the function
+  #   with the wrong signature if you compiled only a D_ function (=> crash).
   list(
     name         = "dyadcov_full",
     coef.names   = coef.name,
     inputs       = inputs,      # n1, L, sizes[1:L], then Z[n1*n1]
     dependence   = TRUE,
+    d_func       = TRUE,        # <-- REQUIRED (multi-toggle D_CHANGESTAT_FN)
     minval       = -Inf,
     maxval       = Inf,
     emptynwstats = 0

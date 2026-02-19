@@ -1,6 +1,6 @@
 /**
  * @file changestat_log_factorial_sizes.c
- * @brief Change statistic for the ERPM term `log_factorial_sizes` (one-toggle, non-vectorised).
+ * @brief Change statistic for the ERPM term `log_factorial_sizes` (MULTI-TOGGLE form).
  *
  * @details
  *  This file implements the \pkg{ergm} change statistic for the ERPM effect
@@ -50,43 +50,33 @@
  *  lgamma() inside the change statistic.
  *
  *  ------------------------------------------------------------
- *  Implementation in \pkg{ergm} (one-toggle)
+ *  Implementation in \pkg{ergm} (MULTI-TOGGLE)
  *  ------------------------------------------------------------
  *
- *  - A bipartite network is assumed, with:
- *      - actor mode  = the first BIPARTITE vertices,
- *      - group mode  = the remaining vertices.
+ *  Why multi-toggle?
+ *  - Some proposal kernels (swap/split/merge) are decomposed into a list of
+ *    edge toggles. In such a proposal, several toggles may touch the same
+ *    group node. If we evaluate each toggle against the original degrees
+ *    (without applying intermediate toggles), we get the wrong Δ.
  *
- *  - Each membership toggle connects exactly one actor-mode vertex and one
- *    group-mode vertex; only that group is affected.
+ *  Therefore:
+ *  - This change-statistic is implemented as a D_CHANGESTAT_FN and processes
+ *    the toggles sequentially.
+ *  - After computing Δ for a toggle, we temporarily apply it so that degrees
+ *    seen by subsequent toggles reflect the intermediate state.
+ *  - At the end, we undo all temporary toggles, restoring the original network.
  *
- *  - The macro ::C_CHANGESTAT_FN declares the function with the signature
- *    required by \pkg{ergm} and exposes:
- *      - N_CHANGE_STATS (here equal to 1),
- *      - CHANGE_STAT    (output buffer),
- *      - INPUT_PARAM    (unused here, non-vectorised term).
- *
- *  - For each call:
- *      1. The output buffer CHANGE_STAT is reset with ::ZERO_ALL_CHANGESTATS(0).
- *      2. The group-mode vertex v2 impacted by the toggle is identified.
- *      3. Its current size is read as:
- *           deg_old = OUT_DEG[v2] + IN_DEG[v2].
- *      4. The new size is obtained locally via:
- *           deg_new = deg_old + 1  for an addition,
- *           deg_new = deg_old − 1  for a deletion.
- *      5. The local increment Δ is computed using the closed-form formulas
- *         above, without evaluating lgamma().
- *      6. The scalar statistic is updated as:
- *           CHANGE_STAT[0] += Δ.
- *
- *  ------------------------------------------------------------
- *  Complexity
- *  ------------------------------------------------------------
- *
- *  - O(1) per toggle:
- *      - a constant number of degree reads,
- *      - a constant amount of arithmetic and at most one log() call.
- *  - No neighbour traversal, no scanning of other groups.
+ *  Mechanics:
+ *    1) ZERO_ALL_CHANGESTATS()
+ *    2) FOR_EACH_TOGGLE(i):
+ *        - Read endpoints (TAIL/HEAD)
+ *        - Determine edgestate BEFORE toggling
+ *        - Identify affected group vertex v2
+ *        - Read deg_old from current intermediate state
+ *        - Compute Δ with the closed-form formulas
+ *        - Accumulate CHANGE_STAT[0] += Δ
+ *        - TOGGLE_IF_MORE_TO_COME(i)
+ *    3) UNDO_PREVIOUS_TOGGLES(i)
  *
  *  ------------------------------------------------------------
  *  R interface
@@ -95,41 +85,8 @@
  *  - The R-side initialiser (InitErgmTerm.log_factorial_sizes) sets:
  *      - N_CHANGE_STATS = 1 (non-vectorised term),
  *      - no INPUT_PARAM (the term has no hyper-parameters at the C level),
- *      - emptynwstats = 0.
- *
- *  ------------------------------------------------------------
- *  @example Usage (R)
- *  ------------------------------------------------------------
- *  @code{.r}
- *  library(ERPM)
- *
- *  # Example: partition of 5 actors into 2 groups
- *  part <- c(1, 1, 1, 2, 2)   # group sizes: 3 and 2
- *
- *  # Fit an ERPM with the log_factorial_sizes term
- *  fit <- erpm(partition ~ log_factorial_sizes)
- *  summary(fit)
- *
- *  # Interpretation of one toggle:
- *  # Suppose the sampler proposes to add an actor to a group of current size n = 2:
- *  #   deg_old = 2
- *  #   deg_new = 3
- *  #
- *  # The local increment is:
- *  #   Δ = lgamma(3) - lgamma(2)
- *  #     = log(2)
- *  #
- *  # This is exactly what c_log_factorial_sizes adds to CHANGE_STAT[1].
- *  @endcode
- *
- *  @test
- *  A self-test can:
- *    - build several small bipartite networks from known partitions,
- *    - compute the reference statistic as sum_g lgamma(deg(g)) with f(0) = 0,
- *    - call `summary()` on a model containing `log_factorial_sizes`,
- *    - verify equality between the reported statistic and the reference,
- *    - apply single-edge toggles and check that the observed Δ matches
- *      the closed-form formulas for additions and deletions.
+ *      - emptynwstats = 0,
+ *      - d_func = TRUE to select the D_ entrypoint.
  */
 
 #include <math.h>
@@ -138,159 +95,102 @@
 #include "ergm_storage.h"
 
 /**
- * @def DEBUG_LOG_FACTORIAL
- * @brief Enable verbose debugging output for ::c_log_factorial_sizes.
+ * @def DEBUG_LOG_FACTORIAL_SIZES
+ * @brief Enable verbose debugging output for ::d_log_factorial_sizes.
  *
  * Set this macro to 1 to print diagnostic traces to the R console during
  * `summary()` or MCMC runs:
+ *  - ntoggles (multi-toggle proposals),
+ *  - endpoints of each toggle,
  *  - index of the affected group vertex,
- *  - degree before and after the toggle,
+ *  - degree before/after the toggle (intermediate state),
  *  - edge state and resulting increment Δ.
  *
  * When set to 0, no debug output is produced.
  */
-#define DEBUG_LOG_FACTORIAL 0
-
+#define DEBUG_LOG_FACTORIAL_SIZES 0
 #define UNUSED_VARIABLE(x) (void)x
+
 /* -------------------------------------------------------------------------- */
-/* Change statistic: log_factorial_sizes                                      */
+/* Change statistic: log_factorial_sizes (multi-toggle)                        */
 /* -------------------------------------------------------------------------- */
 
 /**
- * @brief Change statistic for the ERPM term `log_factorial_sizes`.
+ * @brief Change statistic for the ERPM term `log_factorial_sizes` (multi-toggle).
  *
  * @details
- *  This \pkg{ergm} change-statistic function is registered as ::c_log_factorial_sizes
- *  via ::C_CHANGESTAT_FN. It implements the one-toggle update for the statistic
- *  defined by:
- *
- *      Stat = sum_{groups g} lgamma(deg(g)),  with f(0) = 0.
- *
- *  The network is assumed bipartite, with an actor mode and a group mode.
- *  Each toggle connects exactly one actor-mode vertex and one group-mode vertex.
- *
- *  For each call:
- *    - The function:
- *        1. Resets CHANGE_STAT to zero for this toggle.
- *        2. Identifies the group-mode vertex v2 affected by the membership toggle.
- *        3. Reads the current group size:
- *             deg_old = OUT_DEG[v2] + IN_DEG[v2].
- *        4. Determines whether the toggle is an addition or deletion from
- *           @p edgestate and sets:
- *             deg_new = deg_old + 1  if the edge is absent (addition),
- *             deg_new = deg_old − 1  if the edge is present (deletion).
- *        5. Computes the local change Δ using only log() and the closed-form:
- *
- *             addition (deg_old = n):
- *               Δ =  log(n)    if n ≥ 1
- *               Δ =  0         if n = 0
- *
- *             deletion (deg_old = n):
- *               Δ = −log(n − 1)  if n ≥ 2
- *               Δ =  0           if n = 1
- *
- *        6. Accumulates the change:
- *             CHANGE_STAT[0] += Δ.
- *
- *  The global statistic over all toggles is obtained by the \pkg{ergm} engine
- *  via accumulation of the per-toggle contributions.
- *
- * @param tail       Tail vertex of the toggled edge (actor or group).
- * @param head       Head vertex of the toggled edge (actor or group).
- * @param mtp        Pointer to the model term structure (unused directly here,
- *                   but required by the macro signature).
- * @param nwp        Pointer to the network-plus workspace (provides OUT_DEG,
- *                   IN_DEG, and other internals).
- * @param edgestate  Current state of the edge:
- *                   - 0 if the edge is absent (toggle = addition),
- *                   - 1 if the edge is present (toggle = deletion).
- *
- * @note
- *  - The actor mode occupies the first BIPARTITE vertices; the group mode
- *    consists of the remaining vertices.
- *  - The function assumes that each membership toggle involves exactly one
- *    actor-mode vertex and one group-mode vertex; only that group’s size
- *    changes.
- *  - The term is non-vectorised: N_CHANGE_STATS is always 1 and INPUT_PARAM
- *    is unused.
+ *  Implements the local change for:
+ *      Stat = sum_{groups g} lgamma(deg(g)), with f(0)=0
+ *  using closed-form O(1) increments and sequential toggle application.
  */
-C_CHANGESTAT_FN(c_log_factorial_sizes){
-  /* 1) Reset the output buffer for THIS toggle.
-   *
-   * \pkg{ergm} accumulates the contributions from multiple calls; here we only
-   * report the local increment Δ for the current toggle.
-   */
-  ZERO_ALL_CHANGESTATS(0);
+D_CHANGESTAT_FN(d_log_factorial_sizes){
 
-  /* 2) Number of vertices in the actor mode.
-   *
-   * In a bipartite encoding, vertices 1..BIPARTITE belong to the actor mode,
-   * while vertices with index > BIPARTITE belong to the group mode.
-   */
+#if DEBUG_LOG_FACTORIAL_SIZES
+  static int seen = 0;
+  if(ntoggles > 1 && seen < 10){
+    Rprintf("[log_factorial_sizes] MULTI-TOGGLE ntoggles=%d\n", (int)ntoggles);
+    seen++;
+  }
+#endif
+
+  /* 1) Reset output buffer for THIS proposal (list of toggles). */
+  ZERO_ALL_CHANGESTATS();
+
+  /* 2) Actor-mode size in bipartite networks. */
   const int n1 = BIPARTITE;
 
-  /* 3) Identify the affected group-mode vertex.
-   *
-   * The toggled edge always connects one actor-mode vertex and one group-mode
-   * vertex. The group vertex is the endpoint whose index is strictly greater
-   * than n1.
-   */
-  Vertex v2 = (tail > n1) ? tail : head;
+  /* 3) Process toggles sequentially (temporary apply to keep degrees consistent). */
+  int i = 0;
+  FOR_EACH_TOGGLE(i){
 
-  /* 4) Group sizes before and after the toggle (local computation).
-   *
-   * OUT_DEG and IN_DEG are the internal degree arrays. Their sum gives the
-   * group size for vertex v2. The new size is obtained by adding or removing
-   * one membership depending on the current edge state.
-   */
-  int deg_old = (int)(OUT_DEG[v2] + IN_DEG[v2]);
-  int delta   = edgestate ? -1 : +1;    // edge present -> deletion (-1), edge absent -> addition (+1)
-  int deg_new = deg_old + delta;
-  UNUSED_VARIABLE(deg_new);             // To remove later
+    Vertex t = TAIL(i);
+    Vertex h = HEAD(i);
 
-  #if DEBUG_LOG_FACTORIAL
-    Rprintf("[c_log_factorial_sizes] v2=%d | edgestate=%d | deg_old=%d -> deg_new=%d\n",
-            (int)v2, (int)edgestate, deg_old, deg_new);
-  #endif
+    /* Determine current edge state before toggling. */
+    int edgestate = DIRECTED ? IS_OUTEDGE(t, h) : IS_UNDIRECTED_EDGE(t, h);
 
-  /* 5) Local increment Δ using closed-form formulas.
-   *
-   * We avoid calling lgamma() and use:
-   *   addition:  Δ = log(deg_old)     if deg_old >= 1, else 0
-   *   deletion:  Δ = -log(deg_old-1)  if deg_old >= 2, else 0
-   *
-   * This is consistent with the definition Stat = sum_g lgamma(deg(g))
-   * under the convention f(0) = 0.
-   */
-  double d = 0.0;
-  if(edgestate == 0){
-    /* Addition: edge is currently absent, we add it.
-     *
-     * deg_old = n, deg_new = n+1:
-     *   Δ = lgamma(n+1) - lgamma(n)
-     *     = log(n) for n >= 1,
-     *     = 0      for n = 0.
+    /* Identify the group-mode vertex (index > n1). */
+    Vertex v2 = (t > n1) ? t : h;
+
+#if DEBUG_LOG_FACTORIAL_SIZES
+    if(v2 <= n1){
+      Rprintf("[d_log_factorial_sizes][WARN] toggle #%d has no group endpoint: tail=%d head=%d (n1=%d)\n",
+              i, (int)t, (int)h, n1);
+    }
+#endif
+
+    /* Read current group size from degree arrays (intermediate state). */
+    int deg_old = (int)(OUT_DEG[v2] + IN_DEG[v2]);
+
+    /* Present -> deletion, absent -> addition. */
+    int delta   = edgestate ? -1 : +1;
+    int deg_new = deg_old + delta;
+    UNUSED_VARIABLE(deg_new) ;
+
+    /* Closed-form Δ:
+     *  - addition:  Δ =  log(deg_old)      if deg_old >= 1, else 0
+     *  - deletion:  Δ = -log(deg_old - 1)  if deg_old >= 2, else 0
      */
-    if(deg_old >= 1) d = log((double)deg_old);
-  }else{
-    /* Deletion: edge is currently present, we remove it.
-     *
-     * deg_old = n, deg_new = n-1:
-     *   Δ = lgamma(n-1) - lgamma(n)
-     *     = -log(n-1) for n >= 2,
-     *     = 0         for n = 1.
-     */
-    if(deg_old >= 2) d = -log((double)(deg_old - 1));
+    double d = 0.0;
+    if(edgestate == 0){
+      if(deg_old >= 1) d = log((double)deg_old);
+    }else{
+      if(deg_old >= 2) d = -log((double)(deg_old - 1));
+    }
+
+    CHANGE_STAT[0] += d;
+
+#if DEBUG_LOG_FACTORIAL_SIZES
+    Rprintf("[D:d_log_factorial_sizes] i=%d tail=%d head=%d | group=%d | edgestate=%d | "
+            "deg_old=%d -> deg_new=%d | Δ=%.12g | cumul=%.12g\n",
+            i, (int)t, (int)h, (int)v2, (int)edgestate,
+            deg_old, deg_new, d, CHANGE_STAT[0]);
+#endif
+
+    /* Temporarily apply this toggle so subsequent toggles see updated degrees. */
+    TOGGLE_IF_MORE_TO_COME(i);
   }
 
-  /* 6) Accumulate the contribution (single scalar statistic).
-   *
-   * The term is non-vectorised, so N_CHANGE_STATS == 1 and we always update
-   * CHANGE_STAT[0].
-   */
-  CHANGE_STAT[0] += d;
-
-  #if DEBUG_LOG_FACTORIAL
-    Rprintf("  Δ=%.9g\n", d);
-  #endif
+  /* 4) Undo temporary toggles to restore the original network state. */
+  UNDO_PREVIOUS_TOGGLES(i);
 }

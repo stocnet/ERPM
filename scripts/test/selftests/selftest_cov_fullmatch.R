@@ -2,64 +2,75 @@
 # Fichier : scripts/test/selftests/selftest_cov_fullmatch.R
 # Objet   : Self-test autonome pour l'effet ERPM/ERGM `cov_fullmatch`
 # Exécution: Rscript scripts/test/selftests/selftest_cov_fullmatch.R
+#
+# Objectifs (structure "squared_sizes"-style, mais plus compact)
+#   - PHASE 1 (EXPECTED): valider la statistique via summary(nw ~ cov_fullmatch(...))
+#                         avec des attentes numériques explicites (cas analytiques).
+#   - PHASE 2 (EQUIV)   : vérifier l’équivalence summary(nw) vs summary(ERPM-traduit)
+#                         sur un panel de partitions + covariées variées.
+#   - PHASE 3 (FIT)     : vérifier qu’un fit via erpm() passe et renvoie un coef fini.
+#   - PHASE 4 (MCMC)    : "probe" multi-toggle: déclencher le code MCMC et observer
+#                         (si activé côté C) les traces indiquant ntoggles>1.
+#
+# Notes importantes
+#   - cov_fullmatch doit compter le NOMBRE de groupes homogènes (et non la somme des tailles).
+#   - Les phases 1/2 peuvent être bruyantes; on peut les désactiver via RUN.
+#   - La PHASE 4 n’est pas un test statistique "fort": c’est un test de chemin d’exécution
+#     (multitoggle) destiné à valider une implémentation D_CHANGESTAT_FN si vous l’avez.
 # ======================================================================================
 
 # --------------------------------------------------------------------------------------
 # Préambule
 # --------------------------------------------------------------------------------------
 Sys.setenv(LANG = "fr_FR.UTF-8")
-invisible(try(Sys.setlocale("LC_CTYPE","fr_FR.UTF-8"), silent = TRUE))
+invisible(try(Sys.setlocale("LC_CTYPE", "fr_FR.UTF-8"), silent = TRUE))
 
 options(ergm.loglik.warn_dyads = FALSE)
 
 suppressPackageStartupMessages({
-    if (!requireNamespace("network", quietly = TRUE)) stop("Package 'network' requis.")
-    if (!requireNamespace("ergm",    quietly = TRUE)) stop("Package 'ergm' requis.")
+  if (!requireNamespace("network", quietly = TRUE)) stop("Package 'network' requis.")
+  if (!requireNamespace("ergm",    quietly = TRUE)) stop("Package 'ergm' requis.")
+  if (!requireNamespace("utils",   quietly = TRUE)) stop("Package 'utils' requis.")
 })
 
 suppressMessages(suppressPackageStartupMessages({
-    library(network, quietly = TRUE, warn.conflicts = FALSE)
-    library(ergm,    quietly = TRUE, warn.conflicts = FALSE)
+  library(network, quietly = TRUE, warn.conflicts = FALSE)
+  library(ergm,    quietly = TRUE, warn.conflicts = FALSE)
 }))
 
 # Patch ERGM optionnel (si utilisé dans le projet)
 if (file.exists("scripts/ergm_patch.R")) {
-    source("scripts/ergm_patch.R")
+  source("scripts/ergm_patch.R")
+  if (exists("ergm_patch_enable", mode = "function")) {
     ergm_patch_enable()
+  } else {
+    message("[ergm_patch] fonction ergm_patch_enable absente")
+  }
 }
 
+# Chargement package depuis la racine (DESCRIPTION)
 if (requireNamespace("devtools", quietly = TRUE) && file.exists("DESCRIPTION")) {
   devtools::load_all(recompile = TRUE, quiet = TRUE)
-} else{
-  stop("Le fichier DESCRIPTION n'existe pas ou devtools n'est pas installé.")
+} else {
+  stop("Exécuter depuis la racine du package (DESCRIPTION) avec devtools disponible.")
 }
 
 # --------------------------------------------------------------------------------------
-# Logging local
+# Logging local (fichier .log à côté du selftest)
 # --------------------------------------------------------------------------------------
-.get_script_dir <- function() {
-  a <- commandArgs(trailingOnly = FALSE)
-  i <- grep("^--file=", a)
-  if (length(i)) return(dirname(normalizePath(sub("^--file=", "", a[i[1]]))))
-  fs <- sys.frames()
-  ofiles <- vapply(fs, function(f) if (!is.null(f$ofile)) f$ofile else NA_character_, "")
-  if (any(!is.na(ofiles))) {
-    j <- which.max(nchar(ofiles))
-    return(dirname(normalizePath(ofiles[j])))
-  }
-  normalizePath(getwd())
-}
-
 root <- tryCatch(
   rprojroot::find_root(rprojroot::is_r_package),
   error = function(e) getwd()
 )
 log_path <- file.path(root, "scripts", "test", "selftests", "selftest_cov_fullmatch.log")
 if (file.exists(log_path)) unlink(log_path, force = TRUE)
+
 con_out <- file(log_path, open = "wt")
 con_err <- file(log_path, open = "at")
+
 sink(con_out, split = TRUE)
 sink(con_err, type = "message")
+
 on.exit({
   try(sink(type = "message"), silent = TRUE)
   try(close(con_err),        silent = TRUE)
@@ -67,10 +78,11 @@ on.exit({
   try(close(con_out),        silent = TRUE)
   flush.console()
 }, add = TRUE)
+
 cat("==> Log:", log_path, "\n")
 
 # --------------------------------------------------------------------------------------
-# Chargement utilitaires ERPM
+# Chargement utilitaires ERPM (fallback)
 # --------------------------------------------------------------------------------------
 # Fallback si la fonction n'est pas exposée par le wrapper
 if (!exists("partition_to_bipartite_network", mode = "function")) {
@@ -79,19 +91,34 @@ if (!exists("partition_to_bipartite_network", mode = "function")) {
   }
 }
 
+# Wrapper ERPM (erpm + builder biparti)
 if (!exists("erpm", mode = "function") || !exists("build_bipartite_from_inputs", mode = "function")) {
   if (file.exists("R/erpm_wrapper.R")) {
     source("R/erpm_wrapper.R", local = FALSE)
   } else {
-    cat("[WARN] erpm()/build_bipartite_from_inputs indisponibles. Certaines étapes seront sautées.\n")
+    cat("[WARN] erpm()/build_bipartite_from_inputs indisponibles. Certaines phases seront sautées.\n")
   }
 }
+
+# ======================================================================================
+# Réglages de run (clé du fichier)
+# ======================================================================================
+RUN <- list(
+  phase1_expected = FALSE,
+  phase2_equiv    = FALSE,
+  phase3_fit      = TRUE,
+  phase4_mcmc     = FALSE,
+
+  quiet_phase1    = FALSE,
+  quiet_phase2    = FALSE,
+  quiet_phase3    = FALSE
+)
 
 # ======================================================================================
 # Données de test
 # ======================================================================================
 
-# Panel de partitions variées
+# Panel de partitions variées (pour équivalence)
 partitions <- list(
   P1 = c(1,2,2,3,3,3,4),                              # petite
   P2 = c(1,1, 2,2,2, 3,3,3,3, 4,4, 5,5,5, 6,6,6,6,6), # moyenne
@@ -105,8 +132,8 @@ partitions <- list(
   data.frame(
     label   = utils::head(LETTERS, n),
     age     = sample(20:60, n, replace = TRUE),                           # numérique
-    gender  = sample(c("F","H"), n, replace = TRUE),                      # binaire
-    dept    = sample(c("Info","RH","Rech","Vent"), n, replace = TRUE,     # catégoriel
+    gender  = sample(c("F", "H"), n, replace = TRUE),                     # binaire
+    dept    = sample(c("Info", "RH", "Rech", "Vent"), n, replace = TRUE,  # catégoriel
                      prob = c(0.35, 0.25, 0.25, 0.15)),
     stringsAsFactors = FALSE
   )
@@ -120,51 +147,51 @@ partitions <- list(
 # avec fallback explicite vers partition_to_bipartite_network si besoin.
 .erpm_build_bipartite_nw <- function(part, nodes) {
   stopifnot(length(part) == nrow(nodes))
-  attrs <- as.list(nodes[ , setdiff(names(nodes),"label"), drop=FALSE])
-  builder <- NULL
-  if (exists("build_bipartite_from_inputs", mode = "function")) builder <- get("build_bipartite_from_inputs")
-  if (!is.null(builder)) {
-    # Essaye plusieurs signatures courantes pour robustesse.
-    out <- try({ builder(partition = part, nodes = nodes) }, silent = TRUE)
-    if (inherits(out, "try-error") || is.null(out)) {
-      out <- try({ builder(partition = part, labels = nodes$label, attributes = attrs) }, silent = TRUE)
-    }
-    if (!inherits(out, "try-error") && !is.null(out)) return(out)
-  }
-  if (exists("partition_to_bipartite_network", mode = "function")) {
-    return(partition_to_bipartite_network(labels = nodes$label, partition = part, attributes = attrs))
-  }
-  stop("Aucun constructeur biparti disponible.")
-}
 
-# Redéfinition robuste du constructeur biparti pour garantir un objet 'network'
-.erpm_build_bipartite_nw <- function(part, nodes) {
-  stopifnot(length(part) == nrow(nodes))
-  attrs <- as.list(nodes[ , setdiff(names(nodes),"label"), drop=FALSE])
-  # 1) Tentative via build_bipartite_from_inputs
+  attrs <- as.list(nodes[, setdiff(names(nodes), "label"), drop = FALSE])
+
+  # 1) via build_bipartite_from_inputs si dispo
   if (exists("build_bipartite_from_inputs", mode = "function")) {
-    builder <- get("build_bipartite_from_inputs")
-    # Signature 1: (partition, nodes)
-    out <- try(builder(partition = part, nodes = nodes), silent = TRUE)
-    # Signature 2: (partition, labels, attributes)
-    if (inherits(out, "try-error") || is.null(out)) {
-      out <- try(builder(partition = part, labels = nodes$label, attributes = attrs), silent = TRUE)
-    }
-    # Extraction robuste du network si l'API retourne une liste
-    if (!inherits(out, "try-error") && !is.null(out)) {
+    builder <- get("build_bipartite_from_inputs", mode = "function")
+
+    candidates <- list(
+      quote(builder(partition = part, nodes = nodes)),
+      quote(builder(partition = part, labels = nodes$label, attributes = attrs)),
+      quote(builder(partition = part, labels = nodes$label)),
+      quote(builder(partition = part))
+    )
+
+    last_err <- NULL
+    for (expr in candidates) {
+      out <- try(eval(expr), silent = TRUE)
+      if (inherits(out, "try-error") || is.null(out)) {
+        last_err <- out
+        next
+      }
       if (inherits(out, "network")) return(out)
       if (is.list(out)) {
-        cand_names <- c("network","nw","g","graph","bip","net")
-        for (nm in cand_names) {
+        for (nm in c("network", "nw", "net", "graph", "g", "bip")) {
           if (!is.null(out[[nm]]) && inherits(out[[nm]], "network")) return(out[[nm]])
         }
       }
     }
+
+    # Si on arrive ici, le builder a échoué
+    fm <- try(formals(builder), silent = TRUE)
+    cat("[WARN] build_bipartite_from_inputs a échoué; fallback si possible.\n")
+    if (!inherits(fm, "try-error")) cat("[WARN] formals(builder): ", paste(names(fm), collapse = ", "), "\n", sep = "")
+    if (!is.null(last_err)) cat("[WARN] dernière erreur: ", as.character(last_err)[1], "\n", sep = "")
   }
-  # 2) Fallback explicite
+
+  # 2) fallback partition_to_bipartite_network si dispo
   if (exists("partition_to_bipartite_network", mode = "function")) {
-    return(partition_to_bipartite_network(labels = nodes$label, partition = part, attributes = attrs))
+    return(partition_to_bipartite_network(
+      labels     = nodes$label,
+      partition  = part,
+      attributes = attrs
+    ))
   }
+
   stop("Aucun constructeur biparti valide n'a produit un objet 'network'.")
 }
 
@@ -175,16 +202,17 @@ partitions <- list(
   f
 }
 
-# Exécuter un summary côté réseau biparti explicite
+# summary() sur réseau biparti explicite
 summary_on_bipartite_network <- function(part, nodes, rhs_txt) {
   nw <- .erpm_build_bipartite_nw(part, nodes)
   f  <- .formula_nw(nw, rhs_txt)
   as.numeric(suppressMessages(summary(f)))
 }
 
-# Exécuter un summary côté ERPM (LHS = partition) via wrapper, en réutilisant le RHS traduit
+# summary() en passant par la traduction erpm() (dry-run -> formule ergm -> summary)
 summary_on_erpm_translation <- function(part, nodes, rhs_txt) {
   if (!exists("erpm", mode = "function")) return(NA_real_)
+
   partition <- part
   f <- as.formula(paste0("partition ~ ", rhs_txt))
   environment(f) <- list2env(list(partition = partition, nodes = nodes), parent = parent.frame())
@@ -192,6 +220,7 @@ summary_on_erpm_translation <- function(part, nodes, rhs_txt) {
   call_ergm <- erpm(f, eval.call = FALSE, verbose = FALSE, nodes = nodes)
   ergm_form <- call_ergm[[2L]]
   rhs_expr  <- ergm_form[[3L]]
+
   nw <- .erpm_build_bipartite_nw(part, nodes)
   f2 <- as.formula(bquote(nw ~ .(rhs_expr)))
   environment(f2) <- list2env(list(nw = nw), parent = parent.frame())
@@ -203,17 +232,20 @@ summary_on_erpm_translation <- function(part, nodes, rhs_txt) {
   as.numeric(suppressMessages(summary(f2, constraints = cons)))
 }
 
-# Vérif stricte: summary(nw) == summary(ERPM-traduit) sur plusieurs RHS
-check_summary_equivalence <- function(part, nodes, rhs_vec, tol=0) {
+# Vérif stricte: summary(nw) == summary(ERPM-traduit)
+check_summary_equivalence <- function(part, nodes, rhs_vec, tol = 0) {
   ok_all <- TRUE
   for (rhs in rhs_vec) {
     s_net  <- summary_on_bipartite_network(part, nodes, rhs)
     s_erpm <- summary_on_erpm_translation(part, nodes, rhs)
-    cat(sprintf("[CHECK] part(n=%d) RHS=%-50s  net=%s  erpm=%s\n",
-                length(part), rhs, paste(s_net, collapse=","), paste(s_erpm, collapse=",")))
+
+    cat(sprintf("[CHECK] n=%d RHS=%-45s net=%s erpm=%s\n",
+                length(part), rhs, paste(s_net, collapse = ","), paste(s_erpm, collapse = ",")))
+
     if (any(!is.finite(s_net)))  stop("summary réseau non fini.")
     if (any(!is.finite(s_erpm))) stop("summary ERPM non fini.")
     if (length(s_net) != length(s_erpm)) stop("Longueur de vecteur de stats différente.")
+
     if (!all(abs(s_net - s_erpm) <= tol)) {
       ok_all <- FALSE
       cat(sprintf("  -> MISMATCH au-delà de tol=%g\n", tol))
@@ -224,7 +256,7 @@ check_summary_equivalence <- function(part, nodes, rhs_vec, tol=0) {
 
 # ======================================================================================
 # Cas analytiques avec attentes explicites pour cov_fullmatch
-# Définition: compte le NOMBRE de groupes homogènes (et non la somme des tailles)
+# Définition attendue: compte le NOMBRE de groupes homogènes (pas la somme des tailles)
 # ======================================================================================
 
 # 1) Tie 2v2 vs groupe homogène 3
@@ -232,10 +264,10 @@ case_tie <- list(
   part = c(1,1,1,1,  2,2,2),                         # tailles: 4 et 3
   val  = c("A","A","B","B",  "Z","Z","Z"),
   checks = list(
-    list(rhs="cov_fullmatch('val')",                  expect=1),         # seul groupe taille 3 est homogène
-    list(rhs="cov_fullmatch('val', size = 4)",        expect=0),         # filtre isole le 4 → non homogène
-    list(rhs="cov_fullmatch('val', category='Z')",    expect=1),         # groupe 3 x 'Z'
-    list(rhs="cov_fullmatch('val', category='A')",    expect=0)          # aucun groupe tout-'A'
+    list(rhs = "cov_fullmatch('val')",               expect = 1), # seul groupe taille 3 est homogène
+    list(rhs = "cov_fullmatch('val', size = 4)",     expect = 0), # filtre isole le 4 → non homogène
+    list(rhs = "cov_fullmatch('val', category='Z')", expect = 1), # groupe 3 x 'Z'
+    list(rhs = "cov_fullmatch('val', category='A')", expect = 0)  # aucun groupe tout-'A'
   )
 )
 
@@ -244,11 +276,11 @@ case_sizes <- list(
   part = c(1, 2,2, 3,3,3),
   val  = c("X","Y","Y","Z","Z","Z"),
   checks = list(
-    list(rhs="cov_fullmatch('val')",                  expect=3),         # 3 groupes homogènes
-    list(rhs="cov_fullmatch('val', size = 1)",        expect=1),         # seul singleton
-    list(rhs="cov_fullmatch('val', size = c(1,3))",   expect=2),         # groupes {1} et {3}
-    list(rhs="cov_fullmatch('val', category='Y')",    expect=1),         # le groupe {Y,Y}
-    list(rhs="cov_fullmatch('val', category='Z')",    expect=1)          # le groupe {Z,Z,Z}
+    list(rhs = "cov_fullmatch('val')",                  expect = 3), # 3 groupes homogènes
+    list(rhs = "cov_fullmatch('val', size = 1)",        expect = 1), # seul singleton
+    list(rhs = "cov_fullmatch('val', size = c(1,3))",   expect = 2), # groupes {1} et {3}
+    list(rhs = "cov_fullmatch('val', category='Y')",    expect = 1), # le groupe {Y,Y}
+    list(rhs = "cov_fullmatch('val', category='Z')",    expect = 1)  # le groupe {Z,Z,Z}
   )
 )
 
@@ -256,10 +288,10 @@ case_sizes <- list(
 set.seed(42)
 case_dense <- list(
   part = c(1,1,1, 2,2,2, 3,3,3, 4, 5),               # 3 groupes de 3, 2 singletons
-  val  = c(1,2,3, 4,5,6, 7,8,9,  10, 11),            # tous distincts
+  val  = c(1,2,3, 4,5,6, 7,8,9, 10, 11),             # tous distincts
   checks = list(
-    list(rhs="cov_fullmatch('val')",                  expect=2),         # les 2 singletons
-    list(rhs="cov_fullmatch('val', size = 3)",        expect=0)          # filtre supprime les singletons
+    list(rhs = "cov_fullmatch('val')",           expect = 2), # les 2 singletons
+    list(rhs = "cov_fullmatch('val', size = 3)", expect = 0)  # filtre supprime les singletons
   )
 )
 
@@ -267,113 +299,78 @@ case_dense <- list(
 # Cas volontairement en erreur — la logique métier exige une erreur.
 # Laisse commenté par défaut. Décommente pour tester le fail-fast côté InitErgmTerm.
 # --------------------------------------------------------------------------------------
-
 # 4) Catégorie absente → DOIT PRODUIRE UNE ERREUR
 # case_cat_absent <- list(
 #   part = c(1,1, 2,2,2, 3,3,3,3),
 #   val  = c("A","A", "B","B","B", "C","C","C","C"),
 #   checks = list(
-#     list(rhs="cov_fullmatch('val', category='ZZZ')",  expect=0) # intentionnellement invalide
+#     list(rhs="cov_fullmatch('val', category='ZZZ')",  expect=0)
 #   )
 # )
-
 # 5) Valeurs NA dans la covariée → DOIT PRODUIRE UNE ERREUR
 # case_na <- list(
 #   part = c(1,1,1, 2,2,2, 3,3,3,3, 4),
 #   val  = c(NA,NA,NA,  "A",NA,"A",  "B","B","B","B",  "C")
 # )
-
 # 6) size = integer(0) → DOIT PRODUIRE UNE ERREUR
-# Exemple d’appel à décommenter dans run_phase1_expected():
-# summary_on_bipartite_network(case_sizes$part, data.frame(label=..., val=...), "cov_fullmatch('val', size = c())")
+# summary_on_bipartite_network(..., "cov_fullmatch('val', size = c())")
 
 # ======================================================================================
 # Contrôles ERGM pour fitting via erpm()
 # ======================================================================================
-
 ctrl_mle <- control.ergm(
   MCMLE.maxit      = 10,
-  MCMC.samplesize = 3000
-  # MCMC.burnin      = 5000,
-  # MCMC.interval    = 1000,
-  # force.main       = TRUE,
-  # parallel         = 0,
-  # seed             = 1
+  MCMC.samplesize  = 3000
 )
 
 # ======================================================================================
-# Phase 1: Summary — attentes numériques explicites
+# PHASE 1: Summary — attentes numériques explicites
 # ======================================================================================
-
-run_phase1_summary_expected <- function() {
-  cat("=== PHASE 1 : Summary avec attentes explicites ===\n")
+run_phase1_summary_expected <- function(quiet = FALSE) {
+  cat("\n=== PHASE 1 : SUMMARY (attentes explicites) ===\n")
+  if (isTRUE(quiet)) cat("  [mode quiet] sortie console réduite\n")
 
   run_one <- function(part, val, rhs, expect) {
     nodes <- data.frame(label = paste0("A", seq_along(part)), val = val, stringsAsFactors = FALSE)
-    s <- summary_on_bipartite_network(part, nodes, rhs)
-    cat(sprintf("[EXPECT] RHS=%-45s  obtenu=%s  attendu=%s\n", rhs, paste0(s, collapse=","), expect))
-    if (length(s)!=1L || !is.finite(s)) stop("summary non scalaire ou non fini.")
-    if (!isTRUE(all.equal(as.numeric(s), as.numeric(expect)))) {
-      stop(sprintf("Mismatch sur RHS=%s : obtenu=%s attendu=%s", rhs, as.numeric(s), as.numeric(expect)))
+
+    s_net <- summary_on_bipartite_network(part, nodes, rhs)
+    if (!isTRUE(quiet)) {
+      cat(sprintf("[EXPECT][nw]   RHS=%-40s obtenu=%s attendu=%s\n",
+                  rhs, paste0(s_net, collapse = ","), expect))
     }
-    s2 <- summary_on_erpm_translation(part, nodes, rhs)
-    if (!isTRUE(all.equal(as.numeric(s2), as.numeric(expect)))) {
-      stop(sprintf("Mismatch ERPM sur RHS=%s : obtenu=%s attendu=%s", rhs, as.numeric(s2), as.numeric(expect)))
+
+    if (length(s_net) != 1L || !is.finite(s_net)) stop("summary(nw) non scalaire ou non fini.")
+    if (!isTRUE(all.equal(as.numeric(s_net), as.numeric(expect)))) {
+      stop(sprintf("Mismatch summary(nw) RHS=%s : obtenu=%s attendu=%s",
+                   rhs, as.numeric(s_net), as.numeric(expect)))
     }
+
+    s_erpm <- summary_on_erpm_translation(part, nodes, rhs)
+    if (!isTRUE(quiet)) {
+      cat(sprintf("[EXPECT][erpm] RHS=%-40s obtenu=%s attendu=%s\n",
+                  rhs, paste0(s_erpm, collapse = ","), expect))
+    }
+
+    if (is.na(s_erpm)) stop("summary(ERPM-traduit) a retourné NA (erpm indisponible ?).")
+    if (!isTRUE(all.equal(as.numeric(s_erpm), as.numeric(expect)))) {
+      stop(sprintf("Mismatch summary(ERPM) RHS=%s : obtenu=%s attendu=%s",
+                   rhs, as.numeric(s_erpm), as.numeric(expect)))
+    }
+
+    invisible(TRUE)
   }
 
   for (ck in case_tie$checks)   run_one(case_tie$part,   case_tie$val,   ck$rhs, ck$expect)
   for (ck in case_sizes$checks) run_one(case_sizes$part, case_sizes$val, ck$rhs, ck$expect)
   for (ck in case_dense$checks) run_one(case_dense$part, case_dense$val, ck$rhs, ck$expect)
 
-  # -------------------------------
-  # BLOCS D'ERREURS À TESTER À LA DEMANDE
-  # Décommentez un bloc pour valider le fail-fast correspondant.
-  # -------------------------------
-
-  # 1) Category absente -> erreur attendue
-  # err <- NULL
-  # tryCatch({
-  #   summary_on_bipartite_network(case_sizes$part,
-  #                       data.frame(label=paste0("S",seq_along(case_sizes$part)),
-  #                                  val=case_sizes$val, stringsAsFactors=FALSE),
-  #                       "cov_fullmatch('val', category='ZZZ')")
-  # }, error = function(e) err <<- e$message)
-  # if (is.null(err) || !grepl("cov_fullmatch: 'category' absente des modalités", err))
-  #   stop("Erreur attendue sur category absente non levée côté summary(nw).")
-
-  # 2) NA dans la covariée -> erreur attendue
-  # part_na <- c(1,1,1, 2,2,2, 3,3,3,3, 4)
-  # val_na  <- c(NA,NA,NA, "A",NA,"A",  "B","B","B","B",  "C")
-  # err <- NULL
-  # tryCatch({
-  #   summary_on_bipartite_network(part_na,
-  #                       data.frame(label=paste0("N",seq_along(part_na)),
-  #                                  val=val_na, stringsAsFactors=FALSE),
-  #                       "cov_fullmatch('val')")
-  # }, error = function(e) err <<- e$message)
-  # if (is.null(err) || !grepl("cov_fullmatch: NA non autorisé", err))
-  #   stop("Erreur attendue sur NA non levée côté summary(nw).")
-
-  # 3) size = integer(0) -> erreur attendue
-  # err <- NULL
-  # tryCatch({
-  #   summary_on_bipartite_network(case_sizes$part,
-  #                       data.frame(label=paste0("S",seq_along(case_sizes$part)),
-  #                                  val=case_sizes$val, stringsAsFactors=FALSE),
-  #                       "cov_fullmatch('val', size = c())")
-  # }, error = function(e) err <<- e$message)
-  # if (is.null(err) || !grepl("cov_fullmatch: 'size' vide (integer\\(0\\)) interdit", err))
-  #   stop("Erreur attendue sur size=integer(0) non levée côté summary(nw).")
-
-  cat("=== Phase 1 OK ===\n")
-  invisible(NULL)
+  cat("=== PHASE 1 OK ===\n")
+  invisible(TRUE)
 }
 
 # ======================================================================================
-# Phase 2: Summary — équivalence réseau explicite vs ERPM-traduit
+# PHASE 2: Summary — équivalence réseau explicite vs ERPM-traduit
 # ======================================================================================
-
 cases_equiv <- c(
   "cov_fullmatch('gender')",
   "cov_fullmatch('gender', size = 2:4)",
@@ -381,29 +378,31 @@ cases_equiv <- c(
   "cov_fullmatch('dept', category='Rech', size = 2:5)"
 )
 
-run_phase2_summary_equiv <- function() {
-  cat("\n=== PHASE 2 : Summary(nw) vs Summary(ERPM-traduit) ===\n")
+run_phase2_summary_equiv <- function(quiet = FALSE) {
+  cat("\n=== PHASE 2 : SUMMARY EQUIV (nw vs ERPM-traduit) ===\n")
+  if (isTRUE(quiet)) cat("  [mode quiet] sortie console réduite\n")
+
   for (nm in names(partitions)) {
     part  <- partitions[[nm]]
     nodes <- .make_nodes(part)
-    cat(sprintf("\n--- Partition %s ---  n=%d | groupes=%d | tailles: %s\n",
-                nm, length(part), length(unique(part)), paste(sort(table(part)), collapse=",")))
+
+    if (!isTRUE(quiet)) {
+      cat(sprintf("\n--- Partition %s --- n=%d | groupes=%d | tailles: %s\n",
+                  nm, length(part), length(unique(part)), paste(sort(table(part)), collapse = ",")))
+    }
+
     ok <- check_summary_equivalence(part, nodes, cases_equiv, tol = 0)
     if (!ok) stop("Equivalence summary échouée.")
   }
-  cat("=== Phase 2 OK ===\n")
-  invisible(NULL)
+
+  cat("=== PHASE 2 OK ===\n")
+  invisible(TRUE)
 }
 
 # ======================================================================================
-# Phase 3: Fits courts via erpm() — exécution et coefficients finis
+# PHASE 3: Fits courts via erpm() — coefficients finis
 # ======================================================================================
 
-# ======================================================================================
-# Helpers diagnostics pour Phase 3
-# ======================================================================================
-
-# Capture et mémorise les warnings pendant une évaluation
 .with_warning_capture <- function(expr) {
   warnings <- character()
   val <- withCallingHandlers(
@@ -416,218 +415,227 @@ run_phase2_summary_equiv <- function() {
   list(value = val, warnings = warnings)
 }
 
-# Tableau diagnostique par groupe: taille et homogénéité de la covariée 'val'
-.group_diag_table <- function(part, nodes) {
-  stopifnot("val" %in% names(nodes))
-  gid <- as.integer(part)
-  vals <- nodes$val
+.group_diag_table <- function(part, nodes, col = "val") {
+  stopifnot(col %in% names(nodes))
+  gid  <- as.integer(part)
+  vals <- nodes[[col]]
   split_idx <- split(seq_along(gid), gid)
+
   df <- do.call(rbind, lapply(names(split_idx), function(g) {
     idx <- split_idx[[g]]
     v   <- vals[idx]
     data.frame(
-      group      = as.integer(g),
-      size       = length(idx),
-      n_unique   = length(unique(v)),
-      homogeneous= as.integer(length(unique(v)) == 1L),
-      values     = paste(v, collapse = ","),
+      group       = as.integer(g),
+      size        = length(idx),
+      n_unique    = length(unique(v)),
+      homogeneous = as.integer(length(unique(v)) == 1L),
+      values      = paste(v, collapse = ","),
       stringsAsFactors = FALSE
     )
   }))
-  df[order(df$group), , drop=FALSE]
+  df[order(df$group), , drop = FALSE]
 }
 
-# Impression compacte d’un diagnostic complet
-.print_fit_diagnostic <- function(tag, part, nodes, rhs_txt) {
+.print_fit_diagnostic <- function(tag, part, nodes, rhs_txt, col = "val") {
   cat("\n--- DIAGNOSTIC -------------------------------------------------\n")
   cat(sprintf("[TAG] %s\n", tag))
   cat(sprintf("[RHS] %s\n", rhs_txt))
   cat(sprintf("[Partition] n=%d | groupes=%d | tailles: %s\n",
-              length(part), length(unique(part)),
-              paste(sort(table(part)), collapse=",")))
+              length(part), length(unique(part)), paste(sort(table(part)), collapse = ",")))
 
-  # Stat observée côté summary(ERPM-traduit)
-  s_obs <- NA_real_
-  err_s <- NULL
-  tryCatch({
-    s_obs <- summary_on_erpm_translation(part, nodes, rhs_txt)
-  }, error = function(e) err_s <<- conditionMessage(e))
-  cat("[Observed stat via summary(ERPM-traduit)] ",
-      if (is.finite(s_obs)) as.character(s_obs) else paste0("NA", if (!is.null(err_s)) paste0(" (", err_s, ")") else ""),
-      "\n", sep="")
+  s_obs <- tryCatch(summary_on_erpm_translation(part, nodes, rhs_txt),
+                    error = function(e) { cat("[OBS] erreur summary(ERPM): ", conditionMessage(e), "\n", sep = ""); NA_real_ })
+  cat("[Observed stat via summary(ERPM-traduit)] ", if (is.finite(s_obs)) s_obs else "NA", "\n", sep = "")
 
-  # RHS/constraints issus du dry-run erpm()
-  partition <- part
-  f <- as.formula(paste0("partition ~ ", rhs_txt))
-  environment(f) <- list2env(list(partition = partition, nodes = nodes), parent = parent.frame())
-  call_ergm <- try(erpm(f, eval.call = FALSE, verbose = FALSE, nodes = nodes), silent = TRUE)
-  if (!inherits(call_ergm, "try-error")) {
-    ergm_form <- call_ergm[[2L]]
-    rhs_expr  <- try(ergm_form[[3L]], silent = TRUE)
-    call_args <- as.list(call_ergm)[-1L]
-    cons      <- call_args$constraints
-    cat("[Dry-run] constraints = ",
-        if (!is.null(cons)) deparse(cons) else "~ b1part",
-        "\n", sep="")
-    cat("[Dry-run] RHS expr    = ",
-        if (!inherits(rhs_expr, "try-error")) paste(deparse(rhs_expr), collapse=" ") else "?", "\n", sep="")
-  } else {
-    cat("[Dry-run] Impossible d’obtenir l’appel erpm(): ",
-        as.character(call_ergm), "\n", sep="")
-  }
-
-  # Aperçu homogénéité par groupe
-  diag_df <- .group_diag_table(part, nodes)
+  diag_df <- .group_diag_table(part, nodes, col = col)
   cat("[Group diag] head:\n")
-  print(utils::head(diag_df, 10L), row.names = FALSE)
+  print(utils::head(diag_df, 12L), row.names = FALSE)
   cat("---------------------------------------------------------------\n\n")
 }
 
-# ======================================================================================
-# Phase 3: Fits via erpm() — version MLE + loglik
-# ======================================================================================
+run_phase3_erpm_fits <- function(quiet = FALSE) {
+  cat("\n=== PHASE 3 : FITS ERPM (coef finis) ===\n")
+  if (isTRUE(quiet)) cat("  [mode quiet] sortie console réduite\n")
 
-run_phase3_erpm_fits <- function() {
-  cat("\n=== PHASE 3 : Fits erpm() (MLE + loglik) ===\n")
+  if (!exists("erpm", mode = "function")) {
+    cat("[PHASE 3] SKIP: erpm() indisponible\n")
+    return(invisible(list(ok = NA)))
+  }
 
-  run_fit <- function(part, nodes, rhs, tag) {
-    if (!exists("erpm", mode = "function")) {
-      cat(sprintf("[ERPM-FIT %-14s] SKIP (erpm() indisponible)\n", tag));
-      return(list(ok = NA, error = TRUE, coef = NA, fit = NULL))
-    }
+  run_fit <- function(part, nodes, rhs, tag, col = "val") {
     f <- as.formula(paste0("partition ~ ", rhs))
     environment(f) <- list2env(list(partition = part, nodes = nodes), parent = parent.frame())
 
-    # Stat observée avant fit
-    s_obs <- NA_real_
-    err_obs <- NULL
-    s_obs <- tryCatch(summary_on_erpm_translation(part, nodes, rhs),
-                      error = function(e){ err_obs <<- conditionMessage(e); NA_real_ })
-    if (!is.na(s_obs)) {
-      cat(sprintf("[ERPM-FIT %-14s] stat_observee=%s\n", tag, format(s_obs)))
-    } else if (!is.null(err_obs)) {
-      cat(sprintf("[ERPM-FIT %-14s] stat_observee=NA (%s)\n", tag, err_obs))
-    }
-
-    # Exécution avec capture des warnings
     res <- .with_warning_capture(
-      try(erpm(f, eval.loglik = TRUE, 
-                  # estimate = "MLE", 
-                  # control = ctrl_mle,
-                  verbose = FALSE, nodes = nodes), silent = TRUE)
+      try(erpm(f, eval.loglik = TRUE, verbose = FALSE, nodes = nodes, control = ctrl_mle), silent = TRUE)
     )
+
     fit <- res$value
-    warns <- res$warnings
-    if (length(warns)) {
-      cat(sprintf("[ERPM-FIT %-14s] WARNINGS (%d):\n", tag, length(warns)))
-      for (w in unique(warns)) cat("  - ", w, "\n", sep="")
+    warns <- unique(res$warnings)
+
+    if (length(warns) && !isTRUE(quiet)) {
+      cat(sprintf("[ERPM-FIT %-10s] WARNINGS (%d)\n", tag, length(warns)))
+      for (w in warns) cat("  - ", w, "\n", sep = "")
     }
 
-    # Cas erreur d’exécution
-    if (inherits(fit,"try-error")) {
-      cat(sprintf("[ERPM-FIT %-14s] ERREUR: %s\n", tag, as.character(fit)))
-      .print_fit_diagnostic(tag, part, nodes, rhs)
-      return(list(ok = FALSE, error = TRUE, coef = NA, fit = NULL))
+    if (inherits(fit, "try-error")) {
+      cat(sprintf("[ERPM-FIT %-10s] FAIL: %s\n", tag, as.character(fit)))
+      .print_fit_diagnostic(tag, part, nodes, rhs, col = col)
+      return(list(ok = FALSE, fit = NULL, coef = NA))
     }
 
-    # Vérification coefficients
     cf <- try(stats::coef(fit), silent = TRUE)
-    ok_coef <- !(inherits(cf, "try-error")) && all(is.finite(cf))
+    ok_coef  <- !(inherits(cf, "try-error")) && length(cf) > 0L && all(is.finite(cf))
     ok_class <- inherits(fit, "ergm")
-    cat(sprintf("[ERPM-FIT %-14s] coef finies: %s | coef=%s\n",
-                tag, if (ok_coef) "OK" else "KO",
-                if (ok_coef) paste(format(as.numeric(cf)), collapse=", ") else "NA"))
+    ok <- isTRUE(ok_coef && ok_class)
 
-    if (!(ok_coef && ok_class)) {
-      sm <- try(suppressMessages(summary(fit)), silent = TRUE)
-      if (!inherits(sm, "try-error")) {
-        cat(sprintf("[ERPM-FIT %-14s] summary(fit) extract:\n", tag))
-        if (!is.null(sm$coefs)) {
-          print(sm$coefs)
-        } else if (!is.null(sm$coefficients)) {
-          print(sm$coefficients)
-        } else {
-          str(sm, max.level = 1)
-        }
-      }
-      .print_fit_diagnostic(tag, part, nodes, rhs)
+    cat(sprintf("[ERPM-FIT %-10s] ok=%s | coef=%s\n",
+                tag, ok,
+                if (ok_coef) paste(format(as.numeric(cf)), collapse = ", ") else "NA"))
 
-      # Tolérance cas extrême attendu
-      if (is.finite(s_obs) && s_obs == 0) {
-        cat(sprintf("[ERPM-FIT %-14s] CAS EXTRÊME ATTENDU: stat_observee=0 -> PASS technique\n", tag))
-        return(list(ok = TRUE, error = FALSE, coef = if (ok_coef) cf else NA, fit = fit))
-      }
-      return(list(ok = FALSE, error = FALSE, coef = if (ok_coef) cf else NA, fit = fit))
-    }
-
-    list(ok = TRUE, error = FALSE, coef = cf, fit = fit)
+    if (!ok) .print_fit_diagnostic(tag, part, nodes, rhs, col = col)
+    list(ok = ok, fit = fit, coef = if (ok_coef) cf else NA)
   }
 
-  fit_results <- list()
+  nodes_sizes <- data.frame(label = paste0("S", seq_along(case_sizes$part)), val = case_sizes$val, stringsAsFactors = FALSE)
+  nodes_tie   <- data.frame(label = paste0("T", seq_along(case_tie$part)),   val = case_tie$val,   stringsAsFactors = FALSE)
+  nodes_dense <- data.frame(label = paste0("D", seq_along(case_dense$part)), val = case_dense$val, stringsAsFactors = FALSE)
 
-  # sizes: 1,2,3
-  fit_results[["ALL"]]   <- run_fit(case_sizes$part,
-                            data.frame(label=paste0("S",seq_along(case_sizes$part)),
-                                       val=case_sizes$val, stringsAsFactors=FALSE),
-                            "cov_fullmatch('val')", "ALL")
-  fit_results[["S1"]]    <- run_fit(case_sizes$part,
-                            data.frame(label=paste0("S",seq_along(case_sizes$part)),
-                                       val=case_sizes$val, stringsAsFactors=FALSE),
-                            "cov_fullmatch('val', size = c(1))", "S1")
-  fit_results[["S1_3"]]  <- run_fit(case_sizes$part,
-                            data.frame(label=paste0("S",seq_along(case_sizes$part)),
-                                       val=case_sizes$val, stringsAsFactors=FALSE),
-                            "cov_fullmatch('val', size = c(1,3))", "S1_3")
+  fits <- list(
+    ALL      = run_fit(case_sizes$part, nodes_sizes, "cov_fullmatch('val')",                "ALL"),
+    S1       = run_fit(case_sizes$part, nodes_sizes, "cov_fullmatch('val', size = 1)",      "S1"),
+    S1_3     = run_fit(case_sizes$part, nodes_sizes, "cov_fullmatch('val', size = c(1,3))", "S1_3"),
+    TIE_ALL  = run_fit(case_tie$part,   nodes_tie,   "cov_fullmatch('val')",                "TIE_ALL"),
+    TIE_S4   = run_fit(case_tie$part,   nodes_tie,   "cov_fullmatch('val', size = 4)",      "TIE_S4"),
+    DENSE_ALL= run_fit(case_dense$part, nodes_dense, "cov_fullmatch('val')",                "DENSE_ALL"),
+    DENSE_S3 = run_fit(case_dense$part, nodes_dense, "cov_fullmatch('val', size = 3)",      "DENSE_S3")
+  )
 
-  # tie 2v2 et filtre size=4
-  fit_results[["TIE_ALL"]] <- run_fit(case_tie$part,
-                            data.frame(label=paste0("T",seq_along(case_tie$part)),
-                                       val=case_tie$val, stringsAsFactors=FALSE),
-                            "cov_fullmatch('val')", "TIE_ALL")
-  fit_results[["TIE_S4"]]  <- run_fit(case_tie$part,
-                            data.frame(label=paste0("T",seq_along(case_tie$part)),
-                                       val=case_tie$val, stringsAsFactors=FALSE),
-                            "cov_fullmatch('val', size = c(4))", "TIE_S4")
+  ok <- vapply(fits, function(x) isTRUE(x$ok), logical(1))
+  n_ok <- sum(ok); n_tot <- length(ok)
 
-  # numérique dense
-  fit_results[["DENSE_ALL"]] <- run_fit(case_dense$part,
-                            data.frame(label=paste0("D",seq_along(case_dense$part)),
-                                       val=case_dense$val, stringsAsFactors=FALSE),
-                            "cov_fullmatch('val')", "DENSE_ALL")
-  fit_results[["DENSE_S3"]]  <- run_fit(case_dense$part,
-                            data.frame(label=paste0("D",seq_along(case_dense$part)),
-                                       val=case_dense$val, stringsAsFactors=FALSE),
-                            "cov_fullmatch('val', size = c(3))", "DENSE_S3")
+  cat(sprintf("\n=== Bilan FITS: %d / %d OK ===\n", n_ok, n_tot))
+  if (n_ok < n_tot) stop(sprintf("Echec FITS: %d KO", n_tot - n_ok))
 
-  # Bilan global + résumés détaillés
-  ok <- vapply(fit_results, function(x) isTRUE(x$ok), logical(1))
-  n_ok <- sum(ok, na.rm = TRUE); n_tot <- sum(!is.na(ok))
-  cat(sprintf("\n=== Bilan fits erpm() : %d / %d OK ===\n", n_ok, n_tot))
-
-  cat("\n=== Résumés détaillés des fits ERPM réussis ===\n")
-  for (nm in names(fit_results)) {
-    fit_obj <- fit_results[[nm]]
-    if (isTRUE(fit_obj$ok) && inherits(fit_obj$coef, "numeric")) {
-      cat(sprintf("\n--- Résumé fit %s ---\n", nm))
-      print(summary(fit_obj$fit))
+  # En mode normal: résumés des fits
+  if (!isTRUE(quiet)) {
+    cat("\n=== Résumés fits OK ===\n")
+    for (nm in names(fits)) {
+      if (isTRUE(fits[[nm]]$ok)) {
+        cat("\n---", nm, "---\n")
+        print(summary(fits[[nm]]$fit))
+      }
     }
   }
 
-  if (n_ok < n_tot) stop(sprintf("Echec fits: %d KO", n_tot - n_ok))
-
-  invisible(list(fit_results = fit_results))
+  invisible(fits)
 }
 
 # ======================================================================================
-# Exécution
+# PHASE 4: MCMC multi-toggle probe (diagnostic)
+# ======================================================================================
+# But:
+#   - Déclencher le code MCMC sur un réseau biparti.
+#   - Observer (si DEBUG côté C est activé) des traces indiquant un appel multi-toggle
+#     (ntoggles > 1), comme vous l’avez fait pour squared_sizes.
+#
+# Important:
+#   - Ce probe ne "force" pas mathématiquement ntoggles>1: il dépend du proposal.
+#   - On choisit un proposal réputé pouvoir générer des multi-toggles selon les setups.
+#   - Si vous n’observez jamais ntoggles>1, changez MCMC.prop vers un proposal multi-toggle
+#     de votre codebase, ou augmentez l’intensité/longueur de la simulation.
 # ======================================================================================
 
-set.seed(1)
-cat("=== TEST ERPM: cov_fullmatch ===\n")
-run_phase1_summary_expected()
-run_phase2_summary_equiv()
+.run_mcmc_multitoggle_probe <- function(nw, rhs_txt) {
+  ctrl <- control.simulate.formula(
+    MCMC.burnin   = 1000,
+    MCMC.interval = 1,
+    MCMC.prop     = ~ sparse
+  )
 
-res_fits <- run_phase3_erpm_fits()
+  f <- .formula_nw(nw, rhs_txt)
 
-ergm_patch_disable()
+  sim <- simulate(
+    f,
+    nsim    = 1,
+    control = ctrl,
+    verbose = TRUE
+  )
+
+  print(sim)
+  invisible(sim)
+}
+
+run_phase4_mcmc_probe <- function() {
+  cat("\n=== PHASE 4 : MCMC MULTI-TOGGLE PROBE ===\n")
+  cat("Objectif: déclencher le code MCMC et observer des traces debug multi-toggle côté C.\n")
+  cat("Si vous ne voyez rien:\n")
+  cat("  - soit le debug n'est pas activé dans le changestat C,\n")
+  cat("  - soit le proposal ne génère pas de moves multi-toggle sur ce setup.\n\n")
+
+  # Cas probe: on prend un cas simple avec covariée 'val'
+  part  <- case_sizes$part
+  nodes <- data.frame(label = paste0("P", seq_along(part)), val = case_sizes$val, stringsAsFactors = FALSE)
+  nw <- .erpm_build_bipartite_nw(part, nodes)
+
+  # RHS minimal: cov_fullmatch('val')
+  rhs <- "cov_fullmatch('val')"
+
+  cat("[PROBE] network.size=", network::network.size(nw), " | edges=", network::network.edgecount(nw), "\n", sep = "")
+  cat("[PROBE] RHS=", rhs, "\n", sep = "")
+  .run_mcmc_multitoggle_probe(nw, rhs)
+
+  cat("\n[PROBE] Si des traces type 'MULTI-TOGGLE ntoggles=...' apparaissent: chemin multitoggle OK.\n")
+  invisible(TRUE)
+}
+
+# ======================================================================================
+# Run principal
+# ======================================================================================
+run_all_tests_cov_fullmatch <- function() {
+  set.seed(1)
+
+  cat("=== SELFTEST ERPM: cov_fullmatch ===\n")
+  cat("R:", paste(R.version$major, R.version$minor, sep = "."), "\n")
+  cat("ergm:", as.character(utils::packageVersion("ergm")), "\n")
+
+  if (isTRUE(RUN$phase1_expected)) {
+    run_phase1_summary_expected(quiet = isTRUE(RUN$quiet_phase1))
+  } else {
+    cat("\n=== PHASE 1 === SKIP (RUN$phase1_expected=FALSE)\n")
+  }
+
+  if (isTRUE(RUN$phase2_equiv)) {
+    run_phase2_summary_equiv(quiet = isTRUE(RUN$quiet_phase2))
+  } else {
+    cat("\n=== PHASE 2 === SKIP (RUN$phase2_equiv=FALSE)\n")
+  }
+
+  if (isTRUE(RUN$phase3_fit)) {
+    run_phase3_erpm_fits(quiet = isTRUE(RUN$quiet_phase3))
+  } else {
+    cat("\n=== PHASE 3 === SKIP (RUN$phase3_fit=FALSE)\n")
+  }
+
+  if (isTRUE(RUN$phase4_mcmc)) {
+    run_phase4_mcmc_probe()
+  } else {
+    cat("\n=== PHASE 4 === SKIP (RUN$phase4_mcmc=FALSE)\n")
+  }
+
+  invisible(TRUE)
+}
+
+# Exécution quand lancé en script
+if (identical(environment(), globalenv())) {
+  run_all_tests_cov_fullmatch()
+}
+
+# --------------------------------------------------------------------------------------
+# Fin: on désactive le patch si présent
+# --------------------------------------------------------------------------------------
+if (exists("ergm_patch_disable", mode = "function")) {
+  ergm_patch_disable()
+}
+
 cat("\nTous les tests cov_fullmatch ont passé.\n")

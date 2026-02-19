@@ -19,6 +19,23 @@
 # When `category` is provided and `cov` is categorical, x_i is replaced by
 # an indicator 1[c_i == category] so that the term becomes a weighted count
 # of actors in the targeted category inside each group, scaled by group size.
+#
+# ------------------------------------------------------------------------------
+# IMPORTANT (multi-toggle / D_CHANGESTAT_FN)
+# ------------------------------------------------------------------------------
+# This term MUST support multi-toggle proposals (swap/split/merge) represented
+# by a list of toggles inside ergm's MCMC.
+#
+# Therefore:
+#   - The compiled change-statistic MUST be implemented with D_CHANGESTAT_FN
+#     (multi-toggle signature).
+#   - On the R side, we MUST return d_func = TRUE so that ergm calls the D_
+#     entrypoint (and does NOT attempt to call a one-toggle C_ entrypoint).
+#
+# Compiled symbol naming convention:
+#   - Implement the C function as `d_cov_ingroup` via D_CHANGESTAT_FN(d_cov_ingroup).
+#   - Do NOT expose a `c_cov_ingroup` symbol with a D signature (ergm may resolve
+#     it as one-toggle and crash).
 # ==============================================================================
 
 #' ERGM term: cov_ingroup (group-size weighted covariate sums)
@@ -60,7 +77,7 @@
 #'
 #' @details
 #' The term is implemented as a native ERGM C change-statistic under the name
-#' \code{c_cov_ingroup}. The R initializer:
+#' \code{d_cov_ingroup} (multi-toggle form). The R initializer:
 #' \itemize{
 #'   \item enforces that the network is bipartite and retrieves the actor-mode
 #'         size from \code{nw \%n\% "bipartite"};
@@ -70,41 +87,16 @@
 #'         into a sorted set \eqn{S} of positive integers;
 #'   \item packs \eqn{n_1}, the size filter and \eqn{x} into a compact
 #'         \code{INPUT_PARAM} vector consumed by the C code.
+#'   \item sets \code{d_func = TRUE} to advertise multi-toggle support to ergm.
 #' }
 #'
-#' On each toggle of an actor-group edge, the C change-statistic recomputes the
-#' contribution of the affected group and updates the statistic in \eqn{O(n_g)}
-#' time for that group.
-#'
-#' @section Mathematical definition:
-#' Let:
-#' \itemize{
-#'   \item \eqn{A} denote the set of actor-mode nodes with \eqn{|A| = n_1};
-#'   \item \eqn{G} denote the set of group-mode nodes;
-#'   \item \eqn{B} be the bipartite adjacency between actors and groups;
-#'   \item \eqn{x : A \to \mathbb{R}} be a numeric covariate on actors;
-#'   \item \eqn{S \subseteq \mathbb{N}} be a set of admissible group sizes.
-#' }
-#' For each group \eqn{g \in G}, define:
-#' \itemize{
-#'   \item \eqn{n_g = \sum_{i \in A} B_{i,g}} the group size (number of actors);
-#'   \item \eqn{X_g = \sum_{i \in A} B_{i,g} x_i} the sum of covariate values
-#'         of actors in group \eqn{g}.
-#' }
-#' The statistic is:
-#' \deqn{
-#'   T(B; x, S) = \sum_{g \in G} n_g X_g \mathbf{1}[n_g \in S].
-#' }
-#' When a categorical attribute \eqn{c_i} and a category \eqn{\kappa} are used,
-#' we set \eqn{x_i = \mathbf{1}[c_i = \kappa]} and obtain:
-#' \deqn{
-#'   T(B; \kappa, S) =
-#'   \sum_{g \in G} n_g \left(\sum_{i \in g} \mathbf{1}[c_i = \kappa]\right)
-#'   \mathbf{1}[n_g \in S].
-#' }
+#' On each toggle list (possibly with several toggles affecting the same group),
+#' the C change-statistic processes toggles sequentially, temporarily applying
+#' intermediate toggles so degrees and neighbour sums are consistent, then
+#' undoes them before returning.
 #'
 #' @section INPUT_PARAM layout (C side):
-#' The numeric vector passed to \code{c_cov_ingroup} has the following layout:
+#' The numeric vector passed to \code{d_cov_ingroup} has the following layout:
 #'
 #' \preformatted{
 #'   INPUT_PARAM = c(
@@ -115,165 +107,20 @@
 #'   )
 #' }
 #'
-#' The C code reconstructs:
-#'
-#' \itemize{
-#'   \item the actor-mode size \eqn{n_1};
-#'   \item the set \eqn{S} of admissible group sizes;
-#'   \item the numeric covariate vector \eqn{x};
-#' }
-#' and then recomputes the local changes to \eqn{T(B; x, S)} when edges between
-#' actors and groups are toggled.
-#'
-#' @section Usage:
-#' The user-facing term is:
-#'
-#' \preformatted{
-#'   cov_ingroup(cov,
-#'               size     = NULL,
-#'               category = NULL)
-#' }
-#'
-#' Typical usage in an ERGM formula:
-#'
-#' \preformatted{
-#'   # Bipartite network with actor mode A and group mode G
-#'   summary(nw ~ cov_ingroup("age") + b1part)
-#'
-#'   # Restrict to groups with sizes 3, 4 or 5
-#'   summary(nw ~ cov_ingroup("age", size = 3:5) + b1part)
-#'
-#'   # Target a specific category of a categorical covariate
-#'   summary(nw ~ cov_ingroup("gender", category = "F") + b1part)
-#' }
-#'
-#' When using the ERPM wrapper, the same term can be used either on a bipartite
-#' network or directly on a partition representation:
-#'
-#' \preformatted{
-#'   erpm(nw ~ cov_ingroup("age"))
-#'   erpm(partition ~ cov_ingroup("gender", category = "F"))
-#' }
-#'
-#' @param nw A \pkg{network} object.
-#' @param arglist A named list of term arguments. Expected components include:
-#'   \itemize{
-#'     \item \code{cov}: character (vertex attribute name) or numeric vector for actor covariates;
-#'     \item \code{size}: optional integer vector of admissible group sizes;
-#'     \item \code{category}: optional character scalar selecting a category when \code{cov} is categorical.
-#'   }
-#' @param ... Passed through by \pkg{ergm}; not used.
-#' @param version ERGM API version; not used.
-#'
-#' @return
-#' A standard \pkg{ergm} term specification list with components:
-#' \itemize{
-#'   \item \code{name}         = \code{"cov_ingroup"};
-#'   \item \code{coef.names}   = a single coefficient name encoding the
-#'         covariate label and the size filter;
-#'   \item \code{inputs}       = numeric vector \code{INPUT_PARAM} as described
-#'         above;
-#'   \item \code{dependence}   = \code{TRUE};
-#'   \item \code{emptynwstats} = \code{0}.
-#' }
-#'
-#' @note
-#' \itemize{
-#'   \item The network must be bipartite and interpreted as actors versus
-#'         groups. The actor mode size is taken from \code{nw \%n\% "bipartite"}
-#'         and must be a strictly positive finite integer.
-#'   \item When \code{cov} is given as an attribute name and \code{category} is
-#'         \code{NULL}, the attribute is coerced to numeric; non-finite values
-#'         (\code{NA}, \code{NaN}, \code{Inf}) are rejected in a fail-fast
-#'         manner with a descriptive error.
-#'   \item When \code{category} is provided, the underlying attribute is
-#'         compared to the category at the R level, and missing values are
-#'         treated as non-matching (indicator 0).
-#' }
-#'
-#' @examples
-#' \dontrun{
-#'   library(network)
-#'   library(ergm)
-#'
-#'   # -----------------------------------------------------------------------
-#'   # Build a small bipartite network: 4 actors, 2 groups
-#'   # -----------------------------------------------------------------------
-#'   n_actors <- 4
-#'   n_groups <- 2
-#'   n_total  <- n_actors + n_groups
-#'
-#'   adj <- matrix(0, n_total, n_total)
-#'
-#'   # Actors = 1..4, Groups = 5..6
-#'   # Group 5: actors 1, 2
-#'   adj[1, 5] <- adj[5, 1] <- 1
-#'   adj[2, 5] <- adj[5, 2] <- 1
-#'   # Group 6: actors 2, 3, 4
-#'   adj[2, 6] <- adj[6, 2] <- 1
-#'   adj[3, 6] <- adj[6, 3] <- 1
-#'   adj[4, 6] <- adj[6, 4] <- 1
-#'
-#'   nw <- network(adj, directed = FALSE, matrix.type = "adjacency")
-#'   nw \%n\% "bipartite" <- n_actors  # actor-mode size
-#'
-#'   # Numeric actor covariate (e.g. age)
-#'   age <- c(25, 30, 28, 40)
-#'   set.vertex.attribute(nw, "age", c(age, rep(NA_real_, n_groups)))
-#'
-#'   # Categorical actor covariate (e.g. gender)
-#'   gender <- c("F", "M", "F", "M")
-#'   set.vertex.attribute(nw, "gender", c(gender, rep(NA_character_, n_groups)))
-#'
-#'   # -----------------------------------------------------------------------
-#'   # Example 1: numeric covariate, all group sizes
-#'   # -----------------------------------------------------------------------
-#'   summary(
-#'     nw ~ cov_ingroup("age") + b1part
-#'   )
-#'
-#'   # -----------------------------------------------------------------------
-#'   # Example 2: numeric covariate, filter groups with size in {2, 3}
-#'   # -----------------------------------------------------------------------
-#'   summary(
-#'     nw ~ cov_ingroup("age", size = c(2, 3)) + b1part
-#'   )
-#'
-#'   # -----------------------------------------------------------------------
-#'   # Example 3: categorical covariate, targeted category "F"
-#'   # -----------------------------------------------------------------------
-#'   summary(
-#'     nw ~ cov_ingroup("gender", category = "F") + b1part
-#'   )
-#'
-#'   # Example ERGM fit
-#'   fit <- ergm(
-#'     nw ~ cov_ingroup("age", size = c(2, 3)) + b1part
-#'   )
-#'   summary(fit)
-#' }
-#'
-#' @section Tests:
-#' Self-tests for \code{cov_ingroup} (not shown here) typically:
-#' \itemize{
-#'   \item build small bipartite networks with a known partition of actors into
-#'         groups and known covariate values on the actor mode;
-#'   \item compute, in pure R, the reference value
-#'         \eqn{T(B; x, S) = \sum_g n_g (\sum_{i \in g} x_i)\mathbf{1}[n_g \in S]};
-#'   \item compare these reference values to
-#'         \code{summary(nw ~ cov_ingroup(...), constraints = ~ b1part)};
-#'   \item verify that toggling a single actor-group tie changes the statistic
-#'         by the local increment obtained by recomputing the contribution of
-#'         the affected group only, as implemented in the C change-statistic
-#'         \code{c_cov_ingroup}.
-#' }
-#'
-#' @keywords ERGM term bipartite covariate groups
-#' @md
-#'
 #' @export
 InitErgmTerm.cov_ingroup <- function(nw, arglist, ..., version = packageVersion("ergm")) {
   termname <- "cov_ingroup"
+
+  # ---------------------------------------------------------------------------
+  # Debug helpers
+  # ---------------------------------------------------------------------------
+  # Global option:
+  #   options(ERPM.cov_ingroup.debug = TRUE/FALSE)
+  dbg    <- isTRUE(getOption("ERPM.cov_ingroup.debug", TRUE))
+  dbgcat <- function(...) if (dbg) cat("[cov_ingroup][DEBUG]", ..., "\n", sep = "")
+
+  dbgcat("InitErgmTerm.cov_ingroup called with args: ",
+         paste(names(arglist), collapse = ", "))
 
   # ---------------------------------------------------------------------------
   # Base ERGM term validation and argument parsing
@@ -295,8 +142,14 @@ InitErgmTerm.cov_ingroup <- function(nw, arglist, ..., version = packageVersion(
   #   - strict bipartite guard via nw %n% "bipartite"
   # ---------------------------------------------------------------------------
   n1 <- tryCatch(nw %n% "bipartite", error = function(e) NA_integer_)
-  if (!is.numeric(n1) || !is.finite(n1) || n1 <= 0)
-    ergm_Init_stop(sQuote(termname), ": non-bipartite network or missing/invalid %n% 'bipartite' attribute.")
+  if (!is.numeric(n1) || !is.finite(n1) || n1 <= 0) {
+    ergm_Init_stop(
+      sQuote(termname),
+      ": non-bipartite network or missing/invalid %n% 'bipartite' attribute."
+    )
+  }
+  n1 <- as.integer(n1)
+  dbgcat("bipartite attribute (n1) =", n1)
 
   # ---------------------------------------------------------------------------
   # Build the actor-level covariate vector x (length n1)
@@ -309,10 +162,9 @@ InitErgmTerm.cov_ingroup <- function(nw, arglist, ..., version = packageVersion(
   get_actor_cov <- function(nw, cov, category = NULL) {
     n1 <- as.integer(nw %n% "bipartite")
 
-    # Indices for the actor mode:
-    # by convention from the builder: actors are listed first (1..n1).
-    # If vertex names suggest an actor/group split, use that as a best effort.
+    # Indices for actor mode: by convention, actors are 1..n1.
     ia <- seq_len(n1)
+
     vn <- network::network.vertex.names(nw)
     if (length(vn) >= n1) {
       ia_guess <- which(!grepl("^G\\d+$", vn))
@@ -322,11 +174,12 @@ InitErgmTerm.cov_ingroup <- function(nw, arglist, ..., version = packageVersion(
     # Case 1: cov is the name of a vertex attribute
     if (is.character(cov) && length(cov) == 1L) {
       vals <- network::get.vertex.attribute(nw, cov)
-      if (is.null(vals))
+      if (is.null(vals)) {
         ergm_Init_stop(sQuote(termname), ": attribut inexistant: ", sQuote(cov), ".")
+      }
       x <- vals[ia]
 
-      # If a category is provided, build an indicator covariate x_i = 1[c_i == category]
+      # Category => indicator x_i = 1[c_i == category]
       if (!is.null(category)) {
         xb <- as.integer(as.character(x) == category)
         xb[is.na(xb)] <- 0L
@@ -334,42 +187,49 @@ InitErgmTerm.cov_ingroup <- function(nw, arglist, ..., version = packageVersion(
           x         = as.double(xb),
           cov_label = paste0(cov, "==", category)
         ))
-      } else {
-        # Otherwise, interpret the attribute as numeric
-        x_num <- suppressWarnings(as.numeric(x))
-        if (any(!is.finite(x_num))) {
-          bad <- which(!is.finite(x_num))[1]
-          ergm_Init_stop(
-            sQuote(termname),
-            ": numeric actor attribute contains NA/NaN/Inf. ",
-            "Example: vertex=", vn[ia[bad]], ", value=", as.character(x[bad])
-          )
-        }
-        return(list(
-          x         = as.double(x_num),
-          cov_label = cov
-        ))
       }
 
-    } else {
-      # Case 2: direct numeric vector for actor covariate
-      x_num <- suppressWarnings(as.numeric(cov))
-      if (any(!is.finite(x_num)))
-        ergm_Init_stop(sQuote(termname), ": vector 'cov' contains NA/NaN/Inf.")
-      if (length(x_num) < n1)
-        ergm_Init_stop(sQuote(termname), ": length(cov) < |A| = ", n1, ".")
-      if (!is.null(category))
-        ergm_Init_stop(sQuote(termname), ": 'category' does not apply when 'cov' is a direct numeric vector.")
+      # Numeric covariate (coerce + strict finite)
+      x_num <- suppressWarnings(as.numeric(x))
+      if (any(!is.finite(x_num))) {
+        bad <- which(!is.finite(x_num))[1]
+        ergm_Init_stop(
+          sQuote(termname),
+          ": numeric actor attribute contains NA/NaN/Inf. ",
+          "Example: vertex=", if (length(vn) >= ia[bad]) vn[ia[bad]] else ia[bad],
+          ", value=", as.character(x[bad])
+        )
+      }
       return(list(
-        x         = as.double(x_num[seq_len(n1)]),
-        cov_label = "cov"
+        x         = as.double(x_num),
+        cov_label = cov
       ))
     }
+
+    # Case 2: direct numeric vector
+    x_num <- suppressWarnings(as.numeric(cov))
+    if (any(!is.finite(x_num))) {
+      ergm_Init_stop(sQuote(termname), ": vector 'cov' contains NA/NaN/Inf.")
+    }
+    if (length(x_num) < n1) {
+      ergm_Init_stop(sQuote(termname), ": length(cov) < |A| = ", n1, ".")
+    }
+    if (!is.null(category)) {
+      ergm_Init_stop(sQuote(termname), ": 'category' does not apply when 'cov' is a direct numeric vector.")
+    }
+
+    list(
+      x         = as.double(x_num[seq_len(n1)]),
+      cov_label = "cov"
+    )
   }
 
   ax <- get_actor_cov(nw, cov = cov, category = category)
   x         <- ax$x
   cov_label <- ax$cov_label
+
+  dbgcat("cov_label =", cov_label, " | x[1:5] = ",
+         paste(utils::head(x, 5), collapse = ","))
 
   # ---------------------------------------------------------------------------
   # Normalize the size filter S (argument 'size')
@@ -378,23 +238,27 @@ InitErgmTerm.cov_ingroup <- function(nw, arglist, ..., version = packageVersion(
   # ---------------------------------------------------------------------------
   S <- a$size
   if (is.null(S) || length(S) == 0L) {
-    sizes <- integer(0)  # S = all group sizes
+    sizes <- integer(0)
   } else {
     S <- unique(as.integer(S))
-    if (any(!is.finite(S)) || any(S < 1L))
+    if (any(!is.finite(S)) || any(S < 1L)) {
       ergm_Init_stop(sQuote(termname), ": 'size' must contain integers >= 1.")
+    }
     sizes <- sort(S)
   }
+  L <- length(sizes)
+
+  dbgcat("sizes filter L =", L, " | sizes = ",
+         if (L) paste(sizes, collapse = ",") else "<ALL>")
 
   # ---------------------------------------------------------------------------
   # Build INPUT_PARAM for the C change-statistic
-  #   Layout (1-based indexing):
+  #   Layout:
   #     [1]           = n1
-  #     [2]           = L = length(sizes)
-  #     [3..(2+L)]    = sizes (possibly L = 0)
+  #     [2]           = L
+  #     [3..(2+L)]    = sizes
   #     [3+L.. ]      = x[1..n1]
   # ---------------------------------------------------------------------------
-  L <- length(sizes)
   inputs <- c(
     as.double(n1),
     as.double(L),
@@ -403,21 +267,25 @@ InitErgmTerm.cov_ingroup <- function(nw, arglist, ..., version = packageVersion(
   )
 
   # ---------------------------------------------------------------------------
-  # Coefficient name:
-  #   - encodes the covariate label and the size filter S
+  # Coefficient name
   # ---------------------------------------------------------------------------
   pretty_sizes <- if (L == 0L) "all" else paste0("S{", paste(sizes, collapse = ","), "}")
   coef.names   <- paste0("cov_ingroup[", cov_label, "]_", pretty_sizes)
 
+  dbgcat("coef.names =", coef.names, " | inputs length =", length(inputs))
+
   # ---------------------------------------------------------------------------
   # Standard ERGM term specification
-  #   - name must match C_CHANGESTAT_FN(c_cov_ingroup)
   # ---------------------------------------------------------------------------
+  # IMPORTANT:
+  # - d_func = TRUE tells ergm to call the multi-toggle (D_) changestat entrypoint
+  #   implemented as D_CHANGESTAT_FN(d_cov_ingroup).
   list(
-    name         = "cov_ingroup",   # must match C_CHANGESTAT_FN(c_cov_ingroup)
+    name         = "cov_ingroup",
     coef.names   = coef.names,
-    inputs       = inputs,          # n1, L, sizes[L], x[n1]
+    inputs       = inputs,
     dependence   = TRUE,
+    d_func       = TRUE,  # <-- REQUIRED (multi-toggle)
     emptynwstats = 0
   )
 }

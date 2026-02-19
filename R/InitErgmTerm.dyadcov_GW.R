@@ -25,9 +25,19 @@
 #' \eqn{z_{ij}+z_{ji}}.
 #'
 #' @section Implementation and change-statistic:
-#' The term is implemented as a native ERGM C change-statistic exposed under the
-#' symbol \code{c_dyadcov_GW}. The initializer packages \code{n1}, \code{lambda}
-#' and the flattened \code{dyadcov} matrix into \code{INPUT_PARAM}.
+#' The term is implemented as a native ERGM C change-statistic.
+#'
+#' IMPORTANT (multi-toggle / D_CHANGESTAT_FN):
+#' - This term MUST support multi-toggle proposals (swap/split/merge decomposed
+#'   into multiple edge toggles).
+#' - Therefore the compiled change-statistic is implemented as a D_ entrypoint:
+#'     D_CHANGESTAT_FN(d_dyadcov_GW)
+#' - On the R side, we MUST set `d_func = TRUE`, otherwise ergm will try to call
+#'   a one-toggle C_ entrypoint and you risk a signature mismatch / segfault.
+#'
+#' Parameter packing:
+#'   INPUT_PARAM = c(n1, lambda, as.vector(Z))
+#' where as.vector(Z) uses R's column-major order (consistent with C indexing).
 #'
 #' @param nw A \pkg{network} object.
 #' @param arglist A named list of term arguments. Expected components include
@@ -55,7 +65,7 @@ InitErgmTerm.dyadcov_GW <- function(nw, arglist, ...) {
   # Global option:
   #   options(ERPM.dyadcov_GW.debug = TRUE/FALSE)
   # When TRUE, the initializer prints diagnostic messages to the console.
-  dbg    <- isTRUE(getOption("ERPM.dyadcov_GW.debug", FALSE))
+  dbg    <- isTRUE(getOption("ERPM.dyadcov_GW.debug", TRUE))
   dbgcat <- function(...) if (dbg) cat("[dyadcov_GW][DEBUG]", ..., "\n", sep = "")
 
   # ---------------------------------------------------------------------------
@@ -182,11 +192,16 @@ InitErgmTerm.dyadcov_GW <- function(nw, arglist, ...) {
   # ---------------------------------------------------------------------------
   # Standard ERGM term initialization return value
   # ---------------------------------------------------------------------------
+  # IMPORTANT:
+  # - `d_func = TRUE` tells ergm to call the multi-toggle (D_) changestat entrypoint.
+  # - Without it, ergm assumes a one-toggle C_ changestat and will call the function
+  #   with the wrong signature if you compiled only a D_ function (=> segfault).
   list(
     name         = "dyadcov_GW",
     coef.names   = coef.name,
     inputs       = inputs,      # n1, lambda, then Z[n1*n1]
     dependence   = TRUE,
+    d_func       = TRUE,        # <-- REQUIRED for D_CHANGESTAT_FN (multi-toggle)
     minval       = -Inf,
     maxval       = Inf,
     emptynwstats = 0

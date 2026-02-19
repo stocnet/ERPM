@@ -1,6 +1,6 @@
 /**
  * @file changestat_dyadcov_GW.c
- * @brief  Change statistic for the ERPM term `dyadcov_GW` (one-toggle form).
+ * @brief  Change statistic for the ERPM term `dyadcov_GW` (MULTI-toggle form).
  *
  * @details
  *  This file implements the \pkg{ergm} change statistic for the ERPM effect
@@ -64,34 +64,29 @@
  *      a_2 = 1, a_3 = -1/2, a_4 = 1/4, ...
  *
  *  ------------------------------------------------------------
- *  Implementation outline (one-toggle)
+ *  Implementation outline (MULTI-toggle / D_CHANGESTAT_FN)
  *  ------------------------------------------------------------
  *
- *  The change statistic is computed in “one-toggle” form:
+ *  IMPORTANT (multi-toggle / D_CHANGESTAT_FN):
+ *  - This term MUST support proposals that consist of multiple edge toggles
+ *    (swap/split/merge decomposed into a list of toggles).
+ *  - Therefore, the compiled change-statistic MUST be implemented using the
+ *    D_CHANGESTAT_FN API (multi-toggle).
+ *  - On the R side, we MUST advertise this to ergm by returning `d_func = TRUE`.
+ *    Otherwise ergm will try to call the changestat as a one-toggle C_CHANGESTAT_FN,
+ *    causing a signature mismatch and typically a segfault.
  *
- *    1. A single membership toggle connects one actor (actor mode) and
- *       one group (group mode).
+ *  Multi-toggle logic used here:
+ *    For each toggle i (tail/head):
+ *      1) Compute S_before for the affected group under the CURRENT intermediate state.
+ *      2) Virtually apply the toggle and compute S_after.
+ *      3) Δ_i = S_after - S_before is added to CHANGE_STAT[0].
+ *      4) If more toggles remain, we APPLY the toggle to the network state
+ *         (so subsequent toggles see updated memberships), and later UNDO them
+ *         all at the end of the function.
  *
- *    2. For the affected group g:
- *         - reconstruct its actor members from the current network,
- *         - compute n_g and S_g^{GW}(Z, λ) before the virtual toggle.
- *
- *    3. Apply a virtual toggle (::TOGGLE) for the edge (actor, group):
- *         - reconstruct the actor members again,
- *         - compute n_g and S_g^{GW}(Z, λ) after the virtual toggle.
- *
- *    4. Undo the virtual toggle (::TOGGLE again) to restore the network.
- *
- *    5. The local change is:
- *
- *         Δ = S_after − S_before.
- *
- *    6. The scalar change statistic is updated as:
- *
- *         CHANGE_STAT[0] += Δ.
- *
- *  The \pkg{ergm} engine accumulates Δ over all toggles to obtain the
- *  total statistic during MCMC or summary evaluation.
+ *  This is correct even if multiple toggles in the same proposal affect the
+ *  same group vertex: each Δ_i is computed against the proper intermediate state.
  *
  *  ------------------------------------------------------------
  *  INPUT_PARAM layout
@@ -135,39 +130,16 @@
  *    - validates n1, λ and the dimensions of Z,
  *    - flattens Z in column-major order,
  *    - sets N_CHANGE_STATS = 1 and emptynwstats = 0,
- *    - builds INPUT_PARAM as c(n1, lambda, as.vector(Z)).
+ *    - builds INPUT_PARAM as c(n1, lambda, as.vector(Z)),
+ *    - IMPORTANT: sets d_func=TRUE to use this D_ entrypoint.
  *
  *  ------------------------------------------------------------
- *  @example Usage (R)
- *  ------------------------------------------------------------
- *  @code{.r}
- *  library(ERPM)
- *
- *  # Example: 4 actors in 2 groups
- *  part <- c(1, 1, 2, 2)  # actors 1,2 in group 1; 3,4 in group 2
- *
- *  # Possibly non-symmetric dyadic covariate on the actor mode
- *  set.seed(1)
- *  Z <- matrix(runif(4 * 4), nrow = 4, ncol = 4)
- *  diag(Z) <- 0
- *
- *  # Geometrically weighted dyadic covariate effect
- *  fit <- erpm(partition ~ dyadcov_GW(lambda = 2, dyadcov = Z))
- *  summary(fit)
- *  @endcode
- *
  *  @test
  *  A self-test for this change statistic can:
- *    - construct small bipartite networks from known partitions;
- *    - compute T_GW(p; Z, λ) directly in R by:
- *         * enumerating all groups g and actor sets A(g),
- *         * enumerating all k-cliques C ⊂ A(g) for k ≥ 2,
- *         * computing w_ij = z_ij + z_ji and summing
- *           a_k(λ) * ∏_{i<j ∈ C} w_ij;
- *    - compare these reference values to:
- *         summary( erpm(partition ~ dyadcov_GW(...)) )$statistics;
- *    - apply explicit edge toggles and check that observed changes match
- *      the Δ produced by ::c_dyadcov_GW.
+ *    - validate summary() equivalences on explicit networks;
+ *    - validate erpm() fits return finite coefficients;
+ *    - trigger MCMC with a proposal that can emit multi-toggle steps, and
+ *      observe C-level debug traces when DEBUG_DYADCOV_GW is enabled.
  */
 
 #include "ergm_changestat.h"
@@ -176,13 +148,14 @@
 
 /**
  * @def DEBUG_DYADCOV_GW
- * @brief Enable verbose debugging output for ::c_dyadcov_GW.
+ * @brief Enable verbose debugging output for ::d_dyadcov_GW.
  *
  * Set this macro to 1 to print diagnostic information to the R console
  * during `summary()` or MCMC runs:
- *  - actor and group sizes per group,
- *  - intermediate S_g^{(k)}(Z) values and geometric weights a_k(λ),
- *  - S_before, S_after and the local Δ.
+ *  - multi-toggle detection (ntoggles>1),
+ *  - per-toggle endpoints and affected group,
+ *  - S_before, S_after and the local Δ,
+ *  - group sizes before/after (ng_before/ng_after).
  *
  * When set to 0, the compiled code does not emit any debug traces.
  */
@@ -193,14 +166,11 @@
  * @brief Mark a parameter as intentionally unused.
  *
  * @param x Identifier of the unused variable.
- *
- * This macro is used to silence compiler warnings when a parameter is required
- * by the interface but not directly accessed in the implementation.
  */
 #define UNUSED_WARNING(x) (void)x
 
 /* -------------------------------------------------------------------------- */
-/* Clique enumeration: sum_cliques_k                                         */
+/* Clique enumeration: sum_cliques_k                                           */
 /* -------------------------------------------------------------------------- */
 
 /**
@@ -282,7 +252,7 @@ static double sum_cliques_k(const int *actors,
 }
 
 /* -------------------------------------------------------------------------- */
-/* Group-level functional: group_dyadcov_GW                                  */
+/* Group-level functional: group_dyadcov_GW                                    */
 /* -------------------------------------------------------------------------- */
 
 /**
@@ -324,23 +294,21 @@ static double group_dyadcov_GW(Vertex g,
                                int *n_g_out){
 
   /* Temporary bitmap of actor membership for this group (0/1 per actor). */
-  unsigned char *seen = (unsigned char*)R_Calloc(n1, unsigned char); /* initialised to 0 */
+  unsigned char *seen = (unsigned char*)R_Calloc(n1, unsigned char);
   Vertex h;
   Edge e;
 
   /* Mark actor neighbours reachable via outgoing edges from g. */
   STEP_THROUGH_OUTEDGES(g, e, h){
     if(h <= (Vertex)n1){
-      int idx = (int)h - 1;
-      seen[idx] = 1;
+      seen[(int)h - 1] = 1;
     }
   }
 
   /* Mark actor neighbours reachable via incoming edges to g. */
   STEP_THROUGH_INEDGES(g, e, h){
     if(h <= (Vertex)n1){
-      int idx = (int)h - 1;
-      seen[idx] = 1;
+      seen[(int)h - 1] = 1;
     }
   }
 
@@ -354,8 +322,7 @@ static double group_dyadcov_GW(Vertex g,
   /* If the group has fewer than 2 actors, no cliques are possible. */
   if(ng < 2){
 #if DEBUG_DYADCOV_GW
-    Rprintf("[dyadcov_GW][group_dyadcov_GW] g=%d ng=%d < 2 -> 0\n",
-            (int)g, ng);
+    Rprintf("[dyadcov_GW][group] g=%d ng=%d < 2 -> 0\n", (int)g, ng);
 #endif
     R_Free(seen);
     return 0.0;
@@ -365,30 +332,30 @@ static double group_dyadcov_GW(Vertex g,
   int *actors = (int*)R_Calloc(ng, int);
   int idx = 0;
   for(int i = 0; i < n1; i++){
-    if(seen[i]){
-      actors[idx++] = i + 1;  /* actor vertex index in 1..n1 */
-    }
+    if(seen[i]) actors[idx++] = i + 1;
   }
 
   /* Geometrically weighted sum over clique sizes k = 2..ng. */
   double sum_gw = 0.0;
-  double factor = 1.0;          /* a_2(λ) = 1 = (-1/λ)^{1-1} */
+  double factor = 1.0; /* a_2(λ) = 1; recurrence factor *= (-1/λ) */
 
   for(int k = 2; k <= ng; k++){
     double S_k = sum_cliques_k(actors, ng, k, n1, Z);
     sum_gw += factor * S_k;
+
 #if DEBUG_DYADCOV_GW
-    Rprintf("[dyadcov_GW][group_dyadcov_GW] g=%d ng=%d k=%d S_k=%g factor=%g\n",
+    Rprintf("[dyadcov_GW][group] g=%d ng=%d k=%d S_k=%g factor=%g\n",
             (int)g, ng, k, S_k, factor);
 #endif
-    factor *= (-1.0 / lambda); /* recurrence: a_{k+1} = a_k * (-1/λ) */
+
+    factor *= (-1.0 / lambda);
   }
 
   R_Free(actors);
   R_Free(seen);
 
 #if DEBUG_DYADCOV_GW
-  Rprintf("[dyadcov_GW][group_dyadcov_GW] g=%d ng=%d -> sum_gw=%g\n",
+  Rprintf("[dyadcov_GW][group] g=%d ng=%d -> sum_gw=%g\n",
           (int)g, ng, sum_gw);
 #endif
 
@@ -396,116 +363,105 @@ static double group_dyadcov_GW(Vertex g,
 }
 
 /* -------------------------------------------------------------------------- */
-/* Change statistic: dyadcov_GW (one-toggle)                                  */
+/* Change statistic: dyadcov_GW (MULTI-toggle)                                 */
 /* -------------------------------------------------------------------------- */
 
 /**
- * @brief Change statistic for the ERPM term `dyadcov_GW(lambda)`.
+ * @brief Change statistic for the ERPM term `dyadcov_GW(lambda)` (multi-toggle).
  *
  * @details
- *  This is the \pkg{ergm} change-statistic function registered as
- *  ::c_dyadcov_GW via ::C_CHANGESTAT_FN. It implements the one-toggle
+ *  This is the \pkg{ergm} D_ change-statistic entrypoint registered as
+ *  ::d_dyadcov_GW via ::D_CHANGESTAT_FN. It implements the multi-toggle
  *  update for the geometrically weighted dyadic covariate statistic on
  *  actor cliques inside each group, based on the symmetrised covariate
  *  w_ij = z_ij + z_ji for each unordered pair {i,j}.
  *
- *  For a membership toggle (actor, group):
+ *  The function processes toggles sequentially. For each toggle, the affected
+ *  group is identified, and Δ_i is computed as:
  *
- *    - It identifies the actor vertex (actor mode) and the group vertex
- *      (group mode) from the tail/head pair and the actor count n1.
+ *      Δ_i = S_after(intermediate + toggle_i) - S_before(intermediate)
  *
- *    - It computes S_before = S_g^{GW}(Z, λ) for the group in the current
- *      network using ::group_dyadcov_GW().
+ *  where "intermediate" is the network state after applying previous toggles
+ *  from the same proposal. This is achieved by:
+ *    - computing S_before,
+ *    - applying a virtual TOGGLE and computing S_after,
+ *    - undoing that virtual TOGGLE,
+ *    - then applying TOGGLE_IF_MORE_TO_COME(i) to carry the intermediate state
+ *      forward when needed.
  *
- *    - It applies a virtual toggle (::TOGGLE) for (actor, group) and
- *      computes S_after = S_g^{GW}(Z, λ) on the virtually updated network.
- *
- *    - It restores the network by toggling the edge back (::TOGGLE).
- *
- *    - The local change is:
- *
- *          Δ = S_after − S_before,
- *
- *      and this is added to the single scalar statistic:
- *
- *          CHANGE_STAT[0] += Δ.
- *
- * @param tail       Tail vertex of the toggled edge (actor or group).
- * @param head       Head vertex of the toggled edge (actor or group).
- * @param mtp        Pointer to the model term structure (unused directly
- *                   here but required by the macro signature).
- * @param nwp        Pointer to the network-plus workspace (used by
- *                   ::group_dyadcov_GW to inspect edges).
- * @param edgestate  Current state of the edge:
- *                   - 0 if the edge is absent (toggle = addition),
- *                   - 1 if the edge is present (toggle = deletion).
- *
- * @note
- *  - The actor mode is determined by n1 from INPUT_PARAM; vertices with
- *    index ≤ n1 are actors, vertices with index > n1 are groups.
- *  - The term is non-vectorised: N_CHANGE_STATS == 1 and only
- *    CHANGE_STAT[0] is written.
- *  - The parameter @p edgestate is not used explicitly; the function
- *    relies on virtual toggling to obtain “before” and “after” values.
+ *  At the end, UNDO_PREVIOUS_TOGGLES(i) restores the original network.
  */
-C_CHANGESTAT_FN(c_dyadcov_GW){
-  /* 1) Reset the output buffer for THIS toggle.
-   *
-   * \pkg{ergm} accumulates contributions from multiple calls; here we only
-   * report the local Δ for the current membership toggle.
-   */
-  ZERO_ALL_CHANGESTATS(0);
-  UNUSED_WARNING(edgestate);
+D_CHANGESTAT_FN(d_dyadcov_GW){
+
+#if DEBUG_DYADCOV_GW
+  static int seen_mt = 0;
+  if(ntoggles > 1 && seen_mt < 20){
+    Rprintf("[dyadcov_GW] MULTI-TOGGLE ntoggles=%d\n", (int)ntoggles);
+    seen_mt++;
+  }
+#endif
+
+  /* 1) Reset output buffer for THIS proposal. */
+  ZERO_ALL_CHANGESTATS();
 
   /* 2) Decode INPUT_PARAM layout: [n1, lambda, Z...]. */
   const double *ip     = INPUT_PARAM;
-  const int     n1     = (int)ip[0];   /* number of actors (actor mode) */
-  const double  lambda = ip[1];        /* geometric decay parameter λ   */
-  const double *Z      = ip + 2;       /* dyadic covariate matrix       */
+  const int     n1     = (int)ip[0];
+  const double  lambda = ip[1];
+  const double *Z      = ip + 2;
 
-#if DEBUG_DYADCOV_GW
-  Rprintf("[dyadcov_GW] n1=%d lambda=%g\n", n1, lambda);
-#endif
-
-  /* If λ = 0, the weights are not defined; the statistic is set to 0. */
+  /* Guard: λ must be non-zero (weights undefined at 0). */
   if(lambda == 0.0){
     CHANGE_STAT[0] = 0.0;
     return;
   }
 
-  /* 3) Identify the actor and group vertices for this toggle.
-   *
-   * By construction:
-   *   - exactly one endpoint has index ≤ n1 (actor),
-   *   - the other endpoint has index > n1 (group).
-   */
-  Vertex a = tail, b = head;
-  Vertex actor = (a <= (Vertex)n1) ? a : b;
-  Vertex group = (a <= (Vertex)n1) ? b : a;
-  UNUSED_WARNING(actor);  /* currently unused beyond identification. */
+  /* 3) Process toggles sequentially (multi-toggle). */
+  int i = 0;
+  FOR_EACH_TOGGLE(i){
 
-  int ng_before = 0, ng_after = 0;
+    Vertex tail = TAIL(i);
+    Vertex head = HEAD(i);
 
-  /* 4) Group contribution BEFORE the virtual toggle. */
-  double S_before = group_dyadcov_GW(group, n1, lambda, Z, nwp, &ng_before);
-
-  /* 5) Virtual toggle: temporarily change the membership edge. */
-  TOGGLE(a, b);
-
-  /* 6) Group contribution AFTER the virtual toggle. */
-  double S_after = group_dyadcov_GW(group, n1, lambda, Z, nwp, &ng_after);
-
-  /* 7) Restore the original network by undoing the virtual toggle. */
-  TOGGLE(a, b);
-
-  /* 8) Compute and accumulate the local change Δ. */
-  double delta = S_after - S_before;
-  CHANGE_STAT[0] += delta;
+    /* Identify the affected group vertex (index > n1). */
+    Vertex actor = (tail <= (Vertex)n1) ? tail : head;
+    Vertex group = (tail <= (Vertex)n1) ? head : tail;
 
 #if DEBUG_DYADCOV_GW
-  Rprintf("[dyadcov_GW] a=%d b=%d group=%d ng_before=%d ng_after=%d "
-          "S_before=%g S_after=%g delta=%g\n",
-          (int)a, (int)b, (int)group,
-          ng_before, ng_after, S_before, S_after, delta);
+    if(group <= (Vertex)n1){
+      Rprintf("[dyadcov_GW][WARN] toggle #%d has no group endpoint: tail=%d head=%d (n1=%d)\n",
+              (int)i, (int)tail, (int)head, n1);
+    }
 #endif
+    UNUSED_WARNING(actor);
+
+    int ng_before = 0, ng_after = 0;
+
+    /* S_before under the current intermediate state. */
+    double S_before = group_dyadcov_GW(group, n1, lambda, Z, nwp, &ng_before);
+
+    /* Virtual toggle (compute after). */
+    TOGGLE(tail, head);
+    double S_after  = group_dyadcov_GW(group, n1, lambda, Z, nwp, &ng_after);
+    TOGGLE(tail, head); /* restore */
+
+    double delta = S_after - S_before;
+    CHANGE_STAT[0] += delta;
+
+#if DEBUG_DYADCOV_GW
+    {
+      int edgestate = DIRECTED ? IS_OUTEDGE(tail, head) : IS_UNDIRECTED_EDGE(tail, head);
+      Rprintf("[dyadcov_GW][D] i=%d tail=%d head=%d | edgestate=%d | group=%d | "
+              "ng_before=%d ng_after=%d | S_before=%g S_after=%g | Δ=%g | cumul=%g\n",
+              (int)i, (int)tail, (int)head, edgestate, (int)group,
+              ng_before, ng_after, S_before, S_after, delta, CHANGE_STAT[0]);
+    }
+#endif
+
+    /* Carry the intermediate state forward if more toggles remain. */
+    TOGGLE_IF_MORE_TO_COME(i);
+  }
+
+  /* 4) Restore the original network state. */
+  UNDO_PREVIOUS_TOGGLES(i);
 }

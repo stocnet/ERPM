@@ -91,6 +91,7 @@
  * When set to 0, no debug traces are emitted.
  */
 #define DEBUG_SQUARED_SIZES 0
+#define UNUSED_VARIABLE(x) (void)(x)
 
 /* -------------------------------------------------------------------------- */
 /* Utility: fast integer exponentiation                                       */

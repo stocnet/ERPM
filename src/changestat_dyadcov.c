@@ -1,189 +1,69 @@
-/**
- * @file changestat_dyadcov.c
- * @brief Change statistic for the ERPM term `dyadcov` (one-toggle form).
+/* =============================================================================
+ * File    : changestat_dyadcov.c
+ * Purpose : Change statistic for the ERPM term `dyadcov` (multi-toggle form).
+ * Project : ERPM / ERGM extensions
+ * =============================================================================
  *
- * @details
- *  This file implements the \pkg{ergm} change statistic for an ERPM effect
- *  `dyadcov`, defined on a bipartite network with:
- *    - actor mode  = actor vertices,
- *    - group mode  = group vertices.
+ * This file is the MULTI-TOGGLE (D_CHANGESTAT_FN) counterpart of the historical
+ * one-toggle implementation. It preserves the exact same statistic definition
+ * but makes the change-statistic safe under proposals that consist of multiple
+ * toggles (swap/split/merge decomposed into a list of edge toggles).
  *
- *  Each group-mode vertex represents a structural group, and its members are
- *  the actor-mode vertices connected to it by membership edges (in either
- *  direction, if the network is stored as directed).
+ * ---------------------------------------------------------------------------
+ * IMPORTANT (multi-toggle / D_CHANGESTAT_FN)
+ * ---------------------------------------------------------------------------
  *
- *  A numeric dyadic covariate matrix Z is defined on the actor mode:
- *    - dimension: n1 × n1, where n1 is the number of actors,
- *    - indexing:  column-major order as in R,
- *      Z[(j-1)*n1 + (i-1)] = z_ij for actors i,j.
+ * - ergm can propose moves containing multiple edge toggles.
+ * - If the compiled changestat is one-toggle (C_CHANGESTAT_FN), ergm will call
+ *   it repeatedly, once per toggle, on intermediate states that are managed by
+ *   the engine.
+ * - If you implement D_CHANGESTAT_FN, YOU must handle the full list of toggles
+ *   consistently and return the aggregated change over the whole proposal.
  *
- *  The matrix Z is allowed to be non-symmetric. For each unordered actor pair
- *  {i,j} with i<j, the effect uses the symmetric combination:
+ * Design rule used here (same as squared_sizes):
+ * - Process toggles sequentially.
+ * - For each toggle i:
+ *     1) compute the group contribution BEFORE the toggle under the current
+ *        intermediate state (which already includes previous toggles applied),
+ *     2) apply a VIRTUAL toggle to compute the AFTER contribution,
+ *     3) undo the virtual toggle (back to the current intermediate state),
+ *     4) accumulate Δ_i = after - before (with the chosen normalisation),
+ *     5) temporarily apply the toggle for real IF there are more toggles coming,
+ *        so that subsequent degrees/memberships are consistent.
+ * - At the end: undo the temporarily-applied toggles and restore the original
+ *   network state.
  *
- *      z_ij + z_ji
+ * This guarantees:
+ * - Correct behaviour when multiple toggles hit the same group vertex.
+ * - Correct behaviour when toggles interact (because “current state” is updated
+ *   as we advance in the toggle list).
  *
- *  whenever both entries are available in the n1 × n1 block. If Z happens to
- *  be symmetric, this reduces to 2*z_ij for each pair {i,j}.
+ * ---------------------------------------------------------------------------
+ * Statistic definition (unchanged)
+ * ---------------------------------------------------------------------------
  *
- *  For a fixed clique size k ≥ 2, and for each group g, let:
- *    - A(g) be the set of actors in group g,
- *    - C_k(g) be the set of all k-subsets C ⊂ A(g),
- *    - for a given clique C, define:
+ * See the long header in the user-provided reference version. In short:
+ * - Bipartite network with:
+ *     actor mode = 1..n1, group mode = n1+1..N
+ * - Dyadic covariate matrix Z on actors (n1 x n1), column-major (R order).
+ * - For a group g, for fixed clique size k>=2:
  *
- *        P(C; Z) = ∏_{i<j ∈ C} (z_ij + z_ji)
+ *     S_g^{(k)}(Z) = ∑_{C ∈ C_k(g)} ∏_{i<j∈C} (z_ij + z_ji).
  *
- *  Then the group-level dyadic covariate functional is:
+ * - Global statistics:
+ *     norm_mode 0: ∑_g S_g
+ *     norm_mode 1: ∑_g 1[n_g>=k] (1/n_g) S_g
+ *     norm_mode 2: ∑_g 1[n_g>=k] (1/choose(n_g,k)) S_g
  *
- *      S_g^{(k)}(Z) = ∑_{C ∈ C_k(g)} P(C; Z).
- *
- *  Two families of global statistics are supported, controlled by a
- *  normalisation mode.
- *
- *  ------------------------------------------------------------
- *  Non-normalised statistic
- *  ------------------------------------------------------------
- *
- *  The non-normalised statistic is:
- *
- *      T^{(k)}(p; Z) = ∑_g S_g^{(k)}(Z)
- *                    = ∑_g ∑_{C ∈ C_k(g)} ∏_{i<j ∈ C} (z_ij + z_ji).
- *
- *  All k-cliques of actors inside each group are enumerated, and their
- *  dyadic products (based on z_ij + z_ji) are summed.
- *
- *  ------------------------------------------------------------
- *  Normalised statistics
- *  ------------------------------------------------------------
- *
- *  Let n_g = |A(g)| be the size of group g. Two normalised versions are
- *  implemented, controlled by a normalisation mode:
- *
- *    - "global" normalisation: per-group factor 1 / n_g
- *
- *        T_global^{(k)}(p; Z) =
- *          ∑_g 1[n_g ≥ k] * (1 / n_g) * S_g^{(k)}(Z),
- *
- *    - "by_group" normalisation: per-group factor 1 / C(n_g, k)
- *
- *        T_by_group^{(k)}(p; Z) =
- *          ∑_g 1[n_g ≥ k] * (1 / C(n_g, k)) * S_g^{(k)}(Z).
- *
- *  In other words, each group contribution is either the clique-based sum
- *  S_g^{(k)}(Z) divided by the size n_g of the group ("global" mode), or
- *  divided by the total number of k-cliques C(n_g, k) ("by_group" mode),
- *  with groups of size n_g < k contributing 0 because S_g^{(k)}(Z) = 0 in
- *  that case.
- *
- *  ------------------------------------------------------------
- *  Implementation outline (one-toggle)
- *  ------------------------------------------------------------
- *
- *  A bipartite network is assumed with:
- *    - actor mode  = first n1 vertices,
- *    - group mode  = remaining vertices.
- *
- *  For each membership toggle between one actor and one group:
- *
- *    1. Identify the actor vertex (actor mode) and the group vertex
- *       (group mode) involved in the toggle.
- *
- *    2. For the affected group g:
- *         - reconstruct the set A(g) of actor members from the current
- *           network state,
- *         - compute n_g and S_before = S_g^{(k)}(Z) using the helper
- *           ::group_dyadcov_k().
- *
- *    3. Apply a virtual toggle (::TOGGLE) to temporarily update the network.
- *         - reconstruct A(g) again,
- *         - compute n_g and S_after = S_g^{(k)}(Z) on the virtually
- *           updated state.
- *
- *    4. Undo the virtual toggle (::TOGGLE again) to restore the original
- *       network state.
- *
- *    5. Depending on the normalisation mode:
- *         - If no normalisation:
- *
- *              Δ = S_after − S_before.
- *
- *         - If "global" normalisation (mode 1):
- *              - define n_g_before and n_g_after as the actor counts before
- *                and after the toggle,
- *              - define group-level normalised values:
- *
- *                  T_before = (1[n_g_before ≥ k] / n_g_before) * S_before
- *                  T_after  = (1[n_g_after  ≥ k] / n_g_after)  * S_after
- *
- *                with the convention that T_before/T_after are 0 if
- *                n_g_before or n_g_after is 0 or < k,
- *
- *              - and the local change is:
- *
- *                  Δ = T_after − T_before.
- *
- *         - If "by_group" normalisation (mode 2):
- *              - define C(n_g, k) using the CHOOSE() macro,
- *              - normalise S_before and S_after by 1 / C(n_g, k) when
- *                n_g ≥ k, and 0 otherwise.
- *
- *    6. Update the scalar statistic:
- *
- *         CHANGE_STAT[0] += Δ.
- *
- *  The change statistic is “one-toggle”: each call reports only the local
- *  change Δ associated with a single toggle. The \pkg{ergm} engine accumulates
- *  these local changes over all toggles when evaluating the statistic.
- *
- *  ------------------------------------------------------------
- *  INPUT_PARAM layout
- *  ------------------------------------------------------------
- *
- *  The R-side initialiser (InitErgmTerm.dyadcov) passes parameters as:
- *
- *      INPUT_PARAM = c(n1, k, norm_mode, as.vector(Z))
- *
- *  where:
- *    - n1          = number of actors (size of actor mode),
- *    - k           = clique size (integer ≥ 2),
- *    - norm_mode   = 0 for raw sum,
- *                    1 for "global" normalisation 1/n_g,
- *                    2 for "by_group" normalisation 1/C(n_g, k),
- *    - Z           = numeric vector of length n1*n1 in column-major order.
- *
- *  At the C level the layout is:
- *
- *      ip[0]   = n1
- *      ip[1]   = k
- *      ip[2]   = norm_mode
- *      ip[3+]  = Z[0 .. n1*n1-1] (column-major)
- *
- *  ------------------------------------------------------------
- *  Complexity and limitations
- *  ------------------------------------------------------------
- *
- *  For a given group of size n_g:
- *    - The number of k-cliques is C(n_g, k),
- *    - For each clique, the product involves k*(k-1)/2 unordered pairs,
- *      and for each pair {i,j} the implementation reads z_ij and z_ji
- *      and uses their sum (z_ij + z_ji).
- *    - Therefore the complexity is roughly
- *      O(C(n_g, k) * k^2) with a constant factor reflecting two accesses
- *      per pair instead of one.
- *
- *  Since the implementation recomputes S_g^{(k)}(Z) from scratch before and
- *  after each toggle, this effect is not intended for very large groups
- *  or large k (combinatorial explosion of cliques).
- *
- *  ------------------------------------------------------------
- *  R interface
- *  ------------------------------------------------------------
- *
- *  The R-side term constructor:
- *    - validates n1, k, normalize/normalized/norm, and the dimensions of Z,
- *    - flattens Z in column-major order,
- *    - sets N_CHANGE_STATS = 1 and emptynwstats = 0,
- *    - builds INPUT_PARAM as described above.
- */
+ * ---------------------------------------------------------------------------
+ * INPUT_PARAM layout (unchanged)
+ * ---------------------------------------------------------------------------
+ *   INPUT_PARAM = c(n1, k, norm_mode, as.vector(Z))
+ *     ip[0]  = n1
+ *     ip[1]  = k
+ *     ip[2]  = norm_mode
+ *     ip[3+] = Z (length n1*n1), column-major
+ * ------------------------------------------------------------------------- */
 
 #include "ergm_changestat.h"
 #include "ergm_storage.h"
@@ -191,13 +71,14 @@
 
 /**
  * @def DEBUG_DYADCOV
- * @brief Enable verbose debugging output for ::c_dyadcov.
+ * @brief Enable verbose debugging output for ::d_dyadcov.
  *
  * Set this macro to 1 to print detailed information to the R console during
- * `summary()` or MCMC runs:
- *  - current parameter values (n1, k, normalized),
- *  - group sizes before and after the virtual toggle,
- *  - raw sums S_before, S_after and the resulting Δ.
+ * summary() or MCMC runs:
+ *  - current parameter values (n1, k, norm_mode),
+ *  - per-toggle group sizes before/after,
+ *  - S_before, S_after, delta for each toggle,
+ *  - cumulative CHANGE_STAT.
  *
  * When set to 0, the compiled code does not emit any debug traces.
  */
@@ -206,47 +87,20 @@
 /**
  * @def UNUSED_WARNING
  * @brief Macro to explicitly mark a parameter as intentionally unused.
- *
- * @param x Identifier of the variable that should be marked unused.
- *
- * This macro suppresses compiler warnings about unused variables by casting
- * them to void. It is used when a parameter is required by the interface
- * but not needed in the current implementation.
  */
 #define UNUSED_WARNING(x) (void)x
 
 /* -------------------------------------------------------------------------- */
-/* Clique enumeration: sum_cliques_k                                         */
+/* Clique enumeration: sum_cliques_k                                           */
 /* -------------------------------------------------------------------------- */
 /**
  * @brief Sum over all k-cliques of actors inside a given group.
  *
- * @details
- *  Given a vector of actor indices \c actors (1-based vertex indices in the
- *  actor mode) of length \c ng, this function:
+ * Given actor indices (1-based, in the actor mode) of length ng, enumerates all
+ * k-subsets and sums:
+ *    ∏_{i<j in clique} (z_ij + z_ji)
  *
- *    - enumerates all k-subsets C of these actors,
- *    - for each subset C, computes the product:
- *
- *          P(C; Z) = ∏_{i<j ∈ C} (z_ij + z_ji),
- *
- *      using the dyadic covariate matrix Z,
- *    - accumulates the total:
- *
- *          ∑_{C} P(C; Z).
- *
- *  The matrix Z is indexed as Z[(j-1)*n1 + (i-1)] for actors i,j, assuming
- *  column-major order (R convention).
- *
- * @param actors  Pointer to an array of length \c ng containing actor vertex
- *                indices in the actor mode (1-based).
- * @param ng      Number of actors in the group.
- * @param k       Clique size (k ≥ 2).
- * @param n1      Number of actors (dimension of the actor mode).
- * @param Z       Pointer to the dyadic covariate matrix (length n1*n1),
- *                stored in column-major order.
- *
- * @return The sum of products over all k-cliques of actors in this group.
+ * Z is indexed as Z[(j-1)*n1 + (i-1)] (column-major, R convention).
  */
 static double sum_cliques_k(const int *actors,
                             int ng, int k,
@@ -255,36 +109,32 @@ static double sum_cliques_k(const int *actors,
 
   if(k > ng) return 0.0;
 
-  /* Working array for combinations of indices into actors[]. */
   int *comb = (int*)R_Calloc(k, int);
   for(int i = 0; i < k; i++) comb[i] = i;
 
   double total = 0.0;
 
   while(1){
-    /* Product over all unordered pairs i<j within the current clique,
-     * using (z_ij + z_ji) for each pair {i,j}. */
     double prod = 1.0;
+
     for(int p = 0; p < k; p++){
-      int idx_i = actors[ comb[p] ];   /* actor vertex index in 1..n1 */
-      int row   = idx_i - 1;           /* 0..n1-1 */
+      int idx_i = actors[ comb[p] ]; /* 1..n1 */
+      int row   = idx_i - 1;         /* 0..n1-1 */
 
       for(int q = p + 1; q < k; q++){
-        int idx_j = actors[ comb[q] ];
-        int col   = idx_j - 1;
-        int idx_ij = col * n1 + row;   /* z_ij, column-major */
-        int idx_ji = row * n1 + col;   /* z_ji, column-major */
-        double zij = Z[idx_ij];
-        double zji = Z[idx_ji];
-        prod *= (zij + zji);
+        int idx_j  = actors[ comb[q] ];
+        int col    = idx_j - 1;
+        int idx_ij = col * n1 + row; /* z_ij */
+        int idx_ji = row * n1 + col; /* z_ji */
+        prod *= (Z[idx_ij] + Z[idx_ji]);
       }
     }
+
     total += prod;
 
-    /* Generate the next k-combination in lexicographic order. */
     int pos = k - 1;
     while(pos >= 0 && comb[pos] == (ng - k + pos)) pos--;
-    if(pos < 0) break; /* no more combinations */
+    if(pos < 0) break;
 
     comb[pos]++;
     for(int j = pos + 1; j < k; j++){
@@ -297,37 +147,13 @@ static double sum_cliques_k(const int *actors,
 }
 
 /* -------------------------------------------------------------------------- */
-/* Group-level functional: group_dyadcov_k                                   */
+/* Group-level functional: group_dyadcov_k                                     */
 /* -------------------------------------------------------------------------- */
-
 /**
- * @brief Compute S_g^{(k)}(Z) for a given group vertex.
+ * @brief Compute S_g^{(k)}(Z) for a given group vertex g.
  *
- * @details
- *  For a group-mode vertex \c g, this function:
- *
- *    1. Collects all neighbouring actor-mode vertices via both outgoing and
- *       incoming edges from g (deduplicated).
- *
- *    2. Let n_g be the number of such actors; optionally stores it into
- *       \c *n_g_out if \c n_g_out is non-NULL.
- *
- *    3. If n_g < k, returns 0 (no k-cliques are possible).
- *
- *    4. Otherwise:
- *         - builds the list of actor indices (1..n1) belonging to the group,
- *         - calls ::sum_cliques_k() to compute:
- *
- *              S_g^{(k)}(Z) = ∑_{C ∈ C_k(g)} ∏_{i<j ∈ C} (z_ij + z_ji).
- *
- * @param g        Group vertex whose actor members define the group.
- * @param n1       Number of actors (dimension of the actor mode).
- * @param k        Clique size (k ≥ 2).
- * @param Z        Pointer to the dyadic covariate matrix (n1*n1, column-major).
- * @param nwp      Pointer to the \pkg{ergm} Network structure (provides edges).
- * @param n_g_out  If non-NULL, receives the number of actors in group g.
- *
- * @return S_g^{(k)}(Z) for group g.
+ * Collects actor neighbours of g via OUT and IN edges (deduplicated), counts ng,
+ * and returns 0 if ng<k; else returns sum_cliques_k over actor indices.
  */
 static double group_dyadcov_k(Vertex g,
                               int n1, int k,
@@ -335,221 +161,153 @@ static double group_dyadcov_k(Vertex g,
                               Network *nwp,
                               int *n_g_out){
 
-  /* Temporary bitmap of actor membership for this group. */
-  unsigned char *seen = (unsigned char*)R_Calloc(n1, unsigned char); /* initialised to 0 */
+  unsigned char *seen = (unsigned char*)R_Calloc(n1, unsigned char);
   Vertex h;
   Edge e;
 
-  /* Mark actor neighbours reachable via outgoing edges of the group. */
   STEP_THROUGH_OUTEDGES(g, e, h){
-    if(h <= (Vertex)n1){
-      int idx = (int)h - 1;
-      seen[idx] = 1;
-    }
+    if(h <= (Vertex)n1) seen[(int)h - 1] = 1;
   }
-
-  /* Mark actor neighbours reachable via incoming edges of the group. */
   STEP_THROUGH_INEDGES(g, e, h){
-    if(h <= (Vertex)n1){
-      int idx = (int)h - 1;
-      seen[idx] = 1;
-    }
+    if(h <= (Vertex)n1) seen[(int)h - 1] = 1;
   }
 
-  /* Count the number of actors in group g. */
   int ng = 0;
-  for(int i = 0; i < n1; i++){
-    if(seen[i]) ng++;
-  }
+  for(int i = 0; i < n1; i++) if(seen[i]) ng++;
   if(n_g_out) *n_g_out = ng;
 
-  /* If the group is smaller than k, no k-cliques exist. */
   if(ng < k){
 #if DEBUG_DYADCOV
-    Rprintf("[dyadcov][group_dyadcov_k] g=%d ng=%d < k=%d -> 0\n",
-            (int)g, ng, k);
+    Rprintf("[dyadcov][group] g=%d ng=%d < k=%d -> 0\n", (int)g, ng, k);
 #endif
     R_Free(seen);
     return 0.0;
   }
 
-  /* Collect the 1-based actor indices belonging to g. */
   int *actors = (int*)R_Calloc(ng, int);
   int idx = 0;
-  for(int i = 0; i < n1; i++){
-    if(seen[i]){
-      actors[idx++] = i + 1;  /* vertex index in 1..n1 */
-    }
-  }
+  for(int i = 0; i < n1; i++) if(seen[i]) actors[idx++] = i + 1;
 
   double sum = sum_cliques_k(actors, ng, k, n1, Z);
 
 #if DEBUG_DYADCOV
-  Rprintf("[dyadcov][group_dyadcov_k] g=%d ng=%d k=%d -> sum=%g\n",
-          (int)g, ng, k, sum);
+  Rprintf("[dyadcov][group] g=%d ng=%d k=%d -> sum=%g\n", (int)g, ng, k, sum);
 #endif
 
   R_Free(actors);
   R_Free(seen);
-
   return sum;
 }
 
 /* -------------------------------------------------------------------------- */
-/* Change statistic: dyadcov (one-toggle)                                    */
+/* Normalisation helper (group-level)                                          */
 /* -------------------------------------------------------------------------- */
+static inline double normalise_group_sum(double S, int ng, int k, int norm_mode){
+  if(norm_mode == 0) return S;
 
+  if(ng < k || ng <= 0) return 0.0;
+
+  if(norm_mode == 1){
+    /* "global" 1/ng */
+    return S / (double)ng;
+  }
+
+  if(norm_mode == 2){
+    /* "by_group" 1/choose(ng,k) */
+    double denom = CHOOSE(ng, k);
+    if(denom <= 0.0) return 0.0;
+    return S / denom;
+  }
+
+  /* unknown mode: be safe */
+  return S;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Change statistic: dyadcov (multi-toggle)                                    */
+/* -------------------------------------------------------------------------- */
 /**
- * @brief Change statistic for the ERPM term `dyadcov`.
+ * @brief Multi-toggle change statistic for dyadcov (D_CHANGESTAT_FN).
  *
- * @details
- *  This is the \pkg{ergm} change-statistic function registered as ::c_dyadcov via
- *  ::C_CHANGESTAT_FN. It implements the one-toggle update for the dyadic
- *  covariate statistic on k-cliques of actors inside each group.
+ * Returns the aggregated Δ over the full list of toggles.
  *
- *  The function:
- *    - assumes a bipartite network with an actor mode and a group mode,
- *    - receives:
- *        - n1        = number of actors (actor mode),
- *        - k         = clique size (k ≥ 2),
- *        - norm_mode = normalisation mode (0 = raw, 1 = size, 2 = cliques),
- *        - Z         = n1 × n1 dyadic covariate matrix on the actor mode,
- *    - recomputes the group-level sums S_g^{(k)}(Z) before and after a virtual
- *      toggle of the membership edge, for the unique affected group.
- *
- *  The local change Δ is then either:
- *    - S_after − S_before for the non-normalised statistic, or
- *    - a difference of normalised values for the size or clique-count
- *      normalisations, with both terms set to 0 when n_g_before or n_g_after is
- *      0 or < k.
- *
- *  The result is accumulated into the single scalar statistic:
- *
- *      CHANGE_STAT[0] += Δ.
- *
- * @param tail       Tail vertex of the toggled edge (actor or group).
- * @param head       Head vertex of the toggled edge (actor or group).
- * @param mtp        Pointer to the model term structure (unused directly
- *                   here, but required by the macro signature).
- * @param nwp        Pointer to the network-plus workspace (used by the
- *                   group_dyadcov_k() helper to inspect edges).
- * @param edgestate  Current state of the edge:
- *                   - 0 if the edge is absent (toggle = addition),
- *                   - 1 if the edge is present (toggle = deletion).
- *
- * @note
- *  - The actor mode is identified via the parameter n1 coming from
- *    INPUT_PARAM; vertices with index ≤ n1 are actors, and vertices with
- *    index > n1 are groups.
- *  - The term is non-vectorised: N_CHANGE_STATS == 1 and only
- *    CHANGE_STAT[0] is written.
- *  - The function uses virtual toggling via ::TOGGLE to obtain “before”
- *    and “after” statistics for the same group in a consistent way.
+ * NOTE:
+ * - We do NOT use `edgestate` from the one-toggle signature.
+ * - We rely on virtual toggling + sequential application to keep state consistent.
  */
-C_CHANGESTAT_FN(c_dyadcov){
-  /* 1) Reset the output buffer for THIS toggle.
-   *
-   * \pkg{ergm} accumulates contributions from multiple calls; here we only
-   * report the local change Δ for the current membership toggle.
-   */
-  ZERO_ALL_CHANGESTATS(0);
-  UNUSED_WARNING(edgestate);  /* edgestate is implicit in TOGGLE, but kept for signature consistency. */
+D_CHANGESTAT_FN(d_dyadcov){
 
-  /* 2) Decode INPUT_PARAM layout: [n1, k, norm_mode, Z...]. */
-  const double *ip         = INPUT_PARAM;
-  const int     n1         = (int)ip[0];  /* number of actors */
-  int           k          = (int)ip[1];  /* clique size      */
-  const int     norm_mode  = (int)ip[2];  /* 0 = raw, 1 = 1/n_g, 2 = 1/C(n_g,k) */
-  const double *Z          = ip + 3;      /* dyadic covariate matrix */
+  ZERO_ALL_CHANGESTATS();
+
+  /* Decode INPUT_PARAM: [n1, k, norm_mode, Z...] */
+  const double *ip        = INPUT_PARAM;
+  const int     n1        = (int)ip[0];
+  const int     k         = (int)ip[1];
+  const int     norm_mode = (int)ip[2];
+  const double *Z         = ip + 3;
 
 #if DEBUG_DYADCOV
-  Rprintf("[dyadcov] n1=%d k=%d norm_mode=%d\n", n1, k, norm_mode);
+  static int seen_multi = 0;
+  if(ntoggles > 1 && seen_multi < 10){
+    Rprintf("[dyadcov] MULTI-TOGGLE ntoggles=%d | n1=%d k=%d mode=%d\n",
+            (int)ntoggles, n1, k, norm_mode);
+    seen_multi++;
+  }
 #endif
 
-  /* Safety: k < 2 yields a degenerate statistic (no proper k-cliques). */
+  /* Degenerate k */
   if(k < 2){
     CHANGE_STAT[0] = 0.0;
     return;
   }
 
-  /* 3) Identify the actor and group vertices involved in the toggle.
-   *
-   * By construction:
-   *   - exactly one endpoint has index ≤ n1 (actor),
-   *   - the other endpoint has index > n1 (group).
-   */
-  Vertex a = tail, b = head;
-  Vertex actor = (a <= (Vertex)n1) ? a : b;
-  Vertex group = (a <= (Vertex)n1) ? b : a;
-  UNUSED_WARNING(actor);  /* actor is not needed explicitly beyond this point. */
+  /* Process toggles sequentially */
+  int i = 0;
+  FOR_EACH_TOGGLE(i){
 
-  int ng_before = 0, ng_after = 0;
+    Vertex t = TAIL(i);
+    Vertex h = HEAD(i);
 
-  /* 4) Group contribution BEFORE the virtual toggle. */
-  double S_before = group_dyadcov_k(group, n1, k, Z, nwp, &ng_before);
+    /* Identify the affected group vertex (>n1). */
+    Vertex group = (t > (Vertex)n1) ? t : h;
 
-  /* 5) Virtual toggle: temporarily change the membership edge. */
-  TOGGLE(a, b);
-
-  /* 6) Group contribution AFTER the virtual toggle. */
-  double S_after  = group_dyadcov_k(group, n1, k, Z, nwp, &ng_after);
-
-  /* 7) Undo the virtual toggle to restore the original network state. */
-  TOGGLE(a, b);
-
-  /* 8) Compute the local change Δ depending on the normalisation mode. */
-  double delta = 0.0;
-
-  if(norm_mode == 0){
-    /* Raw version: sum of clique products. */
-    delta = S_after - S_before;
-
-  } else if(norm_mode == 1){
-    /* Normalised version: group-size normalisation 1 / n_g. */
-    double T_before = 0.0;
-    double T_after  = 0.0;
-
-    if(ng_before >= k && ng_before > 0){
-      T_before = S_before / (double)ng_before;
+    /* Sanity: in a valid bipartite membership toggle, one endpoint is group. */
+#if DEBUG_DYADCOV
+    if(group <= (Vertex)n1){
+      Rprintf("[dyadcov][WARN] toggle #%d has no group endpoint: tail=%d head=%d (n1=%d)\n",
+              i, (int)t, (int)h, n1);
     }
-    if(ng_after >= k && ng_after > 0){
-      T_after = S_after / (double)ng_after;
-    }
+#endif
 
-    delta = T_after - T_before;
+    int ng_before = 0, ng_after = 0;
 
-  } else if(norm_mode == 2){
-    /* Normalised version: clique-count normalisation 1 / C(n_g, k). */
-    double T_before = 0.0;
-    double T_after  = 0.0;
+    /* Contribution BEFORE (current intermediate state) */
+    double S_before = group_dyadcov_k(group, n1, k, Z, nwp, &ng_before);
+    double T_before = normalise_group_sum(S_before, ng_before, k, norm_mode);
 
-    if(ng_before >= k){
-      double denom_before = CHOOSE(ng_before, k);
-      if(denom_before > 0.0){
-        T_before = S_before / denom_before;
-      }
-    }
-    if(ng_after >= k){
-      double denom_after = CHOOSE(ng_after, k);
-      if(denom_after > 0.0){
-        T_after = S_after / denom_after;
-      }
-    }
+    /* Virtual toggle to compute AFTER */
+    TOGGLE(t, h);
+    double S_after = group_dyadcov_k(group, n1, k, Z, nwp, &ng_after);
+    double T_after = normalise_group_sum(S_after, ng_after, k, norm_mode);
+    TOGGLE(t, h);
 
-    delta = T_after - T_before;
-
-  } else {
-    /* Unknown mode: fall back to raw change as a safety net. */
-    delta = S_after - S_before;
-  }
-
-  /* 9) Accumulate the scalar change statistic. */
-  CHANGE_STAT[0] += delta;
+    double delta = T_after - T_before;
+    CHANGE_STAT[0] += delta;
 
 #if DEBUG_DYADCOV
-  Rprintf("[dyadcov] a=%d b=%d group=%d ng_before=%d ng_after=%d "
-          "S_before=%g S_after=%g delta=%g (mode=%d)\n",
-          (int)a, (int)b, (int)group,
-          ng_before, ng_after, S_before, S_after, delta, norm_mode);
+    Rprintf("[dyadcov][D] i=%d tail=%d head=%d group=%d | ng %d->%d | "
+            "S %g->%g | T %g->%g | Δ=%g | cumul=%g\n",
+            i, (int)t, (int)h, (int)group,
+            ng_before, ng_after,
+            S_before, S_after,
+            T_before, T_after,
+            delta, CHANGE_STAT[0]);
 #endif
+
+    /* Apply toggle for subsequent toggles (except the last one). */
+    TOGGLE_IF_MORE_TO_COME(i);
+  }
+
+  /* Restore original state */
+  UNDO_PREVIOUS_TOGGLES(i);
 }
