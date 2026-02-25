@@ -82,7 +82,7 @@ InitErgmTerm.cliques <- function(nw, arglist, ..., version = packageVersion("erg
   # ---------------------------------------------------------------------------
   # Global option:
   #   options(ERPM.cliques.debug = TRUE/FALSE)
-  dbg    <- isTRUE(getOption("ERPM.cliques.debug", TRUE))
+  dbg    <- isTRUE(getOption("ERPM.cliques.debug", FALSE))
   dbgcat <- function(...) if (dbg) cat("[cliques][DEBUG]", ..., "\n", sep = "")
 
   dbgcat("InitErgmTerm.cliques called with args: ", paste(names(arglist), collapse = ", "))

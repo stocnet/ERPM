@@ -27,7 +27,6 @@ options(ergm.loglik.warn_dyads = FALSE)
 # ----- Active le patch \pkg{ergm} ---------------------------------------------------------
 source("scripts/ergm_patch.R")
 ergm_patch_enable()
-options(ergm.loglik.warn_dyads=FALSE)
 
 # ----- Partitions de test -------------------------------------------------------------
 partition_mix       <- c(1, 2, 2, 3, 3, 3)  # tailles : 1, 2, 3

@@ -27,6 +27,7 @@
 #
 # Debug C output:
 #   set DEBUG_COV_MATCH=1 in src/changestat_cov_match.c and recompile.
+#
 # ==============================================================================
 
 #' ERGM term: cov_match (monochromatic cliques by actor covariate)
@@ -58,7 +59,7 @@ InitErgmTerm.cov_match <- function(nw, arglist, ..., version = packageVersion("e
   # Optional debug flag for this initializer
   #   options(erpm.debug.cov_match_init = TRUE)
   # -------------------------------------------------------------------------
-  DEBUG <- isTRUE(getOption("erpm.debug.cov_match_init", TRUE))
+  DEBUG <- isTRUE(getOption("erpm.debug.cov_match_init", FALSE))
 
   # -------------------------------------------------------------------------
   # Base ERGM term validation and argument parsing
@@ -138,9 +139,52 @@ InitErgmTerm.cov_match <- function(nw, arglist, ..., version = packageVersion("e
   cov      <- a$cov
   category <- a$category
 
+  # -------------------------------------------------------------------------
+  # Helper: accept categorical covariates + retrocompat for binary numeric (0/1)
+  # -------------------------------------------------------------------------
+  .coerce_to_categorical_factor <- function(x, termname, cov_label_for_err = "cov") {
+    # This helper MUST be deterministic:
+    # - for non-numeric: as.factor(x) (base R factor level ordering)
+    # - for numeric binary: map 0/1 -> factor levels c("0","1") in that order
+    #
+    # For numeric but not binary: error (do not silently bucketize).
+    if (is.factor(x) || is.character(x) || is.logical(x)) {
+      return(as.factor(x))
+    }
+
+    if (is.numeric(x)) {
+      ux <- sort(unique(x[!is.na(x)]))
+      # Accept exactly {0,1} or singletons {0} / {1}.
+      if (length(ux) == 0L) {
+        # All NA: keep as factor with NA only (later z becomes 0 codes).
+        return(factor(x))
+      }
+      ok_binary <- all(ux %in% c(0, 1))
+      if (!ok_binary) {
+        ergm_Init_stop(
+          sQuote(termname), ": 'cov_match' requires a categorical covariate. ",
+          "Numeric covariates are only accepted when binary (0/1, with optional NA). ",
+          "Got numeric values: {", paste(utils::head(ux, 20), collapse = ","), if (length(ux) > 20) ",..." else "", "} ",
+          "for ", sQuote(cov_label_for_err), "."
+        )
+      }
+
+      # Deterministic mapping: force levels to c("0","1") even if only one present.
+      # This ensures stability of kappa_code lookup and coefficient naming.
+      return(factor(ifelse(is.na(x), NA_character_, ifelse(x == 1, "1", "0")),
+                    levels = c("0", "1")))
+    }
+
+    # Fallback: treat as categorical by string conversion (rare; keep explicit).
+    return(as.factor(as.character(x)))
+  }
+
   get_actor_codes <- function(nw, cov, category = NULL, n1, termname, DEBUG = FALSE) {
     ia <- seq_len(n1)
 
+    # -----------------------------------------------------------------------
+    # Case A) cov is a vertex attribute name (character scalar)
+    # -----------------------------------------------------------------------
     if (is.character(cov) && length(cov) == 1L) {
       vals <- network::get.vertex.attribute(nw, cov)
       if (is.null(vals)) {
@@ -148,11 +192,11 @@ InitErgmTerm.cov_match <- function(nw, arglist, ..., version = packageVersion("e
       }
 
       x <- vals[ia]
-      if (is.numeric(x)) {
-        ergm_Init_stop(sQuote(termname), ": 'cov_match' requires a categorical covariate (factor/character), not numeric.")
-      }
 
-      f <- as.factor(x)
+      # Retrocompat: accept binary numeric 0/1; otherwise require categorical.
+      f <- .coerce_to_categorical_factor(x, termname = termname, cov_label_for_err = cov)
+
+      # Ensure targeted category is representable as a factor level.
       if (!is.null(category)) {
         category <- as.character(category)[1L]
         if (!(category %in% levels(f))) levels(f) <- c(levels(f), category)
@@ -174,6 +218,10 @@ InitErgmTerm.cov_match <- function(nw, arglist, ..., version = packageVersion("e
                     termname, cov, n1, sum(z == 0L)))
         cat(sprintf("[Init:%s] levels (%d): %s\n",
                     termname, length(levs), paste(levs, collapse = ", ")))
+        if (is.numeric(x)) {
+          cat(sprintf("[Init:%s] retrocompat: numeric cov detected -> coerced to factor(levels={%s})\n",
+                      termname, paste(levs, collapse = ",")))
+        }
         if (!is.null(category)) {
           cat(sprintf("[Init:%s] targeted category=%s | kappa_code=%d\n",
                       termname, category, kappa_code))
@@ -188,15 +236,17 @@ InitErgmTerm.cov_match <- function(nw, arglist, ..., version = packageVersion("e
       ))
     }
 
-    if (is.numeric(cov)) {
-      ergm_Init_stop(sQuote(termname), ": 'cov_match' requires a categorical covariate (factor/character), not a numeric vector.")
-    }
+    # -----------------------------------------------------------------------
+    # Case B) cov is a vector (length >= n1)
+    # -----------------------------------------------------------------------
     if (length(cov) < n1) {
       ergm_Init_stop(sQuote(termname), ": length(cov) < |A| = ", n1, ".")
     }
 
     x <- cov[ia]
-    f <- as.factor(x)
+
+    # Retrocompat: accept binary numeric 0/1; otherwise require categorical.
+    f <- .coerce_to_categorical_factor(x, termname = termname, cov_label_for_err = "cov")
 
     if (!is.null(category)) {
       category <- as.character(category)[1L]
@@ -219,6 +269,10 @@ InitErgmTerm.cov_match <- function(nw, arglist, ..., version = packageVersion("e
                   termname, n1, sum(z == 0L)))
       cat(sprintf("[Init:%s] levels (%d): %s\n",
                   termname, length(levs), paste(levs, collapse = ", ")))
+      if (is.numeric(x)) {
+        cat(sprintf("[Init:%s] retrocompat: numeric cov detected -> coerced to factor(levels={%s})\n",
+                    termname, paste(levs, collapse = ",")))
+      }
       if (!is.null(category)) {
         cat(sprintf("[Init:%s] targeted category=%s | kappa_code=%d\n",
                     termname, category, kappa_code))
@@ -261,6 +315,10 @@ InitErgmTerm.cov_match <- function(nw, arglist, ..., version = packageVersion("e
   # -------------------------------------------------------------------------
   # 5) Coefficient names
   # -------------------------------------------------------------------------
+  # NOTE:
+  # - cov_label depends on whether 'cov' is a named vertex attribute (then the
+  #   label is that name), or a raw vector ("cov").
+  # - targeted category is encoded in cov_label ("cov==X" or "attr==X").
   suffix_norm <- switch(normalized,
                         none     = "",
                         by_group = "_bygrp",
@@ -270,9 +328,6 @@ InitErgmTerm.cov_match <- function(nw, arglist, ..., version = packageVersion("e
   # -------------------------------------------------------------------------
   # 6) Standard ERGM term specification
   # -------------------------------------------------------------------------
-  # IMPORTANT:
-  # - name stays "cov_match" (term name in formulas).
-  # - d_func=TRUE tells ergm to call D_CHANGESTAT_FN(d_cov_match).
   list(
     name         = "cov_match",
     coef.names   = coef.names,

@@ -144,7 +144,6 @@
  *   - per-k deltas.
  */
 #define DEBUG_COV_MATCH 0
-
 #define UNUSED_WARNING(x) (void)(x)
 
 /* -------------------------------------------------------------------------- */

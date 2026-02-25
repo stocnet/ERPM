@@ -1,79 +1,70 @@
-// changestat_inertia_groups.c
 /**
  * @file changestat_inertia_groups.c
- * @brief Change statistic for the ERPM inertial term `inertia_groups`.
+ * @brief Change statistic for the ERPM inertial term 'inertia_groups'.
  *
  * @details
- *  This change statistic is designed to be agnostic to the pseudo-longitudinal
- *  paradigm used by erpm_long():
- *    - PLS (sequential): a single bipartite network per time.
- *    - PLE (stacked): a block-diagonal ("stacked") bipartite meta-network.
+ * This file implements the C-side change statistic used by the ERPM term
+ * 'inertia_groups'. The code is deliberately designed to remain independent 
+ * of the longitudinal mode selected in erpm_long():
  *
- *  IMPORTANT DESIGN RULE:
- *  The changestat does NOT implement any PLS/PLE branching logic.
- *  The distinction is handled entirely by InitErgmTerm.inertia_groups, which
- *  packs INPUT_PARAM so that the same C code applies in both cases.
+ * - PLS (sequential): one bipartite network per time step.
+ * - PLE (stacked): one block-diagonal bipartite meta-network.
  *
- *  What is counted:
- *    Among current groups (mode-2 vertices), count those whose exact actor
- *    membership set matches a group observed in the past over a window of
- *    d = past_influence lags, optionally restricted by a size filter.
+ * The change statistic does not branch on PLS vs PLE. The distinction is
+ * handled entirely by InitErgmTerm.inertia_groups, which packs INPUT_PARAM
+ * so that the same C code applies in both settings.
  *
- *  IMPORTANT (depth semantics):
- *    A group contributes 1 iff its signature appears identically in
- *    ALL required observed past partitions across lags 1..d (intersection over lags).
+ * What is counted:
+ * For each current group (mode-2 vertex), we check whether its exact actor
+ * membership matches a group observed in the past over a window of
+ * d = past_influence lags. An optional size filter may restrict which
+ * current groups are eligible.
  *
- *  Locality:
- *    This change statistic is local to a single bipartite edge toggle. Only the
- *    affected group can change its persistence flag for that toggle, so:
+ * Depth semantics:
+ * A group contributes 1 iff its signature appears identically in ALL
+ * required past partitions across lags 1..d (intersection over lags).
  *
- *      Δ = flag_after(group) - flag_before(group)
+ * Locality:
+ * The statistic is local to a single bipartite edge toggle. Only the
+ * impacted group can change its persistence status for that toggle:
  *
- *    Note on b1part moves:
- *      Under the b1part constraint, a "move" of an actor from old group to new
- *      group is implemented as TWO toggles (remove old edge, add new edge). ERGM
- *      accounts for both impacted groups through the two toggles of the move.
+ *   Δ = flag_after(group) - flag_before(group)
  *
- *    where flag(group)=1 iff:
- *      - current group size passes optional size filter S, and
- *      - current actor set equals one of the past groups for the SAME BLOCK (PLE)
- *        or the only block (PLS), for EACH lag 1..d.
+ * Under the 'b1part' constraint, a reassignment of one actor corresponds
+ * to two toggles (remove old edge, add new edge). ERGM evaluates both
+ * toggles separately, so both affected groups are accounted for.
  *
- *  INPUT_PARAM packing (by InitErgmTerm.inertia_groups):
+ * INPUT_PARAM layout (packed in R):
  *
- *    INPUT_PARAM = c(
- *      n1_total, n_block, G_block, B, d, L, sizes[1:L],
- *      offsets[1:(B*d)],  # 0-based offsets into INPUT_PARAM (double-coded ints)
- *      # data blocks appended in any deterministic order (here: block-major, lag-major):
- *      # for b=1..B:
- *      #   for lag=1..d:
- *      #     M,
- *      #       len_1, ids...
- *      #       len_2, ids...
- *      #       ...
- *    )
+ *   c(
+ *     n1_total, n_block, G_block, B, d, L,
+ *     sizes[1:L],
+ *     offsets[1:(B*d)],
+ *     # followed by observed group signatures per (block, lag)
+ *   )
  *
- *  Notes:
- *    - All values are stored as doubles and cast to int in C.
- *    - Actor IDs stored in past groups are GLOBAL actor vertex ids in the current
- *      network's actor space (1..n1_total).
- *    - In PLS, we set B=1, n_block=n1_total, G_block=n1_total.
- *    - In PLE (stacked), we set n1_total = n_block*B, and groups are laid out
- *      blockwise in mode-2; the block index of a group vertex is derived from
- *      its vertex id using (n1_total, G_block, B).
+ * All values are stored as doubles and cast to int in C.
+ * Actor IDs stored in past signatures are global actor vertex ids
+ * (1..n1_total).
  */
 
 #include "ergm_changestat.h"
-#include "ergm_storage.h"      /* R_Calloc/R_Free */
+#include "ergm_storage.h"
 #include <R_ext/Print.h>
 #include <string.h>
 
 #define DEBUG_INERTIA_GROUPS 0
 #define UNUSED_WARNING(x) (void)(x)
 
-/* -------------------------------------------------------------------------- */
-/* Helper: size filter                                                        */
-/* -------------------------------------------------------------------------- */
+/**
+ * @brief Check whether a size passes the optional filter.
+ *
+ * @param n Current group size.
+ * @param L Length of the size filter vector.
+ * @param sizes Array of allowed sizes.
+ *
+ * @return 1 if accepted, 0 otherwise.
+ */
 static inline int in_sizes(int n, int L, const int *sizes){
   if(L==0) return 1;
   for(int i=0; i<L; i++){
@@ -82,58 +73,56 @@ static inline int in_sizes(int n, int L, const int *sizes){
   return 0;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Helper: determine the block index of a group vertex                         */
-/* -------------------------------------------------------------------------- */
-/*
- * We assume the standard bipartite convention:
- * - actor vertices: 1..n1_total
- * - group vertices: (n1_total+1)..N
+/**
+ * @brief Determine the block index of a group vertex.
  *
- * For PLS:
- * - B = 1 => block = 1 for all groups.
+ * In PLS (B=1), all groups belong to block 1.
+ * In PLE, group vertices are arranged blockwise, each block
+ * containing G_block groups.
  *
- * For PLE (stacked):
- * - groups are arranged blockwise, each block having G_block group vertices.
- * - group offset among groups is (g - (n1_total+1)) in [0 .. G_block*B - 1]
- * - block = floor(offset / G_block) + 1
+ * @param g Group vertex id.
+ * @param n1_total Number of actor vertices.
+ * @param G_block Number of groups per block.
+ * @param B Number of blocks.
  *
- * Returns block in 1..B. If anything looks inconsistent, returns 1 as a safe fallback.
+ * @return Block index in 1..B.
  */
 static inline int group_block_index(Vertex g, int n1_total, int G_block, int B){
   if(B <= 1) return 1;
   if(g <= (Vertex)n1_total) return 1;
-  int off = (int)g - (n1_total + 1); /* 0-based among group vertices */
+
+  int off = (int)g - (n1_total + 1);
   if(off < 0) return 1;
+
   int b = (off / G_block) + 1;
   if(b < 1) b = 1;
   if(b > B) b = B;
+
   return b;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Helper: build sorted member list of a group (actors only)                  */
-/* -------------------------------------------------------------------------- */
-/*
- * Collect membership of group vertex g:
- * - deduplicate via seen[] using neighbor traversal
- * - then emit sorted actor ids by scanning seen[] from 1..n1_total
+/**
+ * @brief Collect sorted actor members of a group.
  *
- * Returns:
- * - out_ids : int array (allocated by caller) filled with sorted actor ids
- * - return value: group size (k)
+ * The function traverses both IN and OUT edges of the group vertex,
+ * records actor neighbors, and emits a sorted list of actor ids.
+ *
+ * @param g Group vertex.
+ * @param n1_total Number of actor vertices.
+ * @param nwp Network pointer.
+ * @param out_ids Output array (allocated by caller).
+ *
+ * @return Group size.
  */
 static int collect_group_members_sorted(Vertex g, int n1_total, Network *nwp, int *out_ids){
   unsigned char *seen = (unsigned char*)R_Calloc(n1_total, unsigned char);
   Edge e; Vertex h;
 
-  /* Neighbors through OUT edges */
   STEP_THROUGH_OUTEDGES(g, e, h){
     if(h <= (Vertex)n1_total){
       seen[(int)h - 1] = 1;
     }
   }
-  /* Neighbors through IN edges */
   STEP_THROUGH_INEDGES(g, e, h){
     if(h <= (Vertex)n1_total){
       seen[(int)h - 1] = 1;
@@ -151,12 +140,18 @@ static int collect_group_members_sorted(Vertex g, int n1_total, Network *nwp, in
   return k;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Helper: check membership in one (b,lag) observed partition block           */
-/* -------------------------------------------------------------------------- */
-/*
- * Returns 1 iff cur_ids (length cur_n, sorted) matches at least one observed
- * group signature stored in the (b,lag) block.
+/**
+ * @brief Check whether current membership matches one past lag.
+ *
+ * @param cur_ids Sorted current actor ids.
+ * @param cur_n Current group size.
+ * @param ip INPUT_PARAM.
+ * @param b Block index.
+ * @param lag Lag index.
+ * @param d Number of lags.
+ * @param L Size filter length.
+ *
+ * @return 1 if a matching past group is found, 0 otherwise.
  */
 static int matches_one_lag_block(const int *cur_ids, int cur_n,
                                 const double *ip,
@@ -164,8 +159,8 @@ static int matches_one_lag_block(const int *cur_ids, int cur_n,
                                 int d, int L){
   int base_offsets = 6 + L;
 
-  int idx = (b - 1) * d + (lag - 1);           /* 0-based in offsets table */
-  int pos = (int)ip[base_offsets + idx];       /* 0-based position in ip */
+  int idx = (b - 1) * d + (lag - 1);
+  int pos = (int)ip[base_offsets + idx];
   if(pos < 0) return 0;
 
   int M = (int)ip[pos++];
@@ -174,8 +169,10 @@ static int matches_one_lag_block(const int *cur_ids, int cur_n,
     if(len == cur_n){
       int ok = 1;
       for(int u=0; u<len; u++){
-        int pid = (int)ip[pos + u];
-        if(pid != cur_ids[u]) { ok = 0; break; }
+        if((int)ip[pos + u] != cur_ids[u]){
+          ok = 0;
+          break;
+        }
       }
       if(ok) return 1;
     }
@@ -184,12 +181,10 @@ static int matches_one_lag_block(const int *cur_ids, int cur_n,
   return 0;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Helper: compare current group to past groups (block b, ALL lags)           */
-/* -------------------------------------------------------------------------- */
-/*
- * Depth semantics:
- *   Require match in EVERY lag 1..d (intersection over lags).
+/**
+ * @brief Require exact match across all lags (intersection semantics).
+ *
+ * @return 1 if the group matches in every lag, 0 otherwise.
  */
 static int matches_all_past_groups_block(const int *cur_ids, int cur_n,
                                         const double *ip,
@@ -202,106 +197,77 @@ static int matches_all_past_groups_block(const int *cur_ids, int cur_n,
   return 1;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Helper: persistence flag for one group vertex                              */
-/* -------------------------------------------------------------------------- */
+/**
+ * @brief Compute persistence flag for a single group vertex.
+ *
+ * A group is persistent (flag=1) iff:
+ *  - it is non-empty,
+ *  - it passes the size filter (if any),
+ *  - its exact membership matches a past group in all required lags.
+ *
+ * @return 1.0 if persistent, 0.0 otherwise.
+ */
 static double group_flag(Vertex g,
                          const double *ip,
                          const int *sizes_int,
                          Network *nwp){
 
   const int n1_total = (int)ip[0];
-  const int n_block  = (int)ip[1];
   const int G_block  = (int)ip[2];
   const int B        = (int)ip[3];
   const int d        = (int)ip[4];
   const int L        = (int)ip[5];
 
-  UNUSED_WARNING(n_block);
-
-  /* Determine which block this group belongs to (PLE) or 1 (PLS) */
   const int b = group_block_index(g, n1_total, G_block, B);
 
-  /* Build current group member list */
   int *ids = (int*)R_Calloc(n1_total, int);
   int ng = collect_group_members_sorted(g, n1_total, nwp, ids);
 
-  /* Empty group: never persistent */
   if(ng == 0){
     R_Free(ids);
     return 0.0;
   }
 
-  /* Size filter on CURRENT group */
   if(!in_sizes(ng, L, sizes_int)){
     R_Free(ids);
     return 0.0;
   }
 
-  /* Exact match required in ALL lags, within the SAME block */
   int ok = matches_all_past_groups_block(ids, ng, ip, b, d, L);
   R_Free(ids);
 
   return ok ? 1.0 : 0.0;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Change statistic: inertia_groups (one-toggle)                              */
-/* -------------------------------------------------------------------------- */
+/**
+ * @brief Change statistic for 'inertia_groups' (one-toggle version).
+ *
+ * The statistic evaluates the persistence flag of the impacted group
+ * before and after a virtual toggle and returns the difference.
+ */
 C_CHANGESTAT_FN(c_inertia_groups){
   ZERO_ALL_CHANGESTATS(0);
-  UNUSED_WARNING(mtp);
-  UNUSED_WARNING(edgestate);
 
   const double *ip = INPUT_PARAM;
-
   const int n1_total = (int)ip[0];
-  const int d        = (int)ip[4];
-  const int L        = (int)ip[5];
+  const int L = (int)ip[5];
 
-  UNUSED_WARNING(d);
-
-  /* Copy size filter as ints for cheap comparisons */
   int *sizes_int = NULL;
   if(L > 0){
     sizes_int = (int*)R_Calloc(L, int);
     for(int i=0; i<L; i++) sizes_int[i] = (int)ip[6 + i];
   }
 
-  #if DEBUG_INERTIA_GROUPS
-    {
-      const int n_block = (int)ip[1];
-      const int G_block = (int)ip[2];
-      const int B       = (int)ip[3];
-      Rprintf("[inertia_groups] n1_total=%d n_block=%d G_block=%d B=%d d=%d L=%d\n",
-              n1_total, n_block, G_block, B, d, L);
-    }
-  #endif
-
-  /* Identify actor and group vertices */
   Vertex a = tail, b = head;
-  Vertex actor = (a <= (Vertex)n1_total) ? a : b;
   Vertex group = (a <= (Vertex)n1_total) ? b : a;
-  UNUSED_WARNING(actor);
 
-  /* Compute before */
   double F_before = group_flag(group, ip, sizes_int, nwp);
 
-  /* Virtual toggle */
   TOGGLE(a, b);
-
-  /* Compute after */
   double F_after  = group_flag(group, ip, sizes_int, nwp);
-
-  /* Undo toggle */
   TOGGLE(a, b);
 
   CHANGE_STAT[0] += (F_after - F_before);
-
-  #if DEBUG_INERTIA_GROUPS
-    Rprintf("[inertia_groups] group=%d before=%.0f after=%.0f delta=%.0f\n",
-            (int)group, F_before, F_after, (F_after - F_before));
-  #endif
 
   if(sizes_int) R_Free(sizes_int);
 }
