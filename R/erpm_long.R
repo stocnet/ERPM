@@ -273,7 +273,9 @@ erpm_long <- function(formula,
   d                <- validated$past_influence
 
   if (isTRUE(verbose)) {
-    tlabs <- attr(terms(rhs), "term.labels")
+    # tlabs <- attr(terms(rhs), "term.labels")
+    rhs_fml <- as.formula(call("~", rhs), env = environment(formula))
+    tlabs <- attr(terms(rhs_fml), "term.labels")
     .erpm_long_vcat(verbose, sprintf("[ERPM_LONG] mode=PLE | T=%d | eval.call=%s", length(partitions), as.character(isTRUE(eval.call))))
     .erpm_long_vcat(verbose, sprintf("[ERPM_LONG] RHS=%s", if (length(tlabs)) paste(tlabs, collapse = " + ") else "<empty>"))
     .erpm_long_vcat(verbose, sprintf("[ERPM_LONG] inertial_present=%s | past_influence(d)=%d",
@@ -304,7 +306,7 @@ erpm_long <- function(formula,
     list(as.name("erpm"), as.formula(call("~", meta_nw, rhs))),
     if (!is.null(eval.call))    list(eval.call = eval.call)     else list(),
     if (!is.null(verbose))      list(verbose = verbose)         else list(),
-    if (isTRUE(debug))          list(debug = TRUE)              else list(),
+    # if (isTRUE(debug))          list(debug = TRUE)              else list(),
     if (!is.null(estimate))     list(estimate = estimate)       else list(),
     if (!is.null(eval.loglik))  list(eval.loglik = eval.loglik) else list(),
     if (!is.null(control))      list(control = control)         else list(),

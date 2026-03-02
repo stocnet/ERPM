@@ -200,7 +200,7 @@ partitions2 <- list(
   c(1)
 )
 # ----------------------------------------------------------------------
-# RHS (effets demandés)
+# RHS 
 #   - dyadcov : utilise Z1 (k=2 par défaut si votre API est dyadcov("Z1"))
 #   - cov_match : utilise l'attribut 'sector'
 #   - cliques : simple structure de groupes
