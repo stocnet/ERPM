@@ -2,7 +2,6 @@
 # File    : R/zzz.R
 # Purpose : Register ERPM Metropolis–Hastings proposals in ergm's proposal table
 # ==============================================================================
-
 #' Package load hook for ERPM
 #'
 #' This hook is executed when the package is loaded (both with a regular
@@ -13,6 +12,7 @@
 #' Concretely, we:
 #'   - register 'ErpmToggleStep',
 #'   - register 'ErpmSwapStep',
+#'   - register 'ErpmMix',
 #'   - ensure that the legacy 'B1Part' row is still present.
 #'
 #' Duplicate rows are avoided to keep repeated dev reloads clean.
@@ -23,8 +23,9 @@
 .onLoad <- function(libname, pkgname) {
 
   # Register ERPM-specific proposals (identical to C idempotence ).
-  .register_erpm_proposal("ErpmToggleStep", priority = 100, weights = "default")
-  .register_erpm_proposal("ErpmSwapStep",   priority = 100, weights = "default")
+  .register_erpm_proposal("ErpmToggleStep", priority = 99,  weights = "default")
+  .register_erpm_proposal("ErpmSwapStep",   priority = 99,  weights = "default")
+  .register_erpm_proposal("ErpmMix",        priority = 100, weights = "default")
 
   # Keep legacy B1Part registration. 
   .RegisterProposals()
