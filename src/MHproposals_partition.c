@@ -2,293 +2,90 @@
  * @file MHproposals_partition.c
  * @brief Metropolis-Hastings proposals for ERPM partition networks under '~b1part'.
  *
- * ERPM represents a partition as a bipartite 'membership' network:
+ * ERPM represents a partition as an undirected bipartite "membership" network:
  * - Actor-mode vertices are  1..BIPARTITE (n actors).
- * - Group-mode vertices are (BIPARTITE+1)..N_NODES (G groups, padded).
+ * - Group-mode vertices are (BIPARTITE+1)..N_NODES (G_total groups, padded).
  * - Under '~b1part', each actor has exactly one incident membership edge.
  *
- * ERPM convention:
- * - The membership network must be undirected. If a directed network is detected,
- *   proposals stop with a hard error.
+ * Convention / safety:
+ * - Membership networks MUST be undirected. Directed networks are rejected (fatal error).
+ * - Corrupted '~b1part' states (actor without group) trigger MH_FAILED (if available)
+ *   or a hard error.
  *
- * Implemented proposals (legacy 'ergm' MH API):
- * - MH_ErpmToggleStep: move one actor from its current group to another group (2 toggles).
+ * Implemented proposals (legacy ergm MH API):
+ * - MH_ErpmToggleStep: move one actor to another group (2 toggles).
  * - MH_ErpmSwapStep  : swap memberships of two actors in different groups (4 toggles).
- * - MH_ErpmMix       : mixed proposal that selects ToggleStep/SwapStep by user weights.
+ * - MH_ErpmMix       : mixed proposal selecting ToggleStep/SwapStep by user weights.
  *
  * Legacy MH API notes (ergm_MHproposal.h):
- * - Proposals are implemented as MH_P_FN(MH_<Name>) and do not return a status.
- * - Initialization is detected when MHp->ntoggles == 0, and the proposal must set
- *   its fixed toggle count (2 or 4 here).
+ * - Proposals are MH_P_FN(MH_<Name>) and do not return a status.
+ * - Initialization is detected when MHp->ntoggles == 0.
  * - A valid proposal must fill:
- *   MHp->ntoggles, Mtail[...], Mhead[...], and MHp->logratio.
+ *     MHp->ntoggles, Mtail[...], Mhead[...], MHp->logratio.
  *
- * IMPORTANT (mixed proposal):
- * - MH_ErpmToggleStep and MH_ErpmSwapStep use an init branch:
+ * IMPORTANT (mixed proposal wiring):
+ * - MH_ErpmToggleStep and MH_ErpmSwapStep contain an init branch:
  *     if(MHp->ntoggles==0){ MHp->ntoggles=fixed; return; }
  *   Therefore MH_ErpmMix MUST NOT call them directly, or the first dispatch would
  *   produce a no-move.
  * - MH_ErpmMix dispatches to per-iteration helpers:
- *     ErpmToggleStep_propose() / ErpmSwapStep_*propose()
- *   which do not have an init branch and always emit a proposal (or report "impossible").
+ *     ErpmToggleStep_propose() / ErpmSwapStep_trypropose()
+ *   which have no init branch and always emit a proposal (or report impossibility).
  *
  * ---------------------------------------------------------------------------
- * Partition representation and invariants
+ * Proposal semantics (summary)
  * ---------------------------------------------------------------------------
- * A partition of n actors is encoded as an undirected bipartite membership graph:
- *
- * - Actors: vertices 1..BIPARTITE.
- * - Groups: vertices (BIPARTITE+1)..N_NODES (padded group set).
- * - Membership: an edge (actor, group) indicates the actor's group assignment.
- *
- * Under '~b1part', the intended invariant is:
- * - each actor has degree exactly 1 (one membership edge).
- *
- * The sampler assumes '~b1part' is active during MCMC but still performs
- * defensive checks:
- * - directed membership networks are rejected (fatal error);
- * - corrupted states (actor without group) trigger MH_FAILED or error().
- *
- * Padded groups (degree 0) are allowed and can become active through moves.
- *
- * ---------------------------------------------------------------------------
- * Proposal semantics
- * ---------------------------------------------------------------------------
- *
  * 1) ToggleStep (2 toggles)
- * -------------------------
- * - Select an actor uniformly.
- * - Let group_old be its current group.
- * - Select group_new uniformly among all other group vertices
- *   (including padded groups).
- *
- * Proposal encoding:
- *   (actor, group_old) OFF
- *   (actor, group_new) ON
- *
- * Hastings ratio:
- * - symmetric proposal:
- *     actor uniform in both directions,
- *     target group uniform over constant set (G_total−1).
- * - therefore logratio = 0.
+ * - Choose an actor uniformly among 1..BIPARTITE.
+ * - Read its current group_old (unique neighbor in group mode).
+ * - Choose group_new uniformly among ALL group vertices except group_old,
+ *   including padded empty groups.
+ * - Encode:
+ *     (actor, group_old) OFF
+ *     (actor, group_new) ON
+ * - Symmetric -> logratio = 0.
  *
  * 2) SwapStep (4 toggles)
- * -----------------------
  * - Requires at least two non-empty groups.
- * - Draw actor_i uniformly and read group_i.
- * - Draw actor_j uniformly until:
- *       actor_j != actor_i  AND  group_j != group_i.
+ * - Choose actor_i uniformly; read group_i.
+ * - Choose actor_j uniformly until actor_j != actor_i AND group_j != group_i.
+ * - Encode 4 toggles swapping memberships.
+ * - Symmetric -> logratio = 0.
+ * - Preserves group sizes exactly (intra-size mixing move).
  *
- * Proposal encoding:
- *   (actor_i, group_i) OFF → (actor_i, group_j) ON
- *   (actor_j, group_j) OFF → (actor_j, group_i) ON
- *
- * Hastings ratio:
- * - identical selection rule before and after swap,
- *   hence symmetric and logratio = 0.
- *
- * Structural property:
- * - SwapStep preserves group sizes exactly, so it only mixes states
- *   within the same size vector.
- *
- * If all actors belong to a single group, no swap is possible.
- *
- * 3) Mixed kernel (ErpmMix)
- * -------------------------
- * - Randomly selects ToggleStep or SwapStep according to user weights.
- * - If SwapStep is selected but impossible (e.g. only one non-empty group),
- *   the kernel falls back to ToggleStep instead of reporting MH_FAILED.
- *
- * Storage:
- * - persistent arrays stored in MHp->storage:
- *     move_codes[k] and cumprob[k].
- * - memory managed with R_Calloc / R_Free.
+ * 3) ErpmMix (Toggle/Swap mixture)  [UPDATED]
+ * - Randomly selects TOGGLE or SWAP according to user weights.
+ * - If SWAP is selected but impossible (P<2 non-empty groups), ErpmMix falls back
+ *   to TOGGLE (no MH_FAILED for this specific reason).
+ * - ErpmMix fully relies on InitErgmProposal.ErpmMix packing:
+ *     iinputs = c(K, move_codes...)
+ *     inputs  = c(weights...)
+ * - ErpmMix must be robust to missing/invalid iinputs/inputs and MUST fall back
+ *   to the canonical mix (toggle:2, swap:1) instead of crashing.
+ * - Only TOGGLE and SWAP are supported for now.
  *
  * ---------------------------------------------------------------------------
  * Interaction with ergm internals
  * ---------------------------------------------------------------------------
- * Uses ergm network macros and structures:
- * - BIPARTITE, N_NODES, IN_DEG[...] (reference only for SwapStep logic).
- * - IS_UNDIRECTED_EDGE(u,v) to test membership edges.
+ * - Uses ergm Network macros/structures:
+ *     - BIPARTITE, N_NODES, IN_DEG[...] (SwapStep uses nwp->indegree; IN_DEG kept for MH_B1Part ref)
+ *     - IS_UNDIRECTED_EDGE(u,v) to test membership edges.
+ * - Undirected requirement checked through nwp->directed_flag.
  *
- * Undirected requirement is checked through nwp->directed_flag.
- *
- * Failure behaviour:
- * - directed network → error().
- * - invalid '~b1part' state → MH_FAILED or error().
+ * Failure behavior:
+ * - directed network => error()
+ * - invalid '~b1part' state => MH_FAILED (if available) or error()
  * - no legal SwapStep:
- *     standalone SwapStep → MH_FAILED/error().
- *     inside Mix → fallback ToggleStep.
+ *     standalone SwapStep => MH_FAILED/error()
+ *     inside Mix (when SWAP selected) => fallback ToggleStep
  *
  * ---------------------------------------------------------------------------
  * Debugging
  * ---------------------------------------------------------------------------
  * - DEBUG_ERPM_PROPOSALS enables verbose traces.
  * - DBG_max_print limits console output during long MCMC runs.
- * - Debugging is intended for development/selftests and should remain
- *   disabled in production builds.
- */
-
-/**
- * @file MHproposals_partition.c
- * @brief Metropolis-Hastings proposals for ERPM partition networks under '~b1part'.
- *
- * ERPM represents a partition as a bipartite 'membership' network:
- * - Actor-mode vertices are  1..BIPARTITE (n actors).
- * - Group-mode vertices are (BIPARTITE+1)..N_NODES (G groups, padded).
- * - Under '~b1part', each actor has exactly one incident membership edge.
- *
- * ERPM convention:
- * - The membership network must be undirected. If a directed network is detected,
- *   proposals stop with a hard error.
- *
- * Implemented proposals (legacy 'ergm' MH API):
- * - MH_ErpmToggleStep: move one actor from its current group to another group (2 toggles).
- * - MH_ErpmSwapStep  : swap memberships of two actors in different groups (4 toggles).
- * - MH_ErpmMix       : mixed proposal that selects ToggleStep/SwapStep by user weights.
- *
- * Legacy MH API notes (ergm_MHproposal.h):
- * - Proposals are implemented as MH_P_FN(MH_<Name>) and do not return a status.
- * - Initialization is detected when MHp->ntoggles == 0, and the proposal must set
- *   its fixed toggle count (2 or 4 here).
- * - A valid proposal must fill:
- *   MHp->ntoggles, Mtail[...], Mhead[...], and MHp->logratio.
- *
- * IMPORTANT (mixed proposal):
- * - MH_ErpmToggleStep and MH_ErpmSwapStep use an init branch:
- *     if(MHp->ntoggles==0){ MHp->ntoggles=fixed; return; }
- *   Therefore MH_ErpmMix MUST NOT call them directly, or the first dispatch would
- *   produce a no-move.
- * - MH_ErpmMix dispatches to per-iteration helpers:
- *     ErpmToggleStep_propose() / ErpmSwapStep_*propose()
- *   which do not have an init branch and always emit a proposal (or report "impossible").
- *
- * ---------------------------------------------------------------------------
- * Partition representation and invariants
- * ---------------------------------------------------------------------------
- * ERPM encodes a partition of n actors into (padded) groups as an undirected,
- * bipartite membership graph.
- *
- * - Actor mode:
- *     vertices 1..BIPARTITE (n actors).
- * - Group mode:
- *     vertices (BIPARTITE+1)..N_NODES (G_total groups, padded).
- * - Membership:
- *     an undirected edge (actor, group) means "actor is assigned to group".
- *
- * Under the '~b1part' constraint, the intended invariant is:
- * - Each actor has degree exactly 1 (one and only one incident membership edge).
- *
- * This file assumes that '~b1part' (and the implied '~b1degrees' machinery inside
- * ergm) is active during MCMC. Nevertheless, defensive checks are used:
- * - A directed membership network is treated as fatal.
- * - A corrupted state (actor with no group) triggers MH_FAILED or a hard error,
- *   depending on whether MH_FAILED is available at compile time.
- *
- * Note on padding:
- * - Group vertices may include empty "padded" groups (degree 0).
- * - ToggleStep is allowed to target padded groups (this can create new non-empty
- *   groups and/or destroy singleton groups by moving their only actor away).
- *
- * ---------------------------------------------------------------------------
- * Proposal semantics (high-level)
- * ---------------------------------------------------------------------------
- * 1) ToggleStep (2 toggles)
- * ------------------------
- * - Choose an actor uniformly among all actors.
- * - Let group_old be its unique current group.
- * - Choose group_new uniformly among ALL group vertices except group_old,
- *   including padded empty groups.
- * - Propose reassignment actor: group_old -> group_new.
- *
- * Encoding:
- * - Toggle (actor, group_old) OFF
- * - Toggle (actor, group_new) ON
- *
- * Hastings correction:
- * - With this selection rule, the proposal is symmetric because:
- *     - actor is uniform in both directions;
- *     - group_new is uniform over a constant-size set (G_total - 1), independent
- *       of the number of non-empty groups;
- *   hence MHp->logratio = 0.
- *
- * 2) SwapStep (4 toggles) — WITHOUT IN_DEG
- * ---------------------------------------
- * - Choose two distinct actors uniformly, with the constraint that they currently
- *   belong to two different groups.
- * - Swap their memberships between these two groups.
- *
- * Operationally (UPDATED):
- * - Pre-check: if fewer than 2 non-empty groups exist, no legal swap exists.
- * - Draw actor_i uniformly in 1..BIPARTITE; read group_i.
- * - Draw actor_j uniformly in 1..BIPARTITE until:
- *     actor_j != actor_i AND group_j != group_i
- *   (NO bounded retry cap; see bias note below).
- *
- * Encoding:
- * - Toggle (actor_i, group_i) OFF, (actor_i, group_j) ON
- * - Toggle (actor_j, group_j) OFF, (actor_j, group_i) ON
- *
- * Hastings correction:
- * - With the same selection rule before and after the swap (uniform actors with the
- *   "different groups" constraint), the proposal is symmetric, hence logratio = 0.
- *
- * Bias note (why we avoid max_tries):
- * - A hard retry cap (e.g., 200) can incorrectly classify a rare-but-possible swap as
- *   "impossible" in highly unbalanced partitions, which subtly breaks exact symmetry.
- * - We therefore (i) pre-check P>=2, and (ii) sample until success without a small cap.
- *
- * Structural note:
- * - SwapStep preserves group sizes exactly, so it cannot connect states with different
- *   size vectors. It is intended as an intra-size mixing move.
- *
- * Impossibility:
- * - If all actors are in the same group, no legal swap exists.
- * - Standalone MH_ErpmSwapStep reports MH_FAILED (or error()) in that case.
- *
- * 3) Mix (ToggleStep / SwapStep) with SWAP fallback
- * ------------------------------------------------
- * - The mixed proposal samples which move to apply using user-provided weights.
- * - If the selected move is SWAP but no legal swap exists (e.g., only one non-empty
- *   group), Mix MUST FALL BACK to ToggleStep and MUST NOT propagate MH_FAILED for
- *   this specific reason (to keep the chain moving under mixed kernels).
- *
- * Storage:
- * - The mix uses persistent storage (MHp->storage) containing:
- *     - move_codes[k] (int)
- *     - cumprob[k] (double)
- * - Allocation uses R_Calloc/R_Free to match R's memory management conventions
- *   for long-lived proposal storage.
- *
- * ---------------------------------------------------------------------------
- * Interaction with ergm internals
- * ---------------------------------------------------------------------------
- * - This file uses ergm's Network representation and macros:
- *     - BIPARTITE, N_NODES, IN_DEG[...] from ergm_changestat.h (IN_DEG no longer
- *       used by SwapStep, but may still be used elsewhere / in reference code)
- *     - IS_UNDIRECTED_EDGE(u,v) to test membership edges
- * - The check "undirected network required" uses nwp->directed_flag because the
- *   DIRECTED macro from ergm_changestat_common.do_not_include_directly.h is not
- *   visible from this compilation unit.
- *
- * Failure behavior:
- * - Fatal configuration error:
- *     - directed membership network => error()
- * - Invalid/corrupted '~b1part' state:
- *     - missing membership edge for chosen actor => MH_FAILED (if available)
- *       or error().
- * - No legal SwapStep:
- *     - Standalone SwapStep => MH_FAILED (if available) or error().
- *     - Mix when SWAP selected => fallback ToggleStep (never MH_FAILED for this case).
- *
- * ---------------------------------------------------------------------------
- * Debugging
- * ---------------------------------------------------------------------------
- * - Compile-time flag DEBUG_ERPM_PROPOSALS controls verbose traces.
- * - A print limiter (DBG_max_print) prevents flooding the console during long
- *   MCMC runs.
- * - Debug output is intended for development and selftests; it should remain
- *   disabled by default in production builds. (UPDATED: default is now OFF)
+ * - Debugging is intended for development/selftests and should remain disabled
+ *   by default in production builds.
  */
 
 #include "ergm_MHproposals_degree.h"
@@ -306,7 +103,7 @@
 /* Debugging                                                                  */
 /* -------------------------------------------------------------------------- */
 /* Allows print along the proposals execution */
-#define DEBUG_ERPM_PROPOSALS 0
+#define DEBUG_ERPM_PROPOSALS 1
 #define UNUSED_VARIABLE(x) (void)(x)
 
 /* Print limiter (avoid flooding console during long MCMC). */
@@ -461,27 +258,27 @@ static void ErpmToggleStep_propose(MHProposal *MHp, Network *nwp){
   Vertex group_old = get_current_group_of_actor(actor_id, nwp);
 
   if(group_old == 0){
-// We keep a MH_FAILED guard to be robust to ergm changes (to be remove later)
-#ifdef MH_FAILED 
+/* We keep a MH_FAILED guard to be robust to ergm changes (to be remove later) */
+#ifdef MH_FAILED
   #if DEBUG_ERPM_PROPOSALS
-      if(DBG_seen_toggle < DBG_max_print){
-        DBG_print_context_header("ToggleStep", nwp);
-        Vertex P = DBG_count_nonempty_groups(nwp);
-        Rprintf("[ERPM][ToggleStep][FAIL] MH_FAILED (actor has no group)\n");
-        Rprintf("[ERPM][ToggleStep][FAIL] actor=%d | nonempty_groups(P)=%d\n",
-                (int)actor_id, (int)P);
-        DBG_seen_toggle++;
-      }
+    if(DBG_seen_toggle < DBG_max_print){
+      DBG_print_context_header("ToggleStep", nwp);
+      Vertex P = DBG_count_nonempty_groups(nwp);
+      Rprintf("[ERPM][ToggleStep][FAIL] MH_FAILED (actor has no group)\n");
+      Rprintf("[ERPM][ToggleStep][FAIL] actor=%d | nonempty_groups(P)=%d\n",
+              (int)actor_id, (int)P);
+      DBG_seen_toggle++;
+    }
   #endif
-      MHp->ntoggles = MH_FAILED;
-      MHp->logratio = 0.0;
-  #else
-      error("ERPM ToggleStep: invalid b1part state (actor has no group neighbor).");
+    MHp->ntoggles = MH_FAILED;
+    MHp->logratio = 0.0;
+#else
+    error("ERPM ToggleStep: invalid b1part state (actor has no group neighbor).");
 #endif
     return;
   }
 
-  // Draw group_new uniformly from ALL groups except group_old, without a retry loop. 
+  /* Draw group_new uniformly from ALL groups except group_old, without a retry loop. */
   if(number_of_groups_total < 2){
 #ifdef MH_FAILED
     MHp->ntoggles = MH_FAILED;
@@ -582,13 +379,13 @@ static void ErpmSwapStep_propose_strict(MHProposal *MHp, Network *nwp){
 
   if(rc == 0){
 #ifdef MH_FAILED
-#if DEBUG_ERPM_PROPOSALS
+  #if DEBUG_ERPM_PROPOSALS
     if(DBG_seen_swap < DBG_max_print){
       DBG_print_context_header("SwapStep", nwp);
       Rprintf("[ERPM][SwapStep][FAIL] MH_FAILED (no legal swap: <2 non-empty groups)\n");
       DBG_seen_swap++;
     }
-#endif
+  #endif
     MHp->ntoggles = MH_FAILED;
     MHp->logratio = 0.0;
 #else
@@ -597,8 +394,9 @@ static void ErpmSwapStep_propose_strict(MHProposal *MHp, Network *nwp){
     return;
   }
 
-//rc == -1 : corrupted state 
-// We keep a MH_FAILED guard to be robust to ergm changes (to be remove later)
+  /* rc == -1 : corrupted state
+   * We keep a MH_FAILED guard to be robust to ergm changes (to be remove later)
+   */
 #ifdef MH_FAILED
   #if DEBUG_ERPM_PROPOSALS
     if(DBG_seen_swap < DBG_max_print){
@@ -622,50 +420,74 @@ static void ErpmSwapStep_propose_strict(MHProposal *MHp, Network *nwp){
 
 typedef struct ErpmMixStorage {
   int K;
-  int    *move_codes;
-  double *cumprob;
+  int    *move_codes;  /* length K */
+  double *cumprob;     /* length K, last = 1.0 */
 } ErpmMixStorage;
 
-static void erpm_mix_build_cumprob(ErpmMixStorage *st, MHProposal *MHp){
+/* Canonical default mix used if user packing is missing/invalid. */
+static void erpm_mix_set_default(ErpmMixStorage *st){
+  if(!st) error("ERPM ErpmMix: internal error (NULL storage).");
+
+  st->K = 2;
+  st->move_codes = (int*)    R_Calloc((size_t)st->K, int);
+  st->cumprob    = (double*) R_Calloc((size_t)st->K, double);
+
+  st->move_codes[0] = ERPM_MOVE_TOGGLE;  /* weight 2 */
+  st->move_codes[1] = ERPM_MOVE_SWAP;    /* weight 1 */
+
+  st->cumprob[0] = 2.0/3.0;
+  st->cumprob[1] = 1.0;
+}
+
+/* Validate user-provided packing and build cumulative probabilities.
+ * Returns 1 on success, 0 if invalid (caller should use defaults).
+ *
+ * IMPORTANT (allocation discipline):
+ * - This function allocates st->move_codes and st->cumprob on entry.
+ * - If returning 0, caller MUST free these partial allocations (or reuse helper).
+ */
+static int erpm_mix_try_build_from_inputs(ErpmMixStorage *st, MHProposal *MHp){
   if(!st)  error("ERPM ErpmMix: internal error (NULL storage).");
   if(!MHp) error("ERPM ErpmMix: internal error (NULL MHp).");
 
-  if(MHp->iinputs == NULL)
-    error("ERPM ErpmMix: missing iinputs (expected K + move codes).");
+  if(MHp->iinputs == NULL) return 0;
+  if(MHp->inputs  == NULL) return 0;
 
   const int K = (int)MHp->iinputs[0];
-  if(K <= 0)
-    error("ERPM ErpmMix: invalid K in iinputs[0] (must be > 0).");
+  if(K <= 0) return 0;
 
-  if(MHp->inputs == NULL)
-    error("ERPM ErpmMix: missing inputs (expected weights).");
+  /* Defensive: K must not be absurd. */
+  if(K > 32) return 0;
 
+  /* Allocate. */
   st->K = K;
   st->move_codes = (int*)    R_Calloc((size_t)K, int);
   st->cumprob    = (double*) R_Calloc((size_t)K, double);
 
+  /* Validate codes + weights and compute normalization. */
   double wsum = 0.0;
 
   for(int k = 0; k < K; ++k){
     const int code = (int)MHp->iinputs[1 + k];
-    st->move_codes[k] = code;
-
     const double w = MHp->inputs[k];
-    if(!(isfinite(w) && w > 0.0))
-      error("ERPM ErpmMix: all weights must be finite and > 0.");
 
-    if(code != ERPM_MOVE_TOGGLE && code != ERPM_MOVE_SWAP)
-      error("ERPM ErpmMix: unknown move code in iinputs (expected TOGGLE/SWAP).");
+    if(code != ERPM_MOVE_TOGGLE && code != ERPM_MOVE_SWAP) return 0;
+    if(!(isfinite(w) && w > 0.0)) return 0;
 
+    st->move_codes[k] = code;
     wsum += w;
   }
+  if(!(isfinite(wsum) && wsum > 0.0)) return 0;
 
+  /* Build cumulative probabilities. */
   double c = 0.0;
   for(int k = 0; k < K; ++k){
     c += MHp->inputs[k] / wsum;
     st->cumprob[k] = c;
   }
   st->cumprob[K - 1] = 1.0;
+
+  return 1;
 }
 
 static int erpm_mix_sample_move(const ErpmMixStorage *st){
@@ -688,12 +510,31 @@ static void erpm_mix_free_storage(MHProposal *MHp){
 }
 
 MH_I_FN(Mi_ErpmMix){
+  /* If ergm re-calls Mi_* defensively, do not rebuild/allocate/print again. */
+  if(MHp->storage != NULL){
+    return;
+  }
+
 #if DEBUG_ERPM_PROPOSALS
-  Rprintf("[ERPM][Mix][INIT] setting ntoggles=4 (max toggles)\n");
+  Rprintf("[ERPM][Mix][INIT] building storage from iinputs/inputs (or defaults)\n");
 #endif
 
   ErpmMixStorage *st = (ErpmMixStorage*) R_Calloc(1, ErpmMixStorage);
-  erpm_mix_build_cumprob(st, MHp);
+
+  /* Try user config; if invalid, fallback to canonical default mix. */
+  if(!erpm_mix_try_build_from_inputs(st, MHp)){
+#if DEBUG_ERPM_PROPOSALS
+    Rprintf("[ERPM][Mix][INIT] invalid packing -> fallback default (toggle:2 swap:1)\n");
+#endif
+    /* If try_build allocated partial memory then returned 0, we must free it. */
+    if(st->move_codes) R_Free(st->move_codes);
+    if(st->cumprob)    R_Free(st->cumprob);
+    st->move_codes = NULL;
+    st->cumprob    = NULL;
+
+    erpm_mix_set_default(st);
+  }
+
   MHp->storage = st;
 
   /* Max toggles among component moves: SWAP is 4. */
@@ -704,7 +545,6 @@ MH_I_FN(Mi_ErpmMix){
 MH_P_FN(MH_ErpmMix){
   erpm_require_undirected(nwp);
 
-  /* Mi_ErpmMix must have run. Lazy init is treated as a wiring bug. */
   ErpmMixStorage *st = (ErpmMixStorage*) MHp->storage;
   if(st == NULL){
     error("ERPM ErpmMix: NULL storage (Mi_ErpmMix was not called).");
@@ -714,39 +554,35 @@ MH_P_FN(MH_ErpmMix){
 
   if(move == ERPM_MOVE_TOGGLE){
     ErpmToggleStep_propose(MHp, nwp);
+
   } else if(move == ERPM_MOVE_SWAP){
-    /* Try SWAP. If impossible, FALL BACK to TOGGLE and do NOT use MH_FAILED. */
     const int rc = ErpmSwapStep_trypropose(MHp, nwp);
 
     if(rc == 1){
-      /* OK: swap emitted */
+      /* OK */
+
     } else if(rc == 0){
+      /* SWAP impossible -> fallback TOGGLE (never MH_FAILED for this case). */
 #if DEBUG_ERPM_PROPOSALS
       if(DBG_seen_mix < DBG_max_print){
-        Rprintf("[ERPM][Mix][FALLBACK] SWAP impossible -> fallback TOGGLE\n");
+        Rprintf("[ERPM][Mix][FALLBACK] SWAP impossible -> TOGGLE\n");
         DBG_seen_mix++;
       }
 #endif
-      move = ERPM_MOVE_TOGGLE;  
       ErpmToggleStep_propose(MHp, nwp);
+
     } else {
-      // rc == -1: corrupted state -> keep the usual failure behavior 
-// We keep a MH_FAILED guard to be robust to ergm changes (to be remove later)
+      /* rc == -1: corrupted state */
 #ifdef MH_FAILED
-  #if DEBUG_ERPM_PROPOSALS
-        if(DBG_seen_mix < DBG_max_print){
-          DBG_print_context_header("Mix", nwp);
-          Rprintf("[ERPM][Mix][FAIL] SWAP encountered invalid b1part state -> MH_FAILED\n");
-          DBG_seen_mix++;
-        }
-  #endif
-        MHp->ntoggles = MH_FAILED;
-        MHp->logratio = 0.0;
+      MHp->ntoggles = MH_FAILED;
+      MHp->logratio = 0.0;
 #else
       error("ERPM ErpmMix: invalid b1part state encountered while attempting SwapStep.");
 #endif
     }
+
   } else {
+    /* Should not happen (storage validation), but keep hard error. */
     error("ERPM ErpmMix: internal error (unexpected move code).");
   }
 
