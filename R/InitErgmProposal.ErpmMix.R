@@ -9,43 +9,53 @@
 #' @aliases ErpmMix
 #'
 #' @description
-#' ErpmMix is a Metropolis-Hastings proposal that randomly selects a move type
-#' at each MCMC iteration and then applies the corresponding ERPM partition step.
+#' ErpmMix is a Metropolis-Hastings proposal that draws one partition move type
+#' at each MCMC iteration and then applies the corresponding ERPM step.
 #'
-#' Supported moves (for now):
+#' Supported moves:
 #' - "toggle" : ErpmToggleStep (2 toggles)
 #' - "swap"   : ErpmSwapStep   (4 toggles)
+#' - "merge"  : ErpmMergeStep  (merge one non-empty group into another)
+#' - "split"  : ErpmSplitStep  (split a non-empty group toward an empty one)
 #'
 #' @details
 #' User-facing arguments:
-#' - moves   : character vector in {"toggle","swap"}
+#' - moves   : character vector in {"toggle","swap","merge","split"}
 #' - weights : positive numeric vector of same length as moves
 #'
-#' Important ergm note :
+#' Important ergm note:
 #' - When this function is called through ergm's `.select("ErpmMix")`, the object
-#'   passed as `arguments` typically contains meta-entries such as `constraints`
-#'   and `reference`, and the user payload from `MCMC.prop.args[[i]]` is stored
+#'   passed as `arguments` usually contains meta-entries such as `constraints`
+#'   and `reference`, while the user payload from `MCMC.prop.args[[i]]` is stored
 #'   in the first unnamed element: `arguments[[1]]`.
 #'
-#' Decoding policy :
-#' - If user args are missing/empty, use the default mix: moves=c("toggle","swap"),
-#'   weights=c(2,1).
+#' Decoding policy:
+#' - If user args are missing/empty, use the default move set
+#'   moves=c("toggle","swap","merge","split") with weights=c(2,1,0,0).
 #' - If `moves` is missing/empty, use defaults.
-#' - If `moves` contains unknown entries, DO NOT error: fall back to defaults.
-#' - If `weights` is missing, use defaults (aligned with the selected moves).
+#' - If `moves` contains unknown entries, do not error: fall back to the canonical
+#'   default mix returned to C, namely toggle:2 and swap:1.
+#' - If `moves` contains duplicates, treat it as invalid input and fall back to the
+#'   same canonical default mix.
+#' - If `weights` is missing, use default weights when `moves` is exactly the default
+#'   move set; otherwise use a vector of 1s aligned with the selected moves.
 #' - If `weights` is invalid (non-numeric, wrong length, non-finite, <=0), fall back
-#'   to defaults.
+#'   to the canonical default mix.
 #'
 #' Packing convention to C:
 #' - iinputs = c(K, move_codes...)
 #' - inputs  = c(weights...)
-#' where move_codes are stable integers:
-#'   toggle = 1, swap = 2
+#' where move codes are stable integers:
+#'   toggle = 1, swap = 2, merge = 3, split = 4
 #'
-#' Note:
-#' - Only toggle/swap are supported for now; additional moves can be added later
-#'   by extending `allowed` + `move_code`.
-#'
+#' Notes:
+#' - This R initializer only packs the user-requested move mixture.
+#' - Feasibility is handled later by the C proposal code. In particular, the move
+#'   draw itself stays state-independent; if a selected move is impossible in the
+#'   current network state, the C backend falls back to TOGGLE.
+#' - As a consequence, observed move frequencies along the chain do not have to
+#'   match the nominal user weights exactly, especially when merge/split are often
+#'   infeasible on the visited states.
 #'
 #' @param arguments A list of proposal arguments (may be empty).
 #' @param nw A \pkg{network} object (unused here; required by ergm API).
@@ -63,17 +73,19 @@ InitErgmProposal.ErpmMix <- function(arguments, nw) {
   if (!is.null(nw)) { }  # no-op
 
   # -----------------------------
-  # Defaults 
+  # Defaults
   # -----------------------------
-  default_moves   <- c("toggle", "swap")
-  default_weights <- c(2, 1)
+  default_moves   <- c("toggle", "swap", "merge", "split")
+  default_weights <- c(2, 1, 0, 0)
 
   .fallback_default <- function() {
-    codes <- c(1L, 2L)
+    codes   <- c(1L, 2L)      # toggle, swap
+    weights <- c(2, 1)        # canonical default mix 2:1
+
     list(
       name    = "ErpmMix",
       pkgname = "ERPM",
-      inputs  = as.numeric(default_weights),
+      inputs  = as.numeric(weights),
       iinputs = as.integer(c(length(codes), codes))
     )
   }
@@ -84,7 +96,7 @@ InitErgmProposal.ErpmMix <- function(arguments, nw) {
   if (is.null(arguments)) arguments <- list()
   if (!is.list(arguments)) return(.fallback_default())
 
-  # ergm meta wrapper: user payload is typically in arguments[[1]].
+  # With ergm's .select() wrapper, user payload is typically stored in arguments[[1]].
   user_args <- list()
   if (length(arguments) >= 1L && is.list(arguments[[1L]])) {
     user_args <- arguments[[1L]]
@@ -109,19 +121,23 @@ InitErgmProposal.ErpmMix <- function(arguments, nw) {
     if (length(moves) < 1L) return(.fallback_default())
   }
 
-  allowed <- c("toggle", "swap")
+  allowed <- c("toggle", "swap", "merge", "split")
 
-  # If any unknown move is requested: do NOT partially accept; fall back to canonical.
+  # Unknown move names are treated as invalid user input: keep behavior robust
+  # and return the canonical default mix instead of partially decoding.
   if (any(!moves %in% allowed)) return(.fallback_default())
 
-  # If user repeats a move, treat as mistake and default.
+  # Duplicated move names are treated the same way. The intent is ambiguous and
+  # we prefer a predictable fallback over ad hoc aggregation.
   if (any(duplicated(moves))) return(.fallback_default())
 
   # -----------------------------
   # Decode weights
   # -----------------------------
   if (is.null(weights)) {
-    # If moves are exactly defaults, keep default weights; else use 1s.
+    # For the full default move set, preserve the intended baseline:
+    # toggle=2, swap=1, merge=0, split=0.
+    # For any custom move subset, default to equal user-level attempt weights.
     if (identical(moves, default_moves)) weights <- default_weights
     else weights <- rep(1, length(moves))
   }
@@ -131,7 +147,9 @@ InitErgmProposal.ErpmMix <- function(arguments, nw) {
 
   move_code <- function(m) switch(m,
     toggle = 1L,
-    swap   = 2L
+    swap   = 2L,
+    merge  = 3L,
+    split  = 4L
   )
 
   codes <- vapply(moves, move_code, integer(1))

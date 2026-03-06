@@ -12,6 +12,8 @@
 #' Concretely, we:
 #'   - register 'ErpmToggleStep',
 #'   - register 'ErpmSwapStep',
+#'   - register 'ErpmMergeStep',
+#'   - register 'ErpmSplitStep',
 #'   - register 'ErpmMix',
 #'   - ensure that the legacy 'B1Part' row is still present.
 #'
@@ -25,6 +27,8 @@
   # Register ERPM-specific proposals (identical to C idempotence ).
   .register_erpm_proposal("ErpmToggleStep", priority = 99,  weights = "default")
   .register_erpm_proposal("ErpmSwapStep",   priority = 99,  weights = "default")
+  .register_erpm_proposal("ErpmMergeStep",  priority = 98,  weights = "default")
+  .register_erpm_proposal("ErpmSplitStep",  priority = 98,  weights = "default")
   .register_erpm_proposal("ErpmMix",        priority = 100, weights = "default")
 
   # Keep legacy B1Part registration. 
