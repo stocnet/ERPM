@@ -25,11 +25,11 @@
 .onLoad <- function(libname, pkgname) {
 
   # Register ERPM-specific proposals (identical to C idempotence ).
-  .register_erpm_proposal("ErpmToggleStep", priority = 99,  weights = "default")
-  .register_erpm_proposal("ErpmSwapStep",   priority = 99,  weights = "default")
-  .register_erpm_proposal("ErpmMergeStep",  priority = 98,  weights = "default")
-  .register_erpm_proposal("ErpmSplitStep",  priority = 98,  weights = "default")
-  .register_erpm_proposal("ErpmMix",        priority = 100, weights = "default")
+  .register_erpm_proposal("ErpmToggleStep", priority = 6,  weights = "default")
+  .register_erpm_proposal("ErpmSwapStep",   priority = 6,  weights = "default")
+  .register_erpm_proposal("ErpmMergeStep",  priority = 7,  weights = "default")
+  .register_erpm_proposal("ErpmSplitStep",  priority = 7,  weights = "default")
+  .register_erpm_proposal("ErpmMix",        priority = 9, weights = "default")
 
   # Keep legacy B1Part registration. 
   .RegisterProposals()
@@ -63,7 +63,7 @@
       tab$Class       == "c"         &
       tab$Reference   == "Bernoulli" &
       tab$Constraints == "&b1part"   &
-      tab$Priority    == 0           &
+      tab$Priority    == 10          &
       tab$Weights     == "random"
   )
 
@@ -72,7 +72,7 @@
       Class       = "c",
       Reference   = "Bernoulli",
       Constraints = "&b1part",
-      Priority    = 0,
+      Priority    = 10,
       Weights     = "random",
       Proposal    = "B1Part"
     )

@@ -61,7 +61,7 @@
 /* ========================================================================= */
 
 /** @brief Enable verbose traces inside proposal code. */
-#define DEBUG_ERPM_PROPOSALS 0
+#define DEBUG_ERPM_PROPOSALS 1
 
 /** @brief Silence an intentionally unused variable. */
 #define UNUSED_VARIABLE(x) (void)(x)
@@ -842,9 +842,9 @@ MH_I_FN(Mi_ErpmMix){
     return;
   }
 
-#if DEBUG_ERPM_PROPOSALS
-  Rprintf("[ERPM][Mix][INIT] building storage from iinputs/inputs (or defaults)\n");
-#endif
+// #if DEBUG_ERPM_PROPOSALS
+//   Rprintf("[ERPM][Mix][INIT] building storage from iinputs/inputs (or defaults)\n");
+// #endif
 
   ErpmMixStorage *st = (ErpmMixStorage*) R_Calloc(1, ErpmMixStorage);
 

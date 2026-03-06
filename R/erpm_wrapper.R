@@ -14,6 +14,7 @@
 #'   \item translating ERPM RHS terms (e.g., \code{groups}, \code{cov_match}, \code{cliques})
 #'         into \pkg{ergm} terms, including optional wrappers (\code{Proj1}, \code{B});
 #'   \item assembling a standard \code{ergm()} call with explicit constraints and control;
+#'   \item optionally injecting an ERPM mixed MH proposal through \code{mh_moves}/\code{mh_weights};
 #'   \item either returning the call (dry-run) or evaluating it and returning the fitted model.
 #' }
 #'
@@ -27,6 +28,14 @@
 #' }
 #' This extension is required for PLE meta-networks where block-diagonal constraints may
 #' need to be enforced.
+#'
+#' The arguments \code{mh_moves} and \code{mh_weights} are optional:
+#' \itemize{
+#'   \item if both are left \code{NULL}, \pkg{ergm} keeps its usual transition logic;
+#'   \item if both are provided and valid, \code{erpm()} injects
+#'         \code{MCMC.prop = ~ .select("ErpmMix")} together with aligned
+#'         \code{MCMC.prop.args}.
+#' }
 #'
 #' @keywords ERPM ERGM wrapper bipartite translation
 ################################################################################
@@ -62,7 +71,7 @@ if (!exists(".erpm_parse_formula", mode = "function") &&
       dyads        = dyads,
       group_labels = group_labels
     )
-    nw2   <- built$network
+    nw2 <- built$network
     eval_env <- list2env(list(nw = nw2), parent = env0)
 
     new_formula <- as.formula(bquote(nw ~ .(rhs_expr)))
@@ -76,10 +85,13 @@ if (!exists(".erpm_parse_formula", mode = "function") &&
   }
 
   if (!(inherits(lhs_val, "error")) && inherits(lhs_val, "network")) {
-    bip <- tryCatch(network::get.network.attribute(lhs_val, "bipartite"),
-                    error = function(e) NULL)
-    if (is.null(bip) || is.na(bip))
+    bip <- tryCatch(
+      network::get.network.attribute(lhs_val, "bipartite"),
+      error = function(e) NULL
+    )
+    if (is.null(bip) || is.na(bip)) {
       stop("LHS network is not bipartite or missing `%n% 'bipartite'` attribute.")
+    }
 
     eval_env <- list2env(list(nw = lhs_val), parent = env0)
 
@@ -115,13 +127,16 @@ if (!exists(".erpm_parse_formula", mode = "function") &&
     from <- eval(al$from, envir = env_eval)
     to   <- if (is.null(al$to)) Inf else eval(al$to, envir = env_eval)
 
-    if (is.finite(from) && from < 0L)
+    if (is.finite(from) && from < 0L) {
       stop(sprintf("groups(from|k): 'from'/'k' must be >= 0. Got: %d", from))
+    }
 
     if (!(is.infinite(to) || (is.finite(to) && to > from))) {
       to_str <- if (is.infinite(to)) "Inf" else as.character(to)
-      stop(sprintf("groups(from,to): requires 'from' < 'to'. Got: from=%d, to=%s",
-                   from, to_str))
+      stop(sprintf(
+        "groups(from,to): requires 'from' < 'to'. Got: from=%d, to=%s",
+        from, to_str
+      ))
     }
   }
 
@@ -137,10 +152,10 @@ if (!exists(".erpm_parse_formula", mode = "function") &&
 #' @return A single RHS expression (call or symbol).
 #' @noRd
 .erpm_translate_rhs_pipeline <- function(rhs_expr,
-                                        rename_map,
-                                        wrap_proj1,
-                                        wrap_B,
-                                        env_eval) {
+                                         rename_map,
+                                         wrap_proj1,
+                                         wrap_B,
+                                         env_eval) {
   rhs_terms <- .erpm_split_sum_terms(rhs_expr)
 
   translated <- lapply(
@@ -152,7 +167,11 @@ if (!exists(".erpm_parse_formula", mode = "function") &&
     env_eval   = env_eval
   )
 
-  translated <- lapply(translated, .erpm_validate_translated_term, env_eval = env_eval)
+  translated <- lapply(
+    translated,
+    .erpm_validate_translated_term,
+    env_eval = env_eval
+  )
 
   if (length(translated) == 1L) translated[[1L]]
   else Reduce(function(x, y) call("+", x, y), translated)
@@ -169,12 +188,12 @@ if (!exists(".erpm_parse_formula", mode = "function") &&
 #' @return Updated formula with translated RHS.
 #' @noRd
 .erpm_translate_rhs <- function(new_formula,
-                               eval_env,
-                               effect_rename_map,
-                               wrap_with_proj1,
-                               wrap_with_B,
-                               verbose,
-                               user_formula_str) {
+                                eval_env,
+                                effect_rename_map,
+                                wrap_with_proj1,
+                                wrap_with_B,
+                                verbose,
+                                user_formula_str) {
   rhs_expr <- new_formula[[3]]
 
   new_rhs <- tryCatch(
@@ -203,17 +222,42 @@ if (!exists(".erpm_parse_formula", mode = "function") &&
 #' @param control User control input.
 #' @param new_formula Translated formula.
 #' @param constraints Effective constraints formula.
+#' @param mh_moves Optional ERPM MH move names.
+#' @param mh_weights Optional ERPM MH move weights.
 #' @return control.ergm object (or NULL).
 #' @noRd
-.erpm_build_control <- function(control, new_formula, constraints) {
-  if (is.null(control)) return(NULL)
+.erpm_build_control <- function(control,
+                                new_formula,
+                                constraints,
+                                mh_moves = NULL,
+                                mh_weights = NULL) {
+  ctrl <- if (is.null(control)) {
+    NULL
+  } else if (inherits(control, "control.ergm")) {
+    control
+  } else {
+    do.call(ergm::control.ergm, as.list(control))
+  }
 
-  ctrl <- if (inherits(control, "control.ergm")) control
-  else do.call(ergm::control.ergm, as.list(control))
+  if (!is.null(mh_moves) && !is.null(mh_weights)) {
+    ctrl_args <- if (is.null(ctrl)) list() else as.list(ctrl)
 
-  # Compute k under effective constraints to keep init length consistent
+    ctrl_args$MCMC.prop <- as.formula(~ .select("ErpmMix"))
+    ctrl_args$MCMC.prop.args <- list(list(
+      moves   = mh_moves,
+      weights = mh_weights
+    ))
+
+    ctrl <- do.call(ergm::control.ergm, ctrl_args)
+  }
+
+  if (is.null(ctrl)) return(NULL)
+
+  # Keep init length aligned with the translated formula under the effective constraints.
   k <- length(summary(new_formula, constraints = constraints))
-  if (!is.null(ctrl$init) && length(ctrl$init) != k) ctrl$init <- NULL
+  if (!is.null(ctrl$init) && length(ctrl$init) != k) {
+    ctrl$init <- NULL
+  }
 
   ctrl
 }
@@ -281,7 +325,7 @@ if (!exists(".erpm_parse_formula", mode = "function") &&
 #' @export
 erpm <- function(formula,
                  eval.call    = TRUE,
-                 verbose      = TRUE,
+                 verbose      = FALSE,
                  estimate     = NULL,
                  eval.loglik  = NULL,
                  control      = NULL,
@@ -290,14 +334,19 @@ erpm <- function(formula,
                  nodes        = NULL,
                  dyads        = list(),
                  group_labels = NULL,
-                 constraints  = NULL) {
+                 constraints  = NULL,
+                 mh_moves     = NULL,
+                 mh_weights   = NULL) {
 
   # Resolve constraints (default remains ~ b1part)
   if (is.null(constraints)) {
     constraints <- as.formula(~ b1part)
   } else {
     if (!(inherits(constraints, "formula") && length(constraints) >= 2L)) {
-      stop("[ERPM] `constraints` must be a formula like `~ b1part` or `~ b1part + blockdiag(timeblock)`.", call. = FALSE)
+      stop(
+        "[ERPM] `constraints` must be a formula like `~ b1part` or `~ b1part + blockdiag(timeblock)`.",
+        call. = FALSE
+      )
     }
   }
 
@@ -320,11 +369,38 @@ erpm <- function(formula,
     seed <- seed_i
   }
 
+  # Validate optional MH mix arguments early. When both are NULL, historical
+  # behavior is preserved and ergm keeps its own proposal selection logic.
+  mh_spec <- .erpm_validate_mh_mix_inputs(
+    mh_moves   = mh_moves,
+    mh_weights = mh_weights
+  )
+  mh_moves   <- mh_spec$mh_moves
+  mh_weights <- mh_spec$mh_weights
+
+  # When the mixed ERPM proposal is requested, the user-provided weights should
+  # be read as attempt weights. They are used for the first-stage move draw,
+  # but the observed move frequencies along the chain can differ because
+  # infeasible SWAP / MERGE / SPLIT draws fall back to TOGGLE.
+  if (isTRUE(verbose) && !is.null(mh_moves) && !is.null(mh_weights)) {
+    warning(
+      paste(
+        "[ERPM] `mh_moves` / `mh_weights` activate the mixed proposal `ErpmMix`.",
+        "The supplied weights are interpreted as move attempt weights, not as exact observed frequencies.",
+        "Feasibility is checked only after a move type has been drawn, and infeasible",
+        "SWAP / MERGE / SPLIT draws are redirected to TOGGLE.",
+        "As a result, requested proportions for MERGE and SPLIT may not be respected exactly,",
+        "and the observed number of TOGGLE moves can be mechanically inflated."
+      ),
+      call. = FALSE
+    )
+  }
+
   # --- 1) Parse formula and build invariants ---------------------------------
   input <- .erpm_parse_formula(formula)
   env0  <- input$env0
 
-  # ---  Dyads normalization -----------------------------------
+  # --- Dyads normalization ----------------------------------------------------
   if (is.matrix(dyads)) {
 
     .rhs_dyad_names <- function(rhs_expr) {
@@ -339,7 +415,9 @@ erpm <- function(formula,
             if (startsWith(fn, "dyadcov") || identical(fn, "cov_fullmatch")) {
               if (length(x) >= 2L) {
                 a1 <- x[[2L]]
-                if (is.character(a1) && length(a1) == 1L && nzchar(a1)) out <<- c(out, a1)
+                if (is.character(a1) && length(a1) == 1L && nzchar(a1)) {
+                  out <<- c(out, a1)
+                }
               }
             }
           }
@@ -370,11 +448,16 @@ erpm <- function(formula,
   lhs_val <- .erpm_eval_lhs(input$lhs_expr, env0)
 
   resolved <- .erpm_resolve_lhs(
-    lhs_val, input$rhs_expr, env0, nodes, dyads,
+    lhs_val      = lhs_val,
+    rhs_expr     = input$rhs_expr,
+    env0         = env0,
+    nodes        = nodes,
+    dyads        = dyads,
     group_labels = group_labels
   )
 
-  if (identical(resolved$lhs_kind, "partition") || identical(resolved$lhs_kind, "network")) {
+  if (identical(resolved$lhs_kind, "partition") ||
+      identical(resolved$lhs_kind, "network")) {
     eval_env    <- resolved$eval_env
     new_formula <- resolved$new_formula
   } else {
@@ -398,7 +481,13 @@ erpm <- function(formula,
   )
 
   # --- 3) Constraints and control --------------------------------------------
-  ctrl <- .erpm_build_control(control, new_formula, constraints = constraints)
+  ctrl <- .erpm_build_control(
+    control     = control,
+    new_formula = new_formula,
+    constraints = constraints,
+    mh_moves    = mh_moves,
+    mh_weights  = mh_weights
+  )
 
   # --- 4) Build ergm call -----------------------------------------------------
   ergm_call <- .erpm_build_ergm_call(
@@ -411,7 +500,7 @@ erpm <- function(formula,
     verbose             = verbose
   )
 
-  # --- 5) Logging ------------------------------------------------------------
+  # --- 5) Logging -------------------------------------------------------------
   if (isTRUE(verbose)) {
     final_fun <- as.call(list(as.name("ergm"), new_formula))
     final_str <- .compact_ws(.oneline(final_fun))
@@ -425,19 +514,22 @@ erpm <- function(formula,
     )
   }
 
-  # --- 6) Evaluate or return -------------------------------------------------
+  # --- 6) Evaluate or return --------------------------------------------------
   if (!isTRUE(eval.call) && isTRUE(verbose)) {
-    cat("\t dry-run ergm call : ",
-        paste(deparse(ergm_call, width.cutoff = 500L), collapse = " "),
-        "\n", sep = "")
+    cat(
+      "\t dry-run ergm call : ",
+      paste(deparse(ergm_call, width.cutoff = 500L), collapse = " "),
+      "\n",
+      sep = ""
+    )
   }
 
   .erpm_eval_or_return(
-    ergm_call         = ergm_call,
-    eval.call         = eval.call,
-    timeout           = timeout,
-    seed              = seed,
-    eval_env          = eval_env,
-    user_formula_str  = input$user_formula_str
+    ergm_call        = ergm_call,
+    eval.call        = eval.call,
+    timeout          = timeout,
+    seed             = seed,
+    eval_env         = eval_env,
+    user_formula_str = input$user_formula_str
   )
 }

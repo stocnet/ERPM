@@ -121,3 +121,6 @@ documentation/dev/**
 
 # Generated dump of ERPM source files
 dump_*
+
+# Selftest scripts
+# /scripts/test/selftests/*

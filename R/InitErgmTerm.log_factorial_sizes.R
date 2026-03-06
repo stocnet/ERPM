@@ -127,7 +127,7 @@ InitErgmTerm.log_factorial_sizes <- function(nw, arglist, ..., version = package
   # Global option:
   #   options(ERPM.log_factorial_sizes.debug = TRUE/FALSE)
   # When TRUE, the initializer prints diagnostic messages to the console.
-  dbg    <- isTRUE(getOption("ERPM.log_factorial_sizes.debug", TRUE))
+  dbg    <- isTRUE(getOption("ERPM.log_factorial_sizes.debug", FALSE))
   dbgcat <- function(...) if (dbg) cat("[log_factorial_sizes][DEBUG]", ..., "\n", sep = "")
 
   dbgcat("InitErgmTerm.log_factorial_sizes called with args: ",
