@@ -42,6 +42,7 @@
 #' @name InitErgmTerm.cov_ingroup
 #' @aliases cov_ingroup
 #' @note InitErgmTerm.cov_ingroup.R
+#' @author Jérémie Chichignoud - Cub'itech
 #'
 #' @description
 #' \code{cov_ingroup} is an ERGM term for bipartite networks that aggregates

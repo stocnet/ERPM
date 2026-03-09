@@ -1,5 +1,6 @@
 # ==============================================================================
 # File    : scripts/test/selftests/selftest_erpm_wrapper_mh_moves_weights.R
+# Auteur  : Jérémie Chichignoud - Cub'itech
 # Purpose : Self-test for ERPM wrapper arguments `mh_moves` / `mh_weights`
 #           under ~b1part.
 #
@@ -28,8 +29,6 @@
 #     nominal weights exactly because ErpmMix keeps a state-independent first
 #     draw and falls back to TOGGLE when a selected move is infeasible.
 #
-# Run
-#   Rscript scripts/test/selftests/selftest_erpm_wrapper_mh_moves_weights.R
 #
 # ==============================================================================
 

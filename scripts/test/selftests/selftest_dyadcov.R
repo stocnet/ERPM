@@ -1,7 +1,7 @@
 # ======================================================================================
 # Fichier : scripts/test/selftests/selftest_dyadcov.R
 # Objet   : Self-test autonome pour l'effet ERPM/ERGM `dyadcov`
-# Exécution: Rscript scripts/test/selftests/selftest_dyadcov.R
+# Auteur : Jérémie Chichignoud - Cub'itech
 #
 # But du fichier
 #   - PHASE 0 (ANALYTIQUE) : valider la définition via une référence R directe
@@ -54,12 +54,12 @@ if (requireNamespace("devtools", quietly = TRUE) && file.exists("DESCRIPTION")) 
   stop("Le fichier DESCRIPTION n'existe pas ou devtools n'est pas installé.")
 }
 if (!exists("erpm", mode = "function")) {
-  if (file.exists("R/erpm_wrapper.R")) {
-    source("R/erpm_wrapper.R", local = FALSE)
-  } else stop("erpm_wrapper.R introuvable.")
+  if (file.exists("R/erpm.R")) {
+    source("R/erpm.R", local = FALSE)
+  } else stop("erpm.R introuvable.")
 }
 if (!exists("build_bipartite_from_inputs", mode = "function")) {
-  stop("build_bipartite_from_inputs() indisponible. Il doit être exporté par R/erpm_wrapper.R.")
+  stop("build_bipartite_from_inputs() indisponible. Il doit être exporté par R/erpm.R.")
 }
 
 # --------------------------------------------------------------------------------------
@@ -102,10 +102,10 @@ cat("==> Log:", log_path, "\n")
 # Réglages de run (le point clé du fichier)
 # ======================================================================================
 RUN <- list(
-  phase0_analytic = FALSE,
-  phase1_summary  = FALSE,
+  phase0_analytic = TRUE,
+  phase1_summary  = TRUE,
   phase2_fit      = TRUE,
-  phase3_mcmc     = FALSE,
+  phase3_mcmc     = TRUE,
 
   quiet_phase0    = FALSE,
   quiet_phase1    = FALSE,

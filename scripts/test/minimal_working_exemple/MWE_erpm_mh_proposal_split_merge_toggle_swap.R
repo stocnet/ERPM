@@ -1,21 +1,5 @@
 # ==============================================================================
-# MWE: simple usage of erpm(...) with mh_moves / mh_weights
-# Purpose:
-#   Show how to run ERPM fits:
-#     1) without explicit moves
-#     2) with toggle/swap
-#     3) with toggle/swap/merge/split
-#     4) with another combination
-#
-# Data:
-#   - hard-coded partition
-#   - hard-coded nodal attribute
-#   - hard-coded dyadic attribute
-#
-# Tested effects:
-#   - log_factorial_sizes()
-#   - cov_match("bin_att")
-#   - dyadcov("Z1")
+# Minimal Working Exemple : mh_proposal_split_merge_toggle_swap — fit
 # ==============================================================================
 
 Sys.setenv(LANG = "fr_FR.UTF-8")

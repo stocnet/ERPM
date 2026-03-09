@@ -1,7 +1,7 @@
 # ======================================================================================
 # Fichier : scripts/test/selftests/selftest_cov_fullmatch.R
 # Objet   : Self-test autonome pour l'effet ERPM/ERGM `cov_fullmatch`
-# Exécution: Rscript scripts/test/selftests/selftest_cov_fullmatch.R
+# Auteur : Jérémie Chichignoud - Cub'itech
 #
 # Objectifs (structure "squared_sizes"-style, mais plus compact)
 #   - PHASE 1 (EXPECTED): valider la statistique via summary(nw ~ cov_fullmatch(...))
@@ -93,8 +93,8 @@ if (!exists("partition_to_bipartite_network", mode = "function")) {
 
 # Wrapper ERPM (erpm + builder biparti)
 if (!exists("erpm", mode = "function") || !exists("build_bipartite_from_inputs", mode = "function")) {
-  if (file.exists("R/erpm_wrapper.R")) {
-    source("R/erpm_wrapper.R", local = FALSE)
+  if (file.exists("R/erpm.R")) {
+    source("R/erpm.R", local = FALSE)
   } else {
     cat("[WARN] erpm()/build_bipartite_from_inputs indisponibles. Certaines phases seront sautées.\n")
   }

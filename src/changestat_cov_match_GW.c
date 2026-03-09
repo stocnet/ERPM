@@ -1,6 +1,8 @@
 /**
  * @file changestat_cov_match_GW.c
  * @brief  Change statistic for the ERPM term `cov_match_GW` (multi-toggle form).
+ * 
+ * @author Jérémie Chichignoud
  *
  * @details
  *  This file implements the \pkg{ergm} change statistic for the ERPM effect

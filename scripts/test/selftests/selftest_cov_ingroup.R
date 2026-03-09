@@ -1,7 +1,7 @@
 # ==============================================================================
 # Fichier : scripts/test/selftests/selftest_cov_ingroup.R
 # Objet   : Self-test autonome pour l’effet ERPM/ERGM `cov_ingroup` (multi-toggle ready)
-# Exécution: Rscript scripts/test/selftests/selftest_cov_ingroup.R
+# Auteur : Jérémie Chichignoud - Cub'itech
 #
 # But du fichier
 #   - PHASE 1 (SUMMARY) : valider la statistique via summary(nw ~ cov_ingroup(...))
@@ -50,10 +50,10 @@ if (requireNamespace("devtools", quietly = TRUE) && file.exists("DESCRIPTION")) 
 
 # Wrapper ERPM
 if (!exists("erpm", mode = "function")) {
-  if (file.exists("R/erpm_wrapper.R")) {
-    source("R/erpm_wrapper.R", local = FALSE)
+  if (file.exists("R/erpm.R")) {
+    source("R/erpm.R", local = FALSE)
   } else {
-    stop("R/erpm_wrapper.R introuvable.")
+    stop("R/erpm.R introuvable.")
   }
 }
 
@@ -69,9 +69,9 @@ cat("ergm:", as.character(utils::packageVersion("ergm")), "\n")
 # Réglages de run
 # ==============================================================================
 RUN <- list(
-  phase1_summary = FALSE,
+  phase1_summary = TRUE,
   phase2_fit     = TRUE,
-  phase3_mcmc    = FALSE,
+  phase3_mcmc    = TRUE,
 
   quiet_phase1   = FALSE,
   quiet_phase2   = FALSE

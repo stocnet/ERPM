@@ -1,27 +1,16 @@
-#!/usr/bin/env Rscript
-################################################################################
-# FILE: scripts/test/selftests/selftest_erpm_long_validators.R
-################################################################################
-#' Selftest: erpm_long() validators (PLE only)
-#'
-#' @name selftest_erpm_long_validators
-#' @note scripts/test/selftests/selftest_erpm_long_validators.R
-#'
-#' @description
-#' Minimal selftest for \code{erpm_long()} validators in PLE mode, using deliberately
-#' bad inputs to assert that errors are raised with the expected messages.
-#'
-#' This script focuses on input validation only:
-#' \itemize{
-#'   \item it does not test the PLE engine correctness;
-#'   \item it does not check summary() values;
-#'   \item it does not run fits (it forces \code{eval.call=FALSE} in the wrapper call).
-#' }
-#'
-#' Two small datasets are used (n=4 and n=5, T=3) to cover shape variation.
-#'
-#' @keywords ERPM selftest erpm_long validators PLE
-################################################################################
+# ==============================================================================
+# File    : scripts/test/selftests/selftest_erpm_long_validators.R
+# Auteur  : Jérémie Chichignoud - Cub'itech
+# Purpose : Self-test for erpm_long() input validators in PLE-only mode.
+#
+# Notes
+#   - This script is meant to be run from the package root (DESCRIPTION present).
+#   - It targets validator behavior only, using deliberately invalid inputs and
+#     checking that erpm_long() fails with the expected error messages.
+#   - It does not test the PLE engine construction, does not validate summary()
+#     outputs, and does not run model fits (the wrapper is called with eval.call=FALSE).
+#   - Two small datasets are used (n=4 and n=5, T=3) to cover basic shape variation.
+# ==============================================================================
 
 Sys.setenv(LANG = "fr_FR.UTF-8")
 invisible(try(Sys.setlocale("LC_CTYPE", "fr_FR.UTF-8"), silent = TRUE))

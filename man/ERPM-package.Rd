@@ -26,6 +26,7 @@ Authors:
 
 Other contributors:
 \itemize{
+  \item Jérémie Chichignoud \email{jeremie.chichignou@cub-itech.com} [contributor]
   \item Alexandra Amani [contributor]
   \item Nico Keiser [contributor]
 }

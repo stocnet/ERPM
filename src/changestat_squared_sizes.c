@@ -1,6 +1,8 @@
 /**
  * @file changestat_squared_sizes.c
  * @brief Change statistic for the ERPM term `squared_sizes` (multi-toggle form).
+ * 
+ * @author Jérémie Chichignoud
  *
  * @details
  *  This file implements the \pkg{ergm} change statistic for the ERPM effect

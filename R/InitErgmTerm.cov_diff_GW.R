@@ -10,6 +10,7 @@
 #' @name InitErgmTerm.cov_diff_GW
 #' @aliases cov_diff_GW
 #' @note InitErgmTerm.cov_diff_GW.R
+#' @author Jérémie Chichignoud - Cub'itech
 #'
 #' @description
 #' \code{cov_diff_GW} is an ERGM term for bipartite networks that builds a

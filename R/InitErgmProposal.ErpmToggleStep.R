@@ -10,6 +10,7 @@
 #' @name InitErgmProposal.ErpmToggleStep
 #' @aliases ErpmToggleStep
 #' @note InitErgmProposal.ErpmToggleStep.R
+#' @author Jérémie Chichignoud - Cub'itech
 #'
 #' @description
 #' ErpmToggleStep defines a Metropolis-Hastings proposal used when sampling

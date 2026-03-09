@@ -1,7 +1,7 @@
 # ======================================================================================
 # Fichier : scripts/test/selftests/selftest_groups.R
+# Auteur  : Jérémie Chichignoud - Cub'itech
 # Objet   : Tests robustes pour l'effet ERPM `groups` → \pkg{ergm} `b2degrange`
-# Exécution: Rscript scripts/test/selftests/selftest_groups.R
 # ======================================================================================
 
 # --------------------------------------------------------------------------------------
@@ -34,12 +34,12 @@ if (requireNamespace("devtools", quietly = TRUE) && file.exists("DESCRIPTION")) 
   stop("Le fichier DESCRIPTION n'existe pas ou devtools n'est pas installé.")
 }
 if (!exists("erpm", mode = "function")) {
-  if (file.exists("R/erpm_wrapper.R")) {
-    source("R/erpm_wrapper.R", local = FALSE)
-  } else stop("erpm_wrapper.R introuvable.")
+  if (file.exists("R/erpm.R")) {
+    source("R/erpm.R", local = FALSE)
+  } else stop("erpm.R introuvable.")
 }
 if (!exists("build_bipartite_from_inputs", mode = "function")) {
-  stop("build_bipartite_from_inputs() indisponible. Il doit être exporté par R/erpm_wrapper.R.")
+  stop("build_bipartite_from_inputs() indisponible. Il doit être exporté par R/erpm.R.")
 }
 
 # --------------------------------------------------------------------------------------

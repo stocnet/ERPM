@@ -1,9 +1,8 @@
 # ==============================================================================
 # File    : scripts/test/selftests/selftest_ergm_prop_erpm_mix_dynamic_toggle_swap.R
+# Auteur : Jérémie Chichignoud - Cub'itech
 # Purpose : Self-test (via erpm wrapper) for ERPM MH proposal ErpmMix under ~b1part,
 #           with dynamic moves/weights decoded by InitErgmProposal.ErpmMix.
-# Run     : Rscript scripts/test/selftests/selftest_ergm_prop_erpm_mix_dynamic.R
-#
 #
 # What this selftest enforces:
 #   1) "Real chain": each PROBE is a single MCMC simulation (simulate() called

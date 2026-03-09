@@ -9,6 +9,7 @@
 #' @name InitErgmTerm.cov_fulldiff
 #' @aliases cov_fulldiff
 #' @note InitErgmTerm.cov_fulldiff.R
+#' @author Jérémie Chichignoud - Cub'itech
 #'
 #' @description
 #' \code{cov_fulldiff} is an ERGM term for bipartite networks that measures,

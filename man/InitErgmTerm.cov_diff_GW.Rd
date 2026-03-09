@@ -48,200 +48,33 @@ The initializer supports a vector of \eqn{\lambda} values and returns one
 scalar statistic per value.
 }
 \details{
-The term is implemented as a native ERGM C change-statistic, declared in the
-compiled code under a symbol compatible with \code{name = "cov_diff_GW"}.
-The R initializer below:
+The term is implemented as a native ERGM C change-statistic.
+
+IMPORTANT (multi-toggle / D_CHANGESTAT_FN):
 \itemize{
-\item enforces that the network is bipartite via \code{nw \%n\% "bipartite"};
-\item extracts an actor-level covariate from a vertex attribute or from a
-literal vector, coercing it to numeric and failing fast on \code{NA};
-\item normalizes the \code{lambda} argument into a numeric vector with all
-entries strictly greater than 1;
-\item packs the actor covariate and the vector of \eqn{\lambda} values into
-a compact \code{INPUT_PARAM} layout for the C layer.
+\item This term MUST support multi-toggle proposals (swap/split/merge decomposed
+into multiple toggles).
+\item Therefore, the compiled change-statistic MUST be implemented using the
+D_CHANGESTAT_FN API (multi-toggle).
+\item On the R side, we MUST advertise this to ergm by returning \code{d_func = TRUE}.
+Otherwise ergm will call the changestat as a one-toggle C_CHANGESTAT_FN,
+causing a signature mismatch (often a segfault).
 }
 
-The ERGM infrastructure will call the C change-statistic whenever a toggle
-affects an edge between an actor and a group. The C code recomputes the
-local contribution of the affected group(s) to each geometrically weighted
-statistic \eqn{T_{\mathrm{GW}}(\lambda_\ell)} for \eqn{\ell = 1,\dots,L}.
-
-Internally, \code{cov_diff_GW} passes its parameters and covariate to the C
-layer through \code{INPUT_PARAM} with layout
-\deqn{
-  \text{INPUT\_PARAM}
-  =
-  \bigl(
-    n_1,\,
-    L,\,
-    \lambda_1,\dots,\lambda_L,\,
-    x_1,\dots,x_{n_1}
-  \bigr),
-}
-where:
+Compiled symbol naming convention:
 \itemize{
-\item \eqn{n_1} is the actor-mode size (number of actors);
-\item \eqn{L} is the number of \eqn{\lambda} values;
-\item \eqn{\lambda_1,\dots,\lambda_L} are the strictly positive geometric
-parameters (each greater than 1);
-\item \eqn{x_1,\dots,x_{n_1}} is the numeric covariate on the actor mode.
+\item Implement the C function as \code{d_cov_diff_GW} via D_CHANGESTAT_FN(d_cov_diff_GW).
+\item Avoid exposing a symbol named \code{c_cov_diff_GW} with a D-signature.
 }
-}
-\note{
-InitErgmTerm.cov_diff_GW.R
-
-The network must be strictly bipartite:
-\itemize{
-\item the actor mode size is given by \code{nw \%n\% "bipartite"} and must be
-a positive integer;
-\item the group mode is the complementary set of nodes;
-\item the covariate is read on the actor mode only.
-}
-
-The covariate is coerced to numeric if possible (logical and integer types
-are accepted), and any \code{NA} on the actor mode is rejected in a
-fail-fast manner. All \code{lambda} values must be finite and strictly
-greater than 1. The initializer is vectorized in \code{lambda}: a single
-term in the model can return multiple statistics, one per \code{lambda}
-value.
 
 Debugging output for the initializer can be enabled via:
 \preformatted{
   options(ERPM.cov_diff_GW.debug = TRUE)
 }
-which prints internal sizes and parameter summaries.
 }
-\section{Mathematical definition}{
-
-Let:
-\itemize{
-\item \eqn{A} be the set of actor-mode nodes;
-\item \eqn{G} be the set of group-mode nodes;
-\item \eqn{B} the bipartite adjacency between actors and groups;
-\item \eqn{x_i \in \mathbb{R}} the numeric covariate value of actor
-\eqn{i \in A};
-\item \eqn{A_g = \{ i \in A : B_{ig}=1\}} the set of actors in group
-\eqn{g \in G};
-\item \eqn{n_g = |A_g|} the size of group \eqn{g};
-\item \eqn{\mathcal{C}_k(g)} the family of all \eqn{k}-element subsets of
-\eqn{A_g}.
+\note{
+InitErgmTerm.cov_diff_GW.R
 }
-
-For each \eqn{k \ge 2} and each subset \eqn{S \in \mathcal{C}_k(g)}, define
-the range
-\deqn{
-  R(S) = \max_{i \in S} x_i - \min_{i \in S} x_i.
+\author{
+Jérémie Chichignoud - Cub'itech
 }
-For each \eqn{k \ge 2}, define
-\deqn{
-  c_k(B;x)
-  =
-  \sum_{g \in G}
-  \sum_{S \in \mathcal{C}_k(g)} R(S),
-}
-with the convention that groups with \eqn{n_g < k} contribute zero. Then for
-each \eqn{\lambda > 1}, the \code{cov_diff_GW} statistic is
-\deqn{
-  T_{\mathrm{GW}}(B;x;\lambda)
-  =
-  \sum_{k \ge 2}
-    \left(-\frac{1}{\lambda}\right)^{k-1} c_k(B;x).
-}
-When a vector \eqn{\lambda_1,\dots,\lambda_L} is provided, the ERGM term
-returns the vector
-\deqn{
-  \bigl(
-    T_{\mathrm{GW}}(B;x;\lambda_1),\dots,
-    T_{\mathrm{GW}}(B;x;\lambda_L)
-  \bigr).
-}
-}
-
-\section{Usage}{
-
-Typical usage with \pkg{ergm} on a bipartite network \code{nw}:
-\preformatted{
-  # Single lambda (default = 2)
-  summary(nw ~ cov_diff_GW(cov = "x_attr", lambda = 2))
-
-  # Multiple lambda values
-  summary(nw ~ cov_diff_GW(cov = "x_attr", lambda = c(1.5, 2, 3)))
-}
-
-When using the ERPM wrapper on a partition-based workflow, the term can be
-invoked indirectly as:
-\preformatted{
-  erpm(partition ~ cov_diff_GW(cov = "x_attr", lambda = 2))
-}
-provided that the wrapper translates the partition into a bipartite network
-with a consistent actor mode and group mode.
-}
-
-\section{Tests}{
-
-Self-tests for \code{cov_diff_GW} construct small bipartite networks with
-known groups and numeric covariates and compare, for each \code{lambda},
-\itemize{
-\item the ERGM summary
-\code{summary(nw ~ cov_diff_GW(cov = ..., lambda = lambda_vec))};
-\item a direct evaluation of
-\eqn{T_{\mathrm{GW}}(B;x;\lambda)} via
-\eqn{\sum_{k \ge 2} (-1/\lambda)^{k-1} c_k(B;x)},
-where each \eqn{c_k} is computed explicitly by enumerating all
-\eqn{k}-actor subsets inside each group.
-}
-Additional checks verify that toggling an actor-group tie changes the
-statistic by the local increment predicted by the C change-statistic, and
-that all \code{lambda} values are handled consistently in the vectorized
-interface.
-}
-
-\examples{
-\dontrun{
-  library(network)
-  library(ergm)
-
-  # Build a small bipartite network: 4 actors, 2 groups
-  n_actors <- 4
-  n_groups <- 2
-  n_total  <- n_actors + n_groups
-
-  # Adjacency: actors 1..4, groups 5..6
-  adj <- matrix(0, n_total, n_total)
-
-  # Group 5 has actors 1,2,3
-  adj[1, 5] <- adj[5, 1] <- 1
-  adj[2, 5] <- adj[5, 2] <- 1
-  adj[3, 5] <- adj[5, 3] <- 1
-
-  # Group 6 has actors 2,4
-  adj[2, 6] <- adj[6, 2] <- 1
-  adj[4, 6] <- adj[6, 4] <- 1
-
-  nw <- network(adj, directed = FALSE, matrix.type = "adjacency")
-  nw \\%n\\% "bipartite" <- n_actors  # actor mode size
-
-  # Numeric covariate on the actor mode
-  x_attr <- c(1.0, 3.0, 5.0, 10.0)
-  set.vertex.attribute(nw, "x_attr", c(x_attr, rep(NA_real_, n_groups)))
-
-  # Single lambda
-  summary(nw ~ cov_diff_GW(cov = "x_attr", lambda = 2))
-
-  # Multiple lambda values, producing a vector of statistics
-  summary(nw ~ cov_diff_GW(cov = "x_attr", lambda = c(1.5, 2, 3)))
-
-  # Simple ERGM including the term
-  fit <- ergm(nw ~ cov_diff_GW(cov = "x_attr", lambda = 2))
-  summary(fit)
-}
-
-}
-\keyword{ERGM}
-\keyword{bipartite}
-\keyword{covariate}
-\keyword{geometric}
-\keyword{groups}
-\keyword{range}
-\keyword{term}
-\keyword{weighting}

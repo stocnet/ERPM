@@ -7,23 +7,6 @@
 \usage{
 InitErgmTerm.cov_fulldiff(nw, arglist, ..., version = packageVersion("ergm"))
 }
-\arguments{
-\item{nw}{A \pkg{network} object. Must be bipartite with actor-mode size stored
-in \code{nw \%n\% "bipartite"}.}
-
-\item{arglist}{A named list of term arguments provided by \pkg{ergm}.
-Expected components include:
-\itemize{
-\item \code{cov}: name of a vertex attribute on the actor mode, or a numeric
-vector (only the first \code{n1} entries are used);
-\item \code{size}: optional vector of strictly positive integers specifying
-which group sizes contribute (use \code{NULL} for all sizes).
-}}
-
-\item{...}{Passed through by \pkg{ergm}; not used.}
-
-\item{version}{ERGM API version; not used.}
-}
 \description{
 \code{cov_fulldiff} is an ERGM term for bipartite networks that measures,
 for each group, the dispersion of a numeric actor covariate through the
@@ -41,8 +24,26 @@ the within-group range \eqn{x_g^{\max} - x_g^{\min}}. An optional \code{size}
 filter restricts which group sizes contribute to the statistic.
 }
 \details{
-The term is implemented as a native ERGM C change-statistic, declared in the
-compiled code under a symbol compatible with \code{name = "cov_fulldiff"}.
+The term is implemented as a native ERGM C change-statistic.
+
+IMPORTANT (multi-toggle / D_CHANGESTAT_FN):
+\itemize{
+\item This term is intended to support multi-toggle proposals (swap/split/merge
+represented as a list of toggles).
+\item Therefore, the compiled change-statistic MUST be implemented using the
+D_CHANGESTAT_FN API (multi-toggle), e.g. \code{d_cov_fulldiff}.
+\item On the R side, we MUST advertise this to ergm by returning \code{d_func = TRUE}.
+Otherwise ergm will call the one-toggle entrypoint (C_CHANGESTAT_FN) with the
+wrong signature, which typically crashes (segfault).
+}
+
+Compiled symbol naming convention:
+\itemize{
+\item Recommended: implement the C function as \code{d_cov_fulldiff} via
+D_CHANGESTAT_FN(d_cov_fulldiff).
+\item Avoid exposing a symbol named \code{c_cov_fulldiff} with a D-signature.
+}
+
 The R initializer below:
 \itemize{
 \item enforces that the network is bipartite via \code{nw \%n\% "bipartite"};
@@ -53,146 +54,10 @@ strictly positive integers;
 \item packs the actor covariate and the size filter into a compact
 \code{INPUT_PARAM} vector for the C layer.
 }
-
-The ERGM infrastructure will call the C change-statistic whenever a toggle
-affects an edge between an actor and a group. The C code then recomputes the
-local contribution of the affected group(s) to the total max-min range.
 }
 \note{
 InitErgmTerm.cov_fulldiff.R
-
-The network must be strictly bipartite:
-\itemize{
-\item the actor mode size is given by \code{nw \%n\% "bipartite"} and must be
-a positive integer;
-\item the group mode is the complementary set of nodes;
-\item the covariate is read on the actor mode only.
 }
-
-The covariate is coerced to numeric if possible (logical and integer types
-are accepted), and any \code{NA} on the actor mode is rejected in a
-fail-fast manner. The \code{size} argument, if supplied, must contain
-strictly positive integers; a zero-length \code{size} vector is considered
-invalid and should be replaced by \code{NULL}.
-
-Internally, \code{cov_fulldiff} passes the size filter and the actor
-covariate to the C layer through \code{INPUT_PARAM} with layout
-\code{c(n1, L, sizes[1:L], x[1:n1])}.
+\author{
+Jérémie Chichignoud - Cub'itech
 }
-\section{Mathematical definition}{
-
-Let:
-\itemize{
-\item \eqn{A} be the set of actor-mode nodes;
-\item \eqn{G} be the set of group-mode nodes;
-\item \eqn{B} the bipartite adjacency between actors and groups;
-\item \eqn{x_i \in \mathbb{R}} the numeric covariate value of actor
-\eqn{i \in A};
-\item \eqn{A_g = \{ i \in A : B_{ig}=1\}} the set of actors in group
-\eqn{g \in G};
-\item \eqn{n_g = |A_g|} the size of group \eqn{g};
-\item \eqn{S} the set of allowed group sizes, derived from the
-\code{size} argument (\eqn{S = \mathbb{N}^*} if \code{size = NULL}).
-}
-
-Define, for each group \eqn{g \in G} with \eqn{n_g \ge 1},
-\deqn{
-  x_g^{\max} = \max_{i \in A_g} x_i,
-  \qquad
-  x_g^{\min} = \min_{i \in A_g} x_i.
-}
-The statistic is
-\deqn{
-  T(B;x)
-  =
-  \sum_{g \in G}
-    \mathbf{1}[\,n_g \in S\,]
-    \bigl(x_g^{\max} - x_g^{\min}\bigr),
-}
-i.e. the sum of within-group ranges of the covariate, restricted to group
-sizes in \eqn{S}. When \code{size = NULL}, \eqn{S} is the set of all
-positive integers and every non-empty group contributes.
-}
-
-\section{Usage}{
-
-Typical usage with \pkg{ergm} on a bipartite network \code{nw}:
-\preformatted{
-  # Range of a numeric actor covariate within each group (all group sizes)
-  summary(nw ~ cov_fulldiff(cov = "x_attr"))
-
-  # Restrict to groups of size 3 or 4
-  summary(nw ~ cov_fulldiff(cov = "x_attr", size = c(3, 4)))
-}
-
-When using the ERPM wrapper on a partition-based workflow, the term can be
-invoked indirectly as:
-\preformatted{
-  erpm(partition ~ cov_fulldiff(cov = "x_attr", size = 2:5))
-}
-provided that the wrapper translates the partition into a bipartite network
-with a consistent actor mode and group mode.
-}
-
-\section{Tests}{
-
-Self-tests for \code{cov_fulldiff} construct small bipartite networks with
-known group memberships and numeric covariates, and compare:
-\itemize{
-\item the ERGM summary \code{summary(nw ~ cov_fulldiff(...))};
-\item direct evaluations of
-\eqn{\sum_g \mathbf{1}[n_g \in S] (x_g^{\max} - x_g^{\min})}
-for various choices of the size filter \eqn{S}.
-}
-Additional checks verify that toggling an actor-group tie updates the
-statistic by the expected local change in the max-min range of the affected
-group, including cases where the group becomes empty or changes size.
-}
-
-\examples{
-\dontrun{
-  library(network)
-  library(ergm)
-
-  # Build a small bipartite network: 4 actors, 3 groups
-  n_actors <- 4
-  n_groups <- 3
-  n_total  <- n_actors + n_groups
-
-  # Adjacency: actors 1..4, groups 5..7
-  adj <- matrix(0, n_total, n_total)
-  # Group 5 has actors 1 and 2
-  adj[1, 5] <- adj[5, 1] <- 1
-  adj[2, 5] <- adj[5, 2] <- 1
-  # Group 6 has actors 3 and 4
-  adj[3, 6] <- adj[6, 3] <- 1
-  adj[4, 6] <- adj[6, 4] <- 1
-  # Group 7 is empty
-
-  nw <- network(adj, directed = FALSE, matrix.type = "adjacency")
-  nw \\%n\\% "bipartite" <- n_actors  # actor mode size
-
-  # Numeric covariate on the actor mode
-  x_attr <- c(1.0, 2.0, 10.0, 11.0)
-  set.vertex.attribute(nw, "x_attr", c(x_attr, rep(NA_real_, n_groups)))
-
-  # Group 5 range: 2.0 - 1.0 = 1.0
-  # Group 6 range: 11.0 - 10.0 = 1.0
-  # Group 7 empty: contributes 0
-  summary(nw ~ cov_fulldiff(cov = "x_attr"))
-
-  # Restrict to groups of size 2
-  summary(nw ~ cov_fulldiff(cov = "x_attr", size = 2))
-
-  # Fit a simple ERGM including the term
-  fit <- ergm(nw ~ cov_fulldiff(cov = "x_attr"))
-  summary(fit)
-}
-
-}
-\keyword{ERGM}
-\keyword{bipartite}
-\keyword{covariate}
-\keyword{groups}
-\keyword{range}
-\keyword{term}

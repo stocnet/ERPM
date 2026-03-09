@@ -4,6 +4,7 @@
 #' ERPM bipartite builder: build a network from a partition + inputs
 #' @name erpm_build_bipartite
 #' @note erpm_build_bipartite.R
+#' @author Jérémie Chichignoud - Cub'itech
 #'
 #' @description
 #' This file implements the bipartite builder used by \code{erpm()} when the
@@ -15,7 +16,7 @@
 #' }
 #'
 #' @keywords ERPM ERGM  bipartite builder
-
+NULL
 # ============================================================================
 # Bipartite builder and helper
 # ============================================================================

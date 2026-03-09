@@ -5,6 +5,7 @@
 #'
 #' @name erpm_long_empile_engine
 #' @note erpm_long_empile_engine.R
+#' @author Jérémie Chichignoud - Cub'itech
 #'
 #' @description
 #' This file implements the PLE ("empile") engine used by \code{erpm_long()} to
@@ -26,6 +27,7 @@
 #' debugging PLE construction failures straightforward.
 #'
 #' @keywords ERPM ERGM longitudinal PLE empile engine
+NULL
 ################################################################################
 
 # ==============================================================================

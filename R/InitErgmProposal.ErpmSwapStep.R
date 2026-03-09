@@ -9,6 +9,7 @@
 #'
 #' @name InitErgmProposal.ErpmSwapStep
 #' @aliases ErpmSwapStep
+#' @author Jérémie Chichignoud - Cub'itech
 #'
 #' @description
 #' ErpmSwapStep is a Metropolis-Hastings proposal used in ERPM when a partition

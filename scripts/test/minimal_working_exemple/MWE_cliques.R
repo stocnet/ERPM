@@ -1,18 +1,5 @@
 # ==============================================================================
-# Fichier : scripts/test/minimal_working_exemple/MWE_cliques.R
-#
-# Objet   : MWE pour l’effet ERPM `cliques(k)` — calcule la stat observée (summary)
-#            via une formule directe sur le biparti + réalise un fit ERGM via `erpm()`.
-#
-# Chaîne ERPM → ERGM :
-#   partition -> biparti (build_bipartite_from_inputs) -> summary(nw ~ ...) / erpm(partition ~ ...)
-#
-# Résumé technique :
-#   • `cliques(k)` (k ≥ 1 ; k=1 = nombre de groupes de taille 1).
-#   • `normalized=TRUE` applique une normalisation par taille de groupe :
-#       somme_g C(n_g, k) / n_g (pour k=1, identique au cas brut).
-#   • Summary : formule directe `nw ~ cliques(...)`, contrainte `~ b1part`.
-#   • Fit : appel direct `erpm(partition ~ cliques(...), eval.loglik=TRUE)`.
+# Minimal Working Exemple : cliques — summary + fit
 # ==============================================================================
 
 # ----- Préambule locale/UTF-8 -------------------------------------------------

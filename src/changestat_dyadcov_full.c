@@ -1,6 +1,8 @@
 /**
  * @file changestat_dyadcov_full.c
  * @brief  Change statistic for the ERPM term `dyadcov_full` (MULTI-TOGGLE form).
+ * 
+ * @author Jérémie Chichignoud
  *
  * @details
  *  This file implements the \pkg{ergm} change statistic for the ERPM effect

@@ -1,6 +1,7 @@
 # ==============================================================================
 # File    : scripts/test/selftests/selftest_ergm_prop_erpm_mix_dynamic_toggle_swap_merge_split.R
-# Purpose : Self-test (via erpm wrapper) for ERPM MH proposal ErpmMix under ~b1part,
+# Auteur : Jérémie Chichignoud - Cub'itech
+# Purpose : Self-test (via erpm) for ERPM MH proposal ErpmMix under ~b1part,
 #           validating dynamic decoding and practical activation of:
 #             toggle / swap / merge / split
 #

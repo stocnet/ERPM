@@ -9,6 +9,7 @@
 #' @name InitErgmTerm.cov_fullmatch
 #' @aliases cov_fullmatch
 #' @note InitErgmTerm.cov_fullmatch.R
+#' @author Jérémie Chichignoud - Cub'itech
 #'
 #' @description
 #' \code{cov_fullmatch} is an ERGM term for bipartite networks that counts

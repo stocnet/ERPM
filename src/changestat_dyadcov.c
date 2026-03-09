@@ -1,69 +1,115 @@
-/* =============================================================================
- * File    : changestat_dyadcov.c
- * Purpose : Change statistic for the ERPM term `dyadcov` (multi-toggle form).
- * Project : ERPM / ERGM extensions
- * =============================================================================
+/**
+ * @file changestat_dyadcov.c
+ * @brief Change statistic for the ERPM term `dyadcov` (multi-toggle form).
  *
- * This file is the MULTI-TOGGLE (D_CHANGESTAT_FN) counterpart of the historical
- * one-toggle implementation. It preserves the exact same statistic definition
- * but makes the change-statistic safe under proposals that consist of multiple
- * toggles (swap/split/merge decomposed into a list of edge toggles).
+ * @author Jérémie Chichignoud
  *
- * ---------------------------------------------------------------------------
- * IMPORTANT (multi-toggle / D_CHANGESTAT_FN)
- * ---------------------------------------------------------------------------
+ * @details
+ * This file implements the \pkg{ergm} change statistic for the ERPM effect
+ * `dyadcov`. It is the multi-toggle (\code{D_CHANGESTAT_FN}) version of the
+ * historical one-toggle implementation and preserves the exact same
+ * statistical definition while ensuring correctness under proposals that
+ * contain multiple edge toggles (e.g. swap, split, merge decomposed into
+ * a sequence of membership toggles).
  *
- * - ergm can propose moves containing multiple edge toggles.
- * - If the compiled changestat is one-toggle (C_CHANGESTAT_FN), ergm will call
- *   it repeatedly, once per toggle, on intermediate states that are managed by
- *   the engine.
- * - If you implement D_CHANGESTAT_FN, YOU must handle the full list of toggles
- *   consistently and return the aggregated change over the whole proposal.
+ * ------------------------------------------------------------
+ * Multi-toggle semantics (D_CHANGESTAT_FN)
+ * ------------------------------------------------------------
  *
- * Design rule used here (same as squared_sizes):
- * - Process toggles sequentially.
- * - For each toggle i:
- *     1) compute the group contribution BEFORE the toggle under the current
- *        intermediate state (which already includes previous toggles applied),
- *     2) apply a VIRTUAL toggle to compute the AFTER contribution,
- *     3) undo the virtual toggle (back to the current intermediate state),
- *     4) accumulate Δ_i = after - before (with the chosen normalisation),
- *     5) temporarily apply the toggle for real IF there are more toggles coming,
- *        so that subsequent degrees/memberships are consistent.
- * - At the end: undo the temporarily-applied toggles and restore the original
- *   network state.
+ * In \pkg{ergm}, a proposal may consist of several edge toggles. When the
+ * change statistic is implemented using \code{C_CHANGESTAT_FN}, the engine
+ * calls it once per toggle while maintaining intermediate states internally.
  *
- * This guarantees:
- * - Correct behaviour when multiple toggles hit the same group vertex.
- * - Correct behaviour when toggles interact (because “current state” is updated
- *   as we advance in the toggle list).
+ * When using \code{D_CHANGESTAT_FN}, the implementation must explicitly handle
+ * the entire list of toggles and compute the aggregated change across the
+ * whole proposal.
  *
- * ---------------------------------------------------------------------------
- * Statistic definition (unchanged)
- * ---------------------------------------------------------------------------
+ * The design rule used here is identical to the one used for other ERPM
+ * statistics such as `squared_sizes`:
  *
- * See the long header in the user-provided reference version. In short:
- * - Bipartite network with:
- *     actor mode = 1..n1, group mode = n1+1..N
- * - Dyadic covariate matrix Z on actors (n1 x n1), column-major (R order).
- * - For a group g, for fixed clique size k>=2:
+ * For each toggle i:
+ *   1) compute the group contribution BEFORE the toggle under the current
+ *      intermediate state (which already reflects previous toggles),
+ *   2) apply a virtual toggle to compute the AFTER contribution,
+ *   3) undo the virtual toggle to restore the intermediate state,
+ *   4) accumulate the local change Δ_i = after − before,
+ *   5) temporarily apply the toggle if additional toggles remain so that
+ *      subsequent computations see a consistent state.
  *
- *     S_g^{(k)}(Z) = ∑_{C ∈ C_k(g)} ∏_{i<j∈C} (z_ij + z_ji).
+ * After all toggles have been processed, the temporarily applied toggles
+ * are undone so that the original network state is restored.
  *
- * - Global statistics:
- *     norm_mode 0: ∑_g S_g
- *     norm_mode 1: ∑_g 1[n_g>=k] (1/n_g) S_g
- *     norm_mode 2: ∑_g 1[n_g>=k] (1/choose(n_g,k)) S_g
+ * This procedure guarantees correct behaviour when:
+ *   - multiple toggles affect the same group vertex,
+ *   - several toggles interact through intermediate state changes.
  *
- * ---------------------------------------------------------------------------
- * INPUT_PARAM layout (unchanged)
- * ---------------------------------------------------------------------------
+ * ------------------------------------------------------------
+ * Statistical definition
+ * ------------------------------------------------------------
+ *
+ * The underlying statistic is unchanged relative to the one-toggle version.
+ *
+ * The network is bipartite:
+ *   - actor mode = vertices 1 .. n1
+ *   - group mode = vertices n1+1 .. N
+ *
+ * A dyadic covariate matrix Z is defined on the actor mode
+ * (dimension n1 × n1, column-major order as in R).
+ *
+ * For a group g and clique size k ≥ 2:
+ *
+ *     S_g^{(k)}(Z) = ∑_{C ∈ C_k(g)}  ∏_{i<j∈C} (z_ij + z_ji)
+ *
+ * where C_k(g) denotes all k-subsets of actors belonging to group g.
+ *
+ * The global statistic depends on the normalization mode:
+ *
+ *   norm_mode = 0
+ *       ∑_g S_g
+ *
+ *   norm_mode = 1
+ *       ∑_g 1[n_g ≥ k] (1 / n_g) S_g
+ *
+ *   norm_mode = 2
+ *       ∑_g 1[n_g ≥ k] (1 / choose(n_g, k)) S_g
+ *
+ * where n_g denotes the size of group g.
+ *
+ * ------------------------------------------------------------
+ * Bipartite structure
+ * ------------------------------------------------------------
+ *
+ * At the C level the partition structure is encoded through the
+ * bipartite boundary:
+ *
+ *   - actor mode : vertices 1 .. n1
+ *   - group mode : vertices > n1
+ *
+ * Each membership toggle therefore connects exactly one actor vertex
+ * (≤ n1) and one group vertex (> n1).
+ *
+ * The affected group is identified as the endpoint in the group mode,
+ * and actor indices are used to access the dyadic covariate matrix Z.
+ *
+ * ------------------------------------------------------------
+ * INPUT_PARAM layout (from InitErgmTerm.dyadcov)
+ * ------------------------------------------------------------
+ *
+ * Parameters are packed by the R initialiser as:
+ *
  *   INPUT_PARAM = c(n1, k, norm_mode, as.vector(Z))
- *     ip[0]  = n1
- *     ip[1]  = k
- *     ip[2]  = norm_mode
- *     ip[3+] = Z (length n1*n1), column-major
- * ------------------------------------------------------------------------- */
+ *
+ * where:
+ *   - INPUT_PARAM[0]  = n1         (number of actors)
+ *   - INPUT_PARAM[1]  = k          (clique size)
+ *   - INPUT_PARAM[2]  = norm_mode  (normalisation rule)
+ *   - INPUT_PARAM[3+] = Z          (flattened n1 × n1 matrix, column-major)
+ *
+ * The statistic returns a single scalar value:
+ *
+ *   - N_CHANGE_STATS = 1
+ *   - CHANGE_STAT[0] accumulates the total change across all toggles.
+ */
 
 #include "ergm_changestat.h"
 #include "ergm_storage.h"

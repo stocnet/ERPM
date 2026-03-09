@@ -1,7 +1,5 @@
 # ==============================================================================
-# Fichier : scripts/test/minimal_working_exemple/MWE_cov_diff_GW.R
-# Objet   : MWE minimal pour l’effet ERPM `cov_diff_GW`
-# Chaîne  : partition → biparti → summary(nw) / erpm(partition) → fit simple
+# Minimal Working Exemple : cov_diff_GW — summary + fit
 # ==============================================================================
 
 Sys.setenv(LANG = "fr_FR.UTF-8")

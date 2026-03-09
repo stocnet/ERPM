@@ -15,8 +15,8 @@ InitErgmTerm.dyadcov_full(nw, arglist, ...)
 \item \code{dyadcov}: matrix or character. Either a numeric matrix of size at least
 \code{n1 x n1} (with \code{n1 = nw \%n\% "bipartite"}), or the name of a
 network-level attribute containing such a matrix (retrieved as
-\code{nw \%n\% dyadcov}). The matrix is truncated, if necessary, to its
-top-left \code{n1 x n1} block.
+\code{nw \%n\% dyadcov}). Preferably, use ERPM convention:
+\code{nw \%n\% "dyads"} as a named list and pass \code{"Z1"} / \code{"Z2"}.
 \item \code{size}: optional numeric/integer vector. If provided, only groups whose
 actor-degree is in \code{size} contribute to the statistic.
 }}
@@ -24,18 +24,7 @@ actor-degree is in \code{size} contribute to the statistic.
 \item{...}{Passed through by \pkg{ergm}; not used.}
 }
 \value{
-A standard \pkg{ergm} term initialization list with components:
-\itemize{
-\item \code{name}         = \code{"dyadcov_full"};
-\item \code{coef.names}   = a single coefficient name encoding
-\code{dyadcov} label and the size filter;
-\item \code{inputs}       = numeric vector
-\code{c(n1, L, sizes[1:L], as.double(Z))};
-\item \code{dependence}   = \code{TRUE};
-\item \code{minval}       = \code{-Inf};
-\item \code{maxval}       = \code{Inf};
-\item \code{emptynwstats} = \code{0}.
-}
+A standard \pkg{ergm} term initialization list.
 }
 \description{
 \code{dyadcov_full} is an ERGM term for bipartite networks that aggregates a
@@ -64,6 +53,8 @@ The initializer:
 \item enforces bipartiteness and retrieves the actor-mode size \eqn{n_A};
 \item accepts \code{dyadcov} either as a literal matrix or as the name of a
 network-level attribute (\code{nw \%n\% "..."});
+\item supports the ERPM convention where dyadic matrices are stored in
+\code{nw \%n\% "dyads"} as a named list (e.g. \code{"Z1"}, \code{"Z2"});
 \item truncates \code{dyadcov} to its top-left \code{n1 x n1} block if larger;
 \item checks that \code{dyadcov} is numeric and free of \code{NA};
 \item parses \code{size} into a sorted, distinct set of positive integers.
@@ -74,19 +65,23 @@ InitErgmTerm.dyadcov_full.R
 }
 \section{Implementation and change-statistic}{
 
-The term is implemented as a native ERGM C change-statistic, exposed under the
-symbol \code{c_dyadcov_full}. The R initializer below:
+The term is implemented as a native ERGM C change-statistic in MULTI-TOGGLE form,
+exposed under the symbol \code{d_dyadcov_full} via \code{D_CHANGESTAT_FN}.
+
+IMPORTANT:
+\itemize{
+\item The initializer MUST return \code{d_func = TRUE}.
+\item Otherwise, \pkg{ergm} will assume a one-toggle \code{C_CHANGESTAT_FN}
+entrypoint and call the function with the wrong signature.
+}
+
+The R initializer below:
 \itemize{
 \item packages \code{n1}, \code{L}, \code{sizes[1:L]} and the flattened
 \code{dyadcov} matrix into \code{INPUT_PARAM};
-\item declares the term as dependent (\code{dependence = TRUE}) with no
-finite \code{minval}/\code{maxval};
+\item declares the term as dependent (\code{dependence = TRUE});
 \item sets the empty-network statistic to \code{0}.
 }
-
-For each toggle of an actor-group edge, the C change-statistic recomputes
-the within-group dyadic covariate sum for the unique group touched by the
-toggle, respecting the size filter \eqn{S} when present.
 }
 
 \section{Arguments}{
@@ -96,6 +91,9 @@ by \pkg{ergm} when the term \code{dyadcov_full(...)} appears on the right-hand s
 of a model formula.
 }
 
+\author{
+Jérémie Chichignoud - Cub'itech
+}
 \keyword{ERGM}
 \keyword{bipartite}
 \keyword{covariate}

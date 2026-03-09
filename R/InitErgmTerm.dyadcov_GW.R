@@ -1,6 +1,3 @@
-################################################################################
-# FILE: R/InitErgmTerm.dyadcov_GW.R
-################################################################################
 # ==============================================================================
 # File    : R/InitErgmTerm.dyadcov_GW.R
 # Term    : dyadcov_GW
@@ -12,6 +9,7 @@
 #' @name InitErgmTerm.dyadcov_GW
 #' @aliases dyadcov_GW
 #' @note InitErgmTerm.dyadcov_GW.R
+#' @author Jérémie Chichignoud - Cub'itech
 #'
 #' @description
 #' \code{dyadcov_GW} is an ERGM term for bipartite networks that aggregates a
@@ -56,6 +54,7 @@
 #'
 #' @keywords ERGM term bipartite dyadic covariate geometrically-weighted cliques
 #' @md
+#' @export
 InitErgmTerm.dyadcov_GW <- function(nw, arglist, ...) {
   termname <- "dyadcov_GW"
 

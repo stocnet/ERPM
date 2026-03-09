@@ -3,8 +3,9 @@
 ################################################################################
 #' ERPM pseudo-longitudinal wrapper (PLE-only)
 #'
-#' @name erpm_long
+#' @name erpm_long_file
 #' @note erpm_long.R
+#' @author Jérémie Chichignoud - Cub'itech
 #'
 #' @description
 #' This file provides \code{erpm_long()}, a pragmatic pseudo-longitudinal wrapper
@@ -28,6 +29,7 @@
 #' depth \code{d} are present, since those blocks do not have enough past context.
 #'
 #' @keywords ERPM ERGM longitudinal wrapper PLE empile
+NULL
 ################################################################################
 
 # ==============================================================================

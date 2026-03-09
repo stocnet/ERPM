@@ -1,7 +1,7 @@
 # ==============================================================================
 # File    : scripts/test/selftests/selftest_mh_proposals_partition.R
+# Auteur  : Jérémie Chichignoud - Cub'itech
 # Purpose : Self-test for ERPM MH proposals (ErpmToggleStep / ErpmSwapStep)
-# Run     : Rscript scripts/test/selftests/selftest_mh_proposals_partition.R
 #
 # Goals
 #   - PHASE 1 (INIT / PLUMBING)

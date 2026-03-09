@@ -1,7 +1,5 @@
 # ==============================================================================
-# Fichier : scripts/test/minimal_working_exemple/MWE_cov_fullmatch.R
-# Objet   : MWE pour l’effet ERPM `cov_fullmatch`
-# Chaîne  : partition -> biparti (wrapper) -> summary(nw ~ ...) / erpm(partition ~ ...)
+# Minimal Working Exemple : cov_fullmatch  — summary + fit
 # ==============================================================================
 
 Sys.setenv(LANG = "fr_FR.UTF-8")

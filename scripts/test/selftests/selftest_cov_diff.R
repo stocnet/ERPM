@@ -1,7 +1,7 @@
 # ==============================================================================
 # File    : scripts/test/selftests/selftest_cov_diff.R
 # Objet   : Self-test autonome pour l'effet ERPM/ERGM `cov_diff` (multi-toggle)
-# Exécution: Rscript scripts/test/selftests/selftest_cov_diff.R
+# Auteur : Jérémie Chichignoud - Cub'itech
 #
 # But du fichier
 #   - PHASE 1 (SUMMARY) : valider la statistique via summary(nw ~ cov_diff(...))
@@ -80,8 +80,8 @@ if (!exists("partition_to_bipartite_network", mode = "function")) {
   }
 }
 if (!exists("erpm", mode = "function") || !exists("build_bipartite_from_inputs", mode = "function")) {
-  if (file.exists("R/erpm_wrapper.R")) {
-    source("R/erpm_wrapper.R", local = FALSE)
+  if (file.exists("R/erpm.R")) {
+    source("R/erpm.R", local = FALSE)
   } else {
     cat("[WARN] erpm()/build_bipartite_from_inputs indisponibles. Certaines étapes seront sautées.\n")
   }

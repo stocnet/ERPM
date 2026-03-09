@@ -1,40 +1,47 @@
-################################################################################
-# FILE: scripts/test/selftests/selftest_inertia_groups_PLE.R
-################################################################################
-#' Self-test suite (PLE only) for ERPM inertial term `inertia_groups`
-#' @name selftest_inertia_groups_PLE
-#' @note scripts/test/selftests/selftest_inertia_groups_PLE.R
-#'
-#' @description
-#' This script is an integration-style self-test for the *stacked* longitudinal
-#' engine (PLE / "empile") and the ERPM inertial ERGM term \code{inertia_groups}.
-#'
-#' Scope and constraints:
-#' \itemize{
-#'   \item PLE ("empile") only: no PLS path is exercised here.
-#'   \item Only the exogenous inertial variant is targeted (no endogenous inertial mode).
-#'   \item No \code{blockdiag()} in constraints: in the current setup, \code{blockdiag + b1part}
-#'         is known to be broken, so all \code{summary()} / \code{ergm()} calls rely on
-#'         \code{constraints = ~ b1part} only.
-#' }
-#'
-#' Datasets:
-#' \enumerate{
-#'   \item Dataset #1: \eqn{n=4}, \eqn{T=3}, dyads \{fm, Z1\}, nodes \{label, gender, age\}.
-#'   \item Dataset #2: \eqn{n=5}, \eqn{T=3}, dyads \{Y, X1\}, nodes \{id, sex, age_years\}.
-#' }
-#'
-#' Organization:
-#' \enumerate{
-#'   \item DRY-RUN: build the PLE meta-network and validate the returned \code{erpm()} call
-#'         (dataset #1; multiple RHS scenarios).
-#'   \item SUMMARY: build the meta-network via \code{erpm_long()}, run \code{summary()},
-#'         and cross-check against offline expected computations (datasets #1 and #2).
-#'   \item FIT: run \code{erpm_long()} with estimation enabled over the same scenario grid
-#'         (datasets #1 and #2). Failures are logged but must not abort the whole script.
-#' }
-#'
-#' @keywords ERPM ERGM selftest longitudinal PLE inertia_groups
+# ==============================================================================
+# File    : scripts/test/selftests/selftest_inertia_groups_PLE.R
+# Auteur  : Jérémie Chichignoud - Cub'itech
+# Purpose : Integration self-test for the ERPM inertial ERGM term `inertia_groups`
+#           under the longitudinal stacked engine (PLE / "empile").
+#
+# Scope
+#   - Tests the PLE longitudinal pipeline used by `erpm_long()`.
+#   - Focuses on the exogenous inertial variant of `inertia_groups`.
+#   - Exercises the meta-network construction and downstream ERGM evaluation.
+#
+# Constraints
+#   - PLE ("empile") path only; the PLS engine is not tested here.
+#   - Only exogenous inertial mode is considered.
+#   - `blockdiag()` is intentionally excluded from constraints because the
+#     combination `blockdiag + b1part` is currently known to be broken.
+#   - All `summary()` / `ergm()` calls therefore use `constraints = ~ b1part`.
+#
+# Datasets
+#   Dataset #1
+#     - n = 4 actors, T = 3 partitions
+#     - Dyads : {fm, Z1}
+#     - Nodes : {label, gender, age}
+#
+#   Dataset #2
+#     - n = 5 actors, T = 3 partitions
+#     - Dyads : {Y, X1}
+#     - Nodes : {id, sex, age_years}
+#
+# Test organization
+#   1) DRY-RUN
+#        Build the PLE meta-network and validate the `erpm()` call produced
+#        by the wrapper (dataset #1 across several RHS scenarios).
+#
+#   2) SUMMARY
+#        Build the meta-network via `erpm_long()`, run `summary()`, and compare
+#        results with offline expected computations (datasets #1 and #2).
+#
+#   3) FIT
+#        Run `erpm_long()` with estimation enabled over the same scenario grid
+#        (datasets #1 and #2). Individual failures are logged but must not stop
+#        execution of the whole test script.
+#
+# ==============================================================================
 
 # ------------------------------------------------------------------------------
 # Preamble (locale, packages, and reproducibility knobs)

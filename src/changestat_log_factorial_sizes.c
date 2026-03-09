@@ -1,6 +1,8 @@
 /**
  * @file changestat_log_factorial_sizes.c
  * @brief Change statistic for the ERPM term `log_factorial_sizes` (MULTI-TOGGLE form).
+ * 
+ * @author Jérémie Chichignoud
  *
  * @details
  *  This file implements the \pkg{ergm} change statistic for the ERPM effect

@@ -35,6 +35,7 @@
 #' @name InitErgmTerm.cov_match
 #' @aliases cov_match
 #' @note InitErgmTerm.cov_match.R
+#' @author Jérémie Chichignoud - Cub'itech
 #'
 #' @description
 #' \code{cov_match} is an ERGM term for bipartite networks that counts

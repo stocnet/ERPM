@@ -1,7 +1,7 @@
 # ======================================================================================
 # File    : scripts/test/selftests/selftest_log_factorial_sizes.R
+# Auteur : Jérémie Chichignoud - Cub'itech
 # Object  : Self-test autonome pour l'effet ERPM/ERGM `log_factorial_sizes`
-# Run     : Rscript scripts/test/selftests/selftest_log_factorial_sizes.R
 #
 # But du fichier
 #   - PHASE 1 (SUMMARY) : valider la statistique via summary(nw ~ log_factorial_sizes(.)).
@@ -55,10 +55,10 @@ if (!exists("InitErgmTerm.log_factorial_sizes", mode = "function")) {
 
 # Pour certains setups, le wrapper n'est pas attaché automatiquement.
 if (!exists("erpm", mode = "function") || !exists("build_bipartite_from_inputs", mode = "function")) {
-  if (file.exists("R/erpm_wrapper.R")) {
-    source("R/erpm_wrapper.R", local = FALSE)
+  if (file.exists("R/erpm.R")) {
+    source("R/erpm.R", local = FALSE)
   } else {
-    message("[WARN] R/erpm_wrapper.R introuvable, certains checks ERPM seront SKIP.")
+    message("[WARN] R/erpm.R introuvable, certains checks ERPM seront SKIP.")
   }
 }
 

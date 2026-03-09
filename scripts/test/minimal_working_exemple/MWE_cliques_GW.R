@@ -1,5 +1,5 @@
 # ==============================================================================
-# MWE minimal : cliques_GW(lambda) — summary + fit
+# Minimal Working Exemple : cliques_GW — summary + fit
 # ==============================================================================
 
 Sys.setenv(LANG = "fr_FR.UTF-8")

@@ -2,7 +2,7 @@
 % Please edit documentation in R/erpm_long.R
 \name{erpm_long}
 \alias{erpm_long}
-\title{ERPM pseudo-longitudinal wrapper (PLE-only)}
+\title{Pseudo-longitudinal ERPM wrapper (PLE-only)}
 \usage{
 erpm_long(
   formula,
@@ -53,28 +53,7 @@ Result of \code{erpm()} (or the call if \code{eval.call=TRUE}).
 The built meta-network is attached as \code{attr(out, "meta_nw")} when evaluated.
 }
 \description{
-This file provides \code{erpm_long()}, a pragmatic pseudo-longitudinal wrapper
-that operates in PLE ("empile") mode only.
-
-The user supplies:
-\itemize{
-\item a timeline of partitions on the LHS (a list of length \eqn{T \ge 2});
-\item a shared RHS ERPM/ERGM specification (applied to all estimated blocks).
-}
-
-The wrapper then:
-\enumerate{
-\item validates inputs and derives settings (notably inertial presence and the
-effective maximum \code{past_influence});
-\item builds a stacked bipartite meta-network (PLE engine);
-\item delegates call construction and optional evaluation to \code{erpm()}.
-}
-
-In PLE, the first \code{d} time points are not estimated when inertial terms with
-depth \code{d} are present, since those blocks do not have enough past context.
-}
-\note{
-erpm_long.R
+Pseudo-longitudinal ERPM wrapper (PLE-only)
 }
 \examples{
 \dontrun{
@@ -83,11 +62,7 @@ erpm_long.R
 }
 
 }
-\keyword{(PLE-only)}
 \keyword{ERGM}
 \keyword{ERPM}
 \keyword{PLE}
-\keyword{Pseudo-longitudinal}
-\keyword{empile}
 \keyword{longitudinal}
-\keyword{wrapper}

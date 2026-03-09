@@ -45,6 +45,7 @@
 #' @name InitErgmTerm.cov_match_GW
 #' @aliases cov_match_GW
 #' @note InitErgmTerm.cov_match_GW.R
+#' @author Jérémie Chichignoud - Cub'itech
 #'
 #' @description
 #' \code{cov_match_GW} is an ERGM term for bipartite networks that applies a

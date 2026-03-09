@@ -1,105 +1,61 @@
-/* ============================================================================
- * File    : src/changestat_cov_ingroup.c
- * Purpose : Change statistic for the ERPM term `cov_ingroup` (MULTI-TOGGLE form).
- * Project : ERPM / ERGM extensions
- * ============================================================================
- *
+/**
  * @file changestat_cov_ingroup.c
  * @brief  Change statistic for the ERPM term `cov_ingroup` (multi-toggle form).
  *
+ * @author Jérémie Chichignoud
+ *
  * @details
  *  This file implements the \pkg{ergm} change statistic for the ERPM effect
- *  `cov_ingroup`, which couples group size and the sum of a numeric actor
- *  covariate inside each group, with an optional filter on group sizes.
+ *  `cov_ingroup`, which couples group size with the total sum of a numeric
+ *  actor covariate inside each group, optionally filtered by allowed group sizes.
  *
  *  ------------------------------------------------------------
  *  Statistical principle (actor mode, group mode)
  *  ------------------------------------------------------------
  *
- *  The network is bipartite:
+ *  The bipartite network encodes a partition:
  *    - actor mode  = vertices representing actors (individuals),
  *    - group mode  = vertices representing structural groups.
  *
- *  Membership is encoded as edges between actors and groups. For a group
- *  vertex g in the group mode:
+ *  Membership is represented by edges between actors and groups.
+ *  For a group vertex g in the group mode:
  *
- *    - A(g)   = set of actors adjacent to g (members of group g),
- *    - n_g    = |A(g)| = group size,
- *    - x_i    = numeric covariate value for actor i.
+ *    - A(g)      = set of actors adjacent to g (members of group g),
+ *    - n_g       = |A(g)| = size of group g,
+ *    - x_i       = numeric covariate value for actor i,
+ *    - X_g       = ∑_{i ∈ A(g)} x_i.
  *
- *  Let S be a (possibly empty) set of allowed group sizes. Define
- *  the ingroup statistic:
+ *  Let S be an optional set of allowed group sizes.
  *
  *      T(p; x)
  *        = ∑_g  1[n_g ∈ S] * n_g * ∑_{i ∈ A(g)} x_i,
  *
  *  where:
  *    - p encodes the partition via the bipartite network,
- *    - 1[n_g ∈ S] = 1 if n_g ∈ S, else 0; if S is empty, all sizes
- *      are accepted (no filter).
+ *    - 1[n_g ∈ S] = 1 if n_g ∈ S and 0 otherwise,
+ *    - if S is empty, all group sizes are accepted.
  *
- *  Intuitively, for each group g, the contribution is the group size
- *  multiplied by the total sum of x inside the group, optionally masked
- *  by a size filter.
- *
- *  ------------------------------------------------------------
- *  Local change for a membership toggle
- *  ------------------------------------------------------------
- *
- *  A single toggle flips the membership of one actor i in one group g:
- *    - addition  : actor i joins group g,
- *    - deletion  : actor i leaves group g.
- *
- *  Let:
- *    - n      = n_g       (group size before the toggle),
- *    - X      = ∑_{j ∈ A(g)} x_j   (sum of x in g before the toggle),
- *    - x_i    = covariate value of the toggled actor i,
- *    - n'     = n ± 1     (group size after the toggle),
- *    - X'     = X ± x_i   (sum after the toggle),
- *    - w(n)   = 1[n ∈ S]  (or 1 for all n if S is empty).
- *
- *  Then the contribution of group g before and after the toggle is:
- *
- *      T_before(g) = n  * X  * w(n),
- *      T_after(g)  = n' * X' * w(n').
- *
- *  The local change contributed by group g to the global statistic is:
- *
- *      Δ = T_after(g) - T_before(g)
- *        = (n' * X' * w(n')) - (n * X * w(n)).
+ *  Each group contributes the product of its size and the total covariate
+ *  value of its members, optionally masked by the size filter.
  *
  *  ------------------------------------------------------------
- *  IMPORTANT (multi-toggle / D_CHANGESTAT_FN)
+ *  Bipartite structure (actor mode, group mode)
  *  ------------------------------------------------------------
  *
- *  This term MUST support multi-toggle moves (swap/split/merge proposals)
- *  represented as a list of toggles in ergm’s MCMC.
+ *  At the C level, the bipartite structure is encoded via the boundary
+ *  BIPARTITE:
  *
- *  Therefore:
- *    - the compiled change-statistic is implemented using D_CHANGESTAT_FN,
- *      with the symbol name: d_cov_ingroup
- *    - the R initializer MUST return d_func = TRUE so ergm calls the
- *      multi-toggle entrypoint with the correct signature.
- *
- *  Multi-toggle correctness constraint:
- *    - multiple toggles may affect the same group in the same proposal;
- *    - we must process toggles sequentially and TEMPORARILY apply them
- *      (TOGGLE_IF_MORE_TO_COME) so subsequent toggles see updated degrees
- *      and neighbourhoods;
- *    - we must UNDO_PREVIOUS_TOGGLES at the end to restore the original state.
- *
- *  ------------------------------------------------------------
- *  Bipartite structure and actors/groups
- *  ------------------------------------------------------------
- *
- *  At the C level, the bipartite structure is encoded as:
- *    - the first BIPARTITE vertices are actors (actor mode),
- *    - the remaining vertices are groups (group mode).
+ *    - actor mode   : vertices 1 .. n1, where n1 = BIPARTITE,
+ *    - group mode   : vertices > n1, representing groups.
  *
  *  This change statistic assumes:
- *    - the number of actors n1 stored in INPUT_PARAM[0] matches BIPARTITE,
+ *    - the number of actors n1 (actor mode) is stored in INPUT_PARAM[0],
  *    - each membership toggle connects exactly one actor (vertex ≤ n1)
  *      and one group (vertex > n1).
+ *
+ *  The group vertex is detected as the endpoint in the group mode
+ *  (vertex index > n1), and the actor vertex as the endpoint in
+ *  the actor mode (vertex index ≤ n1).
  *
  *  ------------------------------------------------------------
  *  INPUT_PARAM layout (from InitErgmTerm.cov_ingroup)
@@ -118,44 +74,109 @@
  *    - n1          = number of actors (size of the actor mode),
  *    - L           = length of the size filter S,
  *    - sizes[ ]    = allowed group sizes (as doubles, cast to int),
- *    - x[1..n1]    = numeric covariate values on the actor mode.
+ *    - x[ ]        = numeric covariate values on actors.
+ *
+ *  In C, this becomes:
+ *
+ *    INPUT_PARAM[0]          = n1
+ *    INPUT_PARAM[1]          = L
+ *    INPUT_PARAM[2..1+L]     = sizes[0..L-1]
+ *    INPUT_PARAM[2+L..]      = x[0..n1-1]
  *
  *  Special case:
  *    - If L == 0, every group size is accepted (no filter).
  *
  *  The term returns a single scalar statistic:
+ *
  *    - N_CHANGE_STATS = 1,
- *    - CHANGE_STAT[0] is updated by the local Δ at each toggle (and accumulated
- *      over all toggles in the proposal).
+ *    - CHANGE_STAT[0] accumulates the local Δ across toggles.
+ *
+ *  ------------------------------------------------------------
+ *  Local change under a toggle
+ *  ------------------------------------------------------------
+ *
+ *  A single toggle flips the membership of one actor i in one group g:
+ *    - addition  : actor joins group g,
+ *    - deletion  : actor leaves group g.
+ *
+ *  Let:
+ *    - n      = n_g before the toggle,
+ *    - X      = ∑_{j ∈ A(g)} x_j before the toggle,
+ *    - x_i    = covariate value of actor i,
+ *    - n'     = n ± 1 after the toggle,
+ *    - X'     = X ± x_i after the toggle,
+ *    - w(n)   = 1[n ∈ S] (or 1 if S is empty).
+ *
+ *  The contribution of group g before and after the toggle is:
+ *
+ *      T_before(g) = n  * X  * w(n)
+ *      T_after(g)  = n' * X' * w(n')
+ *
+ *  The local change is therefore:
+ *
+ *      Δ = T_after(g) − T_before(g)
+ *        = (n' * X' * w(n')) − (n * X * w(n)).
+ *
+ *  Only the affected group g contributes to the statistic change.
+ *
+ *  ------------------------------------------------------------
+ *  Multi-toggle (D_CHANGESTAT_FN) semantics
+ *  ------------------------------------------------------------
+ *
+ *  This term must support multi-toggle proposals used by ergm MCMC
+ *  moves such as swaps, splits, or merges.
+ *
+ *  The change statistic is therefore implemented using D_CHANGESTAT_FN
+ *  with the symbol:
+ *
+ *      d_cov_ingroup
+ *
+ *  The R initializer must set:
+ *
+ *      d_func = TRUE
+ *
+ *  so that ergm calls the multi-toggle change-statistic entrypoint.
+ *
+ *  In multi-toggle mode:
+ *
+ *    - several toggles may affect the same group,
+ *    - toggles must be processed sequentially,
+ *    - the intermediate state must be updated so later toggles see
+ *      updated degrees and neighbourhoods.
+ *
+ *  Implementation strategy:
+ *
+ *    For each toggle:
+ *      1) compute the contribution of the affected group before the toggle,
+ *      2) apply the toggle to update the intermediate state,
+ *      3) recompute the contribution after the toggle,
+ *      4) accumulate Δ.
+ *
+ *  To maintain consistency during the proposal:
+ *
+ *    - intermediate toggles are applied using TOGGLE_IF_MORE_TO_COME,
+ *    - the final state is restored with UNDO_PREVIOUS_TOGGLES.
  *
  *  ------------------------------------------------------------
  *  Complexity
  *  ------------------------------------------------------------
  *
- *  For each toggle involving group g (under the current intermediate state):
- *    - retrieving deg_old is O(1),
- *    - building X is O(deg(g)) via neighbour traversal,
- *    - all scalar operations are O(1).
+ *  For each toggle involving group g:
  *
- *  ------------------------------------------------------------
- *  R interface
- *  ------------------------------------------------------------
- *
- *  The R initialiser (InitErgmTerm.cov_ingroup):
- *    - validates the actor covariate vector and the size filter S,
- *    - packs n1, L, sizes, and x into INPUT_PARAM,
- *    - sets d_func = TRUE (REQUIRED for this D_ changestat),
- *    - sets emptynwstats = 0 and a single coef.name.
+ *    - retrieving the group degree is O(1),
+ *    - computing X_g requires traversing neighbours: O(deg(g)),
+ *    - scalar operations are O(1).
  *
  *  ------------------------------------------------------------
  *  Debugging
  *  ------------------------------------------------------------
  *
- *  Compile-time debug macro DEBUG_COV_INGROUP:
- *    - if set to 1, prints per-toggle diagnostics.
- *    - prints an explicit "MULTI-TOGGLE ntoggles=..." banner (limited to a few).
- *  This is intentionally compile-time (like squared_sizes) to avoid runtime cost.
- * ============================================================================ */
+ *  A compile-time macro DEBUG_COV_INGROUP enables diagnostic output.
+ *
+ *  When enabled, the code prints per-toggle diagnostics and a banner
+ *  indicating multi-toggle proposals. This debugging facility is
+ *  compile-time only to avoid runtime overhead in production.
+ */
 
 #include <math.h>
 #include "ergm_changestat.h"

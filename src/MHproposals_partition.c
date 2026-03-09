@@ -1,6 +1,8 @@
 /**
  * @file MHproposals_partition.c
  * @brief Metropolis-Hastings proposals for ERPM partition networks under `~b1part`.
+ * 
+ * @author Jérémie Chichignoud
  *
  * @details
  * ERPM represents a partition as an undirected bipartite membership network:
@@ -61,7 +63,7 @@
 /* ========================================================================= */
 
 /** @brief Enable verbose traces inside proposal code. */
-#define DEBUG_ERPM_PROPOSALS 1
+#define DEBUG_ERPM_PROPOSALS 0
 
 /** @brief Silence an intentionally unused variable. */
 #define UNUSED_VARIABLE(x) (void)(x)
@@ -841,10 +843,6 @@ MH_I_FN(Mi_ErpmMix){
   if(MHp->storage != NULL){
     return;
   }
-
-// #if DEBUG_ERPM_PROPOSALS
-//   Rprintf("[ERPM][Mix][INIT] building storage from iinputs/inputs (or defaults)\n");
-// #endif
 
   ErpmMixStorage *st = (ErpmMixStorage*) R_Calloc(1, ErpmMixStorage);
 

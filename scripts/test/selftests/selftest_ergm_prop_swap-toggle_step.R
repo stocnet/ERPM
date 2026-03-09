@@ -1,10 +1,10 @@
 
 # ==============================================================================
 # File    : scripts/test/selftests/selftest_ergm_prop_swap-toggle_step.R
+# Auteur : Jérémie Chichignoud - Cub'itech
 # Purpose : Self-test (via erpm wrapper) for ERPM MH proposals:
 #           - ErpmToggleStep (2 toggles)
 #           - ErpmSwapStep   (4 toggles)
-# Run     : Rscript scripts/test/selftests/selftest_ergm_prop_swap-toggle_step.R
 #
 # Notes
 #   - This script is meant to be run from the package root (DESCRIPTION present).

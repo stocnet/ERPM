@@ -42,13 +42,33 @@ This term has no user-visible arguments and is intended to be used directly
 in \pkg{ergm} formulas or through the ERPM wrapper.
 }
 \details{
-The term is implemented as a native ERGM C change-statistic, declared in
-the compiled code under the name \code{c_log_factorial_sizes}. The R
-initializer below:
+The term is implemented as a native ERGM C change-statistic.
+
+IMPORTANT (multi-toggle / D_CHANGESTAT_FN):
+\itemize{
+\item This term MUST support multi-toggle proposals (swap/split/merge decomposed
+into multiple edge toggles).
+\item Therefore the compiled change-statistic is implemented using the
+D_CHANGESTAT_FN API (multi-toggle).
+\item On the R side, we MUST advertise this to ergm by returning \code{d_func = TRUE}.
+Otherwise ergm will assume a one-toggle C_CHANGESTAT_FN and call the
+compiled symbol with the wrong signature (=> crash/segfault).
+}
+
+Compiled symbol naming convention:
+\itemize{
+\item Recommended: implement the C function as \code{d_log_factorial_sizes} via
+D_CHANGESTAT_FN(d_log_factorial_sizes).
+\item Avoid exposing a symbol named \code{c_log_factorial_sizes} with a D-signature:
+ergm may resolve it as the one-toggle entrypoint and crash.
+}
+
+The R initializer below:
 \itemize{
 \item enforces that the network is bipartite and undirected;
 \item declares that the term is dependent (\code{dependence = TRUE});
-\item defines a single scalar statistic whose empty-network value is 0.
+\item defines a single scalar statistic whose empty-network value is 0;
+\item declares \code{d_func = TRUE} (multi-toggle changestat).
 }
 
 The ERGM infrastructure will call the C change-statistic whenever a toggle
@@ -88,6 +108,7 @@ The statistic is:
 Typical usage with \pkg{ergm}:
 \preformatted{
   summary(nw ~ log_factorial_sizes)
+  summary(nw ~ log_factorial_sizes())
   ergm(nw ~ log_factorial_sizes)
 }
 
@@ -107,39 +128,11 @@ with known group sizes and compare:
 \item a direct evaluation of \code{sum(lgamma(group_sizes))} with
 \code{lgamma(0) <- 0}.
 }
-These tests also check that toggling an actor-group tie updates the statistic
-by the correct local increment as defined in the C change-statistic.
+These tests also check that multi-toggle proposals exercise the D_ entrypoint.
 }
 
-\examples{
-\dontrun{
-  library(network)
-  library(ergm)
-
-  # Build a small bipartite network: 4 actors, 3 groups
-  n_actors <- 4
-  n_groups <- 3
-  n_total  <- n_actors + n_groups
-
-  adj <- matrix(0, n_total, n_total)
-  # Actors = 1..4, Groups = 5..7
-  adj[1, 5] <- adj[5, 1] <- 1
-  adj[2, 5] <- adj[5, 2] <- 1
-  adj[3, 6] <- adj[6, 3] <- 1
-  adj[4, 6] <- adj[6, 4] <- 1
-  # Group 7 remains empty
-
-  nw <- network(adj, directed = FALSE, matrix.type = "adjacency")
-  nw \\%n\\% "bipartite" <- n_actors  # actor mode size
-
-  # Inspect the statistic
-  summary(nw ~ log_factorial_sizes)
-
-  # Fit a simple ERGM with the term
-  fit <- ergm(nw ~ log_factorial_sizes)
-  summary(fit)
-}
-
+\author{
+Jérémie Chichignoud - Cub'itech
 }
 \keyword{ERGM}
 \keyword{bipartite}

@@ -9,6 +9,7 @@
 #'
 #' @name InitErgmProposal.ErpmMergeStep
 #' @aliases ErpmMergeStep
+#' @author Jérémie Chichignoud - Cub'itech
 #'
 #' @description
 #' ErpmMergeStep is a Metropolis-Hastings proposal used in ERPM when a partition

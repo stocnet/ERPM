@@ -1,9 +1,5 @@
 # ==============================================================================
-# Fichier : scripts/test/minimal_working_exemple/MWE_dyadcov_full.R
-# Objet   : MWE pour l’effet ERPM `dyadcov_full`
-# Chaîne  : partition -> biparti ->
-#           summary(nw ~ dyadcov_full("Z1")) /
-#           erpm(partition ~ dyadcov_full("Z1"))
+# Minimal Working Exemple : dyadcov_full — summary + fit
 # ==============================================================================
 
 Sys.setenv(LANG = "fr_FR.UTF-8")

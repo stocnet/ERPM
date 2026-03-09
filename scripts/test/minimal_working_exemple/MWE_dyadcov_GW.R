@@ -1,9 +1,5 @@
 # ==============================================================================
-# Fichier : scripts/test/minimal_working_exemple/MWE_dyadcov_GW.R
-# Objet   : MWE pour l’effet ERPM `dyadcov_GW`
-# Chaîne  : partition -> biparti ->
-#           summary(nw ~ dyadcov_GW("Zk", lambda=...)) /
-#           erpm(partition ~ dyadcov_GW("Zk", lambda=...))
+# Minimal Working Exemple : dyadcov_GW — summary + fit
 # ==============================================================================
 
 Sys.setenv(LANG = "fr_FR.UTF-8")

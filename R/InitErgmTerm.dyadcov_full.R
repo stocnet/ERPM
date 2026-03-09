@@ -27,6 +27,7 @@
 #' @name InitErgmTerm.dyadcov_full
 #' @aliases dyadcov_full
 #' @note InitErgmTerm.dyadcov_full.R
+#' @author Jérémie Chichignoud - Cub'itech
 #'
 #' @description
 #' \code{dyadcov_full} is an ERGM term for bipartite networks that aggregates a
@@ -103,6 +104,7 @@
 #'
 #' @keywords ERGM term bipartite dyadic covariate
 #' @md
+#' @export
 InitErgmTerm.dyadcov_full <- function(nw, arglist, ...) {
   termname <- "dyadcov_full"
 

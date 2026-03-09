@@ -6,6 +6,7 @@
 #' @name InitErgmTerm.inertia_groups
 #' @aliases inertia_groups
 #' @note InitErgmTerm.inertia_groups.R
+#' @author Jérémie Chichignoud - Cub'itech
 #'
 #' @description
 #' \code{inertia_groups} is a longitudinal (inertial) ERGM term intended to be used
@@ -31,7 +32,6 @@
 #'
 #' Debugging:
 #'   options(ERPM.inertia_groups.debug = TRUE) to enable debug logs
-#'   options(ERPM.inertia_groups.debug = "deep") for verbose debug logs
 #'
 #' @keywords ERPM ERGM inertial longitudinal
 #' @md
@@ -167,10 +167,6 @@ InitErgmTerm.inertia_groups <- function(nw, arglist, ..., version = packageVersi
 
   # Use ergm's standard checking for defaults and basic types.
   # Debug is special: accept TRUE/FALSE/"deep".
-  #
-  # NOTE:
-  # Debugging is primarily controlled by options(ERPM.inertia_groups.debug = ...).
-  # The `debug` argument is kept for backward compatibility and explicit overrides.
   a <- ergm::check.ErgmTerm(
     nw, arglist,
     directed      = NULL,
@@ -184,9 +180,6 @@ InitErgmTerm.inertia_groups <- function(nw, arglist, ..., version = packageVersi
   # ---------------------------------------------------------------------------
   # Debug control
   # ---------------------------------------------------------------------------
-  # Priority:
-  #   1) explicit term argument `debug` if provided (TRUE/FALSE/"deep")
-  #   2) global option ERPM.inertia_groups.debug (TRUE/FALSE/"deep")
   opt_dbg <- getOption("ERPM.inertia_groups.debug", TRUE)
 
   debug_raw <- a$debug

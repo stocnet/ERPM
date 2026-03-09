@@ -12,6 +12,9 @@ Not implemented in this refactor step.
 \note{
 erpm_long_empile_helpers.R
 }
+\author{
+Jérémie Chichignoud - Cub'itech
+}
 \keyword{ERGM}
 \keyword{ERPM}
 \keyword{helpers}

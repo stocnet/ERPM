@@ -9,6 +9,7 @@
 #' @name InitErgmTerm.cliques_GW
 #' @aliases cliques_GW
 #' @note InitErgmTerm.cliques_GW.R
+#' @author Jérémie Chichignoud - Cub'itech
 #'
 #' @description
 #' \code{cliques_GW} is an ERGM term for bipartite actor–group networks that

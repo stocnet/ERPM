@@ -1,6 +1,8 @@
 /**
  * @file changestat_inertia_groups.c
  * @brief Change statistic for the ERPM inertial term 'inertia_groups'.
+ * 
+ * @author Jérémie Chichignoud
  *
  * @details
  * This file implements the C-side change statistic used by the ERPM term

@@ -9,6 +9,7 @@
 #' @name InitErgmTerm.cov_diff
 #' @aliases cov_diff
 #' @note InitErgmTerm.cov_diff.R
+#' @author Jérémie Chichignoud - Cub'itech
 #'
 #' @description
 #' \code{cov_diff} is an ERGM term for bipartite networks that measures, for each

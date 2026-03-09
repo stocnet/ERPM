@@ -1,18 +1,5 @@
 # ==============================================================================
-# Fichier : scripts/test/minimal_working_exemple/MWE_inertia_groups_PLE.R
-# Objet   : MWE pour l’effet inertiel ERPM `inertia_groups` (PLE empilé)
-# Chaîne  : partitions (5) -> erpm_long(mode="empile") ->
-#           summary(nw ~ ...) / fit(erpm_long(...))
-#
-# Contraintes demandées :
-#   - past_influence = 2
-#   - 5 partitions, 8 acteurs
-#   - RHS : dyadcov + cov_match + cliques + inertia_groups(size=2)
-#   - plusieurs attributs noeudaux et dyadiques
-#   - 1 summary (dry-run) + 1 fit
-#   - capture + print des warnings (buffer global + withCallingHandlers)
-#   - options erpm_long : mode="empile", verbose=TRUE, debug="deep"
-#   - formule erpm_long au format : partitions ~ RHS
+# Minimal Working Exemple : inertia_groups — summary + fit
 # ==============================================================================
 
 Sys.setenv(LANG = "fr_FR.UTF-8")

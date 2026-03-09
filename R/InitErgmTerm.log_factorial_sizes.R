@@ -10,6 +10,7 @@
 #' @name InitErgmTerm.log_factorial_sizes
 #' @aliases log_factorial_sizes
 #' @note InitErgmTerm.log_factorial_sizes.R
+#' @author Jérémie Chichignoud - Cub'itech
 #'
 #' @description
 #' \code{log_factorial_sizes} is an ERGM term for bipartite networks that sums

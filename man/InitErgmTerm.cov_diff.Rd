@@ -7,18 +7,6 @@
 \usage{
 InitErgmTerm.cov_diff(nw, arglist, ..., version = packageVersion("ergm"))
 }
-\arguments{
-\item{nw}{A \pkg{network} object. Must be bipartite, with actor-mode size
-stored in \code{nw \%n\% "bipartite"}.}
-
-\item{arglist}{A named list of term arguments. Expected components include
-\code{cov}, \code{clique_size}, and optionally one of \code{normalize},
-\code{normalized}, or \code{norm}.}
-
-\item{...}{Passed through by \pkg{ergm}; not used.}
-
-\item{version}{ERGM API version; not used.}
-}
 \description{
 \code{cov_diff} is an ERGM term for bipartite networks that measures, for each
 group, the dispersion of a numeric actor covariate over all \eqn{k}-actor
@@ -41,225 +29,41 @@ The choice is controlled by the \code{normalize} argument (with aliases
 \code{normalized} and \code{norm}).
 }
 \details{
-The term is implemented as a native ERGM C change-statistic, declared in the
-compiled code under a symbol compatible with \code{name = "cov_diff"}. The R
-initializer below:
+The term is implemented as a native ERGM C change-statistic.
+
+IMPORTANT (multi-toggle / D_CHANGESTAT_FN):
 \itemize{
-\item enforces that the network is bipartite via \code{nw \%n\% "bipartite"};
-\item extracts an actor-level covariate from a vertex attribute or from a
-literal vector, coercing it to numeric and failing fast on \code{NA};
-\item normalizes the \code{clique_size} argument into a single integer
-\eqn{k \ge 2};
-\item interprets the normalisation argument (\code{normalize}, with aliases
-\code{normalized} and \code{norm}) as:
-\itemize{
-\item missing / \code{NULL} or \code{FALSE}: raw sum over all
-\eqn{k}-subsets (no normalization);
-\item \code{TRUE} or \code{"by_group"}: group-wise average over
-\eqn{k}-subsets, i.e. division by \eqn{\binom{n_g}{k}};
-\item \code{"global"}: group-wise average per actor, i.e. division
-by \eqn{n_g};
-}
-\item packs the covariate and scalar parameters into a compact
-\code{INPUT_PARAM} vector for the C layer.
+\item This term MUST support multi-toggle proposals (swap/split/merge represented
+as a list of membership edge toggles).
+\item Therefore, the compiled change-statistic is implemented as a D_ entrypoint
+(D_CHANGESTAT_FN), typically named \code{d_cov_diff}.
+\item On the R side, we MUST advertise this to ergm by returning \code{d_func = TRUE}.
+Otherwise ergm will try to call the changestat as a one-toggle C_ function,
+causing a signature mismatch and typically a segfault.
 }
 
-The ERGM infrastructure will call the C change-statistic whenever a toggle
-affects an edge between an actor and a group. The C code recomputes the
-local contribution of the affected group(s) to the \eqn{k}-subset range sum.
+Compiled symbol naming convention:
+\itemize{
+\item Recommended: implement the C function as \code{d_cov_diff} via
+D_CHANGESTAT_FN(d_cov_diff).
+\item Avoid exposing a symbol named \code{c_cov_diff} with a D-signature, because
+ergm may resolve it as the one-toggle entrypoint and crash.
+}
+
+The R initializer:
+\itemize{
+\item enforces that the network is bipartite (actor mode / group mode);
+\item parses the user arguments \code{cov}, \code{clique_size}, and normalization;
+\item validates the actor covariate (numeric coercible, no NA on actor mode);
+\item checks \code{clique_size} is a single integer \eqn{\ge 2};
+\item normalizes the \code{normalize} argument into \code{norm_mode ∈ \{0,1,2\}};
+  \item builds a compact \code{inputs} vector for the C code encoding:
+\code{n1}, \code{k}, \code{norm_mode}, and the actor covariate \code{x}.
+}
 }
 \note{
 InitErgmTerm.cov_diff.R
-
-The network must be strictly bipartite:
-\itemize{
-\item the actor mode size is given by \code{nw \%n\% "bipartite"} and must be
-a positive integer;
-\item the group mode is the complementary set of nodes;
-\item the covariate is read on the actor mode only.
 }
-
-The covariate is coerced to numeric if possible (logical and integer types
-are accepted), and any \code{NA} on the actor mode is rejected in a
-fail-fast manner. The \code{clique_size} argument must be a single finite
-numeric value that is rounded to an integer \eqn{k \ge 2}. The
-\code{normalize} argument accepts logical values, or the character strings
-\code{"by_group"} and \code{"global"}:
-\itemize{
-\item \code{NULL} or \code{FALSE}: raw (no normalization);
-\item \code{TRUE} or \code{"by_group"}: divide by \eqn{\binom{n_g}{k}};
-\item \code{"global"}: divide by \eqn{n_g}.
+\author{
+Jérémie Chichignoud - Cub'itech
 }
-Numeric flags 0, 1, 2 are also accepted as shorthand for raw, by-group,
-and global normalization, respectively.
-
-Internally, \code{cov_diff} passes its parameters and covariate to the C
-layer through \code{INPUT_PARAM} with layout
-\code{c(n1, k, norm_mode, x[1:n1])}, where:
-\itemize{
-\item \code{n1} is the actor-mode size;
-\item \code{k} is the subset size \eqn{k};
-\item \code{norm_mode} equals \code{0} for raw, \code{1} for by-group, \code{2} for global;
-\item \code{x} is the numeric actor covariate restricted to the actor mode.
-}
-}
-\section{Mathematical definition}{
-
-Let:
-\itemize{
-\item \eqn{A} be the set of actor-mode nodes;
-\item \eqn{G} be the set of group-mode nodes;
-\item \eqn{B} the bipartite adjacency between actors and groups;
-\item \eqn{x_i \in \mathbb{R}} the numeric covariate value of actor
-\eqn{i \in A};
-\item \eqn{A_g = \{ i \in A : B_{ig}=1\}} the set of actors in group
-\eqn{g \in G};
-\item \eqn{n_g = |A_g|} the size of group \eqn{g};
-\item \eqn{\mathcal{C}_k(g)} the family of all \eqn{k}-element subsets of
-\eqn{A_g}.
-}
-
-For each subset \eqn{S \in \mathcal{C}_k(g)}, define its range as
-\deqn{
-  R(S) = \max_{i \in S} x_i - \min_{i \in S} x_i.
-}
-The \emph{raw} statistic is
-\deqn{
-  T_k^{\text{raw}}(B;x)
-  =
-  \sum_{g \in G}
-  \sum_{S \in \mathcal{C}_k(g)} R(S),
-}
-where groups with \eqn{n_g < k} contribute zero (they have no
-\eqn{k}-subsets).
-
-The \emph{by-group normalized} statistic divides each group
-contribution by the number of \eqn{k}-subsets in that group, i.e.
-\deqn{
-  T_k^{\text{by-group}}(B;x)
-  =
-  \sum_{g \in G}
-    \mathbf{1}[\,n_g \ge k\,]
-    \frac{1}{\binom{n_g}{k}}
-    \sum_{S \in \mathcal{C}_k(g)} R(S).
-}
-
-The \emph{global} size-normalized statistic divides each group
-contribution by the group size \eqn{n_g}:
-\deqn{
-  T_k^{\text{global}}(B;x)
-  =
-  \sum_{g \in G}
-    \mathbf{1}[\,n_g \ge k\,]
-    \frac{1}{n_g}
-    \sum_{S \in \mathcal{C}_k(g)} R(S),
-}
-with the convention that groups with \eqn{n_g = 0} contribute 0.
-
-The argument \code{normalize} (or its aliases) selects between these
-three variants.
-}
-
-\section{Usage}{
-
-Typical usage with \pkg{ergm} on a bipartite network \code{nw}:
-\preformatted{
-  # Raw (non-normalized) cov_diff on actor covariate "x_attr" with k = 2
-  summary(nw ~ cov_diff(cov = "x_attr", clique_size = 2))
-
-  # By-group normalized variant (average per k-subset in each group)
-  summary(nw ~ cov_diff(cov = "x_attr", clique_size = 3,
-                        normalize = "by_group"))
-
-  # Global normalized variant (average per actor in each group)
-  summary(nw ~ cov_diff(cov = "x_attr", clique_size = 3,
-                        normalize = "global"))
-}
-
-When using the ERPM wrapper on a partition-based workflow, the term can be
-invoked indirectly as:
-\preformatted{
-  erpm(partition ~ cov_diff(cov = "x_attr", clique_size = 2,
-                            normalize = "by_group"))
-}
-provided that the wrapper translates the partition into a bipartite network
-with a consistent actor mode and group mode.
-}
-
-\section{Tests}{
-
-Self-tests for \code{cov_diff} construct small bipartite networks with
-known group memberships and numeric covariates, and compare:
-\itemize{
-\item the ERGM summary \code{summary(nw ~ cov_diff(...))};
-\item direct evaluations of
-\eqn{\sum_g \sum_{S \in \mathcal{C}_k(g)} (\max_{i \in S} x_i - \min_{i \in S} x_i)}
-(raw case, \code{normalize} missing or \code{FALSE});
-\item direct evaluations of
-\eqn{\sum_g \mathbf{1}[n_g \ge k] \binom{n_g}{k}^{-1}
-              \sum_{S \in \mathcal{C}_k(g)} (\max_{i \in S} x_i - \min_{i \in S} x_i)}
-(by-group normalized case, \code{normalize = "by_group"});
-\item direct evaluations of
-\eqn{\sum_g \mathbf{1}[n_g \ge k] n_g^{-1}
-              \sum_{S \in \mathcal{C}_k(g)} (\max_{i \in S} x_i - \min_{i \in S} x_i)}
-(global normalized case, \code{normalize = "global"}).
-}
-Additional checks verify that toggling an actor-group tie updates the
-statistic by the expected local change in the range over all \eqn{k}-subsets
-within the affected group, including cases where the group size crosses
-the threshold \eqn{n_g = k}.
-}
-
-\examples{
-\dontrun{
-  library(network)
-  library(ergm)
-
-  # Build a small bipartite network: 4 actors, 2 groups
-  n_actors <- 4
-  n_groups <- 2
-  n_total  <- n_actors + n_groups
-
-  # Adjacency: actors 1..4, groups 5..6
-  adj <- matrix(0, n_total, n_total)
-
-  # Group 5 has actors 1,2,3
-  adj[1, 5] <- adj[5, 1] <- 1
-  adj[2, 5] <- adj[5, 2] <- 1
-  adj[3, 5] <- adj[5, 3] <- 1
-
-  # Group 6 has actors 2,4
-  adj[2, 6] <- adj[6, 2] <- 1
-  adj[4, 6] <- adj[6, 4] <- 1
-
-  nw <- network(adj, directed = FALSE, matrix.type = "adjacency")
-  nw \\%n\\% "bipartite" <- n_actors  # actor mode size
-
-  # Numeric covariate on the actor mode
-  x_attr <- c(1.0, 3.0, 5.0, 10.0)
-  set.vertex.attribute(nw, "x_attr", c(x_attr, rep(NA_real_, n_groups)))
-
-  # Example: k = 2 (all 2-actor subsets inside each group), raw
-  summary(nw ~ cov_diff(cov = "x_attr", clique_size = 2))
-
-  # By-group normalized variant
-  summary(nw ~ cov_diff(cov = "x_attr", clique_size = 2,
-                        normalize = "by_group"))
-
-  # Global normalized variant
-  summary(nw ~ cov_diff(cov = "x_attr", clique_size = 2,
-                        normalize = "global"))
-
-  # Fit a simple ERGM including the term
-  fit <- ergm(nw ~ cov_diff(cov = "x_attr", clique_size = 2))
-  summary(fit)
-}
-
-}
-\keyword{ERGM}
-\keyword{bipartite}
-\keyword{covariate}
-\keyword{groups}
-\keyword{range}
-\keyword{subsets}
-\keyword{term}

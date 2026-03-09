@@ -1,14 +1,5 @@
 # ==============================================================================
-# Fichier : scripts/test/minimal_working_exemple/MWE_dyadcov.R
-# Objet   : MWE pour l’effet ERPM `dyadcov`
-# Chaîne  : partition -> biparti ->
-#           summary(nw ~ dyadcov("Z1", ...)) /
-#           erpm(partition ~ dyadcov("Z1", ...))
-#           + test des nouvelles conventions :
-#             - matrices dyadiques non symétriques (diag = 0)
-#             - normalisations mises à jour :
-#               * mode "global"   (facteur 1 / n_g)
-#               * mode "by_group" (facteur 1 / choose(n_g, k))
+# Minimal Working Exemple : dyadcov — summary + fit
 # ==============================================================================
 
 Sys.setenv(LANG = "fr_FR.UTF-8")

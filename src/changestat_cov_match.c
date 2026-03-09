@@ -1,126 +1,207 @@
-/* ============================================================================
- * File    : src/changestat_cov_match.c
- * Purpose : Change statistic for the ERPM term `cov_match` (MULTI-TOGGLE form).
- * Project : ERPM / ERGM extensions
- * ----------------------------------------------------------------------------
+/**
+ * @file changestat_cov_match.c
+ * @brief Change statistic for the ERPM term `cov_match` (multi-toggle form).
  *
- * IMPORTANT (multi-toggle / D_CHANGESTAT_FN):
- * - This changestat MUST support multi-toggle proposals (swap/split/merge
- *   represented internally as a list of toggles).
- * - Therefore it is implemented with the D_CHANGESTAT_FN API (multi-toggle).
- * - On the R side, InitErgmTerm.cov_match MUST return `d_func = TRUE`, otherwise
- *   ergm will call the wrong signature (C_ one-toggle) and may segfault.
+ * @author Jérémie Chichignoud
  *
- * Compiled symbol naming convention:
- * - Implement the C function as `d_cov_match` via D_CHANGESTAT_FN(d_cov_match).
- * - Do NOT expose a symbol named `c_cov_match` with a D-signature, because ergm
- *   may resolve it as the one-toggle entrypoint.
+ * @details
+ *  This file implements the \pkg{ergm} change statistic for the ERPM effect
+ *  `cov_match`, which measures within-group categorical agreement among actors
+ *  in a bipartite partition network. The statistic can operate either in a
+ *  non-targeted mode (all categories) or in a targeted mode focusing on a
+ *  specific category κ, and supports several normalization schemes.
  *
- * ----------------------------------------------------------------------------
- * Statistical principle (actor mode, group mode)
- * ----------------------------------------------------------------------------
+ *  ------------------------------------------------------------
+ *  Implementation requirements (multi-toggle / D_CHANGESTAT_FN)
+ *  ------------------------------------------------------------
  *
- * A bipartite network is assumed, with:
- *   - actor mode  = actors carrying a categorical covariate c(i),
- *   - group mode  = structural groups, each connecting to multiple actors.
+ *  This change statistic is designed to support multi-toggle proposals
+ *  (e.g. swap, split, merge) that are internally represented in \pkg{ergm}
+ *  as a list of edge toggles.
  *
- * For each group g, let:
- *   - A(g)      = set of actors connected to g (actor membership),
- *   - n_g       = |A(g)| = group size,
- *   - c(i)      = category code of actor i,
- *   - n_{g,r}   = number of actors in group g with category r.
+ *  Consequently:
  *
- * The basic combinatorial quantity for a given k ≥ 1 is:
+ *    - the statistic is implemented using the D_CHANGESTAT_FN API,
+ *      which processes multiple toggles in sequence,
+ *    - the R initializer `InitErgmTerm.cov_match` MUST set
+ *      `d_func = TRUE`.
  *
- *     S_k(B; c) = ∑_g ∑_r C(n_{g,r}, k),
+ *  If `d_func = FALSE`, \pkg{ergm} will incorrectly call the
+ *  one-toggle C entry point (`c_` interface), which may lead
+ *  to undefined behaviour or segmentation faults.
  *
- * where C(a,b)=CHOOSE(a,b) is the binomial coefficient with the convention
- * C(a,b) = 0 if a < b.
+ *  ------------------------------------------------------------
+ *  Compiled symbol naming convention
+ *  ------------------------------------------------------------
  *
- * Targeted version (category κ):
+ *  The C entry point must be declared as:
  *
- *     S_k^{(κ)}(B; c) = ∑_g C(n_{g,κ}, k).
+ *      D_CHANGESTAT_FN(d_cov_match)
  *
- * Normalisation modes:
+ *  which exposes the compiled symbol `d_cov_match`.
  *
- *  - "none" (norm_mode = 0):
- *       statistic = S_k(B; c)              (or S_k^{(κ)} in targeted mode).
+ *  A symbol named `c_cov_match` must NOT be exposed with a
+ *  D-signature, because \pkg{ergm} may resolve it as the
+ *  one-toggle entry point.
  *
- *  - "by_group" (norm_mode = 1):
- *       non-target:
- *         ∑_g [ ( ∑_r C(n_{g,r}, k) ) / C(n_g, k) ],
- *       targeted:
- *         ∑_g [ C(n_{g,κ}, k) / C(n_g, k) ].
+ *  ------------------------------------------------------------
+ *  Statistical principle (actor mode, group mode)
+ *  ------------------------------------------------------------
  *
- *  - "global" (norm_mode = 2):
- *       non-target:
- *         ∑_g [ ( ∑_r C(n_{g,r}, k) ) / n_g ],
- *       targeted:
- *         ∑_g [ C(n_{g,κ}, k) / n_g ],
- *   with the convention that groups with n_g = 0 contribute 0.
+ *  The bipartite network represents a partition structure:
  *
- * Special case for k = 1, "by_group", targeted:
- *   statistic = ∑_g 1[ n_{g,κ} ≥ 1 ].
+ *    - actor mode  : vertices corresponding to actors, each carrying
+ *                    a categorical covariate c(i),
+ *    - group mode  : vertices corresponding to structural groups.
  *
- * ----------------------------------------------------------------------------
- * Multi-toggle implementation in ergm
- * ----------------------------------------------------------------------------
+ *  Membership is encoded by edges between actors and groups.
  *
- * A D_ changestat receives a set of toggles (tails/heads arrays). Multiple
- * toggles may touch:
- *   - different groups, or
- *   - the SAME group multiple times in one proposal.
+ *  For each group g:
  *
- * Correctness requirement:
- * - Each toggle i must be evaluated against the CURRENT INTERMEDIATE network
- *   state after applying toggles 1..i-1, otherwise group degrees / category
- *   counts are wrong when a group is touched more than once.
+ *    - A(g)      = set of actors adjacent to g,
+ *    - n_g       = |A(g)| = group size,
+ *    - c(i)      = category code of actor i,
+ *    - n_{g,r}   = number of actors in group g with category r.
  *
- * Implementation strategy (standard ergm multi-toggle pattern):
- *   for each toggle i:
- *     1) read endpoints (TAIL(i), HEAD(i)),
- *     2) compute edgestate BEFORE toggling,
- *     3) recompute the local group contribution and accumulate Δ,
- *     4) temporarily apply the toggle (TOGGLE_IF_MORE_TO_COME(i)),
- *   then undo all temporary toggles (UNDO_PREVIOUS_TOGGLES(i)).
+ *  For an integer k ≥ 1, define the combinatorial quantity:
  *
- * ----------------------------------------------------------------------------
- * INPUT_PARAM layout
- * ----------------------------------------------------------------------------
- * Packed by InitErgmTerm.cov_match (R):
+ *      S_k(B; c) = ∑_g ∑_r C(n_{g,r}, k),
  *
- *   INPUT_PARAM = c(
- *     n1,
- *     K,
- *     norm_mode,
- *     has_kappa,
- *     kappa_code,
- *     ks[1:K],
- *     z_codes[1:n1]
- *   )
+ *  where C(a,b) denotes the binomial coefficient (with
+ *  C(a,b) = 0 whenever a < b).
  *
- * At C level (double* P = INPUT_PARAM):
- *   P[0]          = n1
- *   P[1]          = K
- *   P[2]          = norm_mode
- *   P[3]          = has_kappa
- *   P[4]          = kappa_code
- *   P[5 .. 5+K-1] = ks[0 .. K-1]
- *   P[5+K .. ]    = z_codes[0 .. n1-1]
+ *  Targeted version for a specific category κ:
  *
- * N_CHANGE_STATS must equal K (one component per k).
+ *      S_k^{(κ)}(B; c) = ∑_g C(n_{g,κ}, k).
  *
- * ----------------------------------------------------------------------------
- * Complexity
- * ----------------------------------------------------------------------------
- * For each toggle:
- *   - actor neighbourhood collection for the touched group is O(deg(group)),
- *   - histogram build is O(deg(group) * m) in the simple implementation below,
- *     where m is number of distinct categories in the group.
+ *  ------------------------------------------------------------
+ *  Normalisation modes
+ *  ------------------------------------------------------------
  *
- * No state is cached across toggles. This is acceptable for small/medium group
- * sizes and keeps the code simple and robust.
- * ============================================================================
+ *  The statistic can be normalized in three different ways:
+ *
+ *  1) "none" (norm_mode = 0)
+ *
+ *        statistic = S_k(B; c)
+ *
+ *     or in targeted mode:
+ *
+ *        statistic = S_k^{(κ)}(B; c)
+ *
+ *
+ *  2) "by_group" (norm_mode = 1)
+ *
+ *     Non-targeted:
+ *
+ *        ∑_g [ ( ∑_r C(n_{g,r}, k) ) / C(n_g, k) ]
+ *
+ *     Targeted:
+ *
+ *        ∑_g [ C(n_{g,κ}, k) / C(n_g, k) ]
+ *
+ *
+ *  3) "global" (norm_mode = 2)
+ *
+ *     Non-targeted:
+ *
+ *        ∑_g [ ( ∑_r C(n_{g,r}, k) ) / n_g ]
+ *
+ *     Targeted:
+ *
+ *        ∑_g [ C(n_{g,κ}, k) / n_g ]
+ *
+ *     Groups with n_g = 0 contribute zero.
+ *
+ *
+ *  Special case (k = 1, targeted, by_group):
+ *
+ *        statistic = ∑_g 1[n_{g,κ} ≥ 1]
+ *
+ *
+ *  ------------------------------------------------------------
+ *  Multi-toggle evaluation in \pkg{ergm}
+ *  ------------------------------------------------------------
+ *
+ *  In multi-toggle proposals, several toggles may affect:
+ *
+ *    - different groups, or
+ *    - the same group multiple times within a single proposal.
+ *
+ *  Each toggle must therefore be evaluated with respect to the
+ *  CURRENT intermediate network state after applying all previous
+ *  toggles in the proposal.
+ *
+ *  The standard \pkg{ergm} multi-toggle pattern is used:
+ *
+ *    for each toggle i:
+ *
+ *      1) read endpoints (TAIL(i), HEAD(i)),
+ *      2) compute the edge state BEFORE the toggle,
+ *      3) recompute the affected group contribution,
+ *      4) accumulate the local change Δ,
+ *      5) temporarily apply the toggle (TOGGLE_IF_MORE_TO_COME).
+ *
+ *  After processing all toggles, temporary modifications are reverted
+ *  using UNDO_PREVIOUS_TOGGLES.
+ *
+ *
+ *  ------------------------------------------------------------
+ *  INPUT_PARAM layout (from InitErgmTerm.cov_match)
+ *  ------------------------------------------------------------
+ *
+ *  The R initializer packs parameters as:
+ *
+ *      INPUT_PARAM = c(
+ *        n1,
+ *        K,
+ *        norm_mode,
+ *        has_kappa,
+ *        kappa_code,
+ *        ks[1:K],
+ *        z_codes[1:n1]
+ *      )
+ *
+ *  where:
+ *
+ *    - n1          = number of actors (size of actor mode),
+ *    - K           = number of k values requested,
+ *    - norm_mode   = normalization mode,
+ *    - has_kappa   = indicator for targeted mode,
+ *    - kappa_code  = targeted category code,
+ *    - ks          = vector of k values,
+ *    - z_codes     = categorical covariate codes for actors.
+ *
+ *
+ *  At the C level (double* P = INPUT_PARAM):
+ *
+ *      P[0]          = n1
+ *      P[1]          = K
+ *      P[2]          = norm_mode
+ *      P[3]          = has_kappa
+ *      P[4]          = kappa_code
+ *      P[5 .. 5+K-1] = ks[0 .. K-1]
+ *      P[5+K .. ]    = z_codes[0 .. n1-1]
+ *
+ *  The term returns K statistics:
+ *
+ *      - N_CHANGE_STATS = K
+ *      - one statistic component per value of k.
+ *
+ *
+ *  ------------------------------------------------------------
+ *  Computational complexity
+ *  ------------------------------------------------------------
+ *
+ *  For each toggle:
+ *
+ *    - collecting the actors adjacent to a group is O(deg(g)),
+ *    - constructing category counts is approximately
+ *      O(deg(g) × m), where m is the number of distinct
+ *      categories present in the group.
+ *
+ *  No caching is performed across toggles. This keeps the
+ *  implementation simple and robust, which is acceptable
+ *  for typical ERPM group sizes.
  */
 
 #include <R_ext/Print.h>

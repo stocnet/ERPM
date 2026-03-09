@@ -10,6 +10,7 @@
 #' @name InitErgmTerm.squared_sizes
 #' @aliases squared_sizes
 #' @note InitErgmTerm.squared_sizes.R
+#' @author Jérémie Chichignoud - Cub'itech
 #'
 #' @description
 #' \code{squared_sizes} is an ERGM term for bipartite networks that aggregates

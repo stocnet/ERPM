@@ -1,7 +1,7 @@
 # ======================================================================================
 # Fichier : scripts/test/selftests/selftest_dyadcov_GW.R
 # Objet   : Self-test autonome pour l'effet ERPM/ERGM `dyadcov_GW`
-# Exécution: Rscript scripts/test/selftests/selftest_dyadcov_GW.R
+# Auteur : Jérémie Chichignoud - Cub'itech
 #
 # But du fichier
 #   - PHASE 1 (SUMMARY) : valider summary() (réseau explicite vs ERPM traduit).
@@ -51,12 +51,12 @@ if (requireNamespace("devtools", quietly = TRUE) && file.exists("DESCRIPTION")) 
   stop("Le fichier DESCRIPTION n'existe pas ou devtools n'est pas installé.")
 }
 if (!exists("erpm", mode = "function")) {
-  if (file.exists("R/erpm_wrapper.R")) {
-    source("R/erpm_wrapper.R", local = FALSE)
-  } else stop("erpm_wrapper.R introuvable.")
+  if (file.exists("R/erpm.R")) {
+    source("R/erpm.R", local = FALSE)
+  } else stop("erpm.R introuvable.")
 }
 if (!exists("build_bipartite_from_inputs", mode = "function")) {
-  stop("build_bipartite_from_inputs() indisponible. Il doit être exporté par R/erpm_wrapper.R.")
+  stop("build_bipartite_from_inputs() indisponible. Il doit être exporté par R/erpm.R.")
 }
 if (!exists("InitErgmTerm.dyadcov_GW", mode = "function")) {
   stop("InitErgmTerm.dyadcov_GW introuvable après load_all().")
@@ -66,9 +66,9 @@ if (!exists("InitErgmTerm.dyadcov_GW", mode = "function")) {
 # Réglages de run (point clé du fichier)
 # ======================================================================================
 RUN <- list(
-  phase1_summary = FALSE,
+  phase1_summary = TRUE,
   phase2_fit     = TRUE,
-  phase3_mcmc    = FALSE,
+  phase3_mcmc    = TRUE,
 
   # "quiet" réduit la pollution console des phases 1/2 sans les supprimer.
   quiet_phase1   = FALSE,

@@ -9,6 +9,7 @@
 #' @name InitErgmTerm.dyadcov
 #' @aliases dyadcov
 #' @note InitErgmTerm.dyadcov.R
+#' @author Jérémie Chichignoud - Cub'itech
 #'
 #' @description
 #' \code{dyadcov} is an ERGM term for bipartite networks that aggregates a

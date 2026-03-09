@@ -1,7 +1,5 @@
 # ==============================================================================
-# Fichier : scripts/test/minimal_working_exemple/MWE_cov_fulldiff.R
-# Objet   : MWE minimal pour l’effet ERPM `cov_fulldiff`
-# Chaîne  : partition → biparti → summary(nw) / erpm(partition)
+# Minimal Working Exemple : cov_fuldiff — summary + fit
 # ==============================================================================
 
 Sys.setenv(LANG = "fr_FR.UTF-8")

@@ -1,7 +1,7 @@
 # ======================================================================================
 # Fichier : scripts/test/selftests/selftest_cov_match.R
 # Objet   : Self-test autonome pour l'effet ERPM/ERGM `cov_match` (multi-toggle)
-# Exécution: Rscript scripts/test/selftests/selftest_cov_match.R
+# Auteur : Jérémie Chichignoud - Cub'itech
 #
 # But du fichier
 #   - PHASE 1 (SUMMARY) : valider la statistique via summary(nw ~ cov_match(...)).
@@ -85,8 +85,8 @@ if (!exists("partition_to_bipartite_network", mode = "function")) {
   }
 }
 if (!exists("erpm", mode = "function") || !exists("build_bipartite_from_inputs", mode = "function")) {
-  if (file.exists("R/erpm_wrapper.R")) {
-    source("R/erpm_wrapper.R", local = FALSE)
+  if (file.exists("R/erpm.R")) {
+    source("R/erpm.R", local = FALSE)
   } else {
     cat("[WARN] erpm()/build_bipartite_from_inputs indisponibles. Certaines étapes seront sautées.\n")
   }
@@ -97,10 +97,10 @@ if (!exists("erpm", mode = "function") || !exists("build_bipartite_from_inputs",
 # ======================================================================================
 # Objectif: pouvoir isoler la phase MCMC multitoggle sans éditer 50 endroits.
 RUN <- list(
-  phase1_summary_expected = FALSE,
-  phase2_summary_equiv    = FALSE,
+  phase1_summary_expected = TRUE,
+  phase2_summary_equiv    = TRUE,
   phase3_erpm_fits        = TRUE,
-  phase4_mcmc_probe       = FALSE,
+  phase4_mcmc_probe       = TRUE,
 
   quiet_phase1            = FALSE,
   quiet_phase2            = FALSE,

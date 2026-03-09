@@ -5,6 +5,7 @@
 #'
 #' @name erpm_long_utils
 #' @note erpm_long_utils.R
+#' @author Jérémie Chichignoud - Cub'itech
 #'
 #' @description
 #' This file groups small utilities used by \code{erpm_long()} in PLE mode and by
@@ -22,6 +23,7 @@
 #' meta-network pathway.
 #'
 #' @keywords ERPM ERGM longitudinal PLE utils
+NULL
 ################################################################################
 
 # ------------------------------------------------------------------------------

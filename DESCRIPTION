@@ -7,6 +7,7 @@ Authors@R: c(
     person("Marion", "Hoffman", , "marion.hoffman.31@gmail.com", role = c("cre", "aut", "cph"),
            comment = c(ORCID = "0000-0002-0741-7760")),
     person(c("Pavel", "N."), "Krivitsky", role = c("aut"), email = "pavel@statnet.org", comment = c(ORCID = "0000-0002-9101-3362")),
+    person("Jérémie", "Chichignoud", email = "jeremie.chichignou@cub-itech.com", role = c("ctb")),
     person("Alexandra", "Amani", role = "ctb"),
     person("Nico", "Keiser", role = "ctb")
  )

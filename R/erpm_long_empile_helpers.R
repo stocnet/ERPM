@@ -5,6 +5,7 @@
 #'
 #' @name erpm_long_empile_helpers
 #' @note erpm_long_empile_helpers.R
+#' @author Jérémie Chichignoud - Cub'itech
 #'
 #' @description
 #' Placeholder for PLE-specific helpers.

@@ -9,6 +9,7 @@
 #'
 #' @name InitErgmProposal.ErpmSplitStep
 #' @aliases ErpmSplitStep
+#' @author Jérémie Chichignoud - Cub'itech
 #'
 #' @description
 #' ErpmSplitStep is a Metropolis-Hastings proposal used in ERPM when a partition

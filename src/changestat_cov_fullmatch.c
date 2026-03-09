@@ -1,34 +1,8 @@
-// ============================================================================
-// File    : src/changestat_cov_fullmatch.c
-// Purpose : Change statistic for the ERPM term `cov_fullmatch` (multi-toggle form).
-// Project : ERPM / ERGM extensions
-// ============================================================================
-//
-// IMPORTANT (multi-toggle / D_CHANGESTAT_FN):
-// - This term MUST support multi-toggle proposals (swap/split/merge expressed
-//   as a list of membership edge toggles).
-// - Therefore, the compiled change-statistic MUST be implemented using the
-//   D_CHANGESTAT_FN API.
-// - On the R side, InitErgmTerm.cov_fullmatch MUST advertise this to ergm by
-//   returning `d_func = TRUE`.
-// - If ergm calls a D_ function as a one-toggle C_ entrypoint, you will get
-//   a signature mismatch and (typically) a crash.
-//
-// Compiled symbol naming convention:
-// - Recommended: implement the C function as `d_cov_fullmatch` via
-//   D_CHANGESTAT_FN(d_cov_fullmatch).
-// - Avoid exposing a symbol named `c_cov_fullmatch` with a D-signature.
-//
-// ----------------------------------------------------------------------------
-//
-// The long header below is preserved from the one-toggle implementation,
-// but the algorithm is now *multi-toggle aware*.
-//
-// ----------------------------------------------------------------------------
-
 /**
  * @file changestat_cov_fullmatch.c
  * @brief  Change statistic for the ERPM term `cov_fullmatch` (multi-toggle form).
+ * 
+ * @author Jérémie Chichignoud
  *
  * @details
  *  This file implements the \pkg{ergm} change statistic for the ERPM effect

@@ -1,7 +1,7 @@
 # ======================================================================================
 # Fichier : scripts/test/selftests/selftest_cliques_GW.R
 # Objet   : Self-test autonome pour l'effet ERPM/ERGM `cliques_GW`
-# Exécution: Rscript scripts/test/selftests/selftest_cliques_GW.R
+# Auteur : Jérémie Chichignoud - Cub'itech
 #
 # But du fichier
 #   - PHASE 1 (SUMMARY) : valider la statistique via summary(nw ~ cliques_GW(...)).
@@ -51,8 +51,8 @@ if (file.exists("scripts/ergm_patch.R")) {
 if (requireNamespace("devtools", quietly = TRUE) && file.exists("DESCRIPTION")) {
   devtools::load_all(quiet = TRUE)
 } else {
-  if (file.exists("R/erpm_wrapper.R")) {
-    source("R/erpm_wrapper.R", local = FALSE)
+  if (file.exists("R/erpm.R")) {
+    source("R/erpm.R", local = FALSE)
   }
 }
 
@@ -61,7 +61,7 @@ if (!exists("InitErgmTerm.cliques_GW", mode = "function")) {
   stop("InitErgmTerm.cliques_GW introuvable. Charger le package (devtools::load_all) ou vérifier le fichier R.")
 }
 if (!exists("erpm", mode = "function")) {
-  stop("erpm() indisponible. Charger le wrapper via devtools::load_all ou source('R/erpm_wrapper.R').")
+  stop("erpm() indisponible. Charger le wrapper via devtools::load_all ou source('R/erpm.R').")
 }
 if (!exists("build_bipartite_from_inputs", mode = "function")) {
   stop("build_bipartite_from_inputs() indisponible. Il doit être exposé par le wrapper.")
@@ -73,7 +73,7 @@ if (!exists("build_bipartite_from_inputs", mode = "function")) {
 RUN <- list(
   phase1_summary = TRUE,   # TRUE = on valide summary() ; FALSE = on saute
   phase2_fit     = TRUE,   # TRUE = on fit un mini-modèle ; FALSE = on saute
-  phase3_mcmc    = FALSE,   # TRUE = on lance le probe multi-toggle ; FALSE = on saute
+  phase3_mcmc    = TRUE,   # TRUE = on lance le probe multi-toggle ; FALSE = on saute
 
   quiet_phase1   = FALSE,
   quiet_phase2   = FALSE

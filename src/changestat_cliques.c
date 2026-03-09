@@ -1,6 +1,8 @@
 /**
  * @file changestat_cliques.c
  * @brief  Change statistic for the ERPM term `cliques(k, normalized)` (multi-toggle).
+ * 
+ * @author Jérémie Chichignoud
  *
  * @details
  *  This file implements the \pkg{ergm} change statistic for the ERPM effect

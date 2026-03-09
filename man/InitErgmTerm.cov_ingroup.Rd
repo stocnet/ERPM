@@ -7,32 +7,6 @@
 \usage{
 InitErgmTerm.cov_ingroup(nw, arglist, ..., version = packageVersion("ergm"))
 }
-\arguments{
-\item{nw}{A \pkg{network} object.}
-
-\item{arglist}{A named list of term arguments. Expected components include:
-\itemize{
-\item \code{cov}: character (vertex attribute name) or numeric vector for actor covariates;
-\item \code{size}: optional integer vector of admissible group sizes;
-\item \code{category}: optional character scalar selecting a category when \code{cov} is categorical.
-}}
-
-\item{...}{Passed through by \pkg{ergm}; not used.}
-
-\item{version}{ERGM API version; not used.}
-}
-\value{
-A standard \pkg{ergm} term specification list with components:
-\itemize{
-\item \code{name}         = \code{"cov_ingroup"};
-\item \code{coef.names}   = a single coefficient name encoding the
-covariate label and the size filter;
-\item \code{inputs}       = numeric vector \code{INPUT_PARAM} as described
-above;
-\item \code{dependence}   = \code{TRUE};
-\item \code{emptynwstats} = \code{0}.
-}
-}
 \description{
 \code{cov_ingroup} is an ERGM term for bipartite networks that aggregates
 actor-level covariates within groups, with an optional filter on group sizes.
@@ -67,7 +41,7 @@ i.e. a group-size-weighted measure of how many actors with category
 }
 \details{
 The term is implemented as a native ERGM C change-statistic under the name
-\code{c_cov_ingroup}. The R initializer:
+\code{d_cov_ingroup} (multi-toggle form). The R initializer:
 \itemize{
 \item enforces that the network is bipartite and retrieves the actor-mode
 size from \code{nw \%n\% "bipartite"};
@@ -77,60 +51,20 @@ values on actors, either from a vertex attribute or a direct vector;
 into a sorted set \eqn{S} of positive integers;
 \item packs \eqn{n_1}, the size filter and \eqn{x} into a compact
 \code{INPUT_PARAM} vector consumed by the C code.
+\item sets \code{d_func = TRUE} to advertise multi-toggle support to ergm.
 }
 
-On each toggle of an actor-group edge, the C change-statistic recomputes the
-contribution of the affected group and updates the statistic in \eqn{O(n_g)}
-time for that group.
+On each toggle list (possibly with several toggles affecting the same group),
+the C change-statistic processes toggles sequentially, temporarily applying
+intermediate toggles so degrees and neighbour sums are consistent, then
+undoes them before returning.
 }
 \note{
 InitErgmTerm.cov_ingroup.R
-
-\itemize{
-\item The network must be bipartite and interpreted as actors versus
-groups. The actor mode size is taken from \code{nw \%n\% "bipartite"}
-and must be a strictly positive finite integer.
-\item When \code{cov} is given as an attribute name and \code{category} is
-\code{NULL}, the attribute is coerced to numeric; non-finite values
-(\code{NA}, \code{NaN}, \code{Inf}) are rejected in a fail-fast
-manner with a descriptive error.
-\item When \code{category} is provided, the underlying attribute is
-compared to the category at the R level, and missing values are
-treated as non-matching (indicator 0).
 }
-}
-\section{Mathematical definition}{
-
-Let:
-\itemize{
-\item \eqn{A} denote the set of actor-mode nodes with \eqn{|A| = n_1};
-\item \eqn{G} denote the set of group-mode nodes;
-\item \eqn{B} be the bipartite adjacency between actors and groups;
-\item \eqn{x : A \to \mathbb{R}} be a numeric covariate on actors;
-\item \eqn{S \subseteq \mathbb{N}} be a set of admissible group sizes.
-}
-For each group \eqn{g \in G}, define:
-\itemize{
-\item \eqn{n_g = \sum_{i \in A} B_{i,g}} the group size (number of actors);
-\item \eqn{X_g = \sum_{i \in A} B_{i,g} x_i} the sum of covariate values
-of actors in group \eqn{g}.
-}
-The statistic is:
-\deqn{
-  T(B; x, S) = \sum_{g \in G} n_g X_g \mathbf{1}[n_g \in S].
-}
-When a categorical attribute \eqn{c_i} and a category \eqn{\kappa} are used,
-we set \eqn{x_i = \mathbf{1}[c_i = \kappa]} and obtain:
-\deqn{
-  T(B; \kappa, S) =
-  \sum_{g \in G} n_g \left(\sum_{i \in g} \mathbf{1}[c_i = \kappa]\right)
-  \mathbf{1}[n_g \in S].
-}
-}
-
 \section{INPUT_PARAM layout (C side)}{
 
-The numeric vector passed to \code{c_cov_ingroup} has the following layout:
+The numeric vector passed to \code{d_cov_ingroup} has the following layout:
 
 \preformatted{
   INPUT_PARAM = c(
@@ -140,132 +74,8 @@ The numeric vector passed to \code{c_cov_ingroup} has the following layout:
     x[1:n1]      # covariate values on actors (numeric)
   )
 }
-
-The C code reconstructs:
-
-\itemize{
-\item the actor-mode size \eqn{n_1};
-\item the set \eqn{S} of admissible group sizes;
-\item the numeric covariate vector \eqn{x};
-}
-and then recomputes the local changes to \eqn{T(B; x, S)} when edges between
-actors and groups are toggled.
 }
 
-\section{Usage}{
-
-The user-facing term is:
-
-\preformatted{
-  cov_ingroup(cov,
-              size     = NULL,
-              category = NULL)
+\author{
+Jérémie Chichignoud - Cub'itech
 }
-
-Typical usage in an ERGM formula:
-
-\preformatted{
-  # Bipartite network with actor mode A and group mode G
-  summary(nw ~ cov_ingroup("age") + b1part)
-
-  # Restrict to groups with sizes 3, 4 or 5
-  summary(nw ~ cov_ingroup("age", size = 3:5) + b1part)
-
-  # Target a specific category of a categorical covariate
-  summary(nw ~ cov_ingroup("gender", category = "F") + b1part)
-}
-
-When using the ERPM wrapper, the same term can be used either on a bipartite
-network or directly on a partition representation:
-
-\preformatted{
-  erpm(nw ~ cov_ingroup("age"))
-  erpm(partition ~ cov_ingroup("gender", category = "F"))
-}
-}
-
-\section{Tests}{
-
-Self-tests for \code{cov_ingroup} (not shown here) typically:
-\itemize{
-\item build small bipartite networks with a known partition of actors into
-groups and known covariate values on the actor mode;
-\item compute, in pure R, the reference value
-\eqn{T(B; x, S) = \sum_g n_g (\sum_{i \in g} x_i)\mathbf{1}[n_g \in S]};
-\item compare these reference values to
-\code{summary(nw ~ cov_ingroup(...), constraints = ~ b1part)};
-\item verify that toggling a single actor-group tie changes the statistic
-by the local increment obtained by recomputing the contribution of
-the affected group only, as implemented in the C change-statistic
-\code{c_cov_ingroup}.
-}
-}
-
-\examples{
-\dontrun{
-  library(network)
-  library(ergm)
-
-  # -----------------------------------------------------------------------
-  # Build a small bipartite network: 4 actors, 2 groups
-  # -----------------------------------------------------------------------
-  n_actors <- 4
-  n_groups <- 2
-  n_total  <- n_actors + n_groups
-
-  adj <- matrix(0, n_total, n_total)
-
-  # Actors = 1..4, Groups = 5..6
-  # Group 5: actors 1, 2
-  adj[1, 5] <- adj[5, 1] <- 1
-  adj[2, 5] <- adj[5, 2] <- 1
-  # Group 6: actors 2, 3, 4
-  adj[2, 6] <- adj[6, 2] <- 1
-  adj[3, 6] <- adj[6, 3] <- 1
-  adj[4, 6] <- adj[6, 4] <- 1
-
-  nw <- network(adj, directed = FALSE, matrix.type = "adjacency")
-  nw \\%n\\% "bipartite" <- n_actors  # actor-mode size
-
-  # Numeric actor covariate (e.g. age)
-  age <- c(25, 30, 28, 40)
-  set.vertex.attribute(nw, "age", c(age, rep(NA_real_, n_groups)))
-
-  # Categorical actor covariate (e.g. gender)
-  gender <- c("F", "M", "F", "M")
-  set.vertex.attribute(nw, "gender", c(gender, rep(NA_character_, n_groups)))
-
-  # -----------------------------------------------------------------------
-  # Example 1: numeric covariate, all group sizes
-  # -----------------------------------------------------------------------
-  summary(
-    nw ~ cov_ingroup("age") + b1part
-  )
-
-  # -----------------------------------------------------------------------
-  # Example 2: numeric covariate, filter groups with size in {2, 3}
-  # -----------------------------------------------------------------------
-  summary(
-    nw ~ cov_ingroup("age", size = c(2, 3)) + b1part
-  )
-
-  # -----------------------------------------------------------------------
-  # Example 3: categorical covariate, targeted category "F"
-  # -----------------------------------------------------------------------
-  summary(
-    nw ~ cov_ingroup("gender", category = "F") + b1part
-  )
-
-  # Example ERGM fit
-  fit <- ergm(
-    nw ~ cov_ingroup("age", size = c(2, 3)) + b1part
-  )
-  summary(fit)
-}
-
-}
-\keyword{ERGM}
-\keyword{bipartite}
-\keyword{covariate}
-\keyword{groups}
-\keyword{term}

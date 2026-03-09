@@ -41,11 +41,26 @@ InitErgmTerm.dyadcov_GW.R
 }
 \section{Implementation and change-statistic}{
 
-The term is implemented as a native ERGM C change-statistic exposed under the
-symbol \code{c_dyadcov_GW}. The initializer packages \code{n1}, \code{lambda}
-and the flattened \code{dyadcov} matrix into \code{INPUT_PARAM}.
+The term is implemented as a native ERGM C change-statistic.
+
+IMPORTANT (multi-toggle / D_CHANGESTAT_FN):
+\itemize{
+\item This term MUST support multi-toggle proposals (swap/split/merge decomposed
+into multiple edge toggles).
+\item Therefore the compiled change-statistic is implemented as a D_ entrypoint:
+D_CHANGESTAT_FN(d_dyadcov_GW)
+\item On the R side, we MUST set \code{d_func = TRUE}, otherwise ergm will try to call
+a one-toggle C_ entrypoint and you risk a signature mismatch / segfault.
 }
 
+Parameter packing:
+INPUT_PARAM = c(n1, lambda, as.vector(Z))
+where as.vector(Z) uses R's column-major order (consistent with C indexing).
+}
+
+\author{
+Jérémie Chichignoud - Cub'itech
+}
 \keyword{ERGM}
 \keyword{bipartite}
 \keyword{cliques}

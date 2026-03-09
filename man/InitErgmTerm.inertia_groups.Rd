@@ -28,10 +28,12 @@ All paradigm-specific work must be done here by preparing \code{inputs}.
 
 Debugging:
 options(ERPM.inertia_groups.debug = TRUE) to enable debug logs
-options(ERPM.inertia_groups.debug = "deep") for verbose debug logs
 }
 \note{
 InitErgmTerm.inertia_groups.R
+}
+\author{
+Jérémie Chichignoud - Cub'itech
 }
 \keyword{ERGM}
 \keyword{ERPM}

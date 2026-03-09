@@ -10,6 +10,7 @@
 #' @name InitErgmTerm.cliques
 #' @aliases cliques
 #' @note InitErgmTerm.cliques.R
+#' @author Jérémie Chichignoud - Cub'itech
 #'
 #' @description
 #' \code{cliques} is an ERGM term for bipartite actor-group networks that counts

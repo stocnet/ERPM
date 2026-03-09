@@ -1,7 +1,7 @@
 # ======================================================================================
 # Fichier : scripts/test/selftests/selftest_cliques.R
 # Objet   : Self-test autonome pour l'effet ERPM/ERGM `cliques`
-# Exécution: Rscript scripts/test/selftests/selftest_cliques.R
+# Auteur : Jérémie Chichignoud - Cub'itech
 #
 # But du fichier
 #   - PHASE 1 (SUMMARY + TRANSLATION) : valider la statistique via summary(nw ~ cliques(...))
@@ -49,7 +49,7 @@ if (file.exists("scripts/ergm_patch.R")) {
 if (requireNamespace("devtools", quietly = TRUE) && file.exists("DESCRIPTION")) {
   devtools::load_all(quiet = TRUE)
 } else {
-  if (file.exists("R/erpm_wrapper.R")) source("R/erpm_wrapper.R", local = FALSE)
+  if (file.exists("R/erpm.R")) source("R/erpm.R", local = FALSE)
 }
 
 # Vérifs minimales des symboles requis
@@ -57,10 +57,10 @@ if (!exists("InitErgmTerm.cliques", mode = "function")) {
   stop("InitErgmTerm.cliques introuvable. Charge le package (devtools::load_all) ou assure-toi que le fichier R est présent.")
 }
 if (!exists("erpm", mode = "function")) {
-  stop("erpm() indisponible. Charge le wrapper via devtools::load_all ou source('R/erpm_wrapper.R').")
+  stop("erpm() indisponible. Charge le wrapper via devtools::load_all ou source('R/erpm.R').")
 }
 if (!exists("build_bipartite_from_inputs", mode = "function")) {
-  stop("build_bipartite_from_inputs() indisponible. Il doit être exporté par R/erpm_wrapper.R.")
+  stop("build_bipartite_from_inputs() indisponible. Il doit être exporté par R/erpm.R.")
 }
 
 # ======================================================================================

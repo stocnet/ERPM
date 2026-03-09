@@ -1,19 +1,6 @@
-# ======================================================================================
-# Fichier : scripts/test/minimal_working_exemple/MWE_squared_sizes.R
-#
-# Objet   : MWE pour l’effet ERPM `squared_sizes()` — calcule la stat observée (summary)
-#            via dry-run `erpm()` et calcule un fit ERGM via `erpm()`.
-#
-# Contexte: Chaîne ERPM → ERGM :
-#            partition -> réseau biparti -> traduction -> (dry) formule -> summary(formule) / ergm()
-#            partition -> réseau biparti -> traduction -> formule -> ergm()
-#
-# Résumé technique :
-#   • `squared_sizes()` est implémenté côté ERGM (InitErgmTerm + change-stat C).
-#   • La statistique vaut ∑_g |g|^2 sur le mode groupes du biparti.
-#   • Pour le summary : `erpm(..., eval.call=FALSE)` renvoie un appel `ergm(formule, ...)` non évalué.
-#     La formule capture `nw` dans son environnement ; `summary(formule, ...)` l’utilise.
-# ======================================================================================
+# ==============================================================================
+# Minimal Working Exemple : squared_sizes — summary + fit
+# ==============================================================================
 
 # ----- Préambule locale/UTF-8 ---------------------------------------------------------
 Sys.setenv(LANG = "fr_FR.UTF-8")

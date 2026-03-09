@@ -1,12 +1,8 @@
-// ============================================================================
-// File    : src/changestat_cov_fulldiff.c
-// Purpose : Change statistic for the ERPM term `cov_fulldiff` (MULTI-TOGGLE form)
-// Project : ERPM / ERGM extensions
-// ============================================================================
-
 /**
  * @file changestat_cov_fulldiff.c
  * @brief  Change statistic for the ERPM term `cov_fulldiff` (multi-toggle form).
+ * 
+ * @author Jérémie Chichignoud
  *
  * @details
  *  This file implements the \pkg{ergm} change statistic for the ERPM effect

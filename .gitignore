@@ -116,8 +116,8 @@ docs
 documentation/dev/**
 
 # ...but keep Phase 2 PDF
-!documentation/dev/avancement_P2/
-!documentation/dev/avancement_P2/avancement_P2.pdf
+# !documentation/dev/avancement_P2/
+# !documentation/dev/avancement_P2/avancement_P2.pdf
 
 # Generated dump of ERPM source files
 dump_*

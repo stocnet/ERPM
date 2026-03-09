@@ -1,7 +1,7 @@
 # ======================================================================================
 # Fichier : scripts/test/selftests/selftest_squared_sizes.R
 # Objet   : Self-test autonome pour l'effet ERPM `squared_sizes`
-# Exécution: Rscript scripts/test/selftests/selftest_squared_sizes.R
+# Auteur  : Jérémie Chichignoud - Cub'itech
 #
 # But du fichier
 #   - PHASE 1 (SUMMARY) : valider la statistique via summary(nw ~ squared_sizes(...)).
@@ -60,8 +60,8 @@ if (!exists("InitErgmTerm.squared_sizes", mode = "function")) {
 # Pour certains setups, le wrapper n'est pas attaché automatiquement.
 # On tente un source direct en fallback (sans magie).
 if (!exists("build_bipartite_from_inputs", mode = "function") || !exists("erpm", mode = "function")) {
-  if (file.exists("R/erpm_wrapper.R")) {
-    source("R/erpm_wrapper.R", local = FALSE)
+  if (file.exists("R/erpm.R")) {
+    source("R/erpm.R", local = FALSE)
   }
 }
 

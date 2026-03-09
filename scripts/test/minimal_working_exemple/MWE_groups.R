@@ -1,17 +1,6 @@
-# ======================================================================================
-# Fichier : scripts/test/minimal_working_exemple/MWE_groups.R
-#
-# Objet   : MWE pour l’effet ERPM `groups(k)` — calcule la stat observée (summary)
-#           et effectue un fit ERGM complet via `erpm()`, avec appels directs.
-#
-# Chaîne  : partition -> biparti (build_bipartite_from_inputs) -> summary(nw ~ ...)
-#           partition -> erpm(partition ~ ...) -> fit 
-#
-# Résumé technique :
-#   • `groups(k)` ≡ nombre de groupes de taille EXACTEMENT k.
-#   • Le wrapper traduit `groups(k)` en \pkg{ergm} `b2degrange(from=k, to=k+1)`.
-#   • On compare un summary direct sur `nw` et un summary via dry-run `erpm`.
-# ======================================================================================
+# ==============================================================================
+# Minimal Working Exemple : groups — summary + fit
+# ==============================================================================
 
 # ----- Préambule ----------------------------------------------------------------------
 options(ergm.loglik.warn_dyads = FALSE)  # (4) demandé

@@ -1,7 +1,7 @@
 # ======================================================================================
 # Fichier : scripts/test/selftests/selftest_cov_match_GW.R
 # Objet   : Self-test autonome pour l'effet ERPM/ERGM `cov_match_GW`
-# Exécution: Rscript scripts/test/selftests/selftest_cov_match_GW.R
+# Auteur : Jérémie Chichignoud - Cub'itech
 #
 # But du fichier
 #   - PHASE 1 (SUMMARY) : valider la statistique via summary(nw ~ cov_match_GW(...))
@@ -95,8 +95,8 @@ if (!exists("partition_to_bipartite_network", mode = "function")) {
   }
 }
 if (!exists("erpm", mode = "function") || !exists("build_bipartite_from_inputs", mode = "function")) {
-  if (file.exists("R/erpm_wrapper.R")) {
-    source("R/erpm_wrapper.R", local = FALSE)
+  if (file.exists("R/erpm.R")) {
+    source("R/erpm.R", local = FALSE)
   } else {
     cat("[WARN] erpm()/build_bipartite_from_inputs indisponibles. Certaines étapes seront sautées.\n")
   }
@@ -106,10 +106,10 @@ if (!exists("erpm", mode = "function") || !exists("build_bipartite_from_inputs",
 # Réglages de run (point clé)
 # ======================================================================================
 RUN <- list(
-  phase1_summary = FALSE,
-  phase2_equiv   = FALSE,
+  phase1_summary = TRUE,
+  phase2_equiv   = TRUE,
   phase3_fit     = TRUE,
-  phase4_mcmc    = FALSE,
+  phase4_mcmc    = TRUE,
 
   quiet_phase1   = FALSE,
   quiet_phase2   = FALSE,

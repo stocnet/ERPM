@@ -1,8 +1,8 @@
 # ==============================================================================
 # File    : scripts/test/selftests/selftest_ergm_prop_erpm_mix.R
+# Auteur : Jérémie Chichignoud - Cub'itech
 # Purpose : Self-test (via erpm wrapper) for ERPM MH proposal:
 #           - ErpmMix (mix of ErpmToggleStep / ErpmSwapStep under ~b1part)
-# Run     : Rscript scripts/test/selftests/selftest_ergm_prop_erpm_mix.R
 #
 # File purpose
 #   - PHASE 1 (SIMULATE) : simulate() with ErpmMix + b1part invariants.

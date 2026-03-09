@@ -5,6 +5,7 @@
 #'
 #' @name erpm_long_validators
 #' @note erpm_long_validators.R
+#' @author Jérémie Chichignoud - Cub'itech
 #'
 #' @description
 #' This file implements the validation layer used by \code{erpm_long()} before any
@@ -23,6 +24,7 @@
 #' dimensions, invalid past influence).
 #'
 #' @keywords ERPM ERGM longitudinal validators PLE
+NULL
 ################################################################################
 
 # ==============================================================================

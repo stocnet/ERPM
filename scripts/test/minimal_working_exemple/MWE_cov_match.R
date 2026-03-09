@@ -1,8 +1,5 @@
 # ==============================================================================
-# Fichier : scripts/test/minimal_working_exemple/MWE_cov_match.R
-# Objet   : MWE minimal pour l’effet ERPM `cov_match`
-# Chaîne  : partition → biparti → summary(nw) / erpm(partition)
-#           avec vérification des normalisations none / by_group / global
+# Minimal Working Exemple : cov_match — summary + fit
 # ==============================================================================
 
 Sys.setenv(LANG = "fr_FR.UTF-8")

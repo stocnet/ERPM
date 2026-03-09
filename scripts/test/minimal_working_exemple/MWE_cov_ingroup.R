@@ -1,7 +1,5 @@
 # ==============================================================================
-# Fichier : scripts/test/minimal_working_exemple/MWE_cov_ingroup.R
-# Objet   : MWE minimal pour l’effet ERPM `cov_ingroup`
-# Chaîne  : partition -> biparti -> summary(nw~...) ; partition -> erpm(dry) ; partition -> erpm(fit)
+# Minimal Working Exemple : cov_ingroup — summary + fit
 # ==============================================================================
 
 options(ergm.loglik.warn_dyads = FALSE)

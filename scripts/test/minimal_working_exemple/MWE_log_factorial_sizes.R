@@ -1,10 +1,5 @@
 # ==============================================================================
-# Fichier : scripts/test/minimal_working_exemple/MWE_log_factorial_sizes.R
-# Objet   : MWE pour l’effet ERPM `log_factorial_sizes`
-# Chaîne  : partition -> biparti (wrapper) -> summary de référence
-#           partition -> erpm(dry-run) -> summary observé -> comparaison
-#           partition -> erpm() -> summary(fit)
-# Stat    : Σ_g log((n_g - 1)!) = Σ_g lgamma(n_g) ; contrainte ~ b1part
+# Minimal Working Exemple : log_factorial_sizes — summary + fit
 # ==============================================================================
 
 options(ergm.loglik.warn_dyads = FALSE)
