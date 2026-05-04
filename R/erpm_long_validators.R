@@ -107,7 +107,7 @@
   lhs <- formula[[2L]]
   if (is.null(lhs)) .erpm_long_stop("[ERPM_LONG] Missing LHS in formula.")
 
-  partitions <- eval(lhs, envir = parent.frame())
+  partitions <- eval(lhs, envir = environment(formula), enclos = parent.frame())
 
   if (!is.list(partitions) || !length(partitions)) {
     .erpm_long_stop("[ERPM_LONG] LHS must evaluate to a non-empty list of partitions.")

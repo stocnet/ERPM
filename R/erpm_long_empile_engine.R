@@ -26,23 +26,13 @@
 # Low-level helpers (existing behavior)
 # ==============================================================================
 
-#' Enforce constant actor block size across estimation blocks (internal helper)
-#' @noRd
-.erpm_ple_assert_constant_nbr_actors_per_selected_partition <- function(partitions, selected_partition_indices) {
-  nbr_actors_by_t <- vapply(partitions, length, integer(1))
-  nbr_actors_per_selected_partition <- nbr_actors_by_t[selected_partition_indices[1L]]
-  if (any(nbr_actors_by_t[selected_partition_indices] != nbr_actors_per_selected_partition)) {
-    stop(sprintf(
-      "[ERPM_PLE] PLE(inertia_groups) requires constant nbr_actors_per_selected_partition across selected_partition_indices. Got nbr_actors_by_t[selected_partition_indices]=%s.",
-      paste(nbr_actors_by_t[selected_partition_indices], collapse = ",")
-    ))
-  }
-  nbr_actors_per_selected_partition
-}
-
 #' Build per-block past partitions container expected by inertia_groups (internal helper)
+#'
+#' Partitions may differ in length across time points. No constant-size
+#' constraint is enforced here; size mismatches are handled (with a warning)
+#' by InitErgmTerm.inertia_groups via n_eff per block.
 #' @noRd
-.erpm_ple_make_erpm_block_past_partitions <- function(partitions, selected_partition_indices, d, nbr_actors_per_selected_partition) {
+.erpm_ple_make_erpm_block_past_partitions <- function(partitions, selected_partition_indices, d) {
   B <- length(selected_partition_indices)
   out <- vector("list", B)
 
@@ -53,15 +43,14 @@
     for (lag in seq_len(d)) {
       t_past <- t_cur - lag
       if (t_past < 1L) {
-        stop(sprintf("[ERPM_PLE] internal: t_past=%d < 1 (b=%d, lag=%d). selected_partition_indicesmust start at d+1.",
+        stop(sprintf("[ERPM_PLE] internal: t_past=%d < 1 (b=%d, lag=%d). selected_partition_indices must start at d+1.",
                      t_past, b, lag))
       }
 
       p <- partitions[[t_past]]
 
-      if (is.null(p) || !is.atomic(p) || length(p) != nbr_actors_per_selected_partition) {
-        stop(sprintf("[ERPM_PLE] past partition invalid at time=%d (expected atomic length nbr_actors_per_selected_partition=%d).",
-                     t_past, nbr_actors_per_selected_partition))
+      if (is.null(p) || !is.atomic(p)) {
+        stop(sprintf("[ERPM_PLE] past partition invalid at time=%d (must be an atomic vector).", t_past))
       }
       if (anyNA(p)) {
         stop(sprintf("[ERPM_PLE] past partition at time=%d contains NA.", t_past))
@@ -888,7 +877,8 @@ compute_blocks <- function(partitions, inertial_present = FALSE, d = 0L) {
   # Compute block boundaries in the reindexed meta-partition
   data.frame(
     block_starts = cumsum(l) - l + 1,
-    block_ends   = cumsum(l)
+    block_ends   = cumsum(l),
+    block_sizes  = l
   )
 }
 
@@ -911,37 +901,21 @@ compute_blocks <- function(partitions, inertial_present = FALSE, d = 0L) {
                                                         verbose) {
   if (d < 1L) stop("[ERPM_PLE] inertia_groups requires past_influence >= 1.")
 
-  nbr_actors_per_selected_partition <- .erpm_ple_assert_constant_nbr_actors_per_selected_partition(partitions, selected_partition_indices= selected_partition_indices)
-
-  B <- length(selected_partition_indices)
-  G_block <- nbr_actors_per_selected_partition
-
-  # Sanity check: bipartite size must be nbr_actors_per_selected_partition * B
-  n1_total <- as.integer(network::get.network.attribute(meta_nw, "bipartite"))
-  if (is.na(n1_total) || n1_total != nbr_actors_per_selected_partition * B) {
-    stop(sprintf(
-      "[ERPM_PLE] inconsistent bipartite size for inertia_groups: bipartite=%s but nbr_actors_per_selected_partition*B=%d*%d=%d.",
-      as.character(n1_total), nbr_actors_per_selected_partition, B, nbr_actors_per_selected_partition * B
-    ))
-  }
-
   erpm_block_past_partitions <- .erpm_ple_make_erpm_block_past_partitions(
-    partitions = partitions,
-    selected_partition_indices   = selected_partition_indices,
-    d          = d,
-    nbr_actors_per_selected_partition    = nbr_actors_per_selected_partition
+    partitions                 = partitions,
+    selected_partition_indices = selected_partition_indices,
+    d                          = d
   )
 
-  # Attributes expected by InitErgmTerm.inertia_groups.R (PLE mode)
+  # Only erpm_mode and past partitions are needed; block structure is derived
+  # by InitErgmTerm.inertia_groups from erpm_long.* bookkeeping attributes and
+  # the timeblock vertex attribute (both already set by the engine orchestrator).
   network::set.network.attribute(meta_nw, "erpm_mode", "empile")
-  network::set.network.attribute(meta_nw, "erpm_B", B)
-  network::set.network.attribute(meta_nw, "erpm_n", nbr_actors_per_selected_partition)
-  network::set.network.attribute(meta_nw, "erpm_G", G_block)
   network::set.network.attribute(meta_nw, "erpm_block_past_partitions", erpm_block_past_partitions)
 
   if (isTRUE(verbose)) {
-    message(sprintf("[ERPM_PLE] inertia_groups attrs attached: erpm_mode=empile | erpm_B=%d | erpm_n=%d | erpm_G=%d",
-                    B, nbr_actors_per_selected_partition, G_block))
+    B <- length(selected_partition_indices)
+    message(sprintf("[ERPM_PLE] inertia_groups attrs attached: erpm_mode=empile | B=%d", B))
   }
 
   meta_nw

@@ -246,11 +246,18 @@ erpm_long <- function(formula,
                       seed = NULL,
                       nodes = NULL,
                       dyads = NULL,
-                      group_labels = NULL) {
+                      group_labels = NULL,
+                      constraints = NULL,
+                      summary_test = FALSE) {
 
   # ---------------------------------------------------------------------------
   # 1) Validate inputs + resolve derived settings
   # ---------------------------------------------------------------------------
+  # Propagate debug flag to constraint-level options for the duration of this call.
+  .old_b1bd_dbg <- getOption("ERPM.b1partblockdiag.debug", FALSE)
+  if (isTRUE(debug)) options(ERPM.b1partblockdiag.debug = TRUE)
+  on.exit(options(ERPM.b1partblockdiag.debug = .old_b1bd_dbg), add = TRUE)
+
   validated <- .erpm_long_validate_inputs(
     formula       = formula,
     mode          = mode,
@@ -302,16 +309,25 @@ erpm_long <- function(formula,
   # ---------------------------------------------------------------------------
   # 3) Compose erpm() call on the meta-network
   # ---------------------------------------------------------------------------
+  if (isTRUE(summary_test)) {
+    # For testing: return the summary() statistic value for the given formula
+    stat_summary <- as.numeric(summary(as.formula(call("~", meta_nw, rhs))))
+    if (isTRUE(verbose)) {
+      .erpm_long_vcat(verbose, sprintf("[ERPM_LONG] summary(formula) = %g", stat_summary))
+    }
+    return(stat_summary)
+  }
   call_erpm <- as.call(c(
     list(as.name("erpm"), as.formula(call("~", meta_nw, rhs))),
-    if (!is.null(eval.call))    list(eval.call = eval.call)     else list(),
-    if (!is.null(verbose))      list(verbose = verbose)         else list(),
-    # if (isTRUE(debug))          list(debug = TRUE)              else list(),
-    if (!is.null(estimate))     list(estimate = estimate)       else list(),
-    if (!is.null(eval.loglik))  list(eval.loglik = eval.loglik) else list(),
-    if (!is.null(control))      list(control = control)         else list(),
-    if (!is.null(timeout))      list(timeout = timeout)         else list(),
-    if (!is.null(seed))         list(seed = seed)               else list()
+    if (!is.null(eval.call))    list(eval.call = eval.call)         else list(),
+    if (!is.null(verbose))      list(verbose = verbose)             else list(),
+    if (isTRUE(debug))             list(debug = debug)               else list(),
+    if (!is.null(estimate))     list(estimate = estimate)           else list(),
+    if (!is.null(eval.loglik))  list(eval.loglik = eval.loglik)     else list(),
+    if (!is.null(control))      list(control = control)             else list(),
+    if (!is.null(timeout))      list(timeout = timeout)             else list(),
+    if (!is.null(seed))         list(seed = seed)                   else list(),
+    if (!is.null(constraints))  list(constraints = constraints)     else list()
   ))
 
   if (isTRUE(eval.call)) return(call_erpm)

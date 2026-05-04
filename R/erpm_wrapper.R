@@ -252,6 +252,7 @@ if (!exists(".erpm_parse_formula", mode = "function") &&
 erpm <- function(formula,
                  eval.call    = TRUE,
                  verbose      = TRUE,
+                 debug        = FALSE,
                  estimate     = NULL,
                  eval.loglik  = NULL,
                  control      = NULL,
@@ -403,6 +404,12 @@ erpm <- function(formula,
   }
 
   # --- 6) Evaluate or return -------------------------------------------------
+  # Propagate debug flag to constraint-level option so InitErgmConstraint.b1partblockdiag
+  # prints its diagnostic messages during the ergm() call below.
+  .old_b1bd_dbg <- getOption("ERPM.b1partblockdiag.debug", FALSE)
+  if (isTRUE(debug)) options(ERPM.b1partblockdiag.debug = TRUE)
+  on.exit(options(ERPM.b1partblockdiag.debug = .old_b1bd_dbg), add = TRUE)
+
   if (!isTRUE(eval.call) && isTRUE(verbose)) {
     cat("\t dry-run ergm call : ",
         paste(deparse(ergm_call, width.cutoff = 500L), collapse = " "),
