@@ -583,7 +583,8 @@ cat("SECTION 2) SUMMARY vs OFFLINE COMPUTATION (datasets #1 and #2)\n")
 cat("================================================================================\n")
 
 .run_summary_case <- function(label, partitions, nodes_arg, dyads_arg, rhs_expr,
-                             cov_attr = NULL, dyad_name = NULL, past_influence = 1L) {
+                             cov_attr = NULL, dyad_name = NULL, past_influence = 1L,
+                             size = NULL) {
   cat("\n------------------------------------------------------------\n")
   cat(label, "\n")
   dbgcat("nodes: ", if (is.null(nodes_arg)) "NULL" else "filled",
@@ -659,7 +660,8 @@ cat("===========================================================================
   if (want_cliques) o <- c(o, .expected_cliques_k2(nw))
   if (want_cov)     o <- c(o, .expected_cov_match_k2_none(nw, cov_attr))
   if (want_dyad)    o <- c(o, .expected_dyadcov_k2_raw(nw, dyad_name))
-  if (want_inert)   o <- c(o, .expected_inertia_groups(nw, past_influence = past_influence))
+  if (want_inert)   o <- c(o, .expected_inertia_groups(nw, past_influence = past_influence,
+                                                        size = size))
 
   sval <- as.numeric(s)
 
@@ -699,6 +701,10 @@ rhs_1J  <- quote(
     inertia_groups(past_influence = 1)
 )
 rhs_1K  <- quote(inertia_groups(past_influence = 2))
+# size-filter variants (d=1) — attendu : size=1→1, size=2→0, size=1:2→1
+rhs_1L  <- quote(inertia_groups(past_influence = 1L, size = 1L))
+rhs_1M  <- quote(inertia_groups(past_influence = 1L, size = 2L))
+rhs_1N  <- quote(inertia_groups(past_influence = 1L, size = 1:2))
 
 cat("\n--- DATASET #1 (n=4) ---\n")
 .run_summary_case("S2.1A) nodes=NULL;   dyads=NULL;   cliques",
@@ -734,6 +740,13 @@ cat("\n--- DATASET #1 (n=4) ---\n")
 .run_summary_case("S2.1K) nodes=NULL;   dyads=NULL;   inertia_groups(d=2)",
                   partitions, NULL, NULL, rhs_1K, past_influence = 2L)
 
+.run_summary_case("S2.1L) size filter: inertia_groups(d=1, size=1)",
+                  partitions, NULL, NULL, rhs_1L, past_influence = 1L, size = 1L)
+.run_summary_case("S2.1M) size filter: inertia_groups(d=1, size=2)",
+                  partitions, NULL, NULL, rhs_1M, past_influence = 1L, size = 2L)
+.run_summary_case("S2.1N) size filter: inertia_groups(d=1, size=1:2)",
+                  partitions, NULL, NULL, rhs_1N, past_influence = 1L, size = 1:2)
+
 # ---------------------------
 # Dataset #2: RHS blocks
 #   - cov_match uses "sex", dyadcov uses "X1"
@@ -752,6 +765,10 @@ rhs_2J  <- quote(
     inertia_groups(past_influence = 1)
 )
 rhs_2K  <- quote(inertia_groups(past_influence = 2))
+# size-filter variants (d=2) — attendu : size=2→2, size=1→0, size=1:2→2
+rhs_2L  <- quote(inertia_groups(past_influence = 2L, size = 2L))
+rhs_2M  <- quote(inertia_groups(past_influence = 2L, size = 1L))
+rhs_2N  <- quote(inertia_groups(past_influence = 2L, size = 1:2))
 
 cat("\n--- DATASET #2 (n=5) ---\n")
 .run_summary_case("S2.2A) nodes=NULL;   dyads=NULL;   cliques",
@@ -786,6 +803,13 @@ cat("\n--- DATASET #2 (n=5) ---\n")
 
 .run_summary_case("S2.2K) nodes=NULL;   dyads=NULL;   inertia_groups(d=2)",
                   partitions2, NULL, NULL, rhs_2K, past_influence = 2L)
+
+.run_summary_case("S2.2L) size filter: inertia_groups(d=2, size=2)",
+                  partitions2, NULL, NULL, rhs_2L, past_influence = 2L, size = 2L)
+.run_summary_case("S2.2M) size filter: inertia_groups(d=2, size=1)",
+                  partitions2, NULL, NULL, rhs_2M, past_influence = 2L, size = 1L)
+.run_summary_case("S2.2N) size filter: inertia_groups(d=2, size=1:2)",
+                  partitions2, NULL, NULL, rhs_2N, past_influence = 2L, size = 1:2)
 
 cat("\nSECTION 2 DONE.\n")
 
@@ -889,6 +913,10 @@ cat("\n--- DATASET #2 FITS (n=5) ---\n")
 .run_fit_case("S3.2I) nodes=filled; dyads=filled; dyadcov + inertia_groups",      partitions2, nodes2, dyads2, rhs_2I)
 .run_fit_case("S3.2J) nodes=filled; dyads=filled; ALL (d=1)",                     partitions2, nodes2, dyads2, rhs_2J)
 .run_fit_case("S3.2K) nodes=NULL;   dyads=NULL;   inertia_groups(d=2)",           partitions2, NULL,   NULL,   rhs_2K)
+
+cat("\n--- SIZE FILTER FITS ---\n")
+.run_fit_case("S3.1L) size filter: inertia_groups(d=1, size=1)  dataset #1",      partitions,  NULL,   NULL,   rhs_1L)
+.run_fit_case("S3.2L) size filter: inertia_groups(d=2, size=2)  dataset #2",      partitions2, NULL,   NULL,   rhs_2L)
 
 } # end if (.patch_enabled)
 

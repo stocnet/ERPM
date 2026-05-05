@@ -120,4 +120,4 @@ documentation/dev/**
 !documentation/dev/avancement_P2/avancement_P2.pdf
 
 # Generated dump of ERPM source files
-dump_*
+/dump/

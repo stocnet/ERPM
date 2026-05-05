@@ -67,6 +67,32 @@ ref_inertia_groups <- function(partitions, d = 1L) {
   cnt
 }
 
+# Idem, avec filtre sur la taille du groupe courant.
+# sizes = NULL → pas de filtre (équivalent à ref_inertia_groups)
+ref_inertia_groups_size <- function(partitions, d = 1L, sizes = NULL) {
+  sizes <- if (is.null(sizes)) integer(0) else sort(unique(as.integer(sizes)))
+  T <- length(partitions)
+  d <- as.integer(d)
+  cnt <- 0L
+  for (t in seq(d + 1L, T)) {
+    cur <- partitions[[t]]
+    n_t <- length(cur)
+    for (i in seq_len(n_t)) {
+      g_cur <- sort(which(cur == cur[i]))
+      if (length(sizes) && !(length(g_cur) %in% sizes)) next
+      for (lag in seq_len(d)) {
+        prev <- partitions[[t - lag]]
+        if (length(prev) != n_t) next
+        if (identical(g_cur, sort(which(prev == prev[i])))) {
+          cnt <- cnt + 1L
+          break
+        }
+      }
+    }
+  }
+  cnt
+}
+
 # ==============================================================================
 # EXEMPLE 1 — Données codées en dur
 # ==============================================================================
@@ -137,6 +163,40 @@ cat(sprintf("  inertia_groups(d=2) : obs=%-6g  ref=%-6g  %s\n",
             obs1_d2, ref1_d2,
             if (isTRUE(all.equal(obs1_d2, ref1_d2, tol = 0))) "OK" else "*** MISMATCH ***"))
 stopifnot(isTRUE(all.equal(obs1_d2, ref1_d2, tol = 0)))
+
+# ---- Size filter (réutilise meta_nw1 déjà construit) ----
+# partitions1 : seuls les groupes de taille 2 sont inertiels → size=2 == sans filtre,
+# size=1 == 0, size=1:2 == sans filtre.
+cat("\n--- Size filter : inertia_groups(d=1, size=...) ---\n")
+
+ref1_s2  <- ref_inertia_groups_size(partitions1, d = 1L, sizes = 2L)
+ref1_s1  <- ref_inertia_groups_size(partitions1, d = 1L, sizes = 1L)
+ref1_s12 <- ref_inertia_groups_size(partitions1, d = 1L, sizes = 1:2)
+
+obs1_s2  <- as.numeric(summary(
+  meta_nw1 ~ inertia_groups(past_influence = 1L, size = 2L),
+  constraints = ~ b1partblockdiag("timeblock")
+))
+obs1_s1  <- as.numeric(summary(
+  meta_nw1 ~ inertia_groups(past_influence = 1L, size = 1L),
+  constraints = ~ b1partblockdiag("timeblock")
+))
+obs1_s12 <- as.numeric(summary(
+  meta_nw1 ~ inertia_groups(past_influence = 1L, size = 1:2),
+  constraints = ~ b1partblockdiag("timeblock")
+))
+
+cat(sprintf("  size=2  : obs=%-6g  ref=%-6g  %s\n", obs1_s2,  ref1_s2,
+            if (isTRUE(all.equal(obs1_s2,  ref1_s2,  tol = 0))) "OK" else "*** MISMATCH ***"))
+cat(sprintf("  size=1  : obs=%-6g  ref=%-6g  %s\n", obs1_s1,  ref1_s1,
+            if (isTRUE(all.equal(obs1_s1,  ref1_s1,  tol = 0))) "OK" else "*** MISMATCH ***"))
+cat(sprintf("  size=1:2: obs=%-6g  ref=%-6g  %s\n", obs1_s12, ref1_s12,
+            if (isTRUE(all.equal(obs1_s12, ref1_s12, tol = 0))) "OK" else "*** MISMATCH ***"))
+stopifnot(
+  isTRUE(all.equal(obs1_s2,  ref1_s2,  tol = 0)),
+  isTRUE(all.equal(obs1_s1,  ref1_s1,  tol = 0)),
+  isTRUE(all.equal(obs1_s12, ref1_s12, tol = 0))
+)
 
 # ---- Fit ERPM ----
 # Note : eval.loglik=FALSE contourne un bug dans ergm 4.10.x (replace() appelé
