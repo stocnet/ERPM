@@ -201,28 +201,3 @@ NULL
 # Inertia-specific getters (PLE)
 # ------------------------------------------------------------------------------
 
-#' Fetch PLE inertia_groups block metadata from a meta-network (internal helper)
-#' @param nw PLE meta-network.
-#' @return List with B, n_block, G_block, past_by_block.
-#' @noRd
-.erpm_long_get_erpm_blocks_for_inertia <- function(nw) {
-  mode <- network::get.network.attribute(nw, "erpm_mode")
-  if (is.null(mode) || is.na(mode) || !identical(as.character(mode), "empile")) {
-    stop("[ERPM_LONG] inertia_groups expects PLE meta-network with %n% 'erpm_mode' == 'empile'.")
-  }
-
-  B <- as.integer(network::get.network.attribute(nw, "erpm_B"))
-  n <- as.integer(network::get.network.attribute(nw, "erpm_n"))
-  G <- as.integer(network::get.network.attribute(nw, "erpm_G"))
-
-  if (any(is.na(c(B, n, G))) || any(c(B, n, G) <= 0L)) {
-    stop("[ERPM_LONG] missing/invalid inertia_groups attrs: erpm_B, erpm_n, erpm_G.")
-  }
-
-  past <- network::get.network.attribute(nw, "erpm_block_past_partitions")
-  if (is.null(past) || !is.list(past) || length(past) != B) {
-    stop(sprintf("[ERPM_LONG] missing/invalid erpm_block_past_partitions (expected list length B=%d).", B))
-  }
-
-  list(B = B, n_block = n, G_block = G, past_by_block = past)
-}

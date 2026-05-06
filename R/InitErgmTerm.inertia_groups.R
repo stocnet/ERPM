@@ -1,7 +1,7 @@
 ################################################################################
 # FILE: R/InitErgmTerm.inertia_groups.R
 ################################################################################
-#' ERGM inertial term: inertia_groups (PLS/PLE-ready)
+#' ERGM inertial term: inertia_groups (PLE)
 #'
 #' @name InitErgmTerm.inertia_groups
 #' @aliases inertia_groups
@@ -9,26 +9,24 @@
 #' @author Jérémie Chichignoud - Cub'itech
 #'
 #' @description
-#' \code{inertia_groups} is a longitudinal (inertial) ERGM term intended to be used
-#' with \code{erpm_long()} under either:
-#' \itemize{
-#'   \item PLS (sequential): one bipartite network per time, with past partitions attached
-#'         to the current network as network attributes;
-#'   \item PLE (stacked): one stacked block-diagonal bipartite meta-network, with per-block
-#'         past observed partitions attached to the network.
-#' }
+#' \code{inertia_groups} is a longitudinal (inertial) ERGM term intended to be
+#' used with \code{erpm_long()} in PLE (stacked) mode: one block-diagonal
+#' bipartite meta-network, with per-block past observed partitions attached.
 #'
 #' This InitErgmTerm is responsible for:
 #' \enumerate{
 #'   \item validating user arguments (past_influence, type, size, ...);
-#'   \item detecting whether the current network carries PLS or PLE longitudinal attributes;
-#'   \item extracting the relevant past partitions from network attributes;
-#'   \item packing \code{inputs} for the generic C changestat \code{c_inertia_groups}.
+#'   \item deriving block structure from engine-set attributes
+#'         (\code{erpm_long.selected_partition_indices},
+#'          \code{erpm_long.nbr_actors_by_t}, vertex attribute \code{timeblock});
+#'   \item computing per-block effective comparison size \code{n_eff} and
+#'         warning if partition lengths differ across time;
+#'   \item packing \code{inputs} for the C changestat \code{c_inertia_groups}.
 #' }
 #'
 #' IMPORTANT:
 #' The changestat code is paradigm-agnostic for \code{type="exogenous"}.
-#' All paradigm-specific work must be done here by preparing \code{inputs}.
+#' All paradigm-specific work is done here by preparing \code{inputs}.
 #'
 #' Debugging:
 #'   options(ERPM.inertia_groups.debug = TRUE) to enable debug logs
@@ -45,18 +43,7 @@ NULL
 #' @noRd
 `%||%` <- function(x, y) if (is.null(x)) y else x
 
-#' Debug printer (local, inspired by InitErgmTerm.cliques style)
-#'
-#' The initializer emits debug logs through ergm's init warning channel:
-#' - it avoids polluting the console during MCMC/initialization;
-#' - users can inspect messages via warnings().
-#'
-#' Debug is controlled by an R option (preferred):
-#'   options(ERPM.inertia_groups.debug = TRUE) or "deep"
-#'
-#' A term argument `debug` is still accepted for backward compatibility, but
-#' it is treated as an override only when explicitly provided.
-#'
+#' Debug printer (local)
 #' @noRd
 .inertia_groups_dbg <- function(termname, debug, ...) {
   if (!isTRUE(debug)) return(invisible(NULL))
@@ -116,18 +103,11 @@ NULL
   sort(unique(v_int))
 }
 
-#' Partition -> list of groups (actor indices 1..n_block), as integer vectors
+#' Partition -> list of groups (local actor indices 1..n_eff), as integer vectors
 #' @noRd
 .inertia_groups_groups_from_partition <- function(p) {
   p <- as.integer(p)
   split(seq_along(p), p)
-}
-
-#' Groups -> sorted global actor ids for block b (global actor space 1..n1_total)
-#' @noRd
-.inertia_groups_groups_to_global_ids <- function(groups, b, n_block) {
-  off <- (b - 1L) * n_block
-  lapply(groups, function(v) sort(off + as.integer(v)))
 }
 
 #' Apply size filter on a list of integer vectors
@@ -165,30 +145,27 @@ InitErgmTerm.inertia_groups <- function(nw, arglist, ..., version = packageVersi
   if (!is.null(names(arglist)) && "sizes" %in% names(arglist) && !"size" %in% names(arglist))
     arglist[["size"]] <- arglist[["sizes"]]
 
-  # Use ergm's standard checking for defaults and basic types.
-  # Debug is special: accept TRUE/FALSE/"deep".
   a <- ergm::check.ErgmTerm(
     nw, arglist,
     directed      = NULL,
     bipartite     = TRUE,
     varnames      = c("past_influence", "type", "size", "debug"),
     vartypes      = c("numeric", "character", "ANY", "ANY"),
-    defaultvalues = list(1, "exogenous", NULL, NULL), # <- debug default from option below
+    defaultvalues = list(1, "exogenous", NULL, NULL),
     required      = c(FALSE, FALSE, FALSE, FALSE)
   )
 
   # ---------------------------------------------------------------------------
   # Debug control
   # ---------------------------------------------------------------------------
-  opt_dbg <- getOption("ERPM.inertia_groups.debug", TRUE)
-
-  debug_raw <- a$debug
+  opt_dbg    <- getOption("ERPM.inertia_groups.debug", TRUE)
+  debug_raw  <- a$debug
   if (is.null(debug_raw)) debug_raw <- opt_dbg
 
   debug <- isTRUE(debug_raw) ||
     (is.character(debug_raw) && length(debug_raw) == 1L && !is.na(debug_raw) &&
        tolower(trimws(debug_raw)) %in% c("deep", "true", "t", "1"))
-  deep <- is.character(debug_raw) && length(debug_raw) == 1L && !is.na(debug_raw) &&
+  deep  <- is.character(debug_raw) && length(debug_raw) == 1L && !is.na(debug_raw) &&
     tolower(trimws(debug_raw)) == "deep"
 
   d <- .inertia_groups_as_int1(a$past_influence, name = "past_influence", termname = termname)
@@ -209,7 +186,7 @@ InitErgmTerm.inertia_groups <- function(nw, arglist, ..., version = packageVersi
                       if (isTRUE(deep)) "TRUE" else "FALSE")
 
   # ---------------------------------------------------------------------------
-  # 1) Read bipartite size and longitudinal mode
+  # 1) Read bipartite size and validate erpm_mode (PLE only)
   # ---------------------------------------------------------------------------
   n1_total <- network::get.network.attribute(nw, "bipartite")
   if (is.null(n1_total) || is.na(n1_total)) {
@@ -221,172 +198,184 @@ InitErgmTerm.inertia_groups <- function(nw, arglist, ..., version = packageVersi
   }
 
   erpm_mode <- network::get.network.attribute(nw, "erpm_mode")
-  if (is.null(erpm_mode) || is.na(erpm_mode)) erpm_mode <- "empile"
-  erpm_mode <- as.character(erpm_mode)
+  if (is.null(erpm_mode) || is.na(erpm_mode) ||
+      !identical(as.character(erpm_mode), "empile")) {
+    .inertia_groups_stop(termname,
+      "inertia_groups requires a PLE (empile) meta-network. ",
+      "Missing or invalid %%n%% 'erpm_mode' (got: ",
+      if (is.null(erpm_mode)) "NULL" else as.character(erpm_mode), ").")
+  }
 
-  is_PLE <- identical(erpm_mode, "empile")
-  is_PLS <- !is_PLE
-
-  .inertia_groups_dbg(termname, debug,
-                      "network: erpm_mode=%s | paradigm=%s | n1_total=%d",
-                      erpm_mode, if (is_PLE) "PLE" else "PLS", n1_total)
-
-  # type handling
-  if ( identical(type, "endogenous") ) {
-    if (!is_PLE) {
-      .inertia_groups_stop(termname, "`type=\"endogenous\"` is only meaningful in PLE (stacked) mode.")
-    }
+  if (identical(type, "endogenous")) {
     .inertia_groups_stop(termname, "`type=\"endogenous\"` is not implemented yet.")
   }
   if (!identical(type, "exogenous")) {
-    .inertia_groups_stop(termname, "`type` must be \"exogenous\" (default) or \"endogenous\" (not implemented).")
+    .inertia_groups_stop(termname,
+      "`type` must be \"exogenous\" (default) or \"endogenous\" (not implemented).")
   }
 
   # ---------------------------------------------------------------------------
-  # 2) Determine block structure (B, n_block, G_block)
+  # 2) Derive block structure from engine-set bookkeeping attributes
   # ---------------------------------------------------------------------------
-  if (is_PLE) {
-    B       <- as.integer(network::get.network.attribute(nw, "erpm_B"))
-    n_block <- as.integer(network::get.network.attribute(nw, "erpm_n"))
-    G_block <- as.integer(network::get.network.attribute(nw, "erpm_G"))
+  sel_idx  <- network::get.network.attribute(nw, "erpm_long.selected_partition_indices")
+  nbr_by_t <- network::get.network.attribute(nw, "erpm_long.nbr_actors_by_t")
 
-    if (any(is.na(c(B, n_block, G_block))) || any(c(B, n_block, G_block) <= 0L)) {
-      .inertia_groups_stop(termname, "[PLE] missing/invalid stacked attributes: erpm_B, erpm_n, erpm_G.")
-    }
-    if (n1_total != n_block * B) {
-      .inertia_groups_stop(
-        termname,
-        sprintf("[PLE] inconsistent actor count: bipartite=%d but erpm_n*erpm_B=%d*%d=%d.",
-                n1_total, n_block, B, n_block * B)
-      )
-    }
-  } else {
-    # PLS: one block only (current network); keep the same packing layout.
-    B       <- 1L
-    n_block <- n1_total
-    G_block <- n1_total
+  if (is.null(sel_idx) || !length(sel_idx)) {
+    .inertia_groups_stop(termname,
+      "missing 'erpm_long.selected_partition_indices' on the network. ",
+      "Was the meta-network built with erpm_long()?")
+  }
+  if (is.null(nbr_by_t) || !length(nbr_by_t)) {
+    .inertia_groups_stop(termname,
+      "missing 'erpm_long.nbr_actors_by_t' on the network.")
+  }
+
+  sel_idx  <- as.integer(sel_idx)
+  nbr_by_t <- as.integer(nbr_by_t)
+  B        <- length(sel_idx)
+  n_b      <- nbr_by_t[sel_idx]  # actor count per selected block, length B
+
+  if (sum(n_b) != n1_total) {
+    .inertia_groups_stop(termname, sprintf(
+      "inconsistent actor count: bipartite=%d but sum(n_b over B=%d blocks)=%d (n_b=[%s]).",
+      n1_total, B, sum(n_b), paste(n_b, collapse = ",")))
+  }
+
+  # 0-based cumulative actor offsets: actor_offsets[b] = sum(n_b[1..b-1])
+  actor_offsets <- as.integer(c(0L, cumsum(n_b))[seq_len(B)])
+
+  # Build group_to_block[1..n1_total] from the timeblock vertex attribute.
+  # timeblock labels use ORIGINAL time indices (from selected_partition_indices),
+  # so we invert: time index t -> block index b (1-indexed).
+  N  <- network::network.size(nw)   # = 2 * n1_total
+  tb <- network::get.vertex.attribute(nw, "timeblock")
+  if (is.null(tb) || length(tb) != N) {
+    .inertia_groups_stop(termname,
+      sprintf("vertex attribute 'timeblock' missing or wrong length (got %s, expected %d).",
+              if (is.null(tb)) "NULL" else length(tb), N))
+  }
+  tb_groups <- as.integer(tb[(n1_total + 1L):N])   # timeblock of group vertices
+
+  max_t     <- max(sel_idx)
+  time_to_b <- integer(max_t)
+  time_to_b[sel_idx] <- seq_len(B)
+  group_to_block <- time_to_b[tb_groups]   # length n1_total, values 1..B
+
+  if (anyNA(group_to_block) || any(group_to_block < 1L) || any(group_to_block > B)) {
+    .inertia_groups_stop(termname,
+      "group_to_block mapping failed: some timeblock labels in group vertices ",
+      "do not correspond to any selected_partition_indices.")
   }
 
   .inertia_groups_dbg(termname, debug,
-                      "blocks: B=%d | n_block=%d | G_block=%d | d=%d | L=%d",
-                      B, n_block, G_block, d, L)
+                      "blocks: B=%d | n_b=[%s] | actor_offsets=[%s] | d=%d | L=%d",
+                      B, paste(n_b, collapse = ","),
+                      paste(actor_offsets, collapse = ","), d, L)
 
   # ---------------------------------------------------------------------------
-  # 3) Extract past partitions from network attributes
+  # 3) Extract past partitions and compute n_eff per block
   # ---------------------------------------------------------------------------
-  if (is_PLE) {
-    # Prefer historical attribute name; accept standardized engine name as fallback.
-    past_by_block <- network::get.network.attribute(nw, "erpm_block_past_partitions")
-    if (is.null(past_by_block)) {
-      # Accept standardized engine attribute name
-      past_by_block <- network::get.network.attribute(nw, "erpm_past_partitions")
-    }
+  past_by_block <- network::get.network.attribute(nw, "erpm_block_past_partitions")
+  if (is.null(past_by_block)) {
+    past_by_block <- network::get.network.attribute(nw, "erpm_past_partitions")
+  }
 
-    if (is.null(past_by_block) || !is.list(past_by_block) || length(past_by_block) != B) {
-      .inertia_groups_stop(
-        termname,
-        sprintf("[PLE] expected %%n%% 'erpm_block_past_partitions' or 'erpm_past_partitions' as list(B=%d).", B)
-      )
-    }
+  if (is.null(past_by_block) || !is.list(past_by_block) || length(past_by_block) != B) {
+    .inertia_groups_stop(termname, sprintf(
+      "expected %%n%% 'erpm_block_past_partitions' as a list of length B=%d.", B))
+  }
 
-    for (b in seq_len(B)) {
-      pb <- past_by_block[[b]]
-      if (is.null(pb) || !is.list(pb) || length(pb) < d) {
-        .inertia_groups_stop(termname, sprintf("[PLE] block %d has insufficient past partitions: need past_influence=%d lags.", b, d))
-      }
-    }
-
-    if (isTRUE(deep)) {
-      lens <- vapply(past_by_block, length, integer(1))
-      .inertia_groups_dbg(termname, debug, "past(deep): per-block lag lengths: %s", paste(lens, collapse = ","))
-    }
-
-  } else {
-    past_parts <- network::get.network.attribute(nw, "erpm_past_partitions")
-    past_depth <- network::get.network.attribute(nw, "erpm_past_depth")
-
-    if (is.null(past_parts) || !is.list(past_parts)) {
-      .inertia_groups_stop(termname, "[PLS] expected %n% 'erpm_past_partitions' as a list of lags.")
-    }
-    if (is.null(past_depth) || is.na(past_depth)) past_depth <- length(past_parts)
-    past_depth <- as.integer(past_depth)
-
-    if (past_depth < d || length(past_parts) < d) {
-      .inertia_groups_stop(
-        termname,
-        sprintf("[PLS] insufficient past partitions: need past_influence=%d lags but have past_depth=%d.", d, past_depth)
-      )
-    }
-
-    # Normalize to a PLE-like container with B=1 for the packing loop.
-    past_by_block <- list(past_parts)
-
-    if (isTRUE(deep)) {
-      .inertia_groups_dbg(termname, debug,
-                          "past(deep): past_depth=%d | length(erpm_past_partitions)=%d",
-                          past_depth, length(past_parts))
+  for (b in seq_len(B)) {
+    pb <- past_by_block[[b]]
+    if (is.null(pb) || !is.list(pb) || length(pb) < d) {
+      .inertia_groups_stop(termname,
+        sprintf("block %d has insufficient past partitions: need d=%d lags.", b, d))
     }
   }
 
+  # n_eff[b] = min of the current block size and all past partition sizes for b.
+  # Actors are identified by position; if sizes differ we only compare the first
+  # n_eff[b] actors (those present at all time points considered for block b).
+  n_eff <- integer(B)
+  for (b in seq_len(B)) {
+    past_sizes <- vapply(past_by_block[[b]][seq_len(d)], length, integer(1))
+    n_eff[b]   <- min(c(n_b[b], past_sizes))
+  }
+
+  all_sizes <- c(n_b, unlist(lapply(seq_len(B), function(b)
+    vapply(past_by_block[[b]][seq_len(d)], length, integer(1))
+  )))
+  if (length(unique(all_sizes)) > 1L) {
+    warning(sprintf(
+      "[inertia_groups] partitions have different sizes (%s); only the first %d actor(s) (minimum partition size) will be considered for inertia matching.",
+      paste(sort(unique(all_sizes)), collapse = ","),
+      min(all_sizes)
+    ))
+  }
+
+  if (isTRUE(deep)) {
+    .inertia_groups_dbg(termname, debug,
+                        "past(deep): n_eff=[%s]", paste(n_eff, collapse = ","))
+  }
+
   # ---------------------------------------------------------------------------
-  # 4) Build past group lists (GLOBAL actor ids) per (block, lag)
+  # 4) Pack inputs for the C changestat
   # ---------------------------------------------------------------------------
-  # INPUT_PARAM layout (numeric vector):
-  #   header:
-  #     n1_total, n_block, G_block, B, d, L
-  #   sizes (L entries):
-  #     sizes_int (possibly empty)
-  #   offsets table (B*d entries):
-  #     offsets[block,lag] = 0-based index in INPUT_PARAM where the (block,lag)
-  #     data block begins (i.e., position just before writing M for that block)
+  #
+  # INPUT_PARAM layout (0-based indices in C / doubles):
+  #
+  #   [0]                          n1_total
+  #   [1]                          B
+  #   [2]                          d
+  #   [3]                          L
+  #   [4 .. 3+L]                   sizes_int[0..L-1]
+  #   [4+L .. 3+L+B]               actor_offsets[0..B-1]   (0-based)
+  #   [4+L+B .. 3+L+2B]            n_eff[0..B-1]
+  #   [4+L+2B .. 3+L+2B+n1_total]  group_to_block[0..n1_total-1]  (1..B)
+  #   [4+L+2B+n1_total .. 3+L+2B+n1_total+B*d]  offsets[0..B*d-1]  (0-based)
   #   data blocks (block-major, lag-major):
-  #     for each (b,lag):
-  #       M, then for each group m=1..M:
-  #         len_m, id_1, ..., id_len_m
-  offsets <- integer(B * d)
+  #     for each (b, lag): M, len_1, ids_1..., len_2, ids_2..., ...
+  #     (ids are GLOBAL actor ids 1..n1_total, already truncated to n_eff[b])
 
   inputs <- c(
     as.numeric(n1_total),
-    as.numeric(n_block),
-    as.numeric(G_block),
     as.numeric(B),
     as.numeric(d),
     as.numeric(L),
-    as.numeric(sizes_int)
+    as.numeric(sizes_int),
+    as.numeric(actor_offsets),
+    as.numeric(n_eff),
+    as.numeric(group_to_block)
   )
 
-  offsets_start <- length(inputs) + 1L
-  inputs <- c(inputs, rep(0, B * d)) # placeholder offsets (filled later)
+  offsets_start <- length(inputs) + 1L          # 1-based R index of first offset
+  inputs        <- c(inputs, rep(0, B * d))      # placeholder offsets (filled later)
 
-  # Deterministic order: block-major, lag-major
+  offsets <- integer(B * d)
+
   for (b in seq_len(B)) {
-    pb <- past_by_block[[b]]
+    pb    <- past_by_block[[b]]
+    off_b <- actor_offsets[b]   # 0-based global actor offset for block b
 
     for (lag in seq_len(d)) {
-      # 0-based start position in the final INPUT_PARAM vector
-      start0 <- length(inputs)
+      start0 <- length(inputs)              # 0-based C index of this data block
       offsets[(b - 1L) * d + lag] <- start0
 
       p_lag <- pb[[lag]]
-      if (is.null(p_lag) || !is.atomic(p_lag)) {
-        .inertia_groups_stop(termname, sprintf("invalid past partition at block=%d lag=%d (must be an atomic vector).", b, lag))
-      }
-      if (length(p_lag) != n_block) {
-        .inertia_groups_stop(
-          termname,
-          sprintf("past partition length mismatch at block=%d lag=%d: expected n_block=%d, got %d.",
-                  b, lag, n_block, length(p_lag))
-        )
+      p_eff <- p_lag[seq_len(n_eff[b])]    # truncate to n_eff[b] actors
+
+      if (!is.atomic(p_eff)) {
+        .inertia_groups_stop(termname,
+          sprintf("invalid past partition at block=%d lag=%d.", b, lag))
       }
 
-      groups <- .inertia_groups_groups_from_partition(p_lag)
-      groups <- .inertia_groups_filter_by_size(groups, sizes_int)
-      groups_global <- .inertia_groups_groups_to_global_ids(groups, b, n_block)
+      groups        <- .inertia_groups_groups_from_partition(p_eff)
+      groups        <- .inertia_groups_filter_by_size(groups, sizes_int)
+      # Global actor ids: off_b (0-based offset) + local id (1-based)
+      groups_global <- lapply(groups, function(v) sort(off_b + as.integer(v)))
 
-      M <- length(groups_global)
-
-      block_vec <- numeric(0)
-      block_vec <- c(block_vec, as.numeric(M))
+      M         <- length(groups_global)
+      block_vec <- as.numeric(M)
       if (M) {
         for (g in groups_global) {
           block_vec <- c(block_vec, as.numeric(length(g)), as.numeric(g))
@@ -408,7 +397,7 @@ InitErgmTerm.inertia_groups <- function(nw, arglist, ..., version = packageVersi
     }
   }
 
-  # Fill offsets table (as numeric)
+  # Fill offsets table
   offsets_end <- offsets_start + (B * d) - 1L
   inputs[offsets_start:offsets_end] <- as.numeric(offsets)
 
@@ -421,7 +410,7 @@ InitErgmTerm.inertia_groups <- function(nw, arglist, ..., version = packageVersi
   # ---------------------------------------------------------------------------
   # 5) Coefficient naming
   # ---------------------------------------------------------------------------
-  size_tag <- if (!L) "all" else paste0("size=", paste(sizes_int, collapse = ","))
+  size_tag  <- if (!L) "all" else paste0("size=", paste(sizes_int, collapse = ","))
   coef_name <- sprintf("inertia_groups[type=%s,pi=%d]_%s", type, d, size_tag)
 
   # ---------------------------------------------------------------------------

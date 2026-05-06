@@ -34,31 +34,13 @@ NULL
 # Low-level helpers (existing behavior)
 # ==============================================================================
 
-#' Enforce constant actor block size across estimation blocks (internal helper)
-#' @param partitions Timeline of partitions (list).
-#' @param selected_partition_indices Integer vector of time indices included in the meta-network.
-#' @return Integer scalar: the common actor count per selected block.
+#' Build per-block past partitions container expected by inertia_groups (internal helper)
+#'
+#' Partitions may differ in length across time points. No constant-size
+#' constraint is enforced here; size mismatches are handled (with a warning)
+#' by InitErgmTerm.inertia_groups via n_eff per block.
 #' @noRd
-.erpm_ple_assert_constant_nbr_actors_per_selected_partition <- function(partitions, selected_partition_indices) {
-  nbr_actors_by_t <- vapply(partitions, length, integer(1))
-  nbr_actors_per_selected_partition <- nbr_actors_by_t[selected_partition_indices[1L]]
-  if (any(nbr_actors_by_t[selected_partition_indices] != nbr_actors_per_selected_partition)) {
-    stop(sprintf(
-      "[ERPM_PLE] PLE(inertia_groups) requires constant nbr_actors_per_selected_partition across selected_partition_indices. Got nbr_actors_by_t[selected_partition_indices]=%s.",
-      paste(nbr_actors_by_t[selected_partition_indices], collapse = ",")
-    ))
-  }
-  nbr_actors_per_selected_partition
-}
-
-#' Build the per-block past-partitions container expected by inertia_groups (internal helper)
-#' @param partitions Timeline of partitions (list).
-#' @param selected_partition_indices Integer vector of current-time indices used for estimation.
-#' @param d Past influence depth (number of lags).
-#' @param nbr_actors_per_selected_partition Actor count per selected block.
-#' @return List of length B; each element is a list of length d with past partitions.
-#' @noRd
-.erpm_ple_make_erpm_block_past_partitions <- function(partitions, selected_partition_indices, d, nbr_actors_per_selected_partition) {
+.erpm_ple_make_erpm_block_past_partitions <- function(partitions, selected_partition_indices, d) {
   B <- length(selected_partition_indices)
   out <- vector("list", B)
 
@@ -69,15 +51,14 @@ NULL
     for (lag in seq_len(d)) {
       t_past <- t_cur - lag
       if (t_past < 1L) {
-        stop(sprintf("[ERPM_PLE] internal: t_past=%d < 1 (b=%d, lag=%d). selected_partition_indicesmust start at d+1.",
+        stop(sprintf("[ERPM_PLE] internal: t_past=%d < 1 (b=%d, lag=%d). selected_partition_indices must start at d+1.",
                      t_past, b, lag))
       }
 
       p <- partitions[[t_past]]
 
-      if (is.null(p) || !is.atomic(p) || length(p) != nbr_actors_per_selected_partition) {
-        stop(sprintf("[ERPM_PLE] past partition invalid at time=%d (expected atomic length nbr_actors_per_selected_partition=%d).",
-                     t_past, nbr_actors_per_selected_partition))
+      if (is.null(p) || !is.atomic(p)) {
+        stop(sprintf("[ERPM_PLE] past partition invalid at time=%d (must be an atomic vector).", t_past))
       }
       if (anyNA(p)) {
         stop(sprintf("[ERPM_PLE] past partition at time=%d contains NA.", t_past))
@@ -734,49 +715,140 @@ NULL
 #' Build timeblock for PLE meta-networks (internal helper)
 #'
 #' @description
-#' The meta-network has \code{2 * nbr_actors_meta} vertices: actors
-#' (1..nbr_actors_meta) and padded groups (nbr_actors_meta+1 .. 2*nbr_actors_meta).
-#' This helper assigns the originating time index to each actor and each padded group.
+#' Build the vertex attribute \code{"timeblock"} used by the ERGM \code{blockdiag}
+#' constraint to prevent MCMC proposals from creating edges across time slices.
 #'
-#' @param selected_partition_indices Selected time indices included in meta-network.
-#' @param nbr_actors_by_t Actor counts per time.
-#' @return Integer vector of length \code{2 * nbr_actors_meta}.
+#' The PLE meta-network stacks multiple observed partitions (time points) into a
+#' single network object. To keep proposals meaningful, we label each stacked
+#' time slice with a distinct block id (original time index), so that
+#' \code{constraints = ~blockdiag("timeblock")} restricts toggles to within each slice.
+#'
+#' @param selected_partition_indices Integer vector of time indices included in the
+#'   meta-network (e.g., \code{c(1,2,3)} or a suffix when inertia is enabled).
+#' @param blocks A data.frame describing the contiguous ranges (in meta indexing)
+#'   corresponding to each selected time slice. Must contain columns:
+#'   \code{block_starts} and \code{block_ends}, one row per selected partition.
+#' @param nbr_actors_by_t Integer vector of actor counts per time partition (original indexing).
+#'
+#' @details
+#' This function returns a concatenated vector of length \code{2*nbr_actors_meta}:
+#' first the actor vertices, then the group vertices (matching the meta-network
+#' vertex layout used by \code{build_bipartite_from_inputs()}).
+#'
+#' Time labels are taken from \code{selected_partition_indices} (original time ids),
+#' not from the reindexed block row id. This ensures \code{timeblock} stays aligned
+#' with the user-facing time indexing (useful for debugging and consistency checks).
+#'
+#' @return Integer vector of length \code{2*nbr_actors_meta}.
 #' @noRd
-.erpm_ple_make_timeblock <- function(selected_partition_indices, nbr_actors_by_t) {
-  nbr_actors_by_selected_partitions  <- nbr_actors_by_t[selected_partition_indices]
-  nbr_actors_meta <- sum(nbr_actors_by_selected_partitions)
+.erpm_ple_make_timeblock <- function(selected_partition_indices, blocks, nbr_actors_by_t) {
+  # Basic sanity checks
+  if (!all(c("block_starts", "block_ends") %in% names(blocks))) {
+    stop("`blocks` must contain columns: block_starts, block_ends")
+  }
+  if (nrow(blocks) != length(selected_partition_indices)) {
+    stop("`blocks` must have the same number of rows as `selected_partition_indices` length")
+  }
 
+  # Total number of vertices in the stacked meta-partition (per vertex type)
+  nbr_actors_meta <- sum(nbr_actors_by_t[selected_partition_indices])
+
+  # Optional consistency check: blocks should cover exactly 1..nbr_actors_meta
+  if (max(blocks$block_ends) != nbr_actors_meta) {
+    warning("max(blocks$block_ends) != sum(nbr_actors_by_t[selected_partition_indices]). ",
+            "Make sure `blocks` and `nbr_actors_by_t` refer to the same stacking.")
+  }
+  if (min(blocks$block_starts) != 1L) {
+    warning("min(blocks$block_starts) is not 1. If you expected reindexing, recompute `blocks` accordingly.")
+  }
+
+  # Allocate timeblock for actors and groups
   tb_actor <- integer(nbr_actors_meta)
   tb_group <- integer(nbr_actors_meta)
 
-  a0 <- 0L
-  g0 <- 0L
+  # Fill by block ranges (THIS is where we use `blocks`)
+  for (b in seq_len(nrow(blocks))) {
+    idx <- blocks$block_starts[b] : blocks$block_ends[b]
+    t   <- selected_partition_indices[b]  # label with the original time index (not the reindexed block id)
 
-  for (b in seq_along(selected_partition_indices)) {
-    t  <- selected_partition_indices[b]
-    nbr_actors_in_block <- nbr_actors_by_selected_partitions[b]
-
-    tb_actor[(a0 + 1L):(a0 + nbr_actors_in_block)] <- t
-    tb_group[(g0 + 1L):(g0 + nbr_actors_in_block)] <- t
-
-    a0 <- a0 + nbr_actors_in_block
-    g0 <- g0 + nbr_actors_in_block
+    tb_actor[idx] <- t
+    tb_group[idx] <- t
   }
 
+  # Concatenate as expected by your meta-network vertex layout
   c(tb_actor, tb_group)
 }
 
-#' Attach timeblock to meta-network (PLE module 2)
-#' @param meta_nw Meta-network (bipartite).
-#' @param selected_partition_indices Selected time indices included in meta-network.
-#' @param nbr_actors_by_t Actor counts per time.
-#' @return Updated meta-network with \code{timeblock} vertex attribute.
+#' Attach timeblock to meta-network
+#'
+#' @description
+#' Variant that operates on the PLE build bundle \code{b} (containing \code{meta_nw}).
+#' This keeps the Module 2 API consistent with other attach-* helpers that mutate \code{b}.
+#'
+#' @param b Build bundle returned by \code{erpm_long_empile_build_meta_nw()}.
+#' @param selected_partition_indices Time indices included in the meta-network.
+#' @param blocks Contiguous block boundaries in the stacked meta indexing.
+#' @param nbr_actors_by_t Actor counts per time partition.
+#'
+#' @return Updated build bundle \code{b} with vertex attribute \code{"timeblock"} set.
 #' @noRd
-.erpm_long_empile_attach_timeblock <- function(meta_nw, selected_partition_indices, nbr_actors_by_t) {
-  timeblock <- .erpm_ple_make_timeblock(selected_partition_indices, nbr_actors_by_t = nbr_actors_by_t)
-  network::set.vertex.attribute(meta_nw, "timeblock", timeblock)
-  meta_nw
+.erpm_long_empile_attach_timeblock <- function(b, selected_partition_indices, blocks, nbr_actors_by_t) {
+  timeblock <- .erpm_ple_make_timeblock(
+    selected_partition_indices = selected_partition_indices,
+    blocks = blocks,
+    nbr_actors_by_t = nbr_actors_by_t
+  )
+  network::set.vertex.attribute(b$meta_nw, "timeblock", timeblock)
+  b
 }
+
+
+#' Compute contiguous block boundaries for stacked partitions (internal helper)
+#'
+#' @description
+#' Given a list of partitions (one per time slice), compute \code{block_starts} and
+#' \code{block_ends} in the stacked meta indexing. This is used to label vertices
+#' for \code{blockdiag("timeblock")} when building the PLE meta-network.
+#'
+#' @param partitions List of partitions (one per time point).
+#' @param inertial_present Logical. If TRUE, only a suffix of partitions is included
+#'   in the meta-network, starting at \code{d+1}.
+#' @param d Integer. Past influence lag (number of initial partitions excluded when
+#'   inertia is enabled).
+#'
+#' @details
+#' The returned ranges are computed after selecting the partitions that actually
+#' enter the meta-network (i.e., after applying the inertia selection rule).
+#'
+#' @return A data.frame with columns \code{block_starts} and \code{block_ends}.
+#' @noRd
+compute_blocks <- function(partitions, inertial_present = FALSE, d = 0L) {
+  T <- length(partitions)
+
+  # Select which partitions (blocks) are included, following the same logic as:
+  # selected_partition_indices <- if (inertial_present) seq.int(d + 1L, T) else seq_len(T)
+  selected_partition_indices <- if (inertial_present) {
+    if (d < 0L) stop("d must be >= 0")
+    if (d >= T) stop("d must be strictly smaller than the number of partitions")
+    seq.int(d + 1L, T)
+  } else {
+    seq_len(T)
+  }
+
+  # Keep only the selected partitions (blocks)
+  selected_partitions <- partitions[selected_partition_indices]
+
+  # Compute lengths of the selected blocks
+  l <- lengths(selected_partitions)
+
+  # Compute block boundaries in the reindexed meta-partition
+  data.frame(
+    block_starts = cumsum(l) - l + 1,
+    block_ends   = cumsum(l),
+    block_sizes  = l
+  )
+}
+
 
 # ==============================================================================
 # Module 3: attach inertial attributes
@@ -804,37 +876,21 @@ NULL
                                                         verbose) {
   if (d < 1L) stop("[ERPM_PLE] inertia_groups requires past_influence >= 1.")
 
-  nbr_actors_per_selected_partition <- .erpm_ple_assert_constant_nbr_actors_per_selected_partition(partitions, selected_partition_indices= selected_partition_indices)
-
-  B <- length(selected_partition_indices)
-  G_block <- nbr_actors_per_selected_partition
-
-  # Sanity check: bipartite size must be nbr_actors_per_selected_partition * B
-  n1_total <- as.integer(network::get.network.attribute(meta_nw, "bipartite"))
-  if (is.na(n1_total) || n1_total != nbr_actors_per_selected_partition * B) {
-    stop(sprintf(
-      "[ERPM_PLE] inconsistent bipartite size for inertia_groups: bipartite=%s but nbr_actors_per_selected_partition*B=%d*%d=%d.",
-      as.character(n1_total), nbr_actors_per_selected_partition, B, nbr_actors_per_selected_partition * B
-    ))
-  }
-
   erpm_block_past_partitions <- .erpm_ple_make_erpm_block_past_partitions(
-    partitions = partitions,
-    selected_partition_indices   = selected_partition_indices,
-    d          = d,
-    nbr_actors_per_selected_partition    = nbr_actors_per_selected_partition
+    partitions                 = partitions,
+    selected_partition_indices = selected_partition_indices,
+    d                          = d
   )
 
-  # Attributes expected by InitErgmTerm.inertia_groups.R (PLE mode)
+  # Only erpm_mode and past partitions are needed; block structure is derived
+  # by InitErgmTerm.inertia_groups from erpm_long.* bookkeeping attributes and
+  # the timeblock vertex attribute (both already set by the engine orchestrator).
   network::set.network.attribute(meta_nw, "erpm_mode", "empile")
-  network::set.network.attribute(meta_nw, "erpm_B", B)
-  network::set.network.attribute(meta_nw, "erpm_n", nbr_actors_per_selected_partition)
-  network::set.network.attribute(meta_nw, "erpm_G", G_block)
   network::set.network.attribute(meta_nw, "erpm_block_past_partitions", erpm_block_past_partitions)
 
   if (isTRUE(verbose)) {
-    message(sprintf("[ERPM_PLE] inertia_groups attrs attached: erpm_mode=empile | erpm_B=%d | erpm_n=%d | erpm_G=%d",
-                    B, nbr_actors_per_selected_partition, G_block))
+    B <- length(selected_partition_indices)
+    message(sprintf("[ERPM_PLE] inertia_groups attrs attached: erpm_mode=empile | B=%d", B))
   }
 
   meta_nw
@@ -885,6 +941,8 @@ NULL
   T <- length(partitions)
   d <- as.integer(past_influence)
 
+  
+  
   if (is.na(d) || d < 0L) stop("[ERPM_PLE] past_influence must be a non-negative integer.")
 
   if (inertial_present && d >= T) {
@@ -893,6 +951,12 @@ NULL
 
   # Blocks included in the meta-network
   selected_partition_indices<- if (inertial_present) seq.int(d + 1L, T) else seq_len(T)
+
+  blocks <-compute_blocks(
+    partitions   = partitions,
+    inertial_present = inertial_present,
+    d = d
+  )
 
   .erpm_long_vcat(verbose, sprintf("[ERPM_PLE] selected_partition_indices=%s",
                                   paste(selected_partition_indices, collapse = ",")))
@@ -914,6 +978,16 @@ NULL
     verbose      = verbose
   )
 
+  # ---------------------------------------------------------------------------
+  # 2) Attach timeblock
+  # ---------------------------------------------------------------------------
+  b <- .erpm_long_empile_attach_timeblock(
+    b = b,
+    selected_partition_indices= selected_partition_indices,
+    blocks = blocks,
+    nbr_actors_by_t = b$nbr_actors_by_t
+  )
+
   .erpm_long_vcat(verbose, sprintf("[ERPM_PLE] meta built: bipartite(nA)=%d | size=%d | edges=%d",
                                   as.integer(b$meta_nw %n% "bipartite"),
                                   network::network.size(b$meta_nw),
@@ -932,15 +1006,6 @@ NULL
   if (!inertial_present) {
     network::set.network.attribute(meta_nw, "erpm_mode", "empile")
   }
-
-  # ---------------------------------------------------------------------------
-  # 2) Attach timeblock
-  # ---------------------------------------------------------------------------
-  meta_nw <- .erpm_long_empile_attach_timeblock(
-    meta_nw = meta_nw,
-    selected_partition_indices= selected_partition_indices,
-    nbr_actors_by_t = b$nbr_actors_by_t
-  )
 
   # ---------------------------------------------------------------------------
   # 3) Attach inertial attributes (if requested)

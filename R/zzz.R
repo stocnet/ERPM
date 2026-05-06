@@ -29,7 +29,8 @@
   .register_erpm_proposal("ErpmSwapStep",   priority = 6,  weights = "default")
   .register_erpm_proposal("ErpmMergeStep",  priority = 7,  weights = "default")
   .register_erpm_proposal("ErpmSplitStep",  priority = 7,  weights = "default")
-  .register_erpm_proposal("ErpmMix",        priority = 9, weights = "default")
+  .register_erpm_proposal("ErpmMix",        priority = 9,  weights = "default")
+  .register_erpm_proposal("B1Part",         priority = 10, weights = "default", constraint = "&b1partblockdiag")
 
   # Keep legacy B1Part registration. 
   .RegisterProposals()
@@ -97,7 +98,7 @@
 #'
 #' @return Invisibly returns 'TRUE' if the row was added, 'FALSE' otherwise.
 #' @keywords internal
-.register_erpm_proposal <- function(proposal, priority, weights) {
+.register_erpm_proposal <- function(proposal, priority, weights, constraint = "&b1part") {
 
   tab <- ergm::ergm_proposal_table()
 
@@ -106,7 +107,7 @@
       tab$Package    == "ERPM"        &
       tab$Class      == "c"           &
       tab$Reference  == "Bernoulli"   &
-      tab$Constraints == "&b1part"    &
+      tab$Constraints == constraint   &
       tab$Weights    == weights
   )
 
@@ -117,7 +118,7 @@
   ergm::ergm_proposal_table(
     Class       = "c",
     Reference   = "Bernoulli",
-    Constraints = "&b1part",
+    Constraints = constraint,
     Priority    = priority,
     Weights     = weights,
     Proposal    = proposal,

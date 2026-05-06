@@ -23,6 +23,7 @@ Depends:
     R (>= 4.2)
 Imports:
     ergm (>= 4.8.0),
+    rle,
     numbers,
     utils,
     stats,
