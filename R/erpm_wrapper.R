@@ -278,8 +278,6 @@ erpm <- function(formula,
     }
   }
 
-  verbose_arg_missing <- missing(verbose)
-
   # --- 0) Normalize options ---------------------------------------------------
   if (!is.null(estimate)) {
     estimate <- match.arg(estimate, c("MLE", "CD", "MPLE", "MCMLE"))
@@ -384,7 +382,6 @@ erpm <- function(formula,
     estimate            = estimate,
     eval.loglik         = eval.loglik,
     control             = ctrl,
-    verbose_arg_missing = verbose_arg_missing,
     verbose             = verbose
   )
 
