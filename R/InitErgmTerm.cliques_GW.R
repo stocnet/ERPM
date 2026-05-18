@@ -67,9 +67,9 @@
 #' \itemize{
 #'   \item enforce bipartite network via \code{check.ErgmTerm()};
 #'   \item accept one or several values of \code{lambda};
-#'   \item validate domain: finite and \eqn{\lambda \ge 1};
-#'   \item precompute \eqn{r_\lambda = (\lambda-1)/\lambda};
-#'   \item pack \code{lambda} and \code{r_\lambda} into \code{inputs} as interleaved pairs.
+#'   \item validate domain: finite and \eqn{\lambda >= 1};
+#'   \item precompute \eqn{r_\lambda = (\lambda - 1) / \lambda};
+#'   \item pack \code{lambda} and \code{r_lambda} into \code{inputs} as interleaved pairs.
 #' }
 #'
 #' INPUT_PARAM layout (C side):
