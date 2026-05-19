@@ -78,6 +78,13 @@ test_that("cliques summary matches analytic reference values", {
       observed <- cliques_summary(nw, case$rhs)
       expected <- ref_cliques(partition, k = case$k, normalized = case$normalized)
 
+      #cat("\n")
+      #cat("partition:", paste(partition, collapse = ", "), "\n")
+      #cat("group sizes:", paste(ref_cliques_group_sizes(partition), collapse = ", "), "\n")
+      #cat("term:", paste(deparse(case$rhs), collapse = " "), "\n")
+      #cat("observed:", paste(observed, collapse = ", "), "\n")
+      #cat("expected:", paste(expected, collapse = ", "), "\n")
+
       expect_equal(observed, expected)
     }
   }
@@ -124,6 +131,13 @@ test_that("cliques_GW summary matches analytic reference values", {
     for (case in cases) {
       observed <- cliques_summary(nw, case$rhs)
       expected <- ref_cliques_GW(partition, lambda = case$lambda)
+
+      #cat("\n")
+      #cat("partition:", paste(partition, collapse = ", "), "\n")
+      #cat("group sizes:", paste(ref_cliques_group_sizes(partition), collapse = ", "), "\n")
+      #cat("term:", paste(deparse(case$rhs), collapse = " "), "\n")
+      #cat("observed:", paste(observed, collapse = ", "), "\n")
+      #cat("expected:", paste(expected, collapse = ", "), "\n")
 
       expect_equal(observed, expected)
     }

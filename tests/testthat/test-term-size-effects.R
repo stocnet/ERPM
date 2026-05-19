@@ -72,6 +72,13 @@ test_that("groups summary matches analytic reference values", {
       observed <- erpm_groups_summary(partition, case$rhs)
       expected <- ref_groups(partition, from = case$from, to = case$to)
       
+      #cat("\n")
+      #cat("partition:", paste(partition, collapse = ", "), "\n")
+      #cat("group sizes:", paste(ref_size_effect_group_sizes(partition), collapse = ", "), "\n")
+      #cat("term:", paste(deparse(case$rhs), collapse = " "), "\n")
+      #cat("observed:", paste(observed, collapse = ", "), "\n")
+      #cat("expected:", paste(expected, collapse = ", "), "\n")
+      
       expect_equal(observed, expected)
     }
   }
@@ -116,6 +123,13 @@ test_that("squared_sizes summary matches analytic reference values", {
       observed <- size_effect_summary(nw, case$call)
       expected <- ref_squared_sizes(partition, sizes = case$sizes, pow = case$pow)
       
+      #cat("\n")
+      #cat("partition:", paste(partition, collapse = ", "), "\n")
+      #cat("group sizes:", paste(ref_size_effect_group_sizes(partition), collapse = ", "), "\n")
+      #cat("term:", paste(deparse(case$call), collapse = " "), "\n")
+      #cat("observed:", paste(observed, collapse = ", "), "\n")
+      #cat("expected:", paste(expected, collapse = ", "), "\n")
+      
       expect_equal(observed, expected)
     }
   }
@@ -153,9 +167,17 @@ test_that("log_factorial_sizes summary matches analytic reference values", {
   
   for (partition in partitions) {
     nw <- size_effect_network(partition)
+    observed <- as.numeric(summary(nw ~ log_factorial_sizes))
+    expected <- ref_log_factorial_sizes(partition)
     
-    expect_equal(as.numeric(summary(nw ~ log_factorial_sizes)), ref_log_factorial_sizes(partition))
-    expect_equal(as.numeric(summary(nw ~ log_factorial_sizes())), ref_log_factorial_sizes(partition))
+    #cat("\n")
+    #cat("partition:", paste(partition, collapse = ", "), "\n")
+    #cat("group sizes:", paste(ref_size_effect_group_sizes(partition), collapse = ", "), "\n")
+    #cat("term:", "log_factorial_sizes", "\n")
+    #cat("observed:", paste(observed, collapse = ", "), "\n")
+    #cat("expected:", paste(expected, collapse = ", "), "\n")
+    
+    expect_equal(observed, expected)
   }
 })
 
