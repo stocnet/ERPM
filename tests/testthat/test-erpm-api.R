@@ -166,3 +166,6 @@ test_that("erpm validates wrapper inputs before fitting", {
   #)
 })
 
+test_that("erpm public examples are stable", {
+  skip("TODO: expand after erpm documentation and vignettes are finalized.")
+})
