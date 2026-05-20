@@ -189,6 +189,20 @@ test_that("erpm_long validates nodes inputs", {
   )
 })
 
+test_that("erpm_long flags reordered node labels across time", {
+  skip("Known bug: erpm_long currently matches actors by row position but does not flag reordered labels.")
+
+  partitions <- valid_longitudinal_partitions()
+  nodes <- valid_longitudinal_nodes(partitions)
+  nodes[[2]] <- nodes[[2]][c(2, 1, 3, 4), , drop = FALSE]
+
+  expect_error(
+    longitudinal_call(partitions, nodes = nodes),
+    "labels must preserve row-position identity across time",
+    fixed = TRUE
+  )
+})
+
 test_that("erpm_long validates dyads inputs", {
   partitions <- valid_longitudinal_partitions()
   dyads <- valid_longitudinal_dyads(partitions)
