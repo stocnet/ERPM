@@ -144,6 +144,9 @@ InitErgmTerm.inertia_groups <- function(nw, arglist, ..., version = packageVersi
     arglist[["past_influence"]] <- arglist[["d"]]
   if (!is.null(names(arglist)) && "sizes" %in% names(arglist) && !"size" %in% names(arglist))
     arglist[["size"]] <- arglist[["sizes"]]
+  if (!is.null(names(arglist))) {
+    arglist[intersect(c("pi", "d", "sizes"), names(arglist))] <- NULL
+  }
 
   a <- ergm::check.ErgmTerm(
     nw, arglist,
