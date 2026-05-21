@@ -44,7 +44,7 @@ if (!exists(".erpm_parse_formula", mode = "function") &&
 
 #' Resolve LHS: build network if needed, and build a unique eval_env (internal helper)
 #' @noRd
-.erpm_resolve_lhs <- function(lhs_val, rhs_expr, env0, nodes, dyads, group_labels = NULL) {
+.erpm_legacy_resolve_lhs <- function(lhs_val, rhs_expr, env0, nodes, dyads, group_labels = NULL) {
   if (!(inherits(lhs_val, "error")) &&
       is.atomic(lhs_val) && !inherits(lhs_val, "network")) {
 
@@ -93,7 +93,7 @@ if (!exists(".erpm_parse_formula", mode = "function") &&
 
 #' Validate one translated term (internal helper)
 #' @noRd
-.erpm_validate_translated_term <- function(term_call, env_eval) {
+.erpm_legacy_validate_translated_term <- function(term_call, env_eval) {
   if (is.symbol(term_call)) term_call <- as.call(list(term_call))
   if (!is.call(term_call)) return(term_call)
 
@@ -119,11 +119,11 @@ if (!exists(".erpm_parse_formula", mode = "function") &&
 
 #' Translate the RHS through a clear pipeline (internal helper)
 #' @noRd
-.erpm_translate_rhs_pipeline <- function(rhs_expr,
-                                        rename_map,
-                                        wrap_proj1,
-                                        wrap_B,
-                                        env_eval) {
+.erpm_legacy_translate_rhs_pipeline <- function(rhs_expr,
+                                               rename_map,
+                                               wrap_proj1,
+                                               wrap_B,
+                                               env_eval) {
   rhs_terms <- .erpm_split_sum_terms(rhs_expr)
 
   translated <- lapply(
@@ -135,7 +135,7 @@ if (!exists(".erpm_parse_formula", mode = "function") &&
     env_eval   = env_eval
   )
 
-  translated <- lapply(translated, .erpm_validate_translated_term, env_eval = env_eval)
+  translated <- lapply(translated, .erpm_legacy_validate_translated_term, env_eval = env_eval)
 
   if (length(translated) == 1L) translated[[1L]]
   else Reduce(function(x, y) call("+", x, y), translated)
@@ -143,17 +143,17 @@ if (!exists(".erpm_parse_formula", mode = "function") &&
 
 #' Translate RHS and inject into formula (internal helper)
 #' @noRd
-.erpm_translate_rhs <- function(new_formula,
-                               eval_env,
-                               effect_rename_map,
-                               wrap_with_proj1,
-                               wrap_with_B,
-                               verbose,
-                               user_formula_str) {
+.erpm_legacy_translate_rhs <- function(new_formula,
+                                      eval_env,
+                                      effect_rename_map,
+                                      wrap_with_proj1,
+                                      wrap_with_B,
+                                      verbose,
+                                      user_formula_str) {
   rhs_expr <- new_formula[[3]]
 
   new_rhs <- tryCatch(
-    .erpm_translate_rhs_pipeline(
+    .erpm_legacy_translate_rhs_pipeline(
       rhs_expr,
       rename_map = effect_rename_map,
       wrap_proj1 = wrap_with_proj1,
@@ -176,7 +176,7 @@ if (!exists(".erpm_parse_formula", mode = "function") &&
 
 #' Build control object (internal helper)
 #' @noRd
-.erpm_build_control <- function(control, new_formula, constraints) {
+.erpm_legacy_build_control <- function(control, new_formula, constraints) {
   if (is.null(control)) return(NULL)
 
   ctrl <- if (inherits(control, "control.ergm")) control
@@ -197,7 +197,7 @@ if (!exists(".erpm_parse_formula", mode = "function") &&
 
 #' Evaluate or return call with ERPM error formatting (internal helper)
 #' @noRd
-.erpm_eval_or_return <- function(ergm_call, eval.call, timeout, seed, eval_env, user_formula_str) {
+.erpm_legacy_eval_or_return <- function(ergm_call, eval.call, timeout, seed, eval_env, user_formula_str) {
   if (!isTRUE(eval.call)) return(ergm_call)
 
   if (!is.null(seed)) {
@@ -248,20 +248,20 @@ if (!exists(".erpm_parse_formula", mode = "function") &&
 #'
 #' (doc omitted here for brevity — keep your current Rd block in your tree)
 #'
-#' @export
-erpm <- function(formula,
-                 eval.call    = TRUE,
-                 verbose      = TRUE,
-                 debug        = FALSE,
-                 estimate     = NULL,
-                 eval.loglik  = NULL,
-                 control      = NULL,
-                 timeout      = NULL,
-                 seed         = NULL,
-                 nodes        = NULL,
-                 dyads        = list(),
-                 group_labels = NULL,
-                 constraints  = NULL) {
+#' @noRd
+.erpm_legacy_wrapper <- function(formula,
+                                 eval.call    = TRUE,
+                                 verbose      = TRUE,
+                                 debug        = FALSE,
+                                 estimate     = NULL,
+                                 eval.loglik  = NULL,
+                                 control      = NULL,
+                                 timeout      = NULL,
+                                 seed         = NULL,
+                                 nodes        = NULL,
+                                 dyads        = list(),
+                                 group_labels = NULL,
+                                 constraints  = NULL) {
 
   # -------------------------------------------------------------------------
   # CHANGE (justified):
@@ -344,7 +344,7 @@ erpm <- function(formula,
 
   lhs_val <- .erpm_eval_lhs(input$lhs_expr, env0)
 
-  resolved <- .erpm_resolve_lhs(
+  resolved <- .erpm_legacy_resolve_lhs(
     lhs_val, input$rhs_expr, env0, nodes, dyads,
     group_labels = group_labels
   )
@@ -362,7 +362,7 @@ erpm <- function(formula,
   wrap_with_proj1   <- c()
   wrap_with_B       <- c()
 
-  new_formula <- .erpm_translate_rhs(
+  new_formula <- .erpm_legacy_translate_rhs(
     new_formula       = new_formula,
     eval_env          = eval_env,
     effect_rename_map = effect_rename_map,
@@ -373,7 +373,7 @@ erpm <- function(formula,
   )
 
   # --- 3) Constraints and control --------------------------------------------
-  ctrl <- .erpm_build_control(control, new_formula, constraints = constraints)
+  ctrl <- .erpm_legacy_build_control(control, new_formula, constraints = constraints)
 
   # --- 4) Build ergm call -----------------------------------------------------
   ergm_call <- .erpm_build_ergm_call(
@@ -413,7 +413,7 @@ erpm <- function(formula,
         "\n", sep = "")
   }
 
-  .erpm_eval_or_return(
+  .erpm_legacy_eval_or_return(
     ergm_call         = ergm_call,
     eval.call         = eval.call,
     timeout           = timeout,
