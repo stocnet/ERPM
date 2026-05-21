@@ -57,11 +57,6 @@
 #' - Implement the C function as `d_cov_diff_GW` via D_CHANGESTAT_FN(d_cov_diff_GW).
 #' - Avoid exposing a symbol named `c_cov_diff_GW` with a D-signature.
 #'
-#' Debugging output for the initializer can be enabled via:
-#' \preformatted{
-#'   options(ERPM.cov_diff_GW.debug = TRUE)
-#' }
-#'
 #' @param nw A \pkg{network} object.
 #' @param arglist A named list of term arguments constructed by \pkg{ergm}.
 #'   Expected components include \code{cov} (vertex attribute name or numeric
@@ -73,11 +68,9 @@
 InitErgmTerm.cov_diff_GW <- function(nw, arglist, ..., version = packageVersion("ergm")) {
   termname <- "cov_diff_GW"
 
-  # ---------------------------------------------------------------------------
-  # Debug helpers
-  # ---------------------------------------------------------------------------
-  # Global option:
-  #   options(ERPM.cov_diff_GW.debug = TRUE/FALSE)
+  # Debugging output for the initializer can be enabled via:
+  #   options(ERPM.cov_diff_GW.debug = TRUE)
+
   dbg    <- isTRUE(getOption("ERPM.cov_diff_GW.debug", TRUE))
   dbgcat <- function(...) if (dbg) cat("[cov_diff_GW][DEBUG]", ..., "\n", sep = "")
 

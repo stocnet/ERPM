@@ -7,6 +7,11 @@
 \usage{
 InitErgmProposal.ErpmToggleStep(nw, ...)
 }
+\arguments{
+\item{nw}{A \pkg{network} object supplied by \pkg{ergm}.}
+
+\item{...}{Additional arguments supplied by \pkg{ergm}; currently unused.}
+}
 \value{
 A list understood by ergm, specifying:
 \itemize{

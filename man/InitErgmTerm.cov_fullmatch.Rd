@@ -7,6 +7,15 @@
 \usage{
 InitErgmTerm.cov_fullmatch(nw, arglist, ..., version = packageVersion("ergm"))
 }
+\arguments{
+\item{nw}{A \pkg{network} object supplied by \pkg{ergm}.}
+
+\item{arglist}{A list of term arguments supplied by \pkg{ergm}.}
+
+\item{...}{Additional arguments supplied by \pkg{ergm}; currently unused.}
+
+\item{version}{The \pkg{ergm} API version supplied by \pkg{ergm}.}
+}
 \description{
 \code{cov_fullmatch} is an ERGM term for bipartite networks that counts
 groups whose actors are unanimously homogeneous on a categorical covariate.

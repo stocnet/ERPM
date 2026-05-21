@@ -7,6 +7,15 @@
 \usage{
 InitErgmTerm.cov_match_GW(nw, arglist, ..., version = packageVersion("ergm"))
 }
+\arguments{
+\item{nw}{A \pkg{network} object supplied by \pkg{ergm}.}
+
+\item{arglist}{A list of term arguments supplied by \pkg{ergm}.}
+
+\item{...}{Additional arguments supplied by \pkg{ergm}; currently unused.}
+
+\item{version}{The \pkg{ergm} API version supplied by \pkg{ergm}.}
+}
 \description{
 \code{cov_match_GW} is an ERGM term for bipartite networks that applies a
 geometrically weighted transform to the monochromatic clique counts produced

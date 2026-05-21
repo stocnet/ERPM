@@ -49,6 +49,11 @@ erpm_long(
 \item{dyads}{NULL or dyadic covariates (engine-dependent format).}
 
 \item{group_labels}{Optional group labels (passed to the engine when relevant).}
+
+\item{constraints}{Optional constraints formula passed through to \code{erpm()}.}
+
+\item{summary_test}{Logical. If \code{TRUE}, return the summary statistic on
+the constructed meta-network instead of calling \code{erpm()}.}
 }
 \value{
 Result of \code{erpm()} (or the call if \code{eval.call=TRUE}).

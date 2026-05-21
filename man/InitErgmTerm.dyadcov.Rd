@@ -5,7 +5,16 @@
 \alias{dyadcov}
 \title{ERGM term: dyadcov (clique-based dyadic covariate)}
 \usage{
-InitErgmTerm.dyadcov(nw, arglist, ...)
+InitErgmTerm.dyadcov(nw, arglist, ..., version = packageVersion("ergm"))
+}
+\arguments{
+\item{nw}{A \pkg{network} object supplied by \pkg{ergm}.}
+
+\item{arglist}{A list of term arguments supplied by \pkg{ergm}.}
+
+\item{...}{Additional arguments supplied by \pkg{ergm}; currently unused.}
+
+\item{version}{The \pkg{ergm} API version supplied by \pkg{ergm}.}
 }
 \description{
 \code{dyadcov} is an ERGM term for bipartite networks that aggregates a
@@ -48,9 +57,6 @@ IMPORTANT (multi-toggle / D_CHANGESTAT_FN):
 If you forget this, ergm will call the function using the one-toggle
 signature, which is a signature mismatch and can crash R.
 }
-
-Debug logging (R initializer only) is controlled by:
-options(ERPM.dyadcov.debug = TRUE/FALSE)
 }
 \note{
 InitErgmTerm.dyadcov.R

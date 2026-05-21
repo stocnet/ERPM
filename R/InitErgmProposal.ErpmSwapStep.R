@@ -38,6 +38,9 @@
 #' alone, it is not ergodic on the full partition space: it only explores
 #' states sharing the same group-size vector.
 #'
+#' @param nw A \pkg{network} object supplied by \pkg{ergm}.
+#' @param ... Additional arguments supplied by \pkg{ergm}; currently unused.
+#'
 #' @return
 #' A list describing the proposal for ergm, including:
 #' \itemize{

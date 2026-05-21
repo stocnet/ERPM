@@ -7,6 +7,15 @@
 \usage{
 InitErgmTerm.cliques_GW(nw, arglist, ..., version = packageVersion("ergm"))
 }
+\arguments{
+\item{nw}{A \pkg{network} object supplied by \pkg{ergm}.}
+
+\item{arglist}{A list of term arguments supplied by \pkg{ergm}.}
+
+\item{...}{Additional arguments supplied by \pkg{ergm}; currently unused.}
+
+\item{version}{The \pkg{ergm} API version supplied by \pkg{ergm}.}
+}
 \description{
 \code{cliques_GW} is an ERGM term for bipartite actor–group networks that
 aggregates group sizes through a geometrically weighted transform. The

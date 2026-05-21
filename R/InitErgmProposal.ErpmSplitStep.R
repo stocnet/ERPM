@@ -25,6 +25,9 @@
 #' This function only registers the proposal with ergm. The actual move logic
 #' is implemented in C in MH_ErpmSplitStep.
 #'
+#' @param nw A \pkg{network} object supplied by \pkg{ergm}.
+#' @param ... Additional arguments supplied by \pkg{ergm}; currently unused.
+#'
 #' @return A list describing the proposal for ergm.
 #' @keywords ERGM MCMC proposal ERPM b1part split
 #' @export

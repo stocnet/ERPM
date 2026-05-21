@@ -123,6 +123,8 @@ InitErgmTerm.inertia_groups <- NULL
 # InitErgmTerm
 # ------------------------------------------------------------------------------
 
+#' @template erpm-initergmterm-args
+#'
 #' @export
 InitErgmTerm.inertia_groups <- function(nw, arglist, ..., version = packageVersion("ergm")) {
   termname <- "inertia_groups"

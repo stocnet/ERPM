@@ -4,6 +4,20 @@
 \alias{InitErgmTerm.inertia_groups}
 \alias{inertia_groups}
 \title{ERGM inertial term: inertia_groups (PLE)}
+\usage{
+InitErgmTerm.inertia_groups(nw, arglist, ..., version = packageVersion("ergm"))
+
+InitErgmTerm.inertia_groups(nw, arglist, ..., version = packageVersion("ergm"))
+}
+\arguments{
+\item{nw}{A \pkg{network} object supplied by \pkg{ergm}.}
+
+\item{arglist}{A list of term arguments supplied by \pkg{ergm}.}
+
+\item{...}{Additional arguments supplied by \pkg{ergm}; currently unused.}
+
+\item{version}{The \pkg{ergm} API version supplied by \pkg{ergm}.}
+}
 \description{
 \code{inertia_groups} is a longitudinal (inertial) ERGM term intended to be
 used with \code{erpm_long()} in PLE (stacked) mode: one block-diagonal
@@ -23,9 +37,6 @@ warning if partition lengths differ across time;
 IMPORTANT:
 The changestat code is paradigm-agnostic for \code{type="exogenous"}.
 All paradigm-specific work is done here by preparing \code{inputs}.
-
-Debugging:
-options(ERPM.inertia_groups.debug = TRUE) to enable debug logs
 }
 \note{
 InitErgmTerm.inertia_groups.R

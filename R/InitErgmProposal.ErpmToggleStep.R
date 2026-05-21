@@ -36,6 +36,9 @@
 #'
 #' It is meant to be used together with constraints = ~ b1part.
 #'
+#' @param nw A \pkg{network} object supplied by \pkg{ergm}.
+#' @param ... Additional arguments supplied by \pkg{ergm}; currently unused.
+#'
 #' @return
 #' A list understood by ergm, specifying:
 #' - name: the compiled proposal identifier,

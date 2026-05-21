@@ -52,6 +52,9 @@ NULL
 #' @param nodes NULL or list length T of data.frames of monadic covariates.
 #' @param dyads NULL or dyadic covariates (engine-dependent format).
 #' @param group_labels Optional group labels (passed to the engine when relevant).
+#' @param constraints Optional constraints formula passed through to \code{erpm()}.
+#' @param summary_test Logical. If \code{TRUE}, return the summary statistic on
+#'   the constructed meta-network instead of calling \code{erpm()}.
 #'
 #' @return Result of \code{erpm()} (or the call if \code{eval.call=TRUE}).
 #'   The built meta-network is attached as \code{attr(out, "meta_nw")} when evaluated.

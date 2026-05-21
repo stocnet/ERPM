@@ -66,11 +66,6 @@ Compiled symbol naming convention:
 \item Implement the C function as \code{d_cov_diff_GW} via D_CHANGESTAT_FN(d_cov_diff_GW).
 \item Avoid exposing a symbol named \code{c_cov_diff_GW} with a D-signature.
 }
-
-Debugging output for the initializer can be enabled via:
-\preformatted{
-  options(ERPM.cov_diff_GW.debug = TRUE)
-}
 }
 \note{
 InitErgmTerm.cov_diff_GW.R
