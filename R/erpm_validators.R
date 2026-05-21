@@ -184,7 +184,7 @@ NULL
   stopifnot(is.list(dyads))
 
   if (is.null(names(dyads)) || any(!nzchar(names(dyads)))) {
-    stop("dyads must be a *named* list of n×n matrices (e.g., list(X = M)).")
+    stop("dyads must be a *named* list of nxn matrices (e.g., list(X = M)).")
   }
 
   for (nm in names(dyads)) {
