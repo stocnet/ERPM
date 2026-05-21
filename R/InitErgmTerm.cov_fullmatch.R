@@ -56,6 +56,8 @@
 #'   \item packs a compact \code{inputs} vector for the C layer.
 #' }
 #'
+#' @template erpm-initergmterm-args
+#'
 #' @export
 InitErgmTerm.cov_fullmatch <- function(nw, arglist, ..., version = packageVersion("ergm")) {
   termname <- "cov_fullmatch"

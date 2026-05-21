@@ -91,6 +91,8 @@
 #' @keywords ERGM term bipartite groups cliques geometric
 #' @md
 #'
+#' @template erpm-initergmterm-args
+#'
 #' @export
 InitErgmTerm.cliques_GW <- function(nw, arglist, ..., version = packageVersion("ergm")) {
   termname <- "cliques_GW"

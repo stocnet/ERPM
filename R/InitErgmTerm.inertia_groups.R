@@ -28,12 +28,13 @@
 #' The changestat code is paradigm-agnostic for \code{type="exogenous"}.
 #' All paradigm-specific work is done here by preparing \code{inputs}.
 #'
-#' Debugging:
-#'   options(ERPM.inertia_groups.debug = TRUE) to enable debug logs
-#'
 #' @keywords ERPM ERGM inertial longitudinal
 #' @md
-NULL
+#' @export
+InitErgmTerm.inertia_groups <- NULL
+
+# Debugging:
+#   options(ERPM.inertia_groups.debug = TRUE) to enable debug logs
 
 # ------------------------------------------------------------------------------
 # Small internal helpers (local to this InitErgmTerm)

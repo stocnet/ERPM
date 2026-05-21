@@ -52,6 +52,8 @@
 #' - The C implementation is multi-toggle (D_ entrypoint).
 #' - We MUST advertise this to ergm by returning `d_func = TRUE`.
 #'
+#' @template erpm-initergmterm-args
+#'
 #' @export
 InitErgmTerm.cov_match <- function(nw, arglist, ..., version = packageVersion("ergm")) {
   termname <- "cov_match"

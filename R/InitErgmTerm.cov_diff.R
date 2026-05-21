@@ -61,6 +61,8 @@
 #'         \code{n1}, \code{k}, \code{norm_mode}, and the actor covariate \code{x}.
 #' }
 #'
+#' @template erpm-initergmterm-args
+#'
 #' @export
 InitErgmTerm.cov_diff <- function(nw, arglist, ..., version = packageVersion("ergm")) {
   termname <- "cov_diff"

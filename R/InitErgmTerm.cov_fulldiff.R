@@ -55,6 +55,8 @@
 #'         \code{INPUT_PARAM} vector for the C layer.
 #' }
 #'
+#' @template erpm-initergmterm-args
+#'
 #' @export
 InitErgmTerm.cov_fulldiff <- function(nw, arglist, ..., version = packageVersion("ergm")) {
   termname <- "cov_fulldiff"

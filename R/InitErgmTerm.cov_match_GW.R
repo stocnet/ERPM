@@ -74,6 +74,8 @@
 #' @keywords ERGM term bipartite categorical covariate geometrically weighted
 #' @md
 #'
+#' @template erpm-initergmterm-args
+#'
 #' @export
 InitErgmTerm.cov_match_GW <- function(nw, arglist, ..., version = packageVersion("ergm")) {
   termname <- "cov_match_GW"

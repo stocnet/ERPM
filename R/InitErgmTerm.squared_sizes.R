@@ -57,6 +57,8 @@
 #'         \code{pow}, the number of admissible sizes, then the list of sizes.
 #' }
 #'
+#' @template erpm-initergmterm-args
+#'
 #' @export
 InitErgmTerm.squared_sizes <- function(nw, arglist, ..., version = packageVersion("ergm")) {
   termname <- "squared_sizes"

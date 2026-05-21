@@ -108,6 +108,8 @@
 #'   )
 #' }
 #'
+#' @template erpm-initergmterm-args
+#'
 #' @export
 InitErgmTerm.cov_ingroup <- function(nw, arglist, ..., version = packageVersion("ergm")) {
   termname <- "cov_ingroup"

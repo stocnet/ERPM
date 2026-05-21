@@ -51,11 +51,10 @@
 #'   If you forget this, ergm will call the function using the one-toggle
 #'   signature, which is a signature mismatch and can crash R.
 #'
-#' Debug logging (R initializer only) is controlled by:
-#'   options(ERPM.dyadcov.debug = TRUE/FALSE)
+#' @template erpm-initergmterm-args
 #'
 #' @export
-InitErgmTerm.dyadcov <- function(nw, arglist, ...) {
+InitErgmTerm.dyadcov <- function(nw, arglist, ..., version = packageVersion("ergm")) {
   termname <- "dyadcov"
 
   # ---------------------------------------------------------------------------
