@@ -41,7 +41,7 @@
 #' @details
 #' The dyadic covariate \eqn{Z} is defined on the actor mode (size \eqn{n1})
 #' and is read in column-major order (R convention). Z may be non-symmetric:
-#' for each unordered pair {i,j}, the term uses (z_ij + z_ji).
+#' for each unordered pair \{i,j\}, the term uses (z_ij + z_ji).
 #'
 #' IMPORTANT (multi-toggle / D_CHANGESTAT_FN):
 #' - This term must be safe under multi-toggle MCMC proposals (lists of toggles).

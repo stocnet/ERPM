@@ -3,28 +3,26 @@
 \name{InitErgmTerm.inertia_groups}
 \alias{InitErgmTerm.inertia_groups}
 \alias{inertia_groups}
-\title{ERGM inertial term: inertia_groups (PLS/PLE-ready)}
+\title{ERGM inertial term: inertia_groups (PLE)}
 \description{
-\code{inertia_groups} is a longitudinal (inertial) ERGM term intended to be used
-with \code{erpm_long()} under either:
-\itemize{
-\item PLS (sequential): one bipartite network per time, with past partitions attached
-to the current network as network attributes;
-\item PLE (stacked): one stacked block-diagonal bipartite meta-network, with per-block
-past observed partitions attached to the network.
-}
+\code{inertia_groups} is a longitudinal (inertial) ERGM term intended to be
+used with \code{erpm_long()} in PLE (stacked) mode: one block-diagonal
+bipartite meta-network, with per-block past observed partitions attached.
 
 This InitErgmTerm is responsible for:
 \enumerate{
 \item validating user arguments (past_influence, type, size, ...);
-\item detecting whether the current network carries PLS or PLE longitudinal attributes;
-\item extracting the relevant past partitions from network attributes;
-\item packing \code{inputs} for the generic C changestat \code{c_inertia_groups}.
+\item deriving block structure from engine-set attributes
+(\code{erpm_long.selected_partition_indices},
+\code{erpm_long.nbr_actors_by_t}, vertex attribute \code{timeblock});
+\item computing per-block effective comparison size \code{n_eff} and
+warning if partition lengths differ across time;
+\item packing \code{inputs} for the C changestat \code{c_inertia_groups}.
 }
 
 IMPORTANT:
 The changestat code is paradigm-agnostic for \code{type="exogenous"}.
-All paradigm-specific work must be done here by preparing \code{inputs}.
+All paradigm-specific work is done here by preparing \code{inputs}.
 
 Debugging:
 options(ERPM.inertia_groups.debug = TRUE) to enable debug logs

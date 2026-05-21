@@ -17,7 +17,9 @@ erpm_long(
   seed = NULL,
   nodes = NULL,
   dyads = NULL,
-  group_labels = NULL
+  group_labels = NULL,
+  constraints = NULL,
+  summary_test = FALSE
 )
 }
 \arguments{

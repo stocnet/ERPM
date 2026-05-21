@@ -4,7 +4,7 @@
 \alias{.register_erpm_proposal}
 \title{Register an ERPM proposal in ergm's proposal table}
 \usage{
-.register_erpm_proposal(proposal, priority, weights)
+.register_erpm_proposal(proposal, priority, weights, constraint = "&b1part")
 }
 \arguments{
 \item{proposal}{Character scalar. Name of the MH proposal.}

@@ -21,7 +21,7 @@
 #'
 #' @details
 #' User-facing arguments:
-#' - moves   : character vector in {"toggle","swap","merge","split"}
+#' - moves   : character vector in \{"toggle","swap","merge","split"\}
 #' - weights : positive numeric vector of same length as moves
 #'
 #' Important ergm note:

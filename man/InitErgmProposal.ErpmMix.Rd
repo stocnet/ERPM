@@ -30,7 +30,7 @@ Supported moves:
 \details{
 User-facing arguments:
 \itemize{
-\item moves   : character vector in {"toggle","swap","merge","split"}
+\item moves   : character vector in \{"toggle","swap","merge","split"\}
 \item weights : positive numeric vector of same length as moves
 }
 
